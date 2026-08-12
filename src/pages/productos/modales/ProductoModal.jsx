@@ -619,6 +619,11 @@ const ProductoModal = ({
     editingProduct?.external_id != null;
 
   const [tipoCuenta, setTipoCuenta] = useState("producto");
+  /* ¿El negocio tiene OpenAI conectado? De eso depende que se ofrezca redactar
+     la descripción con IA: la llamada corre con SU api key, así que sin key el
+     botón no se muestra en vez de aparecer y fallar al pulsarlo. Se saca de la
+     misma respuesta que ya se pedía para el tipo de cuenta, sin llamada extra. */
+  const [iaDisponible, setIaDisponible] = useState(false);
   useEffect(() => {
     if (!open) return;
     const idc = parseInt(localStorage.getItem("id_configuracion"));
@@ -631,19 +636,95 @@ const ProductoModal = ({
         { silentError: true },
       )
       .then(({ data }) => {
+        setIaDisponible(Boolean(data?.data?.api_key_openai));
         const ofrece = data?.data?.ventas?.ofrecer;
         if (ofrece === "servicios") setTipoCuenta("servicio");
         else if (ofrece === "productos") setTipoCuenta("producto");
         else respaldo();
       })
-      .catch(respaldo);
+      .catch(() => {
+        setIaDisponible(false);
+        respaldo();
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, productosExistentes]);
+
+  /* Redacción automática de la descripción. `descripcionPrevia` guarda lo que
+     había antes de generar para poder deshacer: reescribir sin red de seguridad
+     lo que alguien acababa de tipear a mano es la forma más rápida de que no
+     vuelva a tocar el botón. */
+  const [generandoIA, setGenerandoIA] = useState(false);
+  const [descripcionPrevia, setDescripcionPrevia] = useState(null);
+
+  const generarDescripcionIA = async () => {
+    if (!form.nombre.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Falta el nombre",
+        text: "Escribe el nombre del producto para que la IA sepa de qué se trata.",
+      });
+      return;
+    }
+
+    const idc = parseInt(localStorage.getItem("id_configuracion"));
+    if (!idc) return;
+
+    setGenerandoIA(true);
+    try {
+      const fd = new FormData();
+      fd.append("id_configuracion", idc);
+      fd.append("nombre", form.nombre.trim());
+      fd.append("tipo", form.tipo || tipoCuenta);
+
+      const cat = categorias.find(
+        (c) => String(c.id) === String(form.id_categoria),
+      );
+      if (cat?.nombre) fd.append("categoria", cat.nombre);
+      if (form.material) fd.append("material", form.material);
+      // Lo ya escrito no se descarta: se manda para que lo ordene en vez de
+      // reemplazarlo por algo inventado.
+      if (form.descripcion.trim())
+        fd.append("borrador", form.descripcion.trim());
+
+      /* La foto es lo que más mejora el resultado. Si es una recién elegida
+         todavía no está subida a ningún lado, así que viaja el archivo; si el
+         producto ya existe, basta con su URL publicada. */
+      if (form.imagen) fd.append("imagen", form.imagen);
+      else if (previewUrl && /^https?:\/\//i.test(previewUrl))
+        fd.append("imagen_url", previewUrl);
+
+      const { data } = await chatApi.post(
+        "/productos/generarDescripcionIA",
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+
+      const texto = data?.data?.descripcion || "";
+      if (!texto) throw new Error("Respuesta vacía");
+
+      setDescripcionPrevia(form.descripcion);
+      setF("descripcion", texto);
+    } catch (err) {
+      console.error(err);
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo generar",
+        text:
+          err?.response?.data?.message ||
+          "Intenta de nuevo en unos segundos.",
+      });
+    } finally {
+      setGenerandoIA(false);
+    }
+  };
 
   /* ── Populate on open ── */
   useEffect(() => {
     setUpsellRemoved(false);
     setVideoRemoved(false);
+    // El "deshacer" de la IA es de la sesión de este producto: si no se limpia,
+    // al abrir otro aparece ofreciendo restaurar la descripción del anterior.
+    setDescripcionPrevia(null);
     if (!open) return;
     if (editingProduct) {
       const p = editingProduct;
@@ -840,8 +921,12 @@ const ProductoModal = ({
          decisión del usuario y no "no lo tocó".
          Las sesiones entran acá: pasar un servicio de plan a sesión única deja
          los dos campos en blanco, y al no enviarlos el backend los daba por
-         intactos. Se guardaba "correctamente" y el plan viejo seguía ahí. */
+         intactos. Se guardaba "correctamente" y el plan viejo seguía ahí.
+         La descripción, por lo mismo: borrarla y guardar avisaba "Producto
+         actualizado" pero el texto viejo seguía en la BD —y seguía siendo lo
+         que el asistente le leía al cliente— hasta que se escribía algo encima. */
       const CAMPOS_BORRABLES = [
+        "descripcion",
         "nombre_upsell",
         "descripcion_upsell",
         "precio_upsell",
@@ -1023,11 +1108,59 @@ const ProductoModal = ({
                   </div>
 
                   <div>
-                    <Lbl>Descripción</Lbl>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Descripción
+                      </label>
+
+                      {/* Redactar con IA. Es el campo que más se deja vacío y
+                          el que más necesita el asistente: sin descripción el
+                          bot solo sabe nombre y precio, y ante cualquier
+                          pregunta del cliente responde que no tiene el dato.
+                          Solo aparece si el negocio tiene su OpenAI conectado,
+                          porque la llamada corre con SU api key. */}
+                      {iaDisponible && (
+                        <button
+                          type="button"
+                          onClick={generarDescripcionIA}
+                          disabled={generandoIA || !form.nombre.trim()}
+                          title={
+                            !form.nombre.trim()
+                              ? "Escribe primero el nombre del producto"
+                              : previewUrl
+                                ? "La IA también mirará la foto del producto"
+                                : "Redactar la descripción automáticamente"
+                          }
+                          className="group flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
+                            text-white transition-all disabled:cursor-not-allowed disabled:opacity-45
+                            enabled:hover:shadow-md enabled:hover:-translate-y-px"
+                          style={{
+                            background:
+                              "linear-gradient(100deg,#4f46e5 0%,#7c3aed 100%)",
+                          }}
+                        >
+                          {generandoIA ? (
+                            <>
+                              <i className="bx bx-loader-alt bx-spin text-sm" />
+                              Redactando…
+                            </>
+                          ) : (
+                            <>
+                              <i className="bx bx-magic-wand text-sm" />
+                              {form.descripcion.trim()
+                                ? "Mejorar con IA"
+                                : "Generar con IA"}
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+
                     {/* Más alto: con 4 filas tocaba arrastrar la esquina para
                         leer lo escrito, y casi nadie sabe que se puede. */}
                     <textarea
                       rows={11}
+                      disabled={generandoIA}
                       placeholder="Detalle del producto o servicio…"
                       value={form.descripcion}
                       onChange={(e) => {
@@ -1036,11 +1169,37 @@ const ProductoModal = ({
                           setF("descripcion", e.target.value);
                       }}
                       className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none
-                        resize-y transition focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+                        resize-y transition focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
+                        disabled:bg-slate-50 disabled:text-slate-400"
                     />
-                    <p className="text-xs text-slate-400 mt-1">
-                      {wordCount}/600 palabras
-                    </p>
+
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <p className="text-xs text-slate-400">
+                        {wordCount}/600 palabras
+                      </p>
+
+                      {descripcionPrevia !== null && !generandoIA && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setF("descripcion", descripcionPrevia);
+                            setDescripcionPrevia(null);
+                          }}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition"
+                        >
+                          <i className="bx bx-undo text-sm" />
+                          Deshacer
+                        </button>
+                      )}
+                    </div>
+
+                    {iaDisponible && !form.descripcion.trim() && !generandoIA && (
+                      <p className="text-xs text-slate-400 mt-1">
+                        <i className="bx bx-bulb text-amber-400 align-middle mr-0.5" />
+                        Escribe el nombre, sube la foto y deja que la IA arme la
+                        descripción. Después puedes editarla a mano.
+                      </p>
+                    )}
                   </div>
 
                   {/* El tipo ya no se pregunta: sale de lo que se eligió al
