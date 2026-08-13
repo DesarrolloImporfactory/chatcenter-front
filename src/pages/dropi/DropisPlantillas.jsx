@@ -25,6 +25,50 @@ const ESTADOS_DROPI = [
   "DEVOLUCION",
 ];
 
+/**
+ * Aliclik (Perú) usa el mismo vocabulario de estados, pero no todos: su API no
+ * expone el número de guía en ningún endpoint, así que "GUIA GENERADA" no
+ * existe, y tampoco maneja carritos abandonados.
+ */
+const ESTADOS_ALICLIK = [
+  "PENDIENTE CONFIRMACION",
+  "PENDIENTE",
+  "EN TRANSITO",
+  "RETIRO EN AGENCIA",
+  "ENTREGADA",
+  "NOVEDAD",
+  "DEVOLUCION",
+  "CANCELADO",
+];
+
+const PROVEEDORES = [
+  { key: "dropi", label: "Dropi", estados: ESTADOS_DROPI },
+  { key: "aliclik", label: "Aliclik", nota: "Perú", estados: ESTADOS_ALICLIK },
+];
+
+// Variables que dependen de la guía de envío. Aliclik no la expone, así que
+// para ese proveedor se ocultan: dejarlas elegibles solo produciría mensajes
+// con el parámetro vacío.
+const VARIABLES_SIN_GUIA = new Set([
+  "numero_guia",
+  "transportadora",
+  "tracking",
+  "guia_pdf",
+]);
+
+// Los mismos estados significan cosas distintas según el proveedor.
+const ESTADO_DESC_ALICLIK = {
+  "PENDIENTE CONFIRMACION":
+    "Pedido nuevo en Aliclik que todavía no pasa la llamada de confirmación.",
+  PENDIENTE: "Confirmado por teléfono: queda en almacén listo para despacho.",
+  "EN TRANSITO": "El courier recogió el paquete y va en camino.",
+  "RETIRO EN AGENCIA": "El pedido llegó a la agencia y espera al cliente.",
+  ENTREGADA: "El pedido fue entregado.",
+  NOVEDAD: "Hubo un problema con la entrega: rechazo, no contesta o reagendado.",
+  DEVOLUCION: "El pedido está volviendo o ya volvió al almacén.",
+  CANCELADO: "El pedido se canceló o se anuló en Aliclik.",
+};
+
 const ESTADO_ICONS = {
   "PENDIENTE CONFIRMACION": { icon: "bx bx-time", color: "#f59e0b" },
   CANCELADO: { icon: "bx bx-x-circle", color: "#ef4444" },
@@ -622,22 +666,55 @@ const DropisPlantillas = ({ id_configuracion }) => {
 
   const [columnasKanban, setColumnasKanban] = useState([]);
 
+  // Proveedor de fulfillment cuyas plantillas se están configurando. La tabla
+  // es la misma para todos; lo que cambia es la columna `proveedor` y qué
+  // estados existen.
+  const [proveedor, setProveedor] = useState("dropi");
+  const proveedorActual =
+    PROVEEDORES.find((p) => p.key === proveedor) || PROVEEDORES[0];
+  const estadosActuales = proveedorActual.estados;
+
+  // El mismo estado se dispara por motivos distintos según el proveedor.
+  const descripcionEstado = (estado) =>
+    proveedor === "aliclik"
+      ? ESTADO_DESC_ALICLIK[estado] || ESTADO_DESC[estado]
+      : ESTADO_DESC[estado];
+
+  // Aliclik no expone la guía de envío, así que sus variables se ocultan.
+  const variablesDisponibles =
+    proveedor === "aliclik"
+      ? VARIABLES_DISPONIBLES.filter((v) => !VARIABLES_SIN_GUIA.has(v.key))
+      : VARIABLES_DISPONIBLES;
+
   const cacheRef = useRef({ plantillas: null, rapidas: null, at: 0 });
 
-  // ── Badge inicial ──
-  useEffect(() => {
+  // ── Badge ──
+  // Suma los activos de TODOS los proveedores: el badge cuenta cuántas
+  // automatizaciones tiene encendidas la cuenta, no las de una pestaña.
+  const refrescarBadge = useCallback(() => {
     if (!id_configuracion) return;
-    chatApi
-      .post("/dropi_plantillas/obtener", { id_configuracion })
-      .then((res) => {
-        if (res.data?.success) {
-          setTotalActivos(
-            Object.values(res.data.data).filter((v) => v.activo).length,
-          );
-        }
-      })
+    Promise.all(
+      PROVEEDORES.map((p) =>
+        chatApi
+          .post("/dropi_plantillas/obtener", {
+            id_configuracion,
+            proveedor: p.key,
+          })
+          .then((res) =>
+            res.data?.success
+              ? Object.values(res.data.data).filter((v) => v.activo).length
+              : 0,
+          )
+          .catch(() => 0),
+      ),
+    )
+      .then((counts) => setTotalActivos(counts.reduce((a, b) => a + b, 0)))
       .catch(() => {});
   }, [id_configuracion]);
+
+  useEffect(() => {
+    refrescarBadge();
+  }, [refrescarBadge]);
 
   // ── Abrir modal ──
   const handleAbrir = async () => {
@@ -656,7 +733,10 @@ const DropisPlantillas = ({ id_configuracion }) => {
             : chatApi.post("whatsapp_managment/obtenerTemplatesWhatsapp", {
                 id_configuracion,
               }),
-          chatApi.post("/dropi_plantillas/obtener", { id_configuracion }),
+          chatApi.post("/dropi_plantillas/obtener", {
+            id_configuracion,
+            proveedor,
+          }),
           cacheValido && cacheRef.current.rapidas
             ? Promise.resolve({
                 data: { success: true, data: cacheRef.current.rapidas },
@@ -689,44 +769,83 @@ const DropisPlantillas = ({ id_configuracion }) => {
       }
 
       if (resConfig.data?.success) {
-        const parsed = {};
-        for (const [key, val] of Object.entries(resConfig.data.data)) {
-          let _params = safeJsonParse(val.parametros_json);
-
-          if (
-            val.nombre_template &&
-            !_params.body?.length &&
-            !_params.buttons?.length
-          ) {
-            const tpl = uniquePlantillas.find(
-              (p) => p.name === val.nombre_template,
-            );
-            const detected = autoDetectParams(tpl);
-            if (detected) _params = detected;
-          }
-
-          let bodyText = val.body_text || null;
-          if (val.nombre_template && !bodyText) {
-            const tpl = uniquePlantillas.find(
-              (p) => p.name === val.nombre_template,
-            );
-            bodyText = getTemplateBodyText(tpl) || null;
-          }
-
-          // Modo "solo mover": activo, sin plantilla, pero con columna destino.
-          const soloMover = !!(
-            val.activo &&
-            (!val.nombre_template || !String(val.nombre_template).trim()) &&
-            val.columna_destino
-          );
-
-          parsed[key] = { ...val, _params, body_text: bodyText, _soloMover: soloMover };
-        }
-        setConfig(parsed);
-        setTotalActivos(Object.values(parsed).filter((v) => v.activo).length);
+        setConfig(parsearConfig(resConfig.data.data, uniquePlantillas));
       }
     } catch {
       Toast.fire({ icon: "error", title: "Error al cargar datos" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Convierte la respuesta cruda de /dropi_plantillas/obtener en el estado del
+   * formulario: detecta los parámetros de la plantilla, rellena el body_text y
+   * marca el modo "solo mover de columna".
+   *
+   * Se extrajo de handleAbrir para que el cambio de pestaña de proveedor pueda
+   * recargar la configuración sin volver a pedir plantillas, respuestas rápidas
+   * y columnas del kanban, que son iguales para todos los proveedores.
+   */
+  const parsearConfig = (data, listaPlantillas) => {
+    const parsed = {};
+    for (const [key, val] of Object.entries(data)) {
+      let _params = safeJsonParse(val.parametros_json);
+
+      if (
+        val.nombre_template &&
+        !_params.body?.length &&
+        !_params.buttons?.length
+      ) {
+        const tpl = listaPlantillas.find((p) => p.name === val.nombre_template);
+        const detected = autoDetectParams(tpl);
+        if (detected) _params = detected;
+      }
+
+      let bodyText = val.body_text || null;
+      if (val.nombre_template && !bodyText) {
+        const tpl = listaPlantillas.find((p) => p.name === val.nombre_template);
+        bodyText = getTemplateBodyText(tpl) || null;
+      }
+
+      // Modo "solo mover": activo, sin plantilla, pero con columna destino.
+      const soloMover = !!(
+        val.activo &&
+        (!val.nombre_template || !String(val.nombre_template).trim()) &&
+        val.columna_destino
+      );
+
+      parsed[key] = {
+        ...val,
+        _params,
+        body_text: bodyText,
+        _soloMover: soloMover,
+      };
+    }
+    return parsed;
+  };
+
+  /**
+   * Cambia de pestaña de proveedor. Solo recarga la configuración: plantillas
+   * de WhatsApp, respuestas rápidas y columnas del kanban ya están en memoria
+   * y son las mismas para cualquier proveedor.
+   */
+  const cambiarProveedor = async (nuevo) => {
+    if (nuevo === proveedor) return;
+    setProveedor(nuevo);
+    setExpandedParams(null);
+    setLoading(true);
+    try {
+      const res = await chatApi.post("/dropi_plantillas/obtener", {
+        id_configuracion,
+        proveedor: nuevo,
+      });
+      setConfig(
+        res.data?.success ? parsearConfig(res.data.data, plantillas) : {},
+      );
+    } catch {
+      Toast.fire({ icon: "error", title: "Error al cargar la configuración" });
+      setConfig({});
     } finally {
       setLoading(false);
     }
@@ -767,6 +886,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
       // parámetros y respuesta rápida; solo persiste la columna destino.
       await chatApi.post("/dropi_plantillas/guardar", {
         id_configuracion,
+        proveedor,
         estado_dropi: estado,
         nombre_template: soloMover ? null : cfg.nombre_template || null,
         language_code: cfg.language_code || "es",
@@ -787,7 +907,9 @@ const DropisPlantillas = ({ id_configuracion }) => {
           : {}),
       });
       Toast.fire({ icon: "success", title: "Guardado" });
-      setTotalActivos(Object.values(config).filter((v) => v.activo).length);
+      // El badge cuenta los activos de TODOS los proveedores, así que no se
+      // puede recalcular con el `config` de la pestaña abierta: se repide.
+      refrescarBadge();
 
       // ✅ Cerrar panel "Ajustar" si estaba abierto en este estado
       if (expandedParams === estado) setExpandedParams(null);
@@ -1093,6 +1215,61 @@ const DropisPlantillas = ({ id_configuracion }) => {
                 </div>
               ) : (
                 <>
+                  {/* Pestañas de proveedor. Cada uno guarda su propia
+                      configuración en la misma tabla, separada por la columna
+                      `proveedor`. */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      marginBottom: 14,
+                      marginTop: 4,
+                      borderBottom: "1px solid rgba(148,163,184,.2)",
+                      paddingBottom: 10,
+                    }}
+                  >
+                    {PROVEEDORES.map((p) => {
+                      const activa = p.key === proveedor;
+                      return (
+                        <button
+                          key={p.key}
+                          onClick={() => cambiarProveedor(p.key)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "7px 14px",
+                            borderRadius: 9,
+                            border: activa
+                              ? "1px solid rgba(96,165,250,.5)"
+                              : "1px solid rgba(148,163,184,.2)",
+                            background: activa
+                              ? "rgba(96,165,250,.14)"
+                              : "transparent",
+                            color: activa ? "#93c5fd" : "#94a3b8",
+                            fontWeight: activa ? 700 : 500,
+                            fontSize: ".82rem",
+                            cursor: "pointer",
+                            transition: "all .15s",
+                          }}
+                        >
+                          {p.label}
+                          {p.nota && (
+                            <span
+                              style={{
+                                fontSize: ".65rem",
+                                opacity: 0.7,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {p.nota}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <div
                     style={{
                       fontSize: ".75rem",
@@ -1101,13 +1278,12 @@ const DropisPlantillas = ({ id_configuracion }) => {
                       textTransform: "uppercase",
                       letterSpacing: ".06em",
                       marginBottom: 10,
-                      marginTop: 4,
                     }}
                   >
-                    Estados ({ESTADOS_DROPI.length})
+                    Estados ({estadosActuales.length})
                   </div>
 
-                  {ESTADOS_DROPI.map((estado) => {
+                  {estadosActuales.map((estado) => {
                     const cfg = config[estado] || {
                       nombre_template: "",
                       activo: 0,
@@ -1184,7 +1360,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
                               >
                                 {estado}
                               </div>
-                              {ESTADO_DESC[estado] && (
+                              {descripcionEstado(estado) && (
                                 <div
                                   style={{
                                     fontSize: ".68rem",
@@ -1194,7 +1370,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                     maxWidth: 360,
                                   }}
                                 >
-                                  {ESTADO_DESC[estado]}
+                                  {descripcionEstado(estado)}
                                 </div>
                               )}
                               {isActivo && cfg.nombre_template && (
@@ -1507,7 +1683,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                                   )
                                                 }
                                               >
-                                                {VARIABLES_DISPONIBLES.map(
+                                                {variablesDisponibles.map(
                                                   (v) => (
                                                     <option
                                                       key={v.key}
@@ -1577,7 +1753,7 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                                     )
                                                   }
                                                 >
-                                                  {VARIABLES_DISPONIBLES.map(
+                                                  {variablesDisponibles.map(
                                                     (v) => (
                                                       <option
                                                         key={v.key}
