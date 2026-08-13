@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import AutoOrdenesFallidas from "./AutoOrdenesFallidas";
+import aliclikLogo from "../../assets/aliclik_logo.svg";
 
 const RESULT_NUMBER_OPTIONS = [10, 20, 40, 60, 80, 99];
 
@@ -504,6 +505,35 @@ const OrdenesDropi = () => {
   const [productosDisponibles, setProductosDisponibles] = useState([]);
 
   // =========================
+  // PLATAFORMA DE PEDIDOS
+  // =========================
+  // Dropi y Aliclik son fuentes distintas con su propio cache y sus propios
+  // estados, así que no se mezclan en una sola lista: se elige una. El
+  // selector solo aparece si la cuenta tiene las dos conectadas.
+  const [plataforma, setPlataforma] = useState("dropi");
+  const [plataformas, setPlataformas] = useState([]);
+  // Hasta saber qué hay conectado NO se pide el listado. Sin este candado la
+  // vista arrancaba pidiendo Dropi por defecto y, en cuentas que no lo tienen,
+  // esa respuesta pintaba "conecta una plataforma" durante un instante antes
+  // de que llegara la plataforma correcta y se rehiciera la consulta: un
+  // parpadeo y una petición desperdiciada en cada carga.
+  const [plataformasListas, setPlataformasListas] = useState(false);
+  const multiplesPlataformas = plataformas.length > 1;
+  // Si ya sabemos que no hay ninguna conectada, no hace falta pedir el listado
+  // para que nos responda lo mismo: se muestra la invitación directamente.
+  const sinPlataformaConocida = plataformasListas && plataformas.length === 0;
+  const tieneDropi = plataformas.some((p) => p.key === "dropi");
+  /* La invitación a conectar se muestra SOLO cuando ya sabemos que no hay
+     nada conectado. Antes se decidía con la respuesta del listado, así que
+     aparecía y desaparecía mientras cargaba. */
+  const mostrarInvitacion =
+    sinPlataformaConocida || (plataformasListas && sinIntegracion);
+  const esAliclik = plataforma === "aliclik";
+  // Estados canónicos de Aliclik: los manda el backend con el listado, así no
+  // hay que mantener la lista duplicada en el front.
+  const [estadosAliclik, setEstadosAliclik] = useState([]);
+
+  // =========================
   // HELPERS FECHA (YYYY-MM-DD)
   // =========================
   const toYMD = (d) => {
@@ -557,6 +587,37 @@ const OrdenesDropi = () => {
     if (qOrigen) setOrigen(qOrigen);
   }, [getDefaultRange]);
 
+  /* Plataformas de pedidos conectadas. Define si se muestra el selector y con
+     cuál se abre la vista: una cuenta que solo tiene Aliclik no debería ver
+     una lista vacía de Dropi al entrar. */
+  useEffect(() => {
+    if (!id_configuracion) return;
+    let cancelado = false;
+    chatApi
+      .post("aliclik_integrations/plataformas-conectadas", { id_configuracion })
+      .then((res) => {
+        if (cancelado) return;
+        const d = res?.data?.data || {};
+        const lista = Array.isArray(d.plataformas) ? d.plataformas : [];
+        setPlataformas(lista);
+        if (d.por_defecto) setPlataforma(d.por_defecto);
+      })
+      .catch(() => {
+        /* Si la consulta falla NO se puede concluir que no hay nada conectado:
+           se asume Dropi y se deja que el listado decida, que es exactamente
+           lo que hacía la vista antes de existir este selector. Sin esto, un
+           error de red pintaría "conecta una plataforma" a cuentas que sí la
+           tienen. */
+        if (!cancelado) setPlataformas([{ key: "dropi", label: "Dropi" }]);
+      })
+      .finally(() => {
+        if (!cancelado) setPlataformasListas(true);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [id_configuracion]);
+
   // =========================
   // DEBOUNCE SEARCH
   // =========================
@@ -571,22 +632,35 @@ const OrdenesDropi = () => {
   // =========================
   const query = useMemo(() => {
     if (!id_configuracion) return null;
+    // Sin saber qué plataformas hay conectadas no se consulta nada: ver
+    // `plataformasListas`. Y si no hay ninguna, tampoco.
+    if (!plataformasListas || sinPlataformaConocida) return null;
     if ((dateFrom && !dateUntil) || (!dateFrom && dateUntil)) {
       return { invalidDate: true };
     }
     return {
       id_configuracion,
+      // Va en el body para que forme parte de la clave anti-duplicados; el
+      // backend de Aliclik lo ignora (cada plataforma tiene su endpoint).
+      plataforma,
       page,
       page_size: resultNumber,
       from: dateFrom && dateUntil ? dateFrom : undefined,
       until: dateFrom && dateUntil ? dateUntil : undefined,
       status: String(status || "").trim() || undefined,
-      origen: String(origen || "").trim() || undefined,
+      // Origen (Shopify / Imporsuit) es un cruce propio de Dropi.
+      origen: esAliclik
+        ? undefined
+        : String(origen || "").trim() || undefined,
       producto: String(producto || "").trim() || undefined,
       textToSearch: String(debouncedSearch || "").trim() || undefined,
     };
   }, [
     id_configuracion,
+    plataformasListas,
+    sinPlataformaConocida,
+    plataforma,
+    esAliclik,
     page,
     resultNumber,
     dateFrom,
@@ -607,16 +681,21 @@ const OrdenesDropi = () => {
     if (asRefresh) setRefreshing(true);
     else setOrdersLoading(true);
     try {
-      const res = await chatApi.post(
-        "dropi_integrations/orders/cache/list",
-        body,
-      );
+      // Cada plataforma tiene su propio cache y su propio endpoint, pero ambos
+      // devuelven el mismo sobre, así que de acá para abajo no hay diferencia.
+      const endpoint =
+        body?.plataforma === "aliclik"
+          ? "aliclik_integrations/orders/cache/list"
+          : "dropi_integrations/orders/cache/list";
+      const res = await chatApi.post(endpoint, body);
       const data = res?.data?.data || {};
       setOrders(Array.isArray(data.rows) ? data.rows : []);
       setTotal(Number(data.total || 0));
       setTotalPages(Number(data.total_pages || 1));
       setSyncInfo(data.sync || null);
       setSinIntegracion(data.sin_integracion === true);
+      if (Array.isArray(data.estados_disponibles))
+        setEstadosAliclik(data.estados_disponibles);
       // Opciones del desplegable: el back las manda sin aplicar el filtro de
       // producto, así que no se vacía al elegir uno.
       if (Array.isArray(data.productos_disponibles))
@@ -837,7 +916,10 @@ const OrdenesDropi = () => {
               </div>
             )}
           </div>
-          {!sinIntegracion && (
+          {/* "Faltan por subir" consulta pendientes del bot y huérfanas de
+              Shopify, y las dos son de Dropi: en una cuenta que solo tiene
+              Aliclik disparaba dos peticiones para no mostrar nada. */}
+          {!mostrarInvitacion && tieneDropi && (
             <AutoOrdenesFallidas
               id_configuracion={id_configuracion}
               onOrderCreated={() => {
@@ -850,7 +932,7 @@ const OrdenesDropi = () => {
       </div>
 
       {/* Sin plataforma conectada: vista de invitación (no error) */}
-      {sinIntegracion ? (
+      {mostrarInvitacion ? (
         <div className="bg-white rounded-2xl shadow-md overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-[#FF6B35] via-amber-400 to-violet-500" />
           <div className="px-8 py-14 text-center">
@@ -866,16 +948,16 @@ const OrdenesDropi = () => {
               plataforma para empezar.
             </p>
 
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl mx-auto">
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
               {/* Dropi */}
-              <div className="rounded-2xl border border-slate-200 p-5 text-left hover:shadow-md transition">
+              <div className="flex flex-col h-full rounded-2xl border border-slate-200 p-5 text-left hover:shadow-md transition">
                 <div className="flex items-center gap-2.5 mb-2">
                   <div className="w-9 h-9 rounded-xl grid place-items-center bg-orange-50">
                     <i className="bx bx-store text-xl text-[#FF6B35]" />
                   </div>
                   <span className="font-bold text-slate-800">Dropi</span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed mb-4">
+                <p className="text-xs text-slate-500 leading-relaxed mb-4 flex-1">
                   Sincroniza tus órdenes, guías y estados de envío
                   automáticamente.
                 </p>
@@ -892,15 +974,36 @@ const OrdenesDropi = () => {
                 </button>
               </div>
 
+              {/* Aliclik */}
+              <div className="flex flex-col h-full rounded-2xl border border-slate-200 p-5 text-left hover:shadow-md transition">
+                <div className="flex items-center h-9 mb-2">
+                  <img
+                    src={aliclikLogo}
+                    alt="Aliclik"
+                    className="h-6 w-auto object-contain"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed mb-4 flex-1">
+                  Vende en Perú con entrega contraentrega o recojo en agencia.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/aliclik")}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#171931] hover:opacity-95 transition active:scale-[0.98]"
+                >
+                  Vincular Aliclik
+                </button>
+              </div>
+
               {/* Shopify */}
-              <div className="rounded-2xl border border-slate-200 p-5 text-left hover:shadow-md transition">
+              <div className="flex flex-col h-full rounded-2xl border border-slate-200 p-5 text-left hover:shadow-md transition">
                 <div className="flex items-center gap-2.5 mb-2">
                   <div className="w-9 h-9 rounded-xl grid place-items-center bg-violet-50">
                     <i className="bx bxl-shopify text-xl text-violet-600" />
                   </div>
                   <span className="font-bold text-slate-800">Shopify</span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed mb-4">
+                <p className="text-xs text-slate-500 leading-relaxed mb-4 flex-1">
                   Recibe los pedidos de tu tienda y recupera carritos
                   abandonados por WhatsApp.
                 </p>
@@ -934,6 +1037,48 @@ const OrdenesDropi = () => {
             </p>
           </div>
         </div>
+
+        {/* Selector de plataforma. Solo aparece con más de una conectada: con
+            una sola sería un control de una opción. Va arriba de los filtros
+            porque no filtra la lista, la cambia de fuente. */}
+        {multiplesPlataformas && (
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <span className="text-[13px] font-semibold text-gray-700 mr-1">
+              Plataforma
+            </span>
+            {plataformas.map((p) => {
+              const activa = p.key === plataforma;
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => {
+                    if (p.key === plataforma) return;
+                    // Los estados y el origen son de cada plataforma: dejarlos
+                    // puestos daría una lista vacía sin explicación.
+                    setPlataforma(p.key);
+                    setPage(1);
+                    setStatus("");
+                    setOrigen("");
+                    setProducto("");
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[13px] font-semibold border transition ${
+                    activa
+                      ? "bg-[#171931] text-white border-[#171931]"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-[#171931]/40"
+                  }`}
+                >
+                  <i
+                    className={`bx ${
+                      p.key === "aliclik" ? "bx-store-alt" : "bx-store"
+                    } text-base`}
+                  />
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-5 grid grid-cols-1 md:grid-cols-4 xl:grid-cols-8 gap-3 items-start">
           {/* Buscar cliente */}
@@ -986,39 +1131,45 @@ const OrdenesDropi = () => {
             <div className="mt-1 text-[11px] opacity-0 select-none">.</div>
           </div>
 
-          {/* Estado del envío */}
+          {/* Estado del envío. Dropi tiene decenas de estados crudos; Aliclik
+              se resume en los 8 canónicos que manda el backend. */}
           <FilterDropdown
             label="Estado del envío"
             icon="bx-truck"
             value={status}
             placeholder="Todos"
-            searchable
+            searchable={!esAliclik}
             searchPlaceholder="Buscar estado…"
-            options={STATUS_OPTIONS.map((o) => ({
-              value: o.id,
-              label: o.name,
-            }))}
+            options={
+              esAliclik
+                ? estadosAliclik.map((e) => ({ value: e, label: e }))
+                : STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.name }))
+            }
             onChange={(val) => {
               setPage(1);
               setStatus(val);
             }}
           />
 
-          {/* Origen */}
-          <FilterDropdown
-            label="Origen"
-            icon="bx-store"
-            value={origen}
-            placeholder="Todos"
-            options={ORIGEN_OPTIONS.map((o) => ({
-              value: o.id,
-              label: o.name,
-            }))}
-            onChange={(val) => {
-              setPage(1);
-              setOrigen(val);
-            }}
-          />
+          {/* Origen: cruce con el webhook de Shopify, propio de Dropi. En
+              Aliclik no existe, así que se oculta en vez de mostrar un filtro
+              que no cambia nada. */}
+          {!esAliclik && (
+            <FilterDropdown
+              label="Origen"
+              icon="bx-store"
+              value={origen}
+              placeholder="Todos"
+              options={ORIGEN_OPTIONS.map((o) => ({
+                value: o.id,
+                label: o.name,
+              }))}
+              onChange={(val) => {
+                setPage(1);
+                setOrigen(val);
+              }}
+            />
+          )}
 
           {/* Producto: las opciones son los productos que quedan con los
               filtros actuales (incluido Origen), con cuántos pedidos tiene

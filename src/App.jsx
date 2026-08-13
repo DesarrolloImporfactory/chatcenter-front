@@ -92,6 +92,7 @@ import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
 
 import Contactos from "./components/clientes/Contactos";
 import IntegracionesDropi from "./pages/dropi/IntegracionesDropi";
+import IntegracionesAliclik from "./pages/aliclik/IntegracionesAliclik";
 import DropiProvider from "./context/DropiProvider";
 
 import SocketProvider from "./context/SocketProvider";
@@ -442,6 +443,15 @@ function App() {
                   element={
                     <MainLayout>
                       <IntegracionesDropi />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/aliclik"
+                  element={
+                    <MainLayout>
+                      <IntegracionesAliclik />
                     </MainLayout>
                   }
                 />

@@ -37,6 +37,7 @@ export default function ChatRightPanel(props) {
       props.MiniCalendario,
       props.openEditContact,
       props.isGoogleLinked,
+      props.id_configuracion,
     ],
   );
 

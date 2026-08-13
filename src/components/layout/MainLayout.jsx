@@ -299,9 +299,13 @@ function MainLayout({ children }) {
     ) {
       setOpenMenu("agentes");
     } else if (
-      ["/canal-conexiones", "/dropi", "/asistentes", "/shopify"].some((p) =>
-        location.pathname.startsWith(p),
-      )
+      [
+        "/canal-conexiones",
+        "/dropi",
+        "/aliclik",
+        "/asistentes",
+        "/shopify",
+      ].some((p) => location.pathname.startsWith(p))
     ) {
       setOpenMenu("integraciones");
     } else if (
@@ -619,6 +623,7 @@ function MainLayout({ children }) {
                   [
                     "/canal-conexiones",
                     "/dropi",
+                    "/aliclik",
                     "/asistentes",
                     "/api-metricas",
                   ].some((p) => location.pathname.startsWith(p))
@@ -685,6 +690,20 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bx-store text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Dropi</span>
+                  </a>
+
+                  {/* ===== Aliclik (equivalente a Dropi para Perú) ===== */}
+                  <a
+                    href="/aliclik"
+                    onClick={(e) => handleNavClick(e, "/aliclik")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/aliclik")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-store-alt text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Aliclik</span>
                   </a>
 
                   {/* ===== Shopify (directo a configuración) ===== */}
