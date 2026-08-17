@@ -350,7 +350,8 @@ const ChatPrincipal = ({
 
   // fuera del render (o en un utils):
   const ERROR_MAP = {
-    131042: "Error con método de pago",
+    131042:
+      "Error con el método de pago de tu WhatsApp Business (se arregla en el Business Manager de Meta)",
     131026: "El número no tiene WhatsApp",
     131047: "Fuera de la ventana de 24h. Requiere plantilla",
     131048: "Límite alcanzado por spam",
@@ -358,6 +359,17 @@ const ChatPrincipal = ({
     131051: "Tipo de mensaje no soportado",
     131031:
       "Cuenta de WhatsApp bloqueada o restringida por Meta. Puede deberse a que alcanzaste el límite de plantillas diarias, o a que tu número fue bloqueado — revisa el Business Manager.",
+  };
+
+  /* Errores que tienen tutorial. El texto solo no alcanza: el cliente que ve
+     "error con método de pago" no sabe entrar al Business Manager ni dónde
+     tocar, y los tutoriales del menú no los revisa nadie — el enlace tiene que
+     estar EN el error, en el momento en que lo está mirando. */
+  const ERROR_TUTORIAL = {
+    131042: {
+      etiqueta: "Mira cómo solucionarlo aquí",
+      url: "https://www.youtube.com/watch?v=_CzUpgnuXAU",
+    },
   };
 
   const actualizar_mensaje_reenviado = async (
@@ -2152,7 +2164,7 @@ const ChatPrincipal = ({
                       >
                         {/* Alerta interna si hubo error */}
                         {hasError && (
-                          <div className="mb-2 -mt-1 -mx-1 px-1.5 py-0.5 text-[11px] leading-none flex items-center gap-1 text-red-600/90">
+                          <div className="mb-2 -mt-1 -mx-1 px-1.5 py-0.5 text-[11px] leading-snug flex flex-wrap items-center gap-1 text-red-600/90">
                             <span className="inline-block h-3 w-[3px] rounded bg-red-600/90" />
                             <i
                               className="bx bx-error-circle text-xs"
@@ -2166,9 +2178,28 @@ const ChatPrincipal = ({
                                     mensaje.error_meta.codigo_error,
                                   );
                                   const label = ERROR_MAP[code];
+                                  const tutorial = ERROR_TUTORIAL[code];
                                   return (
                                     <span className="opacity-90">
                                       {label ? `${label}` : `(${code})`}
+                                      {/* El tutorial va pegado al error, no en
+                                          el menú: es donde el cliente lo está
+                                          mirando cuando no sabe qué hacer. */}
+                                      {tutorial && (
+                                        <>
+                                          {" · "}
+                                          <a
+                                            href={tutorial.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="font-semibold underline text-red-700 hover:text-red-800"
+                                          >
+                                            <i className="bx bx-play-circle align-middle" />{" "}
+                                            {tutorial.etiqueta}
+                                          </a>
+                                        </>
+                                      )}
                                     </span>
                                   );
                                 })()}
