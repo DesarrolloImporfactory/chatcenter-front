@@ -2644,6 +2644,83 @@ const AccionCard = ({
               El asistente debe incluir este tag en su respuesta para disparar
               el agendamiento.
             </div>
+
+            {/* Dónde ocurre la cita. Hasta ahora se daba por hecho que en el
+                local, porque es lo que pasa en una clínica o un centro
+                estético. Pero hay negocios donde la persona no va al local: a
+                un inmueble se va a verlo donde está, y ahí la sede es solo la
+                agenda de quien lo muestra. */}
+            <div style={{ marginTop: 14 }}>
+              <label style={lbl}>¿Dónde se hace la cita?</label>
+              <select
+                value={local.lugar_cita || "sede"}
+                onChange={(e) =>
+                  setLocal((p) => ({ ...p, lugar_cita: e.target.value }))
+                }
+                style={inp}
+              >
+                <option value="sede">En la sede o el local</option>
+                <option value="item">
+                  Donde está el ítem (visita al inmueble)
+                </option>
+              </select>
+              <div
+                style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 3 }}
+              >
+                {local.lugar_cita === "item"
+                  ? "La cita se crea con la dirección cargada en el ítem del catálogo. La agenda sigue siendo la de la sede que lo gestiona. Si el ítem no tiene dirección, la cita queda en la sede."
+                  : "La cita se crea con la dirección de la sede, como siempre."}
+              </div>
+            </div>
+
+            {/* Quién decide la hora. Es la diferencia entre una agenda que se
+                llena sola —que para muchos negocios es exactamente lo que se
+                quiere— y una donde quien atiende necesita ver el pedido antes
+                de comprometerse: alguien que se moviliza no puede enterarse de
+                una visita veinte minutos antes. */}
+            <div style={{ marginTop: 14 }}>
+              <label style={lbl}>¿Quién confirma la cita?</label>
+              <select
+                value={local.modo || "auto"}
+                onChange={(e) =>
+                  setLocal((p) => ({ ...p, modo: e.target.value }))
+                }
+                style={inp}
+              >
+                <option value="auto">El bot la agenda directo</option>
+                <option value="solicitud">
+                  El bot deja la solicitud y una persona confirma
+                </option>
+              </select>
+              <div
+                style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 3 }}
+              >
+                {local.modo === "solicitud"
+                  ? "No se toca el calendario: la solicitud aparece en el panel del calendario y el contacto se mueve a la columna de abajo. El bot deja de decirle al cliente que la cita quedó confirmada."
+                  : "El bot crea la cita en el calendario apenas la persona acepta el día y la hora."}
+              </div>
+            </div>
+
+            {local.modo === "solicitud" && (
+              <div style={{ marginTop: 14 }}>
+                <label style={lbl}>Columna donde queda esperando</label>
+                <input
+                  value={local.estado_solicitud || "por_agendar"}
+                  onChange={(e) =>
+                    setLocal((p) => ({ ...p, estado_solicitud: e.target.value }))
+                  }
+                  style={{ ...inp, fontFamily: "monospace" }}
+                  placeholder="por_agendar"
+                />
+                <div
+                  style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 3 }}
+                >
+                  El estado interno de esa columna, tal como aparece en su
+                  configuración. Si no existe, la solicitud se guarda igual pero
+                  la tarjeta no se mueve y nadie la ve en el tablero.
+                </div>
+              </div>
+            )}
           </div>
         )}
 

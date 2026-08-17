@@ -32,6 +32,38 @@ const EMPTY_FORM = {
   material: "",
   landing_url: "",
   precio_proveedor: "",
+  /* Ubicación propia del ítem. Solo la usa quien atiende FUERA del local: en
+     inmobiliaria la visita se hace en la casa y la agenda sigue siendo la de la
+     oficina. Vacío = la cita se hace en la sede, como siempre. */
+  id_establecimiento: "",
+  direccion: "",
+  sector: "",
+  ciudad: "",
+  coordenadas: "",
+  google_maps_url: "",
+  /* Álbum con el resto de las fotos. El sistema manda UNA imagen —quince
+     mensajes con fotos es spam— así que cuando piden más, el bot pasa este
+     enlace en vez de responder "te las envía un asesor". */
+  galeria_url: "",
+  /* Solo lo usa la importación: la foto del anuncio ya viene copiada a nuestro
+     storage, así que viaja como URL y no como archivo. En una alta normal va
+     vacío y el backend ni lo mira. */
+  imagen_url: "",
+};
+
+/* La ficha llega como JSON (o como string, según de dónde venga la fila) y el
+   formulario la maneja como objeto plano de textos. */
+const leerAtributos = (v) => {
+  if (!v) return {};
+  let o = v;
+  if (typeof o === "string") {
+    try {
+      o = JSON.parse(o);
+    } catch {
+      return {};
+    }
+  }
+  return o && typeof o === "object" && !Array.isArray(o) ? o : {};
 };
 
 const normalizaTipo = (t) => {
@@ -525,11 +557,81 @@ const ProductoModal = ({
   onCategoriasChange,
   productosExistentes = [],
   onSaved,
+  /* Borrador traído de un anuncio publicado. Precarga el formulario y nada
+     más: sigue siendo el usuario quien revisa y guarda. Ver
+     modales/ImportarInmuebleModal.jsx. */
+  borradorInicial = null,
 }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [combosOpen, setCombosOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [ubicacionOpen, setUbicacionOpen] = useState(false);
+
+  /* Sedes de la cuenta. Se usan para decir qué oficina gestiona este ítem, que
+     es lo que define en qué agenda cae la visita y quién la atiende. Se piden
+     una sola vez al abrir; si la cuenta no tiene ninguna cargada, la sección
+     sigue sirviendo para la dirección y el select simplemente no ofrece nada. */
+  const [sedes, setSedes] = useState([]);
+  useEffect(() => {
+    if (!open) return;
+    const idc = parseInt(localStorage.getItem("id_configuracion"));
+    if (!idc) return;
+    chatApi
+      .post(
+        "/establecimientos/listar",
+        { id_configuracion: idc },
+        { silentError: true },
+      )
+      .then(({ data }) => setSedes(Array.isArray(data?.data) ? data.data : []))
+      .catch(() => setSedes([]));
+  }, [open]);
+
+  /* ── Ficha del nicho ──────────────────────────────────────────
+     Qué campos extra tiene un ítem de esta cuenta lo decide un preset elegido
+     una vez (Inmuebles, Vehículos…). Sin preset, `campos` viene vacío y esta
+     sección no se dibuja: quien hace dropshipping no tiene por qué ver
+     "dormitorios" en su formulario de productos, y ese fue justamente el
+     motivo de no meterlos como campos fijos. */
+  const [camposFicha, setCamposFicha] = useState([]);
+  const [atributos, setAtributos] = useState({});
+  const [fichaOpen, setFichaOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const idc = parseInt(localStorage.getItem("id_configuracion"));
+    if (!idc) return;
+    chatApi
+      .post(
+        "/productos/fichaPreset",
+        { id_configuracion: idc },
+        { silentError: true },
+      )
+      .then(({ data }) =>
+        setCamposFicha(
+          Array.isArray(data?.data?.campos) ? data.data.campos : [],
+        ),
+      )
+      .catch(() => setCamposFicha([]));
+  }, [open]);
+
+  /* En una cuenta con ficha de rubro, la ubicación y la ficha NO son un extra:
+     sin dirección la cita se agenda en la oficina y sin ficha el bot inventa
+     los metros. Arrancan abiertas para que se vean, en vez de esconder detrás
+     de un acordeón lo único que hay que llenar.
+     Va en su propio efecto porque los campos llegan por HTTP, después de que
+     el formulario ya se pobló. */
+  useEffect(() => {
+    if (!open || !camposFicha.length) return;
+    const nuevo = !editingProduct;
+    const vacio =
+      !editingProduct && !form.direccion && !form.sector && !form.ciudad;
+    if (nuevo || vacio) {
+      setUbicacionOpen(true);
+      setFichaOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, camposFicha, editingProduct]);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewVideo, setPreviewVideo] = useState(null);
   const [previewUpsell, setPreviewUpsell] = useState(null);
@@ -619,6 +721,19 @@ const ProductoModal = ({
     editingProduct?.external_id != null;
 
   const [tipoCuenta, setTipoCuenta] = useState("producto");
+
+  /* Qué secciones tienen sentido para lo que se está cargando.
+     Un producto se envía: no "queda" en ningún lado, así que no tiene
+     ubicación. Un servicio no va a un catálogo público con precio de
+     proveedor. Mostrar las dos cosas siempre convertía el formulario en una
+     lista de campos que la mitad de las cuentas no entiende para qué son. */
+  /* El tipo del ítem que se está editando entra como respaldo porque el
+     formulario se llena en un efecto, o sea DESPUÉS del primer render: sin
+     esto, abrir un servicio mostraba por un instante las secciones de producto
+     y las suyas aparecían de golpe. */
+  const esServicio =
+    (form.tipo || normalizaTipo(editingProduct?.tipo) || tipoCuenta) ===
+    "servicio";
   /* ¿El negocio tiene OpenAI conectado? De eso depende que se ofrezca redactar
      la descripción con IA: la llamada corre con SU api key, así que sin key el
      botón no se muestra en vez de aparecer y fallar al pulsarlo. Se saca de la
@@ -710,8 +825,7 @@ const ProductoModal = ({
         icon: "error",
         title: "No se pudo generar",
         text:
-          err?.response?.data?.message ||
-          "Intenta de nuevo en unos segundos.",
+          err?.response?.data?.message || "Intenta de nuevo en unos segundos.",
       });
     } finally {
       setGenerandoIA(false);
@@ -764,7 +878,24 @@ const ProductoModal = ({
         material: p.material ?? "",
         landing_url: p.landing_url ?? "",
         precio_proveedor: p.precio_proveedor ?? "",
+        id_establecimiento: p.id_establecimiento ?? "",
+        direccion: p.direccion ?? "",
+        sector: p.sector ?? "",
+        ciudad: p.ciudad ?? "",
+        /* Se muestran juntas, como las copia Google Maps: nadie va a llenar dos
+           campos separados de latitud y longitud a mano. */
+        coordenadas:
+          p.latitud != null && p.longitud != null
+            ? `${p.latitud}, ${p.longitud}`
+            : "",
+        google_maps_url: p.google_maps_url ?? "",
+        galeria_url: p.galeria_url ?? "",
       });
+
+      /* Ficha del nicho. Llega como JSON desde la BD; el formulario la maneja
+         como pares clave→texto y el backend se queda solo con las claves que
+         el preset conoce. */
+      setAtributos(leerAtributos(p.atributos_json));
 
       setPreviewUrl(p.imagen_url || null);
       setPreviewVideo(p.video_url || null);
@@ -803,14 +934,47 @@ const ProductoModal = ({
 
       /* abrir acordeón catálogo si ya tiene datos */
       if (privVal !== "" || p.material || p.landing_url) setCatalogOpen(true);
+      if (p.direccion || p.sector || p.ciudad || p.id_establecimiento)
+        setUbicacionOpen(true);
     } else {
-      setForm({ ...EMPTY_FORM });
-      setPreviewUrl(null);
+      /* Alta nueva. Si viene un borrador de un anuncio importado, el
+         formulario arranca con él en vez de vacío: es exactamente el mismo
+         formulario y los mismos campos, solo que ya escritos. */
+      const b = borradorInicial;
+
+      setForm({
+        ...EMPTY_FORM,
+        ...(b
+          ? {
+              nombre: b.nombre || "",
+              descripcion: b.descripcion || "",
+              tipo: normalizaTipo(b.tipo) || "servicio",
+              precio: b.precio ?? "",
+              duracion: b.duracion ?? "",
+              direccion: b.direccion || "",
+              sector: b.sector || "",
+              ciudad: b.ciudad || "",
+              coordenadas: b.coordenadas || "",
+              galeria_url: b.galeria_url || "",
+              imagen_url: b.imagen_url || "",
+            }
+          : {}),
+      });
+
+      /* La imagen ya está copiada a nuestro storage por el importador, así que
+         entra como URL y no como archivo: no hay nada que volver a subir. */
+      setPreviewUrl(b?.imagen_url || null);
       setPreviewVideo(null);
       setPreviewUpsell(null);
       setImagenRemoved(false);
-      setDuracionLibre(false);
+      setDuracionLibre(
+        Number(b?.duracion) > 0 &&
+          !DURACIONES_FRECUENTES.includes(Number(b.duracion)),
+      );
       setCatalogOpen(false);
+      setUbicacionOpen(Boolean(b?.direccion || b?.sector || b?.ciudad));
+      setAtributos(b?.atributos ? leerAtributos(b.atributos) : {});
+      setFichaOpen(Boolean(b?.atributos));
       setEsVariable(false);
       setVariaciones([]);
       // El estado es `atributo` (string), no el `atributosSel` (array) que
@@ -819,7 +983,7 @@ const ProductoModal = ({
       setAtributo("Color");
     }
     setCombosOpen(false);
-  }, [open, editingProduct]);
+  }, [open, editingProduct, borradorInicial]);
 
   const setF = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -935,6 +1099,16 @@ const ProductoModal = ({
         "precio_proveedor",
         "sesiones_min",
         "sesiones_max",
+        /* La ubicación se borra igual que se llena: si alguien quita la
+           dirección de un inmueble que ya se vendió y no se manda el campo
+           vacío, el bot seguiría mandando gente a esa puerta. */
+        "id_establecimiento",
+        "direccion",
+        "sector",
+        "ciudad",
+        "coordenadas",
+        "google_maps_url",
+        "galeria_url",
       ];
 
       Object.entries(form).forEach(([k, v]) => {
@@ -963,6 +1137,14 @@ const ProductoModal = ({
           data.append(k, v); // envía incluso "" para los borrables
         }
       });
+
+      /* Ficha del nicho. Se manda solo cuando la sección estuvo a la vista —
+         cuenta con rubro y ítem de tipo servicio—. Mandarla desde un producto
+         borraría en silencio la ficha de un ítem que se pasó a producto por
+         error y se devolvió a servicio. */
+      if (camposFicha.length && esServicio) {
+        data.append("atributos", JSON.stringify(atributos || {}));
+      }
 
       // Variedades: el back las reemplaza en bloque y limpia si se desmarca.
       data.append("es_variable", esVariable ? "1" : "0");
@@ -1085,6 +1267,27 @@ const ProductoModal = ({
 
         {/* ═══════════ BODY — blanco ═══════════ */}
         <div className="flex-1 overflow-y-auto bg-white">
+          {/* Traído de una publicación. El banner va acá arriba, dentro del
+              formulario: un popup encima de este modal se dibuja detrás de su
+              fondo borroso y hay que cerrar el formulario para poder leerlo. */}
+          {!editingProduct && borradorInicial && (
+            <div className="mx-6 mt-6 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+              <div className="flex items-start gap-2">
+                <i className="bx bx-import text-indigo-500 text-lg mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-indigo-900 leading-relaxed">
+                  <p className="font-semibold">
+                    Datos traídos de la publicación.
+                  </p>
+                  <p className="mt-0.5">
+                    {borradorInicial.aviso
+                      ? borradorInicial.aviso
+                      : "Revisa el precio y lo que quede vacío antes de guardar. Nada se guardó todavía."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
             {/* ─── COLUMNA IZQUIERDA ─── */}
             <div className="p-6 space-y-6">
@@ -1193,13 +1396,15 @@ const ProductoModal = ({
                       )}
                     </div>
 
-                    {iaDisponible && !form.descripcion.trim() && !generandoIA && (
-                      <p className="text-xs text-slate-400 mt-1">
-                        <i className="bx bx-bulb text-amber-400 align-middle mr-0.5" />
-                        Escribe el nombre, sube la foto y deja que la IA arme la
-                        descripción. Después puedes editarla a mano.
-                      </p>
-                    )}
+                    {iaDisponible &&
+                      !form.descripcion.trim() &&
+                      !generandoIA && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          <i className="bx bx-bulb text-amber-400 align-middle mr-0.5" />
+                          Escribe el nombre, sube la foto y deja que la IA arme
+                          la descripción. Después puedes editarla a mano.
+                        </p>
+                      )}
                   </div>
 
                   {/* El tipo ya no se pregunta: sale de lo que se eligió al
@@ -1609,10 +1814,16 @@ const ProductoModal = ({
                 )}
               </div>
 
-              {/* ═══ ACORDEÓN LÓGICA CATÁLOGOS ═══ */}
+              {/* ═══ ACORDEÓN LÓGICA CATÁLOGOS ═══
+                  Solo para productos: los catálogos públicos, el material del
+                  proveedor y el precio de costo son cosas de algo que se vende
+                  y se envía. */}
               <div
                 className="rounded-xl overflow-hidden"
-                style={{ border: "1.5px solid #c7d2fe" }}
+                style={{
+                  border: "1.5px solid #c7d2fe",
+                  display: esServicio ? "none" : undefined,
+                }}
               >
                 <button
                   type="button"
@@ -1621,8 +1832,8 @@ const ProductoModal = ({
                   style={{ background: catalogOpen ? "#eef2ff" : "#f5f7ff" }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-600">
-                      <i className="bx bx-book-open text-white text-sm" />
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-indigo-600 flex-shrink-0">
+                      <i className="bx bx-book-open text-white text-base" />
                     </div>
                     <div className="text-left">
                       <div className="text-sm font-bold text-indigo-700">
@@ -1813,6 +2024,285 @@ const ProductoModal = ({
                 )}
               </div>
               {/* ═══ FIN ACORDEÓN CATÁLOGOS ═══ */}
+
+              {/* ═══ ACORDEÓN UBICACIÓN ═══
+                  Va cerrado y vacío para la enorme mayoría de las cuentas: un
+                  producto de dropshipping no "queda" en ningún lado, se envía.
+                  Existe para lo contrario — un inmueble, un local, algo que se
+                  va a ver donde está—: ahí la cita NO es en la oficina, y sin
+                  esta dirección el sistema no tiene de dónde sacar a dónde
+                  llega la persona. */}
+              <div
+                className="rounded-xl overflow-hidden"
+                style={{
+                  border: "1.5px solid #bbf7d0",
+                  // Un producto se envía: no hay a dónde ir a verlo.
+                  display: esServicio ? undefined : "none",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setUbicacionOpen(!ubicacionOpen)}
+                  className="w-full flex items-start justify-between gap-3 px-4 py-3.5 transition-colors"
+                  style={{ background: ubicacionOpen ? "#f0fdf4" : "#f6fefa" }}
+                >
+                  {/* `items-start` + `flex-shrink-0`: sin eso, un subtítulo de
+                      varias líneas empuja el icono y lo deja como un óvalo
+                      aplastado, porque un hijo de flex cede su ancho antes que
+                      el texto. `min-w-0` deja que el texto corte de verdad. */}
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-600 flex-shrink-0">
+                      <i className="bx bx-map-pin text-white text-base" />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <div className="text-sm font-bold text-emerald-700">
+                        Ubicación
+                      </div>
+                      <div className="text-xs text-emerald-500 mt-0.5 leading-relaxed">
+                        Solo si la cita se debe agendar en una ubicación
+                        distinta a la de tu sucursal. La agenda sigue siendo la
+                        de la sede que elijas: de ahí sale quién atiende.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 mt-1">
+                    {(form.direccion || form.sector || form.ciudad) && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                        Con ubicación
+                      </span>
+                    )}
+                    <i
+                      className={`bx bx-chevron-${ubicacionOpen ? "up" : "down"} text-emerald-400 text-lg`}
+                    />
+                  </div>
+                </button>
+
+                {ubicacionOpen && (
+                  <div className="border-t border-emerald-100 p-5 space-y-5 bg-white">
+                    {/* Sede responsable. Con una sola sede no hay nada que
+                        elegir —el sistema usa esa— así que el campo no existe:
+                        preguntar algo que tiene una única respuesta posible es
+                        un paso de más. */}
+                    {sedes.length > 1 && (
+                      <div>
+                        <Lbl>
+                          Sede que lo gestiona{" "}
+                          <span className="normal-case font-normal text-slate-400">
+                            (opcional)
+                          </span>
+                        </Lbl>
+                        <Sel
+                          value={form.id_establecimiento}
+                          onChange={(e) =>
+                            setF("id_establecimiento", e.target.value)
+                          }
+                        >
+                          <option value="">La sede por defecto</option>
+                          {sedes.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.nombre}
+                              {s.ciudad ? ` — ${s.ciudad}` : ""}
+                            </option>
+                          ))}
+                        </Sel>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Define en qué agenda cae la cita y qué asesor la
+                          atiende.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Dirección */}
+                    <div>
+                      <Lbl>Dirección exacta</Lbl>
+                      <div className="relative">
+                        <i className="bx bx-map absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                        <Inp
+                          className="pl-9"
+                          placeholder="Av. Ilaló y Río Pita, casa 12"
+                          value={form.direccion}
+                          onChange={(e) => setF("direccion", e.target.value)}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Es la que se le pone a la cita. El asistente solo la
+                        comparte cuando la visita ya está acordada.
+                      </p>
+                    </div>
+
+                    {/* Sector y ciudad */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Lbl>Sector o barrio</Lbl>
+                        <Inp
+                          placeholder="Capelo"
+                          value={form.sector}
+                          onChange={(e) => setF("sector", e.target.value)}
+                        />
+                        <p className="text-xs text-slate-400 mt-1">
+                          Esto sí lo dice apenas se lo preguntan.
+                        </p>
+                      </div>
+                      <div>
+                        <Lbl>Ciudad</Lbl>
+                        <Inp
+                          placeholder="Quito"
+                          value={form.ciudad}
+                          onChange={(e) => setF("ciudad", e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Enlace de Maps */}
+                    <div>
+                      <Lbl>
+                        Enlace de Google Maps{" "}
+                        <span className="normal-case font-normal text-slate-400">
+                          (opcional)
+                        </span>
+                      </Lbl>
+                      <div className="relative">
+                        <i className="bx bx-link-alt absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                        <Inp
+                          className="pl-9"
+                          placeholder="https://maps.app.goo.gl/..."
+                          value={form.google_maps_url}
+                          onChange={(e) =>
+                            setF("google_maps_url", e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* Álbum de fotos */}
+                    <div>
+                      <Lbl>
+                        Álbum con más fotos{" "}
+                        <span className="normal-case font-normal text-slate-400">
+                          (opcional)
+                        </span>
+                      </Lbl>
+                      <div className="relative">
+                        <i className="bx bx-images absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                        <Inp
+                          className="pl-9"
+                          placeholder="https://drive.google.com/... o el enlace del anuncio"
+                          value={form.galeria_url}
+                          onChange={(e) => setF("galeria_url", e.target.value)}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        El asistente manda una sola foto. Cuando le piden más,
+                        pasa este enlace en vez de decir que las envía un
+                        asesor.
+                      </p>
+                    </div>
+
+                    {/* Coordenadas */}
+                    <div>
+                      <Lbl>
+                        Coordenadas{" "}
+                        <span className="normal-case font-normal text-slate-400">
+                          (opcional)
+                        </span>
+                      </Lbl>
+                      <div className="relative">
+                        <i className="bx bx-current-location absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                        <Inp
+                          className="pl-9"
+                          placeholder="-0.3162710, -78.4487360"
+                          value={form.coordenadas}
+                          onChange={(e) => setF("coordenadas", e.target.value)}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        En Google Maps, mantén pulsado el punto y copia los
+                        números que aparecen arriba. Pégalos tal cual.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* ═══ FIN ACORDEÓN UBICACIÓN ═══ */}
+
+              {/* ═══ ACORDEÓN FICHA DEL NICHO ═══
+                  Dos condiciones, y las dos hacen falta:
+                  · que la cuenta tenga rubro (una tienda de dropshipping no
+                    tiene por qué ver "dormitorios"), y
+                  · que se esté cargando un SERVICIO, que es como se cargan las
+                    cosas que se van a ver —un inmueble, un vehículo—. Si la
+                    misma cuenta carga además un producto suelto, ese producto
+                    no tiene ficha de inmueble. */}
+              {camposFicha.length > 0 && esServicio && (
+                <div
+                  className="rounded-xl overflow-hidden"
+                  style={{ border: "1.5px solid #fed7aa" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setFichaOpen(!fichaOpen)}
+                    className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                    style={{ background: fichaOpen ? "#fff7ed" : "#fffbf5" }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-orange-500 flex-shrink-0">
+                        <i className="bx bx-list-check text-white text-base" />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-orange-700">
+                          Ficha técnica
+                        </div>
+                        <div className="text-xs text-orange-400 mt-0.5">
+                          Los datos que te preguntan antes de venir a verlo
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {Object.values(atributos || {}).filter(Boolean).length >
+                        0 && (
+                        <span className="text-[10px] bg-orange-100 text-orange-700 font-bold px-2 py-0.5 rounded-full border border-orange-200">
+                          {
+                            Object.values(atributos || {}).filter(Boolean)
+                              .length
+                          }{" "}
+                          datos
+                        </span>
+                      )}
+                      <i
+                        className={`bx bx-chevron-${fichaOpen ? "up" : "down"} text-orange-400 text-lg`}
+                      />
+                    </div>
+                  </button>
+
+                  {fichaOpen && (
+                    <div className="border-t border-orange-100 p-5 bg-white">
+                      <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+                        El asistente responde con estos datos exactos en vez de
+                        deducirlos de la descripción. Lo que dejes vacío,
+                        simplemente no lo dice — nunca lo inventa.
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {camposFicha.map((c) => (
+                          <div key={c.clave}>
+                            <Lbl>{c.etiqueta}</Lbl>
+                            <Inp
+                              placeholder={c.ejemplo || ""}
+                              value={atributos?.[c.clave] || ""}
+                              onChange={(e) =>
+                                setAtributos((p) => ({
+                                  ...p,
+                                  [c.clave]: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* ═══ FIN ACORDEÓN FICHA ═══ */}
             </div>
 
             {/* ─── COLUMNA DERECHA ─── */}

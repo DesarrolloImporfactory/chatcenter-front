@@ -9,6 +9,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import "./Calendario.css";
 import PageHeader from "../Header/pageHeader";
+import SolicitudesCitas from "./SolicitudesCitas";
 
 const WEEKDAYS = ["D", "L", "Ma", "Mi", "J", "V", "S"];
 const UNASSIGNED_COLOR = "#a78bfa"; // lila suave p/ sin asignar
@@ -1685,6 +1686,13 @@ export default function Calendario() {
 
             {/* Sidebar derecha */}
             <div className="col-span-12 lg:col-span-3">
+              {/* Lo que el bot levantó y todavía no está en la agenda. Se
+                  dibuja solo si hay algo pendiente: con el agendamiento
+                  automático —que sigue siendo el default— no existe. */}
+              <SolicitudesCitas
+                idConfiguracion={accountId}
+                onCitaCreada={() => api()?.refetchEvents()}
+              />
               <div className="bg-white rounded-md shadow-sm border p-3 mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-medium capitalize">

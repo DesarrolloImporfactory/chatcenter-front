@@ -8,6 +8,7 @@ import { useDropi } from "../../context/DropiContext";
 import ImportarProductosDropi from "./modales/ImportarProductosDropi";
 import CargaMasivaModal from "./modales/CargaMasivaModal";
 import ProductoModal from "./modales/ProductoModal";
+import ImportarDesdeEnlaceModal from "./modales/ImportarDesdeEnlaceModal";
 import SyncDropiSwitches from "./SyncDropiSwitches";
 
 /* ─────────────────────────────────────────────────────────────
@@ -47,6 +48,13 @@ const ProductosView = () => {
   /* Modal producto */
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+
+  /* Importar desde una publicación ya existente. Sirve a cualquier catálogo:
+     el anuncio de un portal inmobiliario o la página de un proveedor. Lo que
+     cambia según el rubro de la cuenta es QUÉ campos se extraen —eso lo decide
+     el backend—, no si la función está disponible. */
+  const [importOpen, setImportOpen] = useState(false);
+  const [borradorImportado, setBorradorImportado] = useState(null);
 
   /* Modal imagen zoom */
   const [modalImagen, setModalImagen] = useState({ abierta: false, url: "" });
@@ -301,6 +309,17 @@ const ProductosView = () => {
           Importar desde Dropi
         </button>
       )}
+      {/* Sirve para cualquier catálogo: un anuncio de portal inmobiliario o la
+          página de un proveedor. Lo que cambia según el rubro es qué campos se
+          extraen, no si la función existe. */}
+      <button
+        onClick={() => setImportOpen(true)}
+        className="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400
+          text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+      >
+        <i className="bx bx-link-external text-base" />
+        Importar desde enlace
+      </button>
       <button
         onClick={() => navigate("/catalogos")}
         className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20
@@ -796,12 +815,30 @@ const ProductosView = () => {
         <i className="bx bx-plus text-2xl" />
       </button>
 
+      {/* ══ Importar desde un anuncio publicado ══ */}
+      <ImportarDesdeEnlaceModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImportado={(borrador, meta) => {
+          setEditingProduct(null);
+          /* El aviso viaja con el borrador para que el formulario lo muestre
+             como un banner suyo. Un popup encima del formulario aparecería
+             detrás del fondo borroso y habría que cerrarlo para poder leerlo. */
+          setBorradorImportado({ ...borrador, aviso: meta?.aviso || null });
+          setModalOpen(true);
+        }}
+      />
+
       {/* ══ ProductoModal ══ */}
       <ProductoModal
         open={modalOpen}
+        borradorInicial={borradorImportado}
         onClose={() => {
           setModalOpen(false);
           setEditingProduct(null);
+          // El borrador es de un solo uso: si queda, el próximo "Agregar"
+          // abriría el formulario con el inmueble anterior ya escrito.
+          setBorradorImportado(null);
         }}
         editingProduct={editingProduct}
         categorias={categorias}

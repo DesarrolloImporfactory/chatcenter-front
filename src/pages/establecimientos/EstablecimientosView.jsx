@@ -25,6 +25,12 @@ const FORM_VACIO = {
   telefono: "",
   horario: "",
   horario_json: HORARIO_VACIO,
+  /* Cómo trabaja la agenda de esta sede. En 0 se comporta como siempre: citas
+     pegadas y sin exigir aviso. Se llena cuando quien atiende se mueve —un
+     corredor que va de un inmueble a otro— y necesita margen para llegar. */
+  buffer_minutos: 0,
+  anticipacion_minima_horas: 0,
+  max_citas_dia: "",
   id_calendario: "",
   activo: 1,
 };
@@ -44,8 +50,8 @@ const leerHorarioJson = (valor) => {
 
 /* Mismo lenguaje visual que el modal de conexiones: campo con label semibold,
    input gris que se vuelve blanco al enfocar y ayuda en gris chico debajo. */
-const Campo = ({ label, hint, children, required }) => (
-  <div>
+const Campo = ({ label, hint, children, required, oculto }) => (
+  <div style={oculto ? { display: "none" } : undefined}>
     <label className="text-sm font-semibold text-gray-700">
       {label}
       {required && <span className="text-rose-500 ml-0.5">*</span>}
@@ -57,6 +63,18 @@ const Campo = ({ label, hint, children, required }) => (
 
 const inputCls =
   "w-full px-3.5 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition-all duration-200";
+
+/* Duración con la que se dibuja el ejemplo de la agenda. La real sale de cada
+   ítem del catálogo; acá hace falta un número concreto porque un ejemplo sin
+   duración no se puede calcular — y ese fue justamente el problema de la
+   versión anterior: decía "una cita de 15:00 bloquea hasta las 16:30" sin
+   contar de dónde salían esos 90 minutos. */
+const DURACION_EJEMPLO = 45;
+
+const aHHMM = (min) => {
+  const m = ((min % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+};
 
 const EstablecimientosView = () => {
   const navigate = useNavigate();
@@ -89,6 +107,46 @@ const EstablecimientosView = () => {
   const idConfiguracion = parseInt(localStorage.getItem("id_configuracion"));
 
   const setF = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  /* ── El ejemplo de la agenda, calculado ────────────────────────
+     Explicar el traslado con una frase obliga a que cada persona rehaga la
+     cuenta en su cabeza —y con qué duración de cita, además— así que se
+     muestra hecha, con lo que hay escrito en los campos en este momento. */
+  const agendaMovil =
+    Number(form.buffer_minutos) > 0 ||
+    Number(form.anticipacion_minima_horas) > 0;
+
+  const ejemploAgenda = useMemo(() => {
+    const buffer = Math.max(0, Math.min(240, Number(form.buffer_minutos) || 0));
+    const aviso = Math.max(
+      0,
+      Math.min(168, Number(form.anticipacion_minima_horas) || 0),
+    );
+
+    const inicio = 15 * 60; // 15:00, la hora de visita más pedida
+    const fin = inicio + DURACION_EJEMPLO;
+
+    return {
+      buffer,
+      citaDesde: aHHMM(inicio),
+      citaHasta: aHHMM(fin),
+      libreDesde: aHHMM(fin + buffer),
+      // "Si ahora son las 09:00": la referencia fija hace la cuenta obvia.
+      primeraHoraHoy: aHHMM(9 * 60 + aviso * 60),
+    };
+  }, [form.buffer_minutos, form.anticipacion_minima_horas]);
+
+  /* Un clic en vez de dos decisiones numéricas. Son los valores con los que
+     trabaja quien va de un inmueble a otro dentro de la misma ciudad: 45
+     minutos alcanzan para cruzar Quito con tráfico, y 2 horas de aviso es lo
+     mínimo para reacomodar la mañana. Se pueden editar después. */
+  const aplicarSugeridoMovil = () => {
+    setForm((p) => ({
+      ...p,
+      buffer_minutos: 45,
+      anticipacion_minima_horas: 2,
+    }));
+  };
 
   const fetchSedes = async () => {
     if (!idConfiguracion) {
@@ -472,6 +530,9 @@ const EstablecimientosView = () => {
          horario vacío para que se elija bien una vez, en vez de arrastrar una
          interpretación dudosa del texto viejo. */
       horario_json: leerHorarioJson(s.horario_json),
+      buffer_minutos: Number(s.buffer_minutos) || 0,
+      anticipacion_minima_horas: Number(s.anticipacion_minima_horas) || 0,
+      max_citas_dia: s.max_citas_dia ?? "",
       id_calendario: s.id_calendario || "",
       activo: Number(s.activo) === 0 ? 0 : 1,
     });
@@ -494,6 +555,12 @@ const EstablecimientosView = () => {
         ...form,
         id_configuracion: idConfiguracion,
         id_calendario: form.id_calendario || null,
+        // Sin tope escrito, el campo va nulo: "" guardaría un tope de cero
+        // citas y la agenda quedaría cerrada sin que nadie entienda por qué.
+        max_citas_dia:
+          String(form.max_citas_dia).trim() === ""
+            ? null
+            : Number(form.max_citas_dia),
       };
       if (editingId) {
         await chatApi.post("/establecimientos/actualizar", {
@@ -1050,9 +1117,150 @@ const EstablecimientosView = () => {
                 />
               </Campo>
 
+              {/* ── Cómo trabaja la agenda ────────────────────────────
+                  El caso normal es atender en el local: una cita termina y la
+                  siguiente empieza, porque la persona ya está ahí. Todo esto
+                  vale 0 y no cambia nada.
+
+                  Cuando quien se mueve es quien atiende —un corredor que va de
+                  un inmueble a otro— dos citas seguidas son dos citas a las que
+                  no va a llegar. El bot no tiene cómo saberlo si no se lo dicen
+                  acá, y la primera versión de este bloque explicaba el cálculo
+                  con una frase que había que descifrar. Ahora se ve hecho. */}
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="flex items-start gap-2.5 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                  <i className="bx bx-car text-[#1d4ed8] text-lg mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-800">
+                      ¿Quien atiende se moviliza?
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Si se atiende aquí mismo, deja esto como está.
+                    </p>
+                  </div>
+                  {!agendaMovil && (
+                    <button
+                      type="button"
+                      onClick={aplicarSugeridoMovil}
+                      className="text-xs font-semibold text-[#1d4ed8] hover:text-[#1e40af] whitespace-nowrap mt-0.5"
+                    >
+                      Sí, se moviliza
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Campo label="Traslado entre citas">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          max="240"
+                          step="15"
+                          className={inputCls}
+                          value={form.buffer_minutos}
+                          onChange={(e) => setF("buffer_minutos", e.target.value)}
+                          placeholder="0"
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 select-none pointer-events-none">
+                          min
+                        </span>
+                      </div>
+                    </Campo>
+
+                    <Campo label="Aviso mínimo">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          max="168"
+                          className={inputCls}
+                          value={form.anticipacion_minima_horas}
+                          onChange={(e) =>
+                            setF("anticipacion_minima_horas", e.target.value)
+                          }
+                          placeholder="0"
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 select-none pointer-events-none">
+                          horas
+                        </span>
+                      </div>
+                    </Campo>
+                  </div>
+
+                  {/* El cálculo, hecho. Se recalcula con lo que hay escrito en
+                      los campos, así que no hay nada que interpretar: se ve el
+                      bloqueo real que va a tener la agenda. */}
+                  <div className="rounded-lg bg-slate-900 text-slate-100 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">
+                      Así queda la agenda
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 mb-2.5">
+                      Ejemplo con una visita de {DURACION_EJEMPLO} min a las 15:00.
+                      La duración real sale de cada ítem del catálogo.
+                    </p>
+
+                    <div className="space-y-1.5 font-mono text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-300 w-[95px]">
+                          {ejemploAgenda.citaDesde}–{ejemploAgenda.citaHasta}
+                        </span>
+                        <span className="h-2 rounded bg-emerald-400/80 flex-1 max-w-[90px]" />
+                        <span className="text-slate-300 font-sans">la visita</span>
+                      </div>
+
+                      {ejemploAgenda.buffer > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-300 w-[95px]">
+                            {ejemploAgenda.citaHasta}–{ejemploAgenda.libreDesde}
+                          </span>
+                          <span className="h-2 rounded bg-amber-400/70 flex-1 max-w-[90px]" />
+                          <span className="text-slate-300 font-sans">
+                            traslado ({ejemploAgenda.buffer} min)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-200 mt-2.5 pt-2.5 border-t border-slate-700">
+                      La siguiente cita se puede agendar desde las{" "}
+                      <span className="font-bold text-white">
+                        {ejemploAgenda.libreDesde}
+                      </span>
+                      .
+                    </p>
+
+                    <p className="text-[11px] text-slate-400 mt-2">
+                      {Number(form.anticipacion_minima_horas) > 0
+                        ? `Y nada dentro de las próximas ${form.anticipacion_minima_horas} h: si ahora son las 09:00, lo primero que ofrece es a las ${ejemploAgenda.primeraHoraHoy}.`
+                        : "Sin aviso mínimo, el bot puede agendar para dentro de un rato."}
+                    </p>
+                  </div>
+
+                  <Campo
+                    label="Máximo de citas por día"
+                    hint="Vacío = sin tope. Sirve cuando el día da para seis pero seis es un día imposible."
+                  >
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      className={inputCls}
+                      value={form.max_citas_dia}
+                      onChange={(e) => setF("max_citas_dia", e.target.value)}
+                      placeholder="Sin tope"
+                    />
+                  </Campo>
+                </div>
+              </div>
+
+              {/* Con una sola agenda no hay nada que elegir: la cita cae ahí
+                  igual. El campo aparece recién cuando existe una segunda. */}
               <Campo
                 label="Agenda de esta sede"
                 hint="Si el negocio tiene varias sucursales, cada una debe tener la suya: la cita se crea en la agenda que elijas aquí."
+                oculto={calendarios.length < 2}
               >
                 <select
                   className={inputCls}
