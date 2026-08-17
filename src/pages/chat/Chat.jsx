@@ -23,6 +23,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { aplicarEventoProgramado } from "../../components/chat/programadosChatStore";
 import { useMemo } from "react";
+import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 
 const Chat = () => {
   const formatFecha = (fechaISO) => {
@@ -2360,34 +2361,9 @@ const Chat = () => {
       socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
         setDataAdmin(data);
 
-        if (data.metodo_pago == 0) {
-          const businessId = data.meta_business_id;
-
-          const metaUrl = businessId
-            ? `https://business.facebook.com/latest/settings/whatsapp_account/?business_id=${businessId}`
-            : "https://business.facebook.com/latest/settings/whatsapp_account/";
-
-          Swal.fire({
-            icon: "warning",
-            title: "Acción requerida en Meta",
-            html: `
-              <div style="font-size:14px; line-height:1.5;">
-                Detectamos un inconveniente con el método de pago en tu cuenta de WhatsApp Business.
-                <br/><br/>
-                Para continuar enviando mensajes correctamente debes revisar la configuración de facturación en Meta Business Suite.
-              </div>
-            `,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            confirmButtonText: "Abrir Meta Business Suite",
-            showCancelButton: true,
-            cancelButtonText: "Más tarde",
-          }).then((result) => {
-            if (result.isConfirmed) {
-              window.open(metaUrl, "_blank");
-            }
-          });
-        }
+        // Una sola fuente para este aviso (también lo usa Contactos.jsx): el
+        // texto, el tutorial y la URL de Meta viven en utils/avisoMetodoPagoMeta.
+        avisoMetodoPagoMeta(data);
       });
 
       if (id_plataforma_conf !== null) {

@@ -14,6 +14,7 @@ import NuevoContacto from "./modales/NuevoContacto";
 import EnviarTemplateMasivo from "./modales/EnviarTemplateMasivo";
 import TablaContactos from "./TablaContactos";
 import FilterBar from "./FilterBar";
+import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -781,34 +782,9 @@ export default function Contactos() {
     socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
       setDataAdmin(data);
 
-      if (data.metodo_pago == 0) {
-        const businessId = data.meta_business_id;
-
-        const metaUrl = businessId
-          ? `https://business.facebook.com/latest/settings/whatsapp_account/?business_id=${businessId}`
-          : "https://business.facebook.com/latest/settings/whatsapp_account/";
-
-        Swal.fire({
-          icon: "warning",
-          title: "Acción requerida en Meta",
-          html: `
-          <div style="font-size:14px; line-height:1.5;">
-            Detectamos un inconveniente con el método de pago en tu cuenta de WhatsApp Business.
-            <br/><br/>
-            Para continuar enviando mensajes correctamente debes revisar la configuración de facturación en Meta Business Suite.
-          </div>
-        `,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          confirmButtonText: "Abrir Meta Business Suite",
-          showCancelButton: true,
-          cancelButtonText: "Más tarde",
-        }).then((result) => {
-          if (result.isConfirmed) {
-            window.open(metaUrl, "_blank");
-          }
-        });
-      }
+      // Una sola fuente para este aviso (también lo usa Chat.jsx): el texto,
+      // el tutorial y la URL de Meta viven en utils/avisoMetodoPagoMeta.
+      avisoMetodoPagoMeta(data);
     });
 
     // cleanup de listeners cuando cambien las deps

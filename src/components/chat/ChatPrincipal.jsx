@@ -2195,7 +2195,6 @@ const ChatPrincipal = ({
                                             onClick={(e) => e.stopPropagation()}
                                             className="font-semibold underline text-red-700 hover:text-red-800"
                                           >
-                                            <i className="bx bx-play-circle align-middle" />{" "}
                                             {tutorial.etiqueta}
                                           </a>
                                         </>
