@@ -4,7 +4,7 @@ import BasicClientPanel from "./BasicClientPanel";
 import { useDropi } from "../../context/DropiContext";
 
 export default function ChatRightPanel(props) {
-  const { isDropiLinked } = useDropi();
+  const { isDropiLinked, isAliclikLinked } = useDropi();
 
   const basicProps = useMemo(
     () => ({
@@ -41,7 +41,10 @@ export default function ChatRightPanel(props) {
     ],
   );
 
-  if (isDropiLinked) {
+  // Basta con UNO de los dos proveedores para mostrar el panel de pedidos: el
+  // propio panel decide adentro con cuál trabaja (y si están los dos, deja
+  // elegir). El básico queda para las cuentas sin fulfillment.
+  if (isDropiLinked || isAliclikLinked) {
     return <DropshipperClientPanel {...props} />;
   }
 

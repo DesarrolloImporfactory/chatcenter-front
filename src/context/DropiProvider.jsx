@@ -2,11 +2,20 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import chatApi from "../api/chatcenter";
 import { DropiContext } from "./DropiContext";
 
+/**
+ * Resuelve qué proveedores de fulfillment tiene vinculados la configuración
+ * actual: Dropi (multipaís) y/o Aliclik (Perú).
+ *
+ * Se consultan los dos en paralelo y de forma independiente: que Aliclik falle
+ * o no exista no puede dejar sin panel a una cuenta que sí tiene Dropi, que es
+ * el caso de casi todos los clientes de hoy.
+ */
 export default function DropiProvider({ children }) {
   const [id_configuracion, setId_configuracion] = useState(null);
 
   // null = aún no se sabe (evita parpadeos)
   const [isDropiLinked, setIsDropiLinked] = useState(null);
+  const [isAliclikLinked, setIsAliclikLinked] = useState(null);
   const [loadingDropiLinked, setLoadingDropiLinked] = useState(false);
 
   const readIdc = () => {
@@ -29,26 +38,39 @@ export default function DropiProvider({ children }) {
 
     if (!idc) {
       setIsDropiLinked(false);
+      setIsAliclikLinked(false);
       setLoadingDropiLinked(false);
       return;
     }
 
     setLoadingDropiLinked(true);
-    setIsDropiLinked(null); // <-- clave: evita que se quede "true" de otra config
+    // <-- clave: evita que se quede "true" de otra config
+    setIsDropiLinked(null);
+    setIsAliclikLinked(null);
 
-    try {
-      const res = await chatApi.get("dropi_integrations", {
+    // allSettled y no all: si la llamada de Aliclik falla (cuenta sin la tabla,
+    // 403, red), Dropi tiene que resolverse igual.
+    const [dropi, aliclik] = await Promise.allSettled([
+      chatApi.get("dropi_integrations", { params: { id_configuracion: idc } }),
+      chatApi.get("aliclik_integrations", {
         params: { id_configuracion: idc },
-      });
+        silentError: true,
+      }),
+    ]);
 
-      const list = res?.data?.data ?? [];
-      setIsDropiLinked(list.length > 0);
-    } catch (e) {
-      // aquí NO conviene conservar true porque puede ser de otra config
-      setIsDropiLinked(false);
-    } finally {
-      setLoadingDropiLinked(false);
-    }
+    // Ante error NO conviene conservar true: podría ser de otra configuración.
+    setIsDropiLinked(
+      dropi.status === "fulfilled"
+        ? (dropi.value?.data?.data ?? []).length > 0
+        : false,
+    );
+    setIsAliclikLinked(
+      aliclik.status === "fulfilled"
+        ? (aliclik.value?.data?.data ?? []).length > 0
+        : false,
+    );
+
+    setLoadingDropiLinked(false);
   }, []);
 
   // 3) bootstrap cuando haya id_configuracion
@@ -62,20 +84,39 @@ export default function DropiProvider({ children }) {
 
     window.addEventListener("dropi:linked-changed", handler);
     window.addEventListener("dropi:config-changed", handler);
+    // La pantalla de Aliclik emite el suyo al vincular/desvincular.
+    window.addEventListener("aliclik:linked-changed", handler);
 
     return () => {
       window.removeEventListener("dropi:linked-changed", handler);
       window.removeEventListener("dropi:config-changed", handler);
+      window.removeEventListener("aliclik:linked-changed", handler);
     };
   }, [refreshDropiLinked]);
+
+  const plataformas = useMemo(() => {
+    const out = [];
+    if (isDropiLinked) out.push({ key: "dropi", label: "Dropi" });
+    if (isAliclikLinked) out.push({ key: "aliclik", label: "Aliclik" });
+    return out;
+  }, [isDropiLinked, isAliclikLinked]);
 
   const value = useMemo(
     () => ({
       isDropiLinked,
+      isAliclikLinked,
+      plataformas,
+      multiplesPlataformas: plataformas.length > 1,
       loadingDropiLinked,
       refreshDropiLinked,
     }),
-    [isDropiLinked, loadingDropiLinked, refreshDropiLinked],
+    [
+      isDropiLinked,
+      isAliclikLinked,
+      plataformas,
+      loadingDropiLinked,
+      refreshDropiLinked,
+    ],
   );
 
   return (
