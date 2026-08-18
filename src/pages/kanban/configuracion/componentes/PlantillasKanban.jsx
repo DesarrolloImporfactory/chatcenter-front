@@ -1002,45 +1002,86 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                                   />
                                   {p.columnas_ia} asistentes IA
                                 </span>
-                                <span
-                                  className="pk-feature-chip"
-                                  style={{
-                                    background: "#fef3c7",
-                                    color: "#b45309",
-                                  }}
-                                >
-                                  <i
-                                    className="bx bxl-whatsapp"
-                                    style={{ fontSize: 11 }}
-                                  />
-                                  Templates Meta
-                                </span>
-                                <span
-                                  className="pk-feature-chip"
-                                  style={{
-                                    background: "#fce7f3",
-                                    color: "#be185d",
-                                  }}
-                                >
-                                  <i
-                                    className="bx bx-reply"
-                                    style={{ fontSize: 11 }}
-                                  />
-                                  Respuestas rápidas
-                                </span>
-                                <span
-                                  className="pk-feature-chip"
-                                  style={{
-                                    background: "#ecfeff",
-                                    color: "#0e7490",
-                                  }}
-                                >
-                                  <i
-                                    className="bx bx-package"
-                                    style={{ fontSize: 11 }}
-                                  />
-                                  Auto Dropi
-                                </span>
+                                {/* Chips según lo que ESTA plantilla instala
+                                    de verdad (caracteristicas viene del
+                                    backend, derivado de su bloque setup).
+                                    Antes iban hardcodeados y el asistente
+                                    inmobiliario anunciaba "Auto Dropi". */}
+                                {p.caracteristicas?.templates_meta && (
+                                  <span
+                                    className="pk-feature-chip"
+                                    style={{
+                                      background: "#fef3c7",
+                                      color: "#b45309",
+                                    }}
+                                  >
+                                    <i
+                                      className="bx bxl-whatsapp"
+                                      style={{ fontSize: 11 }}
+                                    />
+                                    Templates Meta
+                                  </span>
+                                )}
+                                {p.caracteristicas?.respuestas_rapidas && (
+                                  <span
+                                    className="pk-feature-chip"
+                                    style={{
+                                      background: "#fce7f3",
+                                      color: "#be185d",
+                                    }}
+                                  >
+                                    <i
+                                      className="bx bx-reply"
+                                      style={{ fontSize: 11 }}
+                                    />
+                                    Respuestas rápidas
+                                  </span>
+                                )}
+                                {p.caracteristicas?.dropi_config && (
+                                  <span
+                                    className="pk-feature-chip"
+                                    style={{
+                                      background: "#ecfeff",
+                                      color: "#0e7490",
+                                    }}
+                                  >
+                                    <i
+                                      className="bx bx-package"
+                                      style={{ fontSize: 11 }}
+                                    />
+                                    Auto Dropi
+                                  </span>
+                                )}
+                                {p.caracteristicas?.remarketing && (
+                                  <span
+                                    className="pk-feature-chip"
+                                    style={{
+                                      background: "#fff7ed",
+                                      color: "#c2410c",
+                                    }}
+                                  >
+                                    <i
+                                      className="bx bx-revision"
+                                      style={{ fontSize: 11 }}
+                                    />
+                                    Remarketing
+                                  </span>
+                                )}
+                                {p.caracteristicas?.citas && (
+                                  <span
+                                    className="pk-feature-chip"
+                                    style={{
+                                      background: "#f0f9ff",
+                                      color: "#0369a1",
+                                    }}
+                                  >
+                                    <i
+                                      className="bx bx-calendar"
+                                      style={{ fontSize: 11 }}
+                                    />
+                                    Agenda de citas
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -1573,6 +1614,8 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                         gap: 8,
                       }}
                     >
+                      {/* Solo lo que ESTA plantilla instala de verdad, según
+                          su bloque setup (caracteristicas del backend). */}
                       {[
                         {
                           icon: "bx bx-columns",
@@ -1584,21 +1627,53 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
                           label: `${plantillaSeleccionada.columnas_ia} asistentes IA con prompt`,
                           color: "#10b981",
                         },
-                        {
-                          icon: "bxl bxl-whatsapp",
-                          label: "Templates de WhatsApp en Meta",
-                          color: "#25d366",
-                        },
-                        {
-                          icon: "bx bx-reply",
-                          label: "Respuestas rápidas pre-cargadas",
-                          color: "#ec4899",
-                        },
-                        {
-                          icon: "bx bx-package",
-                          label: "Flujo Dropi por estado",
-                          color: "#0ea5e9",
-                        },
+                        ...(plantillaSeleccionada.caracteristicas
+                          ?.templates_meta
+                          ? [
+                              {
+                                icon: "bxl bxl-whatsapp",
+                                label: "Templates de WhatsApp en Meta",
+                                color: "#25d366",
+                              },
+                            ]
+                          : []),
+                        ...(plantillaSeleccionada.caracteristicas
+                          ?.respuestas_rapidas
+                          ? [
+                              {
+                                icon: "bx bx-reply",
+                                label: "Respuestas rápidas pre-cargadas",
+                                color: "#ec4899",
+                              },
+                            ]
+                          : []),
+                        ...(plantillaSeleccionada.caracteristicas?.dropi_config
+                          ? [
+                              {
+                                icon: "bx bx-package",
+                                label: "Flujo Dropi por estado",
+                                color: "#0ea5e9",
+                              },
+                            ]
+                          : []),
+                        ...(plantillaSeleccionada.caracteristicas?.remarketing
+                          ? [
+                              {
+                                icon: "bx bx-revision",
+                                label: "Remarketing automático",
+                                color: "#c2410c",
+                              },
+                            ]
+                          : []),
+                        ...(plantillaSeleccionada.caracteristicas?.citas
+                          ? [
+                              {
+                                icon: "bx bx-calendar",
+                                label: "Agenda de citas y solicitudes",
+                                color: "#0369a1",
+                              },
+                            ]
+                          : []),
                         {
                           icon: "bx bx-sync",
                           label: "Sync de catálogo al asistente",
