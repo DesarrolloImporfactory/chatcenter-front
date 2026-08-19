@@ -136,6 +136,30 @@ export const getProductImage = (o) => {
   return resolveProductImage(p) || NO_IMAGE;
 };
 
+/* ── TODOS los renglones de la orden ──
+   Una orden Dropi puede llevar VARIOS productos (misma bodega) y los getters
+   de arriba miran solo orderdetails[0]: el panel mostraba un producto en
+   órdenes de dos y el dueño creía que la orden subió incompleta (caso 889,
+   orden #6607472). Estos getters van POR RENGLÓN; los de arriba se quedan
+   como están porque media app los usa para "el" producto de la orden. */
+export const getOrderDetails = (o) =>
+  Array.isArray(o?.orderdetails) ? o.orderdetails : [];
+
+export const getDetailName = (d) => d?.product?.name || "—";
+export const getDetailSku = (d) => d?.product?.sku || "—";
+export const getDetailQty = (d) => d?.quantity ?? "—";
+export const getDetailImage = (d) =>
+  resolveProductImage(d?.product) || NO_IMAGE;
+export const getDetailWarehouse = (o, d) =>
+  d?.warehouse_product?.[0]?.warehouse?.[0]?.name || o?.warehouse?.name || "—";
+
+// Unidades totales del pedido (suma de renglones); con uno, su cantidad.
+export const getTotalUnits = (o) => {
+  const dets = getOrderDetails(o);
+  if (dets.length <= 1) return getQty(o);
+  return dets.reduce((a, d) => a + (Number(d?.quantity) || 0), 0);
+};
+
 // ── helpers para crear orden ──
 export const pickSupplierId = (p) =>
   Number(p?.user?.id || p?.user_id || 0) || null;

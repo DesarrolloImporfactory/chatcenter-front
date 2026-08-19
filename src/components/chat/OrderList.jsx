@@ -12,7 +12,8 @@ import {
   getProductImage,
   getProductName,
   getProductSku,
-  getQty,
+  getOrderDetails,
+  getTotalUnits,
   getTransportadora,
   getShippingAmount,
   getTotal,
@@ -257,9 +258,17 @@ export default function OrderList({ orders, onOpenOrder }) {
               <p className="text-[10px] text-white/35 mt-0.5">
                 SKU {getProductSku(o)}
               </p>
+              {/* Orden con varios productos: la tarjeta muestra el primero y
+                  avisa cuántos más trae — el detalle los lista todos. */}
+              {getOrderDetails(o).length > 1 && (
+                <p className="text-[10px] text-violet-300/80 mt-0.5 font-semibold">
+                  +{getOrderDetails(o).length - 1} producto
+                  {getOrderDetails(o).length - 1 === 1 ? "" : "s"} más
+                </p>
+              )}
             </div>
             <span className="text-[10px] font-semibold text-white/55 bg-white/[0.06] px-2.5 py-1 rounded shrink-0">
-              ×{getQty(o)}
+              ×{getTotalUnits(o)}
             </span>
           </div>
 
