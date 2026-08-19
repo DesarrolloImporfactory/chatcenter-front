@@ -87,3 +87,27 @@ npm run build
 git tag -a v1.1.0 -m "v1.1.0"
 git push origin v1.1.0
 ```
+
+## Script de versionado (`release.sh`)
+
+`release.sh` automatiza todo el paso anterior: calcula la nueva versión, actualiza `package.json` y `package-lock.json`, crea el commit `chore(release): vX.Y.Z`, el tag anotado y hace push. El push del tag es lo que dispara `Release and deploy production`.
+
+| Comando | Segmento que aumenta | Ejemplo |
+| --- | --- | --- |
+| `./release.sh minor` | `Z`, el último | `1.0.2` → `1.0.3` |
+| `./release.sh middle` | `Y`, el del medio | `1.0.3` → `1.1.3` |
+| `./release.sh mayor` | `X`, el primero | `1.1.3` → `2.1.3` |
+
+La versión base es la mayor entre el último tag `vX.Y.Z` del repositorio y la versión de `package.json`, de modo que ambos se mantienen sincronizados aunque se desalineen.
+
+Por defecto solo se aumenta el segmento indicado, sin reiniciar los inferiores. Para el comportamiento SemVer estricto (`1.0.2` + `middle` → `1.1.0`), añadir `--semver`.
+
+```bash
+./release.sh minor --dry-run    # simula sin tocar nada
+./release.sh middle -y          # sin confirmación interactiva
+./release.sh mayor --no-push    # commit y tag locales, sin desplegar
+./release.sh --set 2.0.0        # versión exacta
+./release.sh --help             # todas las opciones
+```
+
+El script aborta si el árbol de trabajo está sucio (`--allow-dirty` lo omite) o si el tag ya existe local o remotamente, y advierte cuando la rama actual no es `main`.
