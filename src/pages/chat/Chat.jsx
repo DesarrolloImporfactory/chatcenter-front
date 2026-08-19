@@ -3289,7 +3289,19 @@ const Chat = () => {
   };
 
   return (
-    <div className="sm:grid grid-cols-4">
+    // Alto anclado a la pantalla y filas explícitas: fila 1 = el encabezado,
+    // mida lo que mida (crece con las etiquetas o el producto del anuncio, así
+    // que cambia de un chat a otro), fila 2 = todo el resto.
+    //
+    // Antes el grid no tenía alto ni filas: la página medía "encabezado +
+    // 100vh - 130px", con el 130 escrito a mano en el Sidebar (y un 140 en
+    // ChatPrincipal, que ni siquiera coincidía). Si el encabezado no medía
+    // exactamente 130px sobraba blanco abajo o aparecía scroll de página —
+    // por eso pasaba con unos chats sí y con otros no.
+    //
+    // Los cambios van con prefijo sm: porque abajo de ese breakpoint esto no
+    // es un grid sino bloques apilados, y ahí el comportamiento no se toca.
+    <div className="sm:grid grid-cols-4 sm:grid-rows-[auto_1fr] sm:h-screen sm:overflow-hidden">
       {/* Cabecera */}
       <Cabecera
         userData={userData}
