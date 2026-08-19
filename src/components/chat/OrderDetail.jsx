@@ -11,6 +11,12 @@ import {
   getProductName,
   getProductSku,
   getQty,
+  getOrderDetails,
+  getDetailImage,
+  getDetailName,
+  getDetailSku,
+  getDetailQty,
+  getDetailWarehouse,
   getTransportadora,
   getShippingAmount,
   getTotal,
@@ -135,47 +141,65 @@ export default function OrderDetail({
         </div>
       </div>
 
-      {/* ═══ Producto ═══ */}
+      {/* ═══ Producto(s) ═══
+          Una orden puede llevar VARIOS productos (misma bodega): se pinta un
+          renglón por cada orderdetail. Antes se mostraba solo el primero y
+          una orden de dos parecía haber subido incompleta. El [null] es el
+          respaldo para órdenes cuyo payload no trae orderdetails: ahí se cae
+          a los getters de siempre (que muestran "—"). */}
       <div className={sectionCls}>
         <div className="px-3.5 pt-2.5 pb-2">
           <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">
-            Producto
+            {getOrderDetails(order).length > 1
+              ? `Productos (${getOrderDetails(order).length})`
+              : "Producto"}
           </span>
         </div>
-        <div className="flex items-center gap-3 px-3.5 pb-3">
-          <img
-            src={getProductImage(order)}
-            alt="Producto"
-            className="h-[50px] w-[50px] rounded-lg object-cover bg-white/[0.04] border border-white/[0.08] shrink-0"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = NO_IMAGE;
-            }}
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-white/90 truncate">
-              {getProductName(order)}
-            </p>
-            <p className="text-[10px] text-white/35 mt-0.5">
-              SKU {getProductSku(order)}
-            </p>
-            <div className="flex gap-3 mt-1">
-              <span className="text-[10px] text-white/50">
-                Cant:{" "}
-                <span className="font-semibold text-white/80">
-                  {getQty(order)}
-                </span>
-              </span>
-              <span className="text-[10px] text-white/50">
-                Bodega:{" "}
-                <span className="font-semibold text-white/80">
-                  {getWarehouseName(order)}
-                </span>
-              </span>
+        {(getOrderDetails(order).length ? getOrderDetails(order) : [null]).map(
+          (d, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-3 px-3.5 pb-3 ${
+                i > 0 ? "pt-3 border-t border-white/[0.06]" : ""
+              }`}
+            >
+              <img
+                src={d ? getDetailImage(d) : getProductImage(order)}
+                alt="Producto"
+                className="h-[50px] w-[50px] rounded-lg object-cover bg-white/[0.04] border border-white/[0.08] shrink-0"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = NO_IMAGE;
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-white/90 truncate">
+                  {d ? getDetailName(d) : getProductName(order)}
+                </p>
+                <p className="text-[10px] text-white/35 mt-0.5">
+                  SKU {d ? getDetailSku(d) : getProductSku(order)}
+                </p>
+                <div className="flex gap-3 mt-1">
+                  <span className="text-[10px] text-white/50">
+                    Cant:{" "}
+                    <span className="font-semibold text-white/80">
+                      {d ? getDetailQty(d) : getQty(order)}
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-white/50">
+                    Bodega:{" "}
+                    <span className="font-semibold text-white/80">
+                      {d
+                        ? getDetailWarehouse(order, d)
+                        : getWarehouseName(order)}
+                    </span>
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          ),
+        )}
       </div>
 
       {/* ═══ Resumen financiero ═══ */}

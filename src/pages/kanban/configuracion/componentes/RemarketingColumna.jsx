@@ -322,7 +322,7 @@ function MapeoVariables({ lista }) {
   );
 }
 
-function TemplatePreviewMini({ template, notaEjemplos }) {
+function TemplatePreviewMini({ template, notaEjemplos, overrides }) {
   if (!template?.components) return null;
 
   const header = template.components.find((c) => c.type === "HEADER");
@@ -334,11 +334,19 @@ function TemplatePreviewMini({ template, notaEjemplos }) {
      propia plantilla, para que la previa se lea como el mensaje que le va a
      llegar al cliente y no como una plantilla con huecos. Si un hueco no tiene
      ejemplo se deja tal cual: mejor ver el {{N}} que un espacio vacío que
-     engañe sobre cómo va a quedar. */
+     engañe sobre cómo va a quedar.
+
+     `overrides` ({n: valor}) pisa al ejemplo de Meta: el {{4}} de las
+     plantillas de agencia es el plazo de retiro y su ejemplo guardado dice
+     "7" — si la cuenta configuró otro plazo, la previa mostraba 7 días
+     mientras el mensaje real iba a salir con 2, y el dueño creía que el
+     número no se había guardado. */
   const ejemplos =
     (Array.isArray(body?.example?.body_text) && body.example.body_text[0]) ||
     [];
   const bodyText = (body?.text || "").replace(/\{\{(\d+)\}\}/g, (m, n) => {
+    const ov = overrides?.[Number(n)];
+    if (ov != null && ov !== "") return String(ov);
     const v = ejemplos[Number(n) - 1];
     return v != null && v !== "" ? v : m;
   });
@@ -1332,6 +1340,24 @@ const RemarketingColumna = ({
   };
 
   const handleGuardar = async () => {
+    /* La secuencia no puede programar recordatorios más allá del plazo de
+       retiro: cada paso cuenta desde el envío anterior, así que el último
+       sale a la SUMA de los tiempos. Con plazo 2 y suma 3 días, el último
+       recordatorio avisa de un paquete que ya regresó al remitente. */
+    if (estado_db === COLUMNA_CON_PLAZO) {
+      const dias = Number(diasRetiro) || DIAS_RETIRO_DEFAULT;
+      const totalMin = calcTotalMinutos(secuencias);
+      if (totalMin > dias * 1440) {
+        Toast.fire({
+          icon: "error",
+          title: `Los recordatorios suman ${(totalMin / 1440)
+            .toFixed(1)
+            .replace(/\.0$/, "")} días y el plazo es de ${dias}: acórtalos o sube el plazo`,
+        });
+        return;
+      }
+    }
+
     for (let i = 0; i < secuencias.length; i++) {
       const s = secuencias[i];
 
@@ -1883,6 +1909,54 @@ const RemarketingColumna = ({
                           </span>
                         </div>
                       )}
+
+                      {/* La secuencia no puede pasarse del plazo: cada paso
+                          cuenta desde el envío anterior, así que el último
+                          recordatorio sale a la SUMA de los tiempos. Con
+                          plazo de 2 días y recordatorios que suman 3, el
+                          último le avisa de un paquete que ya regresó al
+                          remitente. Aviso en vivo aquí y bloqueo duro al
+                          guardar (mismo criterio en el backend). */}
+                      {calcTotalMinutos(secuencias) >
+                        (Number(diasRetiro) || DIAS_RETIRO_DEFAULT) * 1440 && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            padding: "7px 9px",
+                            borderRadius: 8,
+                            background: "#fef2f2",
+                            border: "1px solid #fecaca",
+                            fontSize: ".7rem",
+                            color: "#991b1b",
+                            lineHeight: 1.4,
+                            display: "flex",
+                            gap: 5,
+                          }}
+                        >
+                          <i
+                            className="bx bx-error"
+                            style={{ fontSize: 13, flexShrink: 0 }}
+                          />
+                          <span>
+                            Los recordatorios suman{" "}
+                            <strong>
+                              {(calcTotalMinutos(secuencias) / 1440)
+                                .toFixed(1)
+                                .replace(/\.0$/, "")}{" "}
+                              días
+                            </strong>{" "}
+                            y el plazo de retiro es de{" "}
+                            <strong>
+                              {Number(diasRetiro) || DIAS_RETIRO_DEFAULT} día
+                              {(Number(diasRetiro) || DIAS_RETIRO_DEFAULT) === 1
+                                ? ""
+                                : "s"}
+                            </strong>
+                            : el último saldría con el paquete ya devuelto.
+                            Acorta los tiempos de los pasos o sube el plazo.
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -2302,6 +2376,20 @@ const RemarketingColumna = ({
                                         notaEjemplos={
                                           soportaVariables && tplTieneVars
                                             ? "ejemplo — se reemplaza con los datos del pedido"
+                                            : undefined
+                                        }
+                                        /* El {{4}} es el plazo de retiro: en
+                                           la previa se muestra el que la
+                                           cuenta configuró, no el "7" del
+                                           ejemplo de Meta. */
+                                        overrides={
+                                          estado_db === COLUMNA_CON_PLAZO
+                                            ? {
+                                                4: String(
+                                                  Number(diasRetiro) ||
+                                                    DIAS_RETIRO_DEFAULT,
+                                                ),
+                                              }
                                             : undefined
                                         }
                                       />
