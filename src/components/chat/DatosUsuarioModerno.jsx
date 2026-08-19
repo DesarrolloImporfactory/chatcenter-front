@@ -162,7 +162,12 @@ const DatosUsuarioModerno = ({
     <>
       {opciones && (
         <div
-          className={`relative col-start-4 row-start-1 row-span-2 h-screen text-white bg-[#171931] flex flex-col overflow-hidden duration-700 transition-all ${
+          // `h-screen` pasa a ser solo el fallback de móvil: en sm+ esta celda
+          // ocupa las dos filas del grid, que ya suman exactamente la pantalla.
+          // Con el h-screen fijo, esta columna era la única que le daba altura
+          // completa a la fila — por eso el hueco de abajo aparecía y
+          // desaparecía según si el panel estaba abierto.
+          className={`relative col-start-4 row-start-1 row-span-2 h-screen sm:h-full text-white bg-[#171931] flex flex-col overflow-hidden duration-700 transition-all ${
             animateOut ? "animate-slide-out" : "animate-slide-in"
           }`}
         >
