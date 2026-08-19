@@ -74,7 +74,10 @@ jobs:
 
       - name: Publish bundle to development
         if: steps.development-command.outputs.mode == 'deploy' || steps.development-command.outputs.mode == 'on'
-        run: rsync --archive --compress --delete --delay-updates dist/ deployfront@98.91.50.83:/var/www/devfront/dist/
+        run: |
+          rsync --archive --compress --delete --delay-updates \
+            --no-owner --no-group --omit-dir-times --chmod=D755,F644 \
+            dist/ deployfront@98.91.50.83:/var/www/devfront/dist/
 
       - name: Start development socket
         if: steps.development-command.outputs.mode == 'on'
