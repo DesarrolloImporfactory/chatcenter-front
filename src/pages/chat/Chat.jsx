@@ -23,6 +23,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { aplicarEventoProgramado } from "../../components/chat/programadosChatStore";
 import { useMemo } from "react";
+import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 
 const Chat = () => {
   const formatFecha = (fechaISO) => {
@@ -2360,34 +2361,9 @@ const Chat = () => {
       socketRef.current.on("DATA_ADMIN_RESPONSE", (data) => {
         setDataAdmin(data);
 
-        if (data.metodo_pago == 0) {
-          const businessId = data.meta_business_id;
-
-          const metaUrl = businessId
-            ? `https://business.facebook.com/latest/settings/whatsapp_account/?business_id=${businessId}`
-            : "https://business.facebook.com/latest/settings/whatsapp_account/";
-
-          Swal.fire({
-            icon: "warning",
-            title: "Acción requerida en Meta",
-            html: `
-              <div style="font-size:14px; line-height:1.5;">
-                Detectamos un inconveniente con el método de pago en tu cuenta de WhatsApp Business.
-                <br/><br/>
-                Para continuar enviando mensajes correctamente debes revisar la configuración de facturación en Meta Business Suite.
-              </div>
-            `,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            confirmButtonText: "Abrir Meta Business Suite",
-            showCancelButton: true,
-            cancelButtonText: "Más tarde",
-          }).then((result) => {
-            if (result.isConfirmed) {
-              window.open(metaUrl, "_blank");
-            }
-          });
-        }
+        // Una sola fuente para este aviso (también lo usa Contactos.jsx): el
+        // texto, el tutorial y la URL de Meta viven en utils/avisoMetodoPagoMeta.
+        avisoMetodoPagoMeta(data);
       });
 
       if (id_plataforma_conf !== null) {
@@ -3313,7 +3289,19 @@ const Chat = () => {
   };
 
   return (
-    <div className="sm:grid grid-cols-4">
+    // Alto anclado a la pantalla y filas explícitas: fila 1 = el encabezado,
+    // mida lo que mida (crece con las etiquetas o el producto del anuncio, así
+    // que cambia de un chat a otro), fila 2 = todo el resto.
+    //
+    // Antes el grid no tenía alto ni filas: la página medía "encabezado +
+    // 100vh - 130px", con el 130 escrito a mano en el Sidebar (y un 140 en
+    // ChatPrincipal, que ni siquiera coincidía). Si el encabezado no medía
+    // exactamente 130px sobraba blanco abajo o aparecía scroll de página —
+    // por eso pasaba con unos chats sí y con otros no.
+    //
+    // Los cambios van con prefijo sm: porque abajo de ese breakpoint esto no
+    // es un grid sino bloques apilados, y ahí el comportamiento no se toca.
+    <div className="sm:grid grid-cols-4 sm:grid-rows-[auto_1fr] sm:h-screen sm:overflow-hidden">
       {/* Cabecera */}
       <Cabecera
         userData={userData}

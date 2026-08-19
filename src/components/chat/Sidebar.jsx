@@ -1656,7 +1656,9 @@ export const Sidebar = ({
     <aside
       ref={scrollRef}
       onScroll={handleScrollMensajes}
-      className={`h-[calc(100vh_-_130px)] overflow-y-auto overflow-x-hidden ${selectedChat ? "hidden sm:block" : "block"}`}
+      // El calc solo sobrevive como fallback para móvil (donde no hay grid).
+      // En sm+ la fila del grid ya da el alto exacto, sin el 130 a mano.
+      className={`h-[calc(100vh_-_130px)] sm:h-full sm:min-h-0 overflow-y-auto overflow-x-hidden ${selectedChat ? "hidden sm:block" : "block"}`}
     >
       <div className="ml-3 mr-0 my-2 rounded-2xl border border-slate-200 bg-white shadow-sm min-h-full">
         {/* ── Header sticky ── */}

@@ -12,8 +12,11 @@ import EncuestasCliente from "./EncuestasCliente";
 import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
 import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
 
+import AliclikOrdersSection from "./AliclikOrdersSection";
+
 import useDropiOrders from "../../hooks/useDropiOrders";
 import useCreateOrder from "../../hooks/UseCreateOrders";
+import { useDropi } from "../../context/DropiContext";
 
 import {
   showOrderId,
@@ -219,11 +222,36 @@ export default function DropshipperClientPanel(props) {
   //cambios para todos
   const noProrateFlete = true;
 
+  /* ── Proveedor de fulfillment activo ──
+     Con uno solo vinculado no se le pregunta nada al asesor; con los dos, el
+     bloque de pedidos muestra un selector Dropi | Aliclik. */
+  const { plataformas, multiplesPlataformas } = useDropi();
+  const [plataforma, setPlataforma] = useState(null);
+
+  useEffect(() => {
+    // Se recalcula cuando cambia lo vinculado (o al cambiar de configuración):
+    // si la plataforma elegida dejó de estar disponible hay que soltarla, o el
+    // panel quedaría pidiéndole pedidos a una integración que ya no existe.
+    const disponibles = plataformas.map((p) => p.key);
+    if (!disponibles.length) {
+      setPlataforma(null);
+      return;
+    }
+    setPlataforma((prev) =>
+      prev && disponibles.includes(prev) ? prev : disponibles[0],
+    );
+  }, [plataformas]);
+
+  const esAliclik = plataforma === "aliclik";
+
   const ordersHook = useDropiOrders({
     socketRef,
     id_configuracion,
     selectedChat,
-    isOpen,
+    // Solo consulta Dropi cuando Dropi es la plataforma activa: si no, una
+    // cuenta que solo tiene Aliclik dispararía una consulta que el backend
+    // rechaza con "No existe una integración Dropi activa".
+    isOpen: isOpen && plataforma === "dropi",
   });
 
   const createHook = useCreateOrder({
@@ -530,6 +558,43 @@ export default function DropshipperClientPanel(props) {
               : "opacity-0 scale-95 max-h-0 overflow-hidden pointer-events-none"
           } bg-[#12172e] rounded-md shadow-md mb-3`}
         >
+          {/* Selector de proveedor: solo aparece si la cuenta tiene los dos
+              vinculados. Con uno solo no hay nada que elegir. */}
+          {multiplesPlataformas && (
+            <div className="flex gap-1 p-1.5 pb-0">
+              {plataformas.map((p) => {
+                const activo = plataforma === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setPlataforma(p.key)}
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-semibold uppercase tracking-wide border transition ${
+                      activo
+                        ? p.key === "aliclik"
+                          ? "bg-cyan-500/15 border-cyan-400/40 text-cyan-100"
+                          : "bg-[#1e3a5f] border-blue-400 text-white"
+                        : "bg-white/[0.03] border-white/10 text-white/50 hover:text-white/80 hover:border-white/20"
+                    }`}
+                  >
+                    <i
+                      className={`bx ${p.key === "aliclik" ? "bx-store-alt" : "bx-store"} text-xs`}
+                    />
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {esAliclik ? (
+            <AliclikOrdersSection
+              socketRef={socketRef}
+              id_configuracion={id_configuracion}
+              selectedChat={selectedChat}
+              isOpen={isOpen}
+            />
+          ) : (
           <div className="p-1.5 text-white">
             {/* Encabezado */}
             <div className="flex items-center justify-between gap-2 mb-2">
@@ -636,6 +701,7 @@ export default function DropshipperClientPanel(props) {
               />
             )}
           </div>
+          )}
         </div>
 
         {/* ===== Panel Cotizaciones ===== */}

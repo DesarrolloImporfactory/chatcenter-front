@@ -1997,7 +1997,7 @@ const ChatPrincipal = ({
       <div
         className={`
         ${opciones ? "col-span-2" : "col-span-3"}
-        relative
+        relative sm:min-h-0 sm:overflow-hidden
         ${
           selectedChat === null || (opciones && window.innerWidth <= 640)
             ? "hidden sm:block"
@@ -2007,14 +2007,17 @@ const ChatPrincipal = ({
       >
         {/* Si no hay chat seleccionado */}
         {selectedChat === null ? (
-          <div className="flex h-[calc(80vh_-_110px)] items-center justify-center">
+          <div className="flex h-[calc(80vh_-_110px)] sm:h-full items-center justify-center">
             <i className="bx bx-chat text-4xl text-slate-500 m-3" />
             <p className="text-5x1 text-slate-500 -mt-1 ">
               Seleccione una conversación para empezar a chatear
             </p>
           </div>
         ) : (
-          <div className="flex flex-col h-[calc(100vh-140px)] relative">
+          // Igual que en el Sidebar: el calc queda de fallback para móvil, y
+          // en sm+ manda la fila del grid. El área de mensajes de adentro ya
+          // es `flex-1 overflow-y-auto`, así que el scroll sigue siendo suyo.
+          <div className="flex flex-col h-[calc(100vh-140px)] sm:h-full sm:min-h-0 relative">
             {/* 
               1) Contenedor principal del chat 
               (fondo intacto)
@@ -2195,7 +2198,6 @@ const ChatPrincipal = ({
                                             onClick={(e) => e.stopPropagation()}
                                             className="font-semibold underline text-red-700 hover:text-red-800"
                                           >
-                                            <i className="bx bx-play-circle align-middle" />{" "}
                                             {tutorial.etiqueta}
                                           </a>
                                         </>

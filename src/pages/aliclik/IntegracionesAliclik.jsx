@@ -45,6 +45,13 @@ export default function IntegracionesAliclik() {
     if (idc) setIdConfiguracion(parseInt(idc, 10));
   }, []);
 
+  /* El panel de pedidos del chat decide qué proveedor mostrar leyendo el
+     contexto de fulfillment (context/DropiProvider). Ese contexto no se entera
+     solo de que se vinculó o se desvinculó Aliclik: hay que avisarle, igual
+     que hace la pantalla de Dropi con su propio evento. */
+  const avisarCambioVinculacion = () =>
+    window.dispatchEvent(new Event('aliclik:linked-changed'));
+
   const fetchIntegraciones = useCallback(async () => {
     if (!id_configuracion) return;
     setLoading(true);
@@ -103,11 +110,21 @@ export default function IntegracionesAliclik() {
         });
         setShowModal(false);
         await fetchIntegraciones();
+        avisarCambioVinculacion();
+        const urlWebhook = res?.data?.data?.webhook_url;
         Swal.fire({
-          icon: "success",
-          title: "Aliclik vinculado",
-          html: `<p style="margin-bottom:8px">Falta un paso: copia tu URL de notificaciones y pégala en el panel de Aliclik.</p>
-                 <code style="font-size:11px;word-break:break-all">${res?.data?.data?.webhook_url || ""}</code>`,
+          // Sin URL la vinculación quedó a medias: el token sirve para
+          // consultar, pero los cambios de estado solo llegarían por el cron
+          // (hasta 15 min tarde). Se dice, no se celebra igual.
+          icon: urlWebhook ? "success" : "warning",
+          title: urlWebhook ? "Aliclik vinculado" : "Aliclik vinculado a medias",
+          html: urlWebhook
+            ? `<p style="margin-bottom:8px">Falta un paso: copia tu URL de notificaciones y pégala en el panel de Aliclik.</p>
+                 <code style="font-size:11px;word-break:break-all">${urlWebhook}</code>`
+            : `<p style="font-size:.9rem;color:#92400e">${
+                res?.data?.instrucciones ||
+                "No se pudo generar la URL de notificaciones en este servidor."
+              }</p>`,
           confirmButtonColor: "#171931",
         });
       } else {
@@ -116,6 +133,7 @@ export default function IntegracionesAliclik() {
         await chatApi.patch(`aliclik_integrations/${activa.id}`, payload);
         setShowModal(false);
         await fetchIntegraciones();
+        avisarCambioVinculacion();
         Swal.fire({
           icon: "success",
           title: "Integración actualizada",
@@ -151,6 +169,7 @@ export default function IntegracionesAliclik() {
     try {
       await chatApi.delete(`aliclik_integrations/${activa.id}`);
       await fetchIntegraciones();
+      avisarCambioVinculacion();
       Swal.fire({
         icon: "success",
         title: "Vinculación eliminada",
@@ -541,18 +560,36 @@ export default function IntegracionesAliclik() {
                 retraso.
               </p>
 
-              <div className="mt-3 rounded-lg bg-white border border-indigo-200 p-3">
-                <code className="text-[11px] text-gray-800 break-all block">
-                  {activa.webhook_url}
-                </code>
-              </div>
+              {/* Sin PUBLIC_BASE_URL en el servidor no hay URL que pegar. Se
+                  avisa en vez de mostrar algo incopiable: antes salía la ruta
+                  relativa, el cliente la pegaba igual y no llegaba ni un
+                  evento, sin ningún error visible. */}
+              {activa.webhook_url ? (
+                <>
+                  <div className="mt-3 rounded-lg bg-white border border-indigo-200 p-3">
+                    <code className="text-[11px] text-gray-800 break-all block">
+                      {activa.webhook_url}
+                    </code>
+                  </div>
 
-              <button
-                onClick={() => copiar(activa.webhook_url)}
-                className="mt-3 w-full bg-[#171931] text-white font-semibold py-2 rounded-lg hover:opacity-95 transition"
-              >
-                Copiar URL
-              </button>
+                  <button
+                    onClick={() => copiar(activa.webhook_url)}
+                    className="mt-3 w-full bg-[#171931] text-white font-semibold py-2 rounded-lg hover:opacity-95 transition"
+                  >
+                    Copiar URL
+                  </button>
+                </>
+              ) : (
+                <div className="mt-3 rounded-lg bg-amber-50 border border-amber-300 p-3">
+                  <p className="text-[12px] text-amber-900 flex items-start gap-2">
+                    <i className="bx bxs-error-circle text-base shrink-0 mt-px" />
+                    <span>
+                      {activa.webhook_url_error ||
+                        "No se pudo generar la URL de notificaciones en este servidor."}
+                    </span>
+                  </p>
+                </div>
+              )}
 
               <div className="mt-3 flex items-center justify-between text-xs">
                 <a

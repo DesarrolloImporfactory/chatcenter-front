@@ -106,19 +106,76 @@ const FIELD_DEFS = [
   { key: "cantidad", label: "Cantidad", icon: "bx-hash", col: 1 },
 ];
 
-// Garantiza un form completo con las 8 llaves (esto evita campos en blanco)
-const formFromItem = (it) => ({
-  nombre: it.datos?.nombre ?? "",
-  telefono: it.datos?.telefono ?? it.telefono ?? "",
-  provincia: it.datos?.provincia ?? "",
-  ciudad: it.datos?.ciudad ?? "",
-  direccion: it.datos?.direccion ?? "",
-  producto: it.datos?.producto ?? "",
-  producto_id: it.datos?.producto_id ?? "",
-  variedad: it.datos?.variedad ?? "",
-  precio: it.datos?.precio ?? "",
-  cantidad: it.datos?.cantidad ?? "1",
-});
+// Garantiza un form completo con todas las llaves (evita campos en blanco).
+// Si un intento anterior ya era multi-producto (datos.productos), se
+// prellenan los dos renglones tal como quedaron.
+const formFromItem = (it) => {
+  const arr = Array.isArray(it.datos?.productos) ? it.datos.productos : [];
+  const p1 = arr[0] || null;
+  const p2 = arr[1] || null;
+  return {
+    nombre: it.datos?.nombre ?? "",
+    telefono: it.datos?.telefono ?? it.telefono ?? "",
+    provincia: it.datos?.provincia ?? "",
+    ciudad: it.datos?.ciudad ?? "",
+    direccion: it.datos?.direccion ?? "",
+    producto: p1?.producto ?? it.datos?.producto ?? "",
+    producto_id: p1?.producto_id ?? it.datos?.producto_id ?? "",
+    variedad: p1?.variedad ?? it.datos?.variedad ?? "",
+    // Con dos renglones, `precio` es el del renglón 1 (el total se calcula);
+    // con uno, es el total del pedido, como siempre.
+    precio: p1 && p2 ? (p1.precio ?? "") : (it.datos?.precio ?? ""),
+    cantidad: p1?.cantidad ?? it.datos?.cantidad ?? "1",
+    _segundo: !!p2,
+    producto2: p2?.producto ?? "",
+    producto2_id: p2?.producto_id ?? "",
+    variedad2: p2?.variedad ?? "",
+    cantidad2: p2?.cantidad ?? "1",
+    precio2: p2?.precio ?? "",
+  };
+};
+
+/* Convierte el form en el datosBot que entiende el backend. Con un segundo
+   producto arma datosBot.productos (un renglón por producto, cada uno con su
+   precio) y el precio total del pedido = suma de los renglones. En modo de un
+   producto manda `productos: null` a propósito: el reintento sobre un log
+   mergea las correcciones ENCIMA de lo guardado, y sin ese null un intento
+   multi anterior dejaría renglones fantasma pegados al pedido. */
+const construirDatosBot = (f) => {
+  const {
+    _segundo,
+    producto2,
+    producto2_id,
+    variedad2,
+    cantidad2,
+    precio2,
+    ...base
+  } = f;
+  if (!_segundo || !producto2_id) return { ...base, productos: null };
+
+  const p1 = Number(base.precio) || 0;
+  const p2 = Number(precio2) || 0;
+  return {
+    ...base,
+    precio: String(Math.round((p1 + p2) * 100) / 100),
+    productos: [
+      {
+        producto: base.producto,
+        producto_id: base.producto_id,
+        cantidad: base.cantidad || "1",
+        variedad: base.variedad || "",
+        precio: base.precio,
+      },
+      {
+        producto: producto2,
+        producto_id: producto2_id,
+        cantidad: cantidad2 || "1",
+        variedad: variedad2 || "",
+        precio: precio2,
+      },
+    ],
+  };
+};
 
 const keyOf = (it) => it._key || it.id_log || `cli-${it.id_cliente}`;
 
@@ -252,6 +309,124 @@ function ProductoPicker({
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* Chips de variedad de UN producto. Antes vivía inline en el form; se extrae
+   porque el pedido puede llevar un segundo producto y los dos usan el mismo
+   selector. Guarda el texto con la cantidad de cada variedad ("Negro x2,
+   Cafe x1"), que es lo que sabe leer el motor. Para saber qué hay marcado se
+   busca cada opción del catálogo dentro del texto —el mismo criterio del
+   backend— en vez de partir la cadena: una variedad llamada "Blanco y Negro"
+   quedaría partida en dos. */
+function VariedadPicker({ opciones, texto, cantidadPedido, onChange }) {
+  const bajo = String(texto || "").toLowerCase();
+  const elegidas = opciones
+    .map((o) => o.valor)
+    .filter((v) => bajo.includes(String(v).toLowerCase()))
+    .map((v) => {
+      const esc = v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const m = bajo.match(new RegExp(`${esc.toLowerCase()}\\s*x\\s*(\\d+)`));
+      return { valor: v, qty: m ? Number(m[1]) : 1 };
+    });
+
+  const escribir = (lista) =>
+    onChange(lista.map((e) => `${e.valor} x${e.qty}`).join(", "));
+
+  const toggle = (valor) => {
+    const ya = elegidas.some(
+      (e) => e.valor.toLowerCase() === valor.toLowerCase(),
+    );
+    escribir(
+      ya
+        ? elegidas.filter((e) => e.valor.toLowerCase() !== valor.toLowerCase())
+        : [...elegidas, { valor, qty: 1 }],
+    );
+  };
+
+  const setQty = (valor, qty) =>
+    escribir(
+      elegidas.map((e) =>
+        e.valor.toLowerCase() === valor.toLowerCase()
+          ? { ...e, qty: Math.max(1, qty || 1) }
+          : e,
+      ),
+    );
+
+  const cant = Number(cantidadPedido) || 0;
+  const suma = elegidas.reduce((a, e) => a + e.qty, 0);
+  // El motor exige que el reparto sume exactamente las unidades del pedido.
+  const noCuadra = elegidas.length > 0 && suma !== cant;
+
+  return (
+    <div className="col-span-2">
+      <label className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1">
+        <i className="bx bx-palette" />
+        {opciones[0]?.atributo || "Variedad"}
+        <span className="text-rose-500">•</span>
+        <span className="font-normal text-gray-400">
+          — puedes marcar varias
+        </span>
+      </label>
+
+      <div className="flex flex-wrap gap-2">
+        {opciones.map((o) => {
+          const sel = elegidas.find(
+            (e) => e.valor.toLowerCase() === o.valor.toLowerCase(),
+          );
+          return (
+            <div
+              key={o.valor}
+              className={`inline-flex items-center gap-1 rounded-lg border transition ${
+                sel
+                  ? "border-indigo-400 bg-indigo-50"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggle(o.valor)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium ${
+                  sel ? "text-indigo-700" : "text-gray-700"
+                }`}
+              >
+                <i
+                  className={`bx ${sel ? "bx-check-circle" : "bx-circle"} text-base`}
+                />
+                {o.valor}
+              </button>
+
+              {/* Cuántas unidades de esta variedad. Solo aparece si está marcada. */}
+              {sel && (
+                <input
+                  type="number"
+                  min="1"
+                  value={sel.qty}
+                  onChange={(e) => setQty(o.valor, Number(e.target.value))}
+                  className="w-12 mr-1 px-1.5 py-1 text-sm text-center text-gray-900 bg-white border border-indigo-200 rounded-md outline-none focus:border-indigo-400"
+                  aria-label={`Unidades de ${o.valor}`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {!elegidas.length ? (
+        <p className="mt-1.5 text-[11px] text-rose-600">
+          Sin esto la orden no sube: elige la que pidió el cliente.
+        </p>
+      ) : noCuadra ? (
+        <p className="mt-1.5 text-[11px] text-amber-700">
+          El reparto suma {suma} y el pedido es de {cant} unidad(es). Ajusta
+          las cantidades de cada variedad o cambia la cantidad total.
+        </p>
+      ) : (
+        <p className="mt-1.5 text-[11px] text-gray-500">
+          Se despacha {elegidas.map((e) => `${e.qty} ${e.valor}`).join(" + ")}.
+        </p>
       )}
     </div>
   );
@@ -757,165 +932,14 @@ export default function AutoOrdenesFallidas({
                                 const opciones = prodSel?.variaciones || [];
                                 if (!opciones.length) return null;
 
-                                /* Se guarda como texto con la cantidad de cada
-                                   una ("Negro x2, Cafe x1"), que es lo que sabe
-                                   leer el motor. Para saber qué hay marcado se
-                                   busca cada opción del catálogo dentro del
-                                   texto —el mismo criterio del backend— en vez
-                                   de partir la cadena: una variedad llamada
-                                   "Blanco y Negro" quedaría partida en dos. */
-                                const texto = String(form.variedad || "");
-                                const bajo = texto.toLowerCase();
-                                const elegidas = opciones
-                                  .map((o) => o.valor)
-                                  .filter((v) =>
-                                    bajo.includes(String(v).toLowerCase()),
-                                  )
-                                  .map((v) => {
-                                    const esc = v.replace(
-                                      /[.*+?^${}()|[\]\\]/g,
-                                      "\\$&",
-                                    );
-                                    const m = bajo.match(
-                                      new RegExp(`${esc.toLowerCase()}\\s*x\\s*(\\d+)`),
-                                    );
-                                    return { valor: v, qty: m ? Number(m[1]) : 1 };
-                                  });
-
-                                const escribir = (lista) =>
-                                  setForm((f) => ({
-                                    ...f,
-                                    variedad: lista
-                                      .map((e) => `${e.valor} x${e.qty}`)
-                                      .join(", "),
-                                  }));
-
-                                const toggle = (valor) => {
-                                  const ya = elegidas.some(
-                                    (e) =>
-                                      e.valor.toLowerCase() ===
-                                      valor.toLowerCase(),
-                                  );
-                                  escribir(
-                                    ya
-                                      ? elegidas.filter(
-                                          (e) =>
-                                            e.valor.toLowerCase() !==
-                                            valor.toLowerCase(),
-                                        )
-                                      : [...elegidas, { valor, qty: 1 }],
-                                  );
-                                };
-
-                                const setQty = (valor, qty) =>
-                                  escribir(
-                                    elegidas.map((e) =>
-                                      e.valor.toLowerCase() ===
-                                      valor.toLowerCase()
-                                        ? { ...e, qty: Math.max(1, qty || 1) }
-                                        : e,
-                                    ),
-                                  );
-
-                                const cant = Number(form.cantidad) || 0;
-                                const suma = elegidas.reduce(
-                                  (a, e) => a + e.qty,
-                                  0,
-                                );
-                                // El motor exige que el reparto sume exactamente
-                                // las unidades del pedido.
-                                const noCuadra = elegidas.length > 0 && suma !== cant;
-
                                 return (
-                                  <div key="variedad" className="col-span-2">
-                                    <label className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1">
-                                      <i className="bx bx-palette" />
-                                      {opciones[0]?.atributo || "Variedad"}
-                                      <span className="text-rose-500">•</span>
-                                      <span className="font-normal text-gray-400">
-                                        — puedes marcar varias
-                                      </span>
-                                    </label>
-
-                                    <div className="flex flex-wrap gap-2">
-                                      {opciones.map((o) => {
-                                        const sel = elegidas.find(
-                                          (e) =>
-                                            e.valor.toLowerCase() ===
-                                            o.valor.toLowerCase(),
-                                        );
-                                        return (
-                                          <div
-                                            key={o.valor}
-                                            className={`inline-flex items-center gap-1 rounded-lg border transition ${
-                                              sel
-                                                ? "border-indigo-400 bg-indigo-50"
-                                                : "border-gray-200 bg-white hover:border-gray-300"
-                                            }`}
-                                          >
-                                            <button
-                                              type="button"
-                                              onClick={() => toggle(o.valor)}
-                                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium ${
-                                                sel
-                                                  ? "text-indigo-700"
-                                                  : "text-gray-700"
-                                              }`}
-                                            >
-                                              <i
-                                                className={`bx ${
-                                                  sel
-                                                    ? "bx-check-circle"
-                                                    : "bx-circle"
-                                                } text-base`}
-                                              />
-                                              {o.valor}
-                                            </button>
-
-                                            {/* Cuántas unidades de esta variedad.
-                                                Solo aparece si está marcada. */}
-                                            {sel && (
-                                              <input
-                                                type="number"
-                                                min="1"
-                                                value={sel.qty}
-                                                onChange={(e) =>
-                                                  setQty(
-                                                    o.valor,
-                                                    Number(e.target.value),
-                                                  )
-                                                }
-                                                className="w-12 mr-1 px-1.5 py-1 text-sm text-center text-gray-900 bg-white border border-indigo-200 rounded-md outline-none focus:border-indigo-400"
-                                                aria-label={`Unidades de ${o.valor}`}
-                                              />
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-
-                                    {!elegidas.length ? (
-                                      <p className="mt-1.5 text-[11px] text-rose-600">
-                                        Sin esto la orden no sube: elige la que
-                                        pidió el cliente.
-                                      </p>
-                                    ) : noCuadra ? (
-                                      <p className="mt-1.5 text-[11px] text-amber-700">
-                                        El reparto suma {suma} y el pedido es de{" "}
-                                        {cant} unidad(es). Ajusta las cantidades
-                                        de cada variedad o cambia la cantidad
-                                        total.
-                                      </p>
-                                    ) : (
-                                      <p className="mt-1.5 text-[11px] text-gray-500">
-                                        Se despacha{" "}
-                                        {elegidas
-                                          .map((e) => `${e.qty} ${e.valor}`)
-                                          .join(" + ")}
-                                        .
-                                      </p>
-                                    )}
-                                  </div>
+                                  <VariedadPicker
+                                    key="variedad"
+                                    opciones={opciones}
+                                    texto={form.variedad}
+                                    cantidadPedido={form.cantidad}
+                                    onChange={(t) => setField("variedad", t)}
+                                  />
                                 );
                               }
 
@@ -926,7 +950,12 @@ export default function AutoOrdenesFallidas({
                                 >
                                   <label className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1">
                                     <i className={`bx ${fd.icon}`} />
-                                    {fd.label}
+                                    {/* Con segundo producto, el precio deja de
+                                        ser el total: es el del renglón 1 y el
+                                        total se calcula abajo. */}
+                                    {fd.key === "precio" && form._segundo
+                                      ? "Precio producto 1"
+                                      : fd.label}
                                     {highlight && (
                                       <span className="text-rose-500">•</span>
                                     )}
@@ -948,9 +977,142 @@ export default function AutoOrdenesFallidas({
                             })}
                           </div>
 
+                          {/* ── Segundo producto (opcional) ──
+                              Dropi acepta la orden con dos productos siempre
+                              que salgan de la MISMA bodega; el backend valida
+                              eso y, si no, la rechaza con el motivo claro. */}
+                          {!form._segundo ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setForm((f) => ({ ...f, _segundo: true }))
+                              }
+                              className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-indigo-300 text-indigo-600 text-xs font-semibold hover:bg-indigo-50 transition"
+                            >
+                              <i className="bx bx-plus" />
+                              Agregar segundo producto (misma bodega)
+                            </button>
+                          ) : (
+                            <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wide">
+                                  <i className="bx bx-package mr-1" />
+                                  Segundo producto
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setForm((f) => ({
+                                      ...f,
+                                      _segundo: false,
+                                      producto2: "",
+                                      producto2_id: "",
+                                      variedad2: "",
+                                      cantidad2: "1",
+                                      precio2: "",
+                                    }))
+                                  }
+                                  className="text-[11px] text-gray-400 hover:text-rose-600 inline-flex items-center gap-1"
+                                >
+                                  <i className="bx bx-trash" />
+                                  Quitar
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <ProductoPicker
+                                  productos={productos}
+                                  valueId={form.producto2_id}
+                                  nombreBot={form.producto2}
+                                  highlight={!form.producto2_id}
+                                  onSelect={(p) =>
+                                    setForm((f) => ({
+                                      ...f,
+                                      producto2_id: p.id,
+                                      producto2: p.nombre,
+                                      // Cambiar de producto invalida la
+                                      // variedad elegida: las opciones son otras.
+                                      variedad2: "",
+                                      precio2:
+                                        p.precio != null
+                                          ? String(p.precio)
+                                          : f.precio2,
+                                    }))
+                                  }
+                                />
+
+                                {(() => {
+                                  const prodSel2 = productos.find(
+                                    (p) =>
+                                      String(p.id) ===
+                                      String(form.producto2_id),
+                                  );
+                                  const opciones2 = prodSel2?.variaciones || [];
+                                  if (!opciones2.length) return null;
+                                  return (
+                                    <VariedadPicker
+                                      opciones={opciones2}
+                                      texto={form.variedad2}
+                                      cantidadPedido={form.cantidad2}
+                                      onChange={(t) =>
+                                        setField("variedad2", t)
+                                      }
+                                    />
+                                  );
+                                })()}
+
+                                <div>
+                                  <label className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1">
+                                    <i className="bx bx-dollar" />
+                                    Precio producto 2
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={form.precio2 ?? ""}
+                                    onChange={(e) =>
+                                      setField("precio2", e.target.value)
+                                    }
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#171931]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1">
+                                    <i className="bx bx-hash" />
+                                    Cantidad
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={form.cantidad2 ?? ""}
+                                    onChange={(e) =>
+                                      setField("cantidad2", e.target.value)
+                                    }
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#171931]"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-between text-[11px]">
+                                <span className="text-gray-500">
+                                  Ambos productos deben salir de la misma
+                                  bodega en Dropi.
+                                </span>
+                                <span className="font-bold text-gray-800">
+                                  Total del pedido: $
+                                  {(
+                                    Math.round(
+                                      ((Number(form.precio) || 0) +
+                                        (Number(form.precio2) || 0)) *
+                                        100,
+                                    ) / 100
+                                  ).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2 mt-4">
                             <button
-                              onClick={() => submit(it, form)}
+                              onClick={() => submit(it, construirDatosBot(form))}
                               disabled={isSubmitting}
                               className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold shadow hover:opacity-95 transition disabled:opacity-60"
                             >
