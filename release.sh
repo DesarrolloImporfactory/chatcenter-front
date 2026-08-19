@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
-# release.sh - Genera la siguiente version y publica el tag que dispara
-#              el workflow "Release and deploy production"
-#              (.github/workflows/release.yml).
+# release.sh - Genera la siguiente version: actualiza package.json,
+#              crea el commit chore(release) y el tag anotado vX.Y.Z.
+#
+#              El despliegue NO depende del tag: se dispara con cada push
+#              a main (.github/workflows/production.yml).
 #
 set -euo pipefail
 
@@ -28,7 +30,7 @@ Opciones:
   --semver        Reinicia los segmentos inferiores (1.0.2 middle -> 1.1.0)
   --dry-run       Muestra lo que haria, sin tocar nada
   -y, --yes       No pide confirmacion
-  --no-push       Crea commit y tag locales, no hace push (no despliega)
+  --no-push       Crea commit y tag locales, no hace push
   --allow-dirty   Permite continuar con cambios sin commitear
   -h, --help      Muestra esta ayuda
 
@@ -39,7 +41,8 @@ Ejemplos:
   ./release.sh minor --dry-run    # simulacion
   ./release.sh --set 2.0.0        # version exacta
 
-El push del tag vX.Y.Z dispara el release de produccion en GitHub Actions.
+Ojo: sobre main, el push del commit chore(release) dispara un despliegue
+de produccion. Usa --no-push, o ejecutalo sobre develop, para solo versionar.
 
 EOF
     exit 1
@@ -167,12 +170,12 @@ echo " Push a origin   : ${push_label}"
 echo "=============================================="
 echo ""
 
-if [[ "$branch" != "main" ]]; then
-    warn "Estas en '${branch}'. Produccion normalmente se libera desde 'main'."
-fi
-
 if [[ $do_push -eq 1 && $dry_run -eq 0 ]]; then
-    warn "El push de ${new_tag} DESPLIEGA A PRODUCCION (chatcenter.imporfactory.app)."
+    if [[ "$branch" == "main" ]]; then
+        warn "Estas en 'main': el push DESPLIEGA A PRODUCCION (chatcenter.imporfactory.app)."
+    elif [[ "$branch" == "develop" ]]; then
+        warn "Estas en 'develop': el push despliega a desarrollo (dev.imporfactory.app)."
+    fi
 fi
 
 if [[ $assume_yes -eq 0 && $dry_run -eq 0 ]]; then
@@ -240,10 +243,9 @@ echo ""
 if [[ $dry_run -eq 1 ]]; then
     ok "Simulacion completada. Version resultante: ${new_version}"
 else
-    ok "Release ${new_tag} generado."
+    ok "Version ${new_version} generada (tag ${new_tag})."
     if [[ $do_push -eq 1 ]]; then
-        echo "  Workflow : https://github.com/DesarrolloImporfactory/chatcenter-front/actions"
-        echo "  Release  : https://github.com/DesarrolloImporfactory/chatcenter-front/releases/tag/${new_tag}"
+        echo "  Workflows: https://github.com/DesarrolloImporfactory/chatcenter-front/actions"
     fi
 fi
 echo ""

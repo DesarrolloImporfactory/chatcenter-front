@@ -1,0 +1,83 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Create production environment file
+        env:
+          PROD_FRONT_ENV: ${{ secrets.PROD_FRONT_ENV }}
+        run: printf '%s\n' "$PROD_FRONT_ENV" > .env
+
+      - name: Build application
+        run: npm run build
+
+      - name: Configure production SSH key
+        env:
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' '98.91.50.83 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIqqEOVvNtSMXGB74E/IAHp50rZSfIaZ9DEBvP7TPfnv' > ~/.ssh/known_hosts
+
+      - name: Publish bundle to production
+        run: |
+          rsync --archive --compress --delete --delay-updates \
+            --no-owner --no-group --omit-dir-times --chmod=D755,F644 \
+            --backup --backup-dir="/var/www/chatcenter-front/releases/${GITHUB_SHA:0:7}" \
+            dist/ deploychatcenter@98.91.50.83:/var/www/chatcenter-front/dist/
+
+      - name: Verify production site
+        shell: bash
+        run: |
+          html="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 https://chatcenter.imporfactory.app/)"
+
+          bundle="$(grep -oE '/assets/[A-Za-z0-9._-]+\.js' <<< "$html" | head -1)"
+          if [[ -z "$bundle" ]]; then
+            echo "No se encontro ningun bundle JS en index.html."
+            exit 1
+          fi
+
+          type="$(curl --fail --silent --show-error --output /dev/null \
+            --write-out '%{content_type}' "https://chatcenter.imporfactory.app${bundle}")"
+          echo "Bundle publicado: ${bundle} (${type})"
+
+          case "$type" in
+            *javascript*)
+              echo "Verificacion correcta."
+              ;;
+            *)
+              echo "El bundle ${bundle} no se sirve como JavaScript (content-type: ${type})."
+              echo "El despliegue quedo incompleto: index.html es nuevo pero sus assets no se copiaron."
+              exit 1
+              ;;
+          esac
