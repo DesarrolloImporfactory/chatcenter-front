@@ -9,6 +9,24 @@ import useCreateAliclikOrder from "../../hooks/useCreateAliclikOrder";
 import { fmtDate } from "../../utils/orderHelper";
 
 /**
+ * Placeholder para el producto sin foto.
+ *
+ * No se usa el `NO_IMAGE` de orderHelper porque ese apunta a
+ * `app.dropi.ec/assets/utils/no-image.jpg`: en el panel de Aliclik quedaba una
+ * imagen servida por Dropi. Este va embebido, así que además no depende de que
+ * un host ajeno responda.
+ */
+const SIN_IMAGEN =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+       <rect width="96" height="96" fill="#1b2432"/>
+       <path d="M24 62l14-16 10 11 8-8 16 13z" fill="#3d4a60"/>
+       <circle cx="36" cy="34" r="7" fill="#3d4a60"/>
+     </svg>`,
+  );
+
+/**
  * Bloque "Pedidos de Aliclik" dentro del panel del cliente.
  *
  * Es el equivalente del bloque de órdenes de Dropi, pero con menos acciones
@@ -187,40 +205,106 @@ export default function AliclikOrdersSection({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {orders.map((o) => (
-                    <button
-                      key={o.order_number}
-                      type="button"
-                      onClick={() => setSelectedOrder(o)}
-                      // Mismo contenedor que las tarjetas de OrderList (Dropi);
-                      // solo cambia el color del hover, que marca la plataforma.
-                      className="group w-full text-left rounded-[10px] bg-[#0f1629] border border-white/[0.08] overflow-hidden transition-all hover:border-cyan-400/25 px-3.5 py-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-bold text-white tracking-tight truncate">
-                            {o.order_number}
-                          </p>
-                          <p className="text-[10px] text-white/40 mt-0.5 truncate">
-                            {fmtDate(o.order_created_at)}
-                            {[o.city, o.state].filter(Boolean).length
-                              ? ` · ${[o.city, o.state].filter(Boolean).join(", ")}`
-                              : ""}
-                          </p>
+                  {orders.map((o) => {
+                    const prods = o.productos || [];
+                    const primero = prods[0] || null;
+                    const unidades = prods.reduce(
+                      (acc, p) => acc + (Number(p.quantity) || 0),
+                      0,
+                    );
+                    return (
+                      <button
+                        key={o.order_number}
+                        type="button"
+                        onClick={() => setSelectedOrder(o)}
+                        // Misma estructura que las tarjetas de OrderList
+                        // (Dropi): cabecera, fila de producto y fila de datos.
+                        // Solo cambia el color del hover, que marca plataforma.
+                        className="group w-full text-left rounded-[10px] bg-[#0f1629] border border-white/[0.08] overflow-hidden transition-all hover:border-cyan-400/25"
+                      >
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2 px-3.5 pt-3 pb-0">
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-bold text-white tracking-tight truncate">
+                              {o.order_number}
+                            </p>
+                            <p className="text-[10px] text-white/40 mt-0.5 truncate">
+                              {fmtDate(o.order_created_at)}
+                              {[o.city, o.state].filter(Boolean).length
+                                ? ` · ${[o.city, o.state].filter(Boolean).join(", ")}`
+                                : ""}
+                            </p>
+                          </div>
+                          <div className="shrink-0">
+                            <EstadoBadge estado={o.status} />
+                          </div>
                         </div>
-                        <EstadoBadge estado={o.status} />
-                      </div>
 
-                      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-white/[0.06]">
-                        <span className="text-[10px] text-white/45 truncate max-w-[60%]">
-                          {o.productos?.[0]?.name || "—"}
-                        </span>
-                        <span className="text-[12px] font-bold text-white tracking-tight shrink-0">
-                          {soles(o.total_order)}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                        {/* Producto */}
+                        <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+                          <img
+                            src={primero?.image || SIN_IMAGEN}
+                            alt="Producto"
+                            className="h-[42px] w-[42px] rounded-lg object-cover bg-white/[0.04] border border-white/[0.08] shrink-0"
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = SIN_IMAGEN;
+                            }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-semibold text-white/90 truncate">
+                              {primero?.name || "—"}
+                            </p>
+                            {/* Un pedido puede llevar varios productos: la
+                                tarjeta muestra el primero y avisa cuántos más,
+                                igual que en Dropi. El detalle los lista todos. */}
+                            {prods.length > 1 && (
+                              <p className="text-[10px] text-cyan-300/80 mt-0.5 font-semibold">
+                                +{prods.length - 1} producto
+                                {prods.length - 1 === 1 ? "" : "s"} más
+                              </p>
+                            )}
+                          </div>
+                          {unidades > 0 && (
+                            <span className="text-[10px] font-semibold text-white/55 bg-white/[0.06] px-2.5 py-1 rounded shrink-0">
+                              ×{unidades}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Stats row. Aliclik no expone transportadora ni monto
+                            de envío en el pedido, así que en su lugar van los
+                            dos ejes de estado que sí explican dónde está. */}
+                        <div className="flex border-t border-white/[0.06]">
+                          <div className="flex-1 px-3.5 py-2 border-r border-white/[0.06]">
+                            <p className="text-[9px] uppercase tracking-wider text-white/40">
+                              Total
+                            </p>
+                            <p className="text-[12px] font-semibold text-white mt-0.5">
+                              {soles(o.total_order)}
+                            </p>
+                          </div>
+                          <div className="flex-1 px-3.5 py-2 border-r border-white/[0.06]">
+                            <p className="text-[9px] uppercase tracking-wider text-white/40">
+                              Llamada
+                            </p>
+                            <p className="text-[11px] text-white/60 mt-0.5 truncate">
+                              {o.call_status || "—"}
+                            </p>
+                          </div>
+                          <div className="flex-1 px-3.5 py-2">
+                            <p className="text-[9px] uppercase tracking-wider text-white/40">
+                              Despacho
+                            </p>
+                            <p className="text-[11px] text-white/60 mt-0.5 truncate">
+                              {o.dispatch_status || "—"}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -265,38 +349,132 @@ export default function AliclikOrdersSection({
             ))}
           </div>
 
-          <div className="px-3.5 pt-3 space-y-1">
-            {[
-              [
-                "Cliente",
-                [selectedOrder.name, selectedOrder.surname]
-                  .filter(Boolean)
-                  .join(" "),
-              ],
-              ["Teléfono", selectedOrder.phone],
-              ["Dirección", selectedOrder.dir],
-              [
-                "Destino",
-                [selectedOrder.city, selectedOrder.state]
-                  .filter(Boolean)
-                  .join(", "),
-              ],
-              ["Productos", selectedOrder.productos?.[0]?.name],
-            ].map(([label, valor]) => (
+          {/* ═══ Producto(s) ═══
+              Se pinta un renglón por ítem, como en el detalle de Dropi: un
+              pedido de dos productos mostrando solo el primero parece haber
+              subido incompleto. */}
+          <div className="mt-3 border-t border-white/[0.06]">
+            <div className="px-3.5 pt-2.5 pb-2">
+              <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">
+                {(selectedOrder.productos || []).length > 1
+                  ? `Productos (${selectedOrder.productos.length})`
+                  : "Producto"}
+              </span>
+            </div>
+            {((selectedOrder.productos || []).length
+              ? selectedOrder.productos
+              : [null]
+            ).map((p, i) => (
               <div
-                key={label}
-                className="flex justify-between gap-2 text-[10px]"
+                key={i}
+                className={`flex items-center gap-3 px-3.5 pb-3 ${
+                  i > 0 ? "pt-3 border-t border-white/[0.06]" : ""
+                }`}
               >
-                <span className="text-white/30 shrink-0">{label}</span>
-                <span className="text-white/70 text-right truncate">
-                  {valor || "—"}
-                </span>
+                <img
+                  src={p?.image || SIN_IMAGEN}
+                  alt="Producto"
+                  className="h-[50px] w-[50px] rounded-lg object-cover bg-white/[0.04] border border-white/[0.08] shrink-0"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = SIN_IMAGEN;
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-white/90 truncate">
+                    {p?.name || "—"}
+                  </p>
+                  <div className="flex gap-3 mt-1">
+                    {p?.quantity != null && (
+                      <span className="text-[10px] text-white/50">
+                        Cant:{" "}
+                        <span className="font-semibold text-white/80">
+                          {p.quantity}
+                        </span>
+                      </span>
+                    )}
+                    {p?.price != null && Number(p.price) > 0 && (
+                      <span className="text-[10px] text-white/50">
+                        P. unit:{" "}
+                        <span className="font-semibold text-white/80">
+                          {soles(p.price)}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {p?.subtotal != null && Number(p.subtotal) > 0 && (
+                  <span className="text-[12px] font-semibold text-white/80 shrink-0">
+                    {soles(p.subtotal)}
+                  </span>
+                )}
               </div>
             ))}
+          </div>
 
-            <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
-              <span>Total</span>
-              <span>{soles(selectedOrder.total_order)}</span>
+          {/* ═══ Resumen ═══ */}
+          <div className="flex border-t border-white/[0.06]">
+            <div className="flex-1 px-3.5 py-2.5 border-r border-white/[0.06]">
+              <p className="text-[9px] uppercase tracking-wider text-white/40">
+                Total
+              </p>
+              <p className="text-[14px] font-bold text-white mt-0.5">
+                {soles(selectedOrder.total_order)}
+              </p>
+            </div>
+            <div className="flex-1 px-3.5 py-2.5 border-r border-white/[0.06]">
+              <p className="text-[9px] uppercase tracking-wider text-white/40">
+                Agente
+              </p>
+              <p className="text-[12px] text-white/70 mt-0.5 font-medium truncate">
+                {selectedOrder.agent_assigned || "—"}
+              </p>
+            </div>
+            <div className="flex-1 px-3.5 py-2.5">
+              <p className="text-[9px] uppercase tracking-wider text-white/40">
+                Tienda
+              </p>
+              <p className="text-[12px] text-white/70 mt-0.5 font-medium truncate">
+                {selectedOrder.shop_name || "Aliclik"}
+              </p>
+            </div>
+          </div>
+
+          {/* ═══ Datos del cliente ═══ */}
+          <div className="border-t border-white/[0.06]">
+            <div className="px-3.5 pt-2.5 pb-2">
+              <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold">
+                Datos del cliente
+              </span>
+            </div>
+            <div className="px-3.5 pb-3 space-y-1">
+              {[
+                [
+                  "Nombre",
+                  [selectedOrder.name, selectedOrder.surname]
+                    .filter(Boolean)
+                    .join(" "),
+                ],
+                ["Teléfono", selectedOrder.phone],
+                ["Dirección", selectedOrder.dir],
+                [
+                  "Destino",
+                  [selectedOrder.city, selectedOrder.state]
+                    .filter(Boolean)
+                    .join(", "),
+                ],
+              ].map(([label, valor]) => (
+                <div
+                  key={label}
+                  className="flex justify-between gap-2 text-[10px]"
+                >
+                  <span className="text-white/30 shrink-0">{label}</span>
+                  <span className="text-white/70 text-right truncate">
+                    {valor || "—"}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 

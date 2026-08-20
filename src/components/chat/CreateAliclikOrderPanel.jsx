@@ -67,6 +67,9 @@ export default function CreateAliclikOrderPanel({ hook, onClose }) {
     warehouseName,
     totalProductos,
     totalPedido,
+    totalCostoProveedor,
+    fleteAsumido,
+    utilidad,
     phoneInput,
     setPhoneInput,
     name,
@@ -701,6 +704,7 @@ export default function CreateAliclikOrderPanel({ hook, onClose }) {
             <span className={headerCls}>Resumen del pedido</span>
           </div>
           <div className="px-3.5 pb-3 space-y-1">
+            {/* Una línea por producto, igual que el resumen de Dropi */}
             {productsCart.map((p) => (
               <div
                 key={p.ean}
@@ -717,6 +721,7 @@ export default function CreateAliclikOrderPanel({ hook, onClose }) {
               <span>Productos</span>
               <span>{soles(totalProductos)}</span>
             </div>
+
             <div className="flex justify-between text-[11px] text-white/45">
               <span>
                 Envío
@@ -727,10 +732,39 @@ export default function CreateAliclikOrderPanel({ hook, onClose }) {
               <span>{soles(deliveryCharge)}</span>
             </div>
 
+            {/* Costo del proveedor: sale del dropPrice del catálogo de Aliclik.
+                Es el equivalente del sale_price de Dropi. */}
+            {totalCostoProveedor > 0 && (
+              <div className="flex justify-between text-[11px] text-rose-300/70">
+                <span>Costo proveedor</span>
+                <span>−{soles(totalCostoProveedor)}</span>
+              </div>
+            )}
+
+            {/* Flete que absorbe la tienda: solo aparece si le cobra al cliente
+                menos de lo que cuesta el courier (envío gratis o negociado). */}
+            {fleteAsumido > 0 && (
+              <div className="flex justify-between text-[11px] text-amber-300/70">
+                <span>Flete asumido</span>
+                <span>−{soles(fleteAsumido)}</span>
+              </div>
+            )}
+
             <div className="flex justify-between text-[14px] font-bold text-white pt-2 mt-1 border-t border-white/[0.06] tracking-tight">
               <span>Total a cobrar al cliente</span>
               <span>{soles(totalPedido)}</span>
             </div>
+
+            {utilidad !== null && (
+              <div
+                className={`flex justify-between text-[13px] font-bold pt-1 ${
+                  utilidad > 0 ? "text-emerald-300" : "text-rose-400"
+                }`}
+              >
+                <span>Utilidad</span>
+                <span>{soles(utilidad)}</span>
+              </div>
+            )}
 
             {notes?.trim() && (
               <div className="flex justify-between text-[10px] text-white/35 pt-1">
