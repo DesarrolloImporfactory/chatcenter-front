@@ -148,6 +148,36 @@ export default function useCreateAliclikOrder({
     [totalProductos, deliveryCharge],
   );
 
+  /**
+   * Costo del proveedor y utilidad, igual que en el resumen de Dropi.
+   *
+   * `drop_price` es lo que Aliclik le cobra al dropshipper por el producto; la
+   * diferencia con el precio de venta es la ganancia, menos el flete que el
+   * asesor decida absorber (si le cobra el envío completo al cliente,
+   * deliveryCharge = deliveryCost y el flete no le resta nada).
+   */
+  const totalCostoProveedor = useMemo(
+    () =>
+      productsCart.reduce(
+        (acc, p) => acc + money(p.drop_price) * Number(p.quantity || 1),
+        0,
+      ),
+    [productsCart],
+  );
+
+  const fleteAsumido = useMemo(
+    () => money(selectedCourier?.deliveryCost) - money(deliveryCharge),
+    [selectedCourier, deliveryCharge],
+  );
+
+  // null cuando no hay con qué calcularla (sin costo de proveedor conocido):
+  // así el resumen la oculta en vez de mostrar una utilidad falsa.
+  const utilidad = useMemo(() => {
+    if (!productsCart.length) return null;
+    if (totalCostoProveedor <= 0) return null;
+    return totalProductos - totalCostoProveedor - Math.max(0, fleteAsumido);
+  }, [productsCart, totalProductos, totalCostoProveedor, fleteAsumido]);
+
   /* ═══════════════════════════════════════════════════════════
      Catálogo
      ═══════════════════════════════════════════════════════════ */
@@ -218,6 +248,10 @@ export default function useCreateAliclikOrder({
               precio !== null && precio !== undefined
                 ? money(precio)
                 : money(sku.regular_price),
+            // Lo que le cuesta el producto al dropshipper. Es el equivalente
+            // del `sale_price` de Dropi y lo que permite calcular la utilidad
+            // en el resumen.
+            drop_price: money(sku.drop_price),
           },
         ];
       });
@@ -562,6 +596,9 @@ export default function useCreateAliclikOrder({
     warehouseName,
     totalProductos,
     totalPedido,
+    totalCostoProveedor,
+    fleteAsumido,
+    utilidad,
 
     // cliente
     phoneInput,
