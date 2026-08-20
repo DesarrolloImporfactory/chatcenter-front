@@ -227,11 +227,13 @@ export function CrearUsuarioForm({
     if (res?.webhook && !res.webhook.enviado) {
       avisos.push(`El webhook no se envió: ${res.webhook.error ?? "error desconocido"}`);
     }
-    // La encuesta de satisfacción también es best-effort: si no salió, el
-    // cliente no la va a recibir y conviene saberlo.
-    if (res?.encuesta && !res.encuesta.enviado) {
+    // La encuesta del Club también es best-effort: si no salió, el cliente no
+    // la va a recibir y conviene saberlo. `omitida` no es un fallo: sale solo
+    // en ventas de importaciones, así que en Ecommerce o Kit no corresponde y
+    // avisarlo solo asusta al asesor.
+    if (res?.encuesta && !res.encuesta.enviado && !res.encuesta.omitida) {
       avisos.push(
-        `La encuesta de satisfacción no se envió: ${res.encuesta.error ?? "error desconocido"}`,
+        `La encuesta del Club no se envió: ${res.encuesta.error ?? "error desconocido"}`,
       );
     }
 
