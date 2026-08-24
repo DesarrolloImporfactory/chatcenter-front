@@ -1489,15 +1489,19 @@ const TabAsistenteAdmin = ({
           >
             <div>
               <label style={lbl}>Modelo OpenAI</label>
+              {/* Misma oferta de modelos que ve el cliente en TabAsistente:
+                  lo que se publique en la plantilla debe existir allá. */}
               <select
                 value={col.modelo || "gpt-4o-mini"}
                 onChange={(e) => onChange("modelo", e.target.value)}
                 style={inp}
               >
-                <option value="gpt-4o-mini">gpt-4o-mini (recomendado)</option>
-                <option value="gpt-4o">gpt-4o</option>
-                <option value="gpt-4-turbo">gpt-4-turbo</option>
-                <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                <option value="gpt-5-mini">gpt-5-mini (recomendado)</option>
+                <option value="gpt-5-nano">gpt-5-nano (el más económico)</option>
+                <option value="gpt-4o-mini">gpt-4o-mini (estándar anterior)</option>
+                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                <option value="gpt-4o">gpt-4o (premium)</option>
+                <option value="gpt-3.5-turbo">gpt-3.5-turbo (legado)</option>
               </select>
             </div>
             <div>
