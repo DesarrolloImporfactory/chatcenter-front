@@ -155,7 +155,7 @@ const Cabecera = ({
   }, [userData]);
 
   useEffect(() => {
-    if (["/productos", "/categorias"].includes(location.pathname)) {
+    if (["/productos", "/productos2", "/categorias"].includes(location.pathname)) {
       setOpenMenu("productos");
     } else if (
       location.pathname.startsWith("/pedidos") ||
@@ -1171,6 +1171,7 @@ const Cabecera = ({
               onClick={() => toggleMenu("productos")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                 location.pathname === "/productos" ||
+                location.pathname === "/productos2" ||
                 location.pathname === "/categorias" ||
                 location.pathname === "/catalogos"
                   ? "bg-gray-200 font-semibold"
@@ -1196,6 +1197,8 @@ const Cabecera = ({
               style={{ maxHeight: openMenu === "productos" ? "220px" : "0px" }}
             >
               <div className="ml-10 flex flex-col py-2">
+                {/* /productos ya es la vista nueva (bot por producto). La
+                    vieja vive en /productos-antiguo, sin entrada de menú. */}
                 <a
                   href="/productos"
                   onClick={(e) => handleNavClick(e, "/productos")}

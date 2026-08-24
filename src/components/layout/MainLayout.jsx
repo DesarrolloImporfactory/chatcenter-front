@@ -287,7 +287,7 @@ function MainLayout({ children }) {
   // Auto abrir menús por ruta
   // =========================================================
   useEffect(() => {
-    if (["/productos", "/categorias"].includes(location.pathname)) {
+    if (["/productos", "/productos2", "/categorias"].includes(location.pathname)) {
       setOpenMenu("productos");
     } else if (
       location.pathname.startsWith("/pedidos") ||
@@ -881,6 +881,7 @@ function MainLayout({ children }) {
                 onClick={() => toggleMenu("productos")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   location.pathname === "/productos" ||
+                  location.pathname === "/productos2" ||
                   location.pathname === "/categorias" ||
                   location.pathname === "/catalogos"
                     ? "bg-gray-200 font-semibold"
@@ -903,10 +904,12 @@ function MainLayout({ children }) {
               <div
                 className="overflow-hidden transition-all duration-[600ms] ease-out"
                 style={{
-                  maxHeight: openMenu === "productos" ? "220px" : "0px",
+                  maxHeight: openMenu === "productos" ? "260px" : "0px",
                 }}
               >
                 <div className="ml-10 flex flex-col py-2">
+                  {/* /productos ya es la vista nueva (bot por producto). La
+                      vieja vive en /productos-antiguo, sin entrada de menú. */}
                   <a
                     href="/productos"
                     onClick={(e) => handleNavClick(e, "/productos")}

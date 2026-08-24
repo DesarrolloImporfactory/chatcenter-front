@@ -11,6 +11,7 @@ import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
 import PersonalizarPromptModal from "./modales/PersonalizarPromptModal";
 import ChatPruebaModal from "./ChatPruebaModal";
+import ChatRealModal from "./ChatRealModal";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -32,24 +33,43 @@ const NOMBRE_PAIS = {
   GT: "Guatemala",
 };
 
+/* El modelo se elige UNA vez por columna y lo usa el asistente en todos los
+   turnos con IA de esa columna (el mensaje fijo y las respuestas rápidas de
+   los productos configurados no gastan tokens). El costo es por RESPUESTA,
+   estimado para una respuesta típica (~12k tokens de contexto entre prompt,
+   catálogo e historial, más una respuesta corta) con los precios públicos de
+   OpenAI; la factura real la da OpenAI. */
 const MODELOS = [
   {
-    value: "gpt-4o",
-    label: "GPT-4o",
-    desc: "Más potente y preciso",
-    color: "#6366f1",
+    value: "gpt-5-mini",
+    label: "GPT-5 mini",
+    desc: "Recomendado. ≈ $0.004 por respuesta (unas 250 por dólar). Sigue mejor guiones largos y cierra mejor",
+    color: "#4f46e5",
+    recomendado: true,
+  },
+  {
+    value: "gpt-5-nano",
+    label: "GPT-5 nano",
+    desc: "El más económico: ≈ $0.0008 por respuesta (unas 1.200 por dólar). Ideal para mucho volumen y flujos cortos",
+    color: "#0ea5e9",
   },
   {
     value: "gpt-4o-mini",
     label: "GPT-4o mini",
-    desc: "Rápido y económico",
+    desc: "El estándar actual: ≈ $0.002 por respuesta (unas 500 por dólar). Rápido y confiable",
     color: "#10b981",
   },
   {
-    value: "gpt-3.5-turbo",
-    label: "GPT-3.5 Turbo",
-    desc: "Básico, muy económico",
+    value: "gpt-4.1-mini",
+    label: "GPT-4.1 mini",
+    desc: "≈ $0.005 por respuesta (unas 200 por dólar). Mayor precisión en instrucciones largas",
     color: "#f59e0b",
+  },
+  {
+    value: "gpt-4o",
+    label: "GPT-4o",
+    desc: "≈ $0.03 por respuesta (unas 30 por dólar). El más potente; conviene solo con poco volumen",
+    color: "#64748b",
   },
 ];
 
@@ -92,6 +112,9 @@ const TabAsistente = ({
   const disparaGenerarGuia = tieneAccionGenerarGuia && !esColumnaDropiPrincipal;
   // ── Chat de pruebas ──────────────────────────────────────
   const [showChat, setShowChat] = useState(false);
+  // "Probar como cliente real": inyecta mensajes por el webhook de WhatsApp en
+  // el servidor al que apunta el panel y muestra las respuestas reales.
+  const [showChatReal, setShowChatReal] = useState(false);
   const [chatMensajes, setChatMensajes] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -972,6 +995,37 @@ const TabAsistente = ({
 
   return (
     <div style={{ padding: 24 }}>
+      {/* Cuenta sin API Key: el prompt se muestra igual (vive en BD), pero el
+          bot no puede responder hasta que vuelvan a conectar una key. */}
+      {asistente?.sin_api_key ? (
+        <div
+          style={{
+            padding: "12px 16px",
+            borderRadius: 12,
+            background: "#fffbeb",
+            border: "1px solid #fde68a",
+            color: "#92400e",
+            fontSize: "0.86rem",
+            display: "flex",
+            gap: 10,
+            alignItems: "flex-start",
+            marginBottom: 16,
+          }}
+        >
+          <i
+            className="bx bx-error-circle"
+            style={{ fontSize: "1.15rem", flexShrink: 0, marginTop: 1 }}
+          />
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 2 }}>
+              Esta cuenta no tiene API Key de OpenAI
+            </div>
+            El asistente no puede responder ni usar archivos hasta que conectes
+            una key en <b>Asistentes</b>. La configuración de esta etapa se
+            conserva.
+          </div>
+        </div>
+      ) : null}
       {/* Toggle IA */}
       <div
         style={{
@@ -1435,6 +1489,26 @@ const TabAsistente = ({
                 <i className="bx bx-chat" />
                 {showChat ? "Cerrar chat" : "Probar asistente"}
               </button>
+              <button
+                onClick={() => setShowChatReal(true)}
+                title="Escribe como un cliente y mira qué responde el bot por WhatsApp (de verdad, al número de prueba)"
+                style={{
+                  padding: "5px 11px",
+                  borderRadius: 8,
+                  border: "1px solid #a5b4fc",
+                  background: "#fff",
+                  color: "#4f46e5",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <i className="bx bxl-whatsapp" />
+                Probar como cliente
+              </button>
             </div>
           </div>
 
@@ -1732,6 +1806,12 @@ const TabAsistente = ({
               )}
             </div>
           )}
+
+          <ChatRealModal
+            open={showChatReal}
+            onClose={() => setShowChatReal(false)}
+            columnaNombre={columnas?.find((c) => c.id === columnaId)?.nombre || ""}
+          />
 
           <ChatPruebaModal
             open={showChat}
@@ -2506,36 +2586,78 @@ const TabAsistente = ({
 // SelectorModelo
 // ─────────────────────────────────────────────────────────────
 const SelectorModelo = ({ valor, onChange }) => (
-  <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-    {MODELOS.map((m) => (
-      <button
-        key={m.value}
-        onClick={() => onChange(m.value)}
-        style={{
-          flex: 1,
-          padding: "10px 8px",
-          borderRadius: 12,
-          cursor: "pointer",
-          border: `2px solid ${valor === m.value ? m.color : "rgba(0,0,0,.1)"}`,
-          background: valor === m.value ? `${m.color}0d` : "#fafafa",
-          transition: "all .12s",
-          textAlign: "center",
-        }}
-      >
-        <div
+  <div style={{ marginTop: 6 }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+        gap: 8,
+      }}
+    >
+      {MODELOS.map((m) => (
+        <button
+          key={m.value}
+          type="button"
+          onClick={() => onChange(m.value)}
           style={{
-            fontWeight: 700,
-            fontSize: "0.85rem",
-            color: valor === m.value ? m.color : "#374151",
+            padding: "10px 10px",
+            borderRadius: 12,
+            cursor: "pointer",
+            border: `2px solid ${valor === m.value ? m.color : "rgba(0,0,0,.1)"}`,
+            background: valor === m.value ? `${m.color}0d` : "#fafafa",
+            transition: "all .12s",
+            textAlign: "left",
+            position: "relative",
           }}
         >
-          {m.label}
-        </div>
-        <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 2 }}>
-          {m.desc}
-        </div>
-      </button>
-    ))}
+          {m.recomendado && (
+            <span
+              style={{
+                position: "absolute",
+                top: -8,
+                right: 8,
+                fontSize: "0.6rem",
+                fontWeight: 700,
+                letterSpacing: ".04em",
+                textTransform: "uppercase",
+                background: m.color,
+                color: "#fff",
+                borderRadius: 999,
+                padding: "2px 7px",
+              }}
+            >
+              Recomendado
+            </span>
+          )}
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              color: valor === m.value ? m.color : "#374151",
+            }}
+          >
+            {m.label}
+          </div>
+          <div
+            style={{
+              fontSize: "0.7rem",
+              color: "#64748b",
+              marginTop: 3,
+              lineHeight: 1.3,
+            }}
+          >
+            {m.desc}
+          </div>
+        </button>
+      ))}
+    </div>
+    <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 6 }}>
+      Costos estimados por respuesta con los precios públicos de OpenAI, para
+      comparar entre modelos; el consumo real de tu cuenta se ve en Asistentes →
+      Consumo del asistente. Los productos con mensaje fijo configurado no
+      gastan tokens en el primer mensaje ni en sus respuestas rápidas; el resto
+      de la conversación sí pasa por el modelo elegido aquí.
+    </div>
   </div>
 );
 

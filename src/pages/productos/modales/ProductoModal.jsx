@@ -22,6 +22,7 @@ const EMPTY_FORM = {
   descripcion_upsell: "",
   precio_upsell: "",
   imagen_upsell: null,
+  id_producto_upsell: "",
   combos_producto: [
     { cantidad: "", precio: "", id_dropi: "" },
     { cantidad: "", precio: "", id_dropi: "" },
@@ -121,6 +122,180 @@ const Sel = ({ children, className = "", ...props }) => (
     {children}
   </select>
 );
+
+/* Selector del producto upsell: buscador con lista desplegable (catálogos de
+   cientos de productos: un <select> nativo no permite buscar). El elegido se
+   muestra como tarjeta con foto, precio y botones Cambiar / Quitar. */
+const fmtMoney = (v) => {
+  const n = Number(String(v ?? "").replace(",", "."));
+  return Number.isFinite(n) ? `$${n.toFixed(2)}` : "";
+};
+
+function UpsellPicker({ productos, value, onChange }) {
+  const [abierto, setAbierto] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const cajaRef = useRef(null);
+
+  // Cerrar al hacer clic fuera del componente.
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e) => {
+      if (cajaRef.current && !cajaRef.current.contains(e.target)) {
+        setAbierto(false);
+      }
+    };
+    document.addEventListener("mousedown", fuera);
+    return () => document.removeEventListener("mousedown", fuera);
+  }, [abierto]);
+
+  const elegido = productos.find((p) => String(p.id) === String(value || ""));
+  const q = busqueda.trim().toLowerCase();
+  const filtrados = (
+    q
+      ? productos.filter((p) =>
+          String(p.nombre || "")
+            .toLowerCase()
+            .includes(q),
+        )
+      : productos
+  ).slice(0, 200);
+
+  const Fila = ({ p }) => (
+    <button
+      type="button"
+      onClick={() => {
+        onChange(String(p.id));
+        setAbierto(false);
+        setBusqueda("");
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-indigo-50/70 transition"
+    >
+      <div className="h-9 w-9 rounded-lg bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+        {p.imagen_url ? (
+          <img
+            src={p.imagen_url}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <i className="bx bx-package text-slate-400" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] text-slate-800 truncate">{p.nombre}</div>
+        <div className="text-[11.5px] text-slate-500 flex items-center gap-1.5">
+          {fmtMoney(p.precio)}
+          {String(p.external_source || "").toUpperCase() === "DROPI" ? (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-px rounded-full bg-orange-50 text-orange-600 ring-1 ring-orange-200">
+              Dropi
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <i className="bx bx-plus-circle text-indigo-400 shrink-0" />
+    </button>
+  );
+
+  return (
+    <div ref={cajaRef} className="relative">
+      {elegido ? (
+        <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/40 px-3 py-2.5">
+          <div className="h-11 w-11 rounded-lg bg-white overflow-hidden shrink-0 flex items-center justify-center ring-1 ring-slate-200">
+            {elegido.imagen_url ? (
+              <img
+                src={elegido.imagen_url}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <i className="bx bx-package text-slate-400 text-xl" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-medium text-slate-800 truncate">
+              {elegido.nombre}
+            </div>
+            <div className="text-[12px] text-slate-500 flex items-center gap-1.5">
+              {fmtMoney(elegido.precio)}
+              {String(elegido.external_source || "").toUpperCase() ===
+              "DROPI" ? (
+                <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-px rounded-full bg-orange-50 text-orange-600 ring-1 ring-orange-200">
+                  Dropi
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAbierto(true)}
+            className="shrink-0 text-[12px] font-semibold text-indigo-600 hover:underline"
+          >
+            Cambiar
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            title="Quitar el upsell"
+            className="shrink-0 h-7 w-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center"
+          >
+            <i className="bx bx-x text-lg" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-600 shrink-0">
+            <i className="bx bx-minus-circle text-slate-400 text-base" />
+            Sin upsell
+          </span>
+          <span className="text-[12px] text-slate-400 flex-1 min-w-0 truncate">
+            El bot no ofrecerá ningún producto extra.
+          </span>
+          <button
+            type="button"
+            onClick={() => setAbierto(true)}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 text-indigo-600 px-3 py-1.5 text-[12px] font-semibold hover:bg-indigo-50 transition"
+          >
+            <i className="bx bx-search" />
+            Elegir producto
+          </button>
+        </div>
+      )}
+
+      {abierto ? (
+        <div className="absolute z-30 mt-1.5 w-full rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-slate-100">
+            <div className="relative">
+              <i className="bx bx-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                autoFocus
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && setAbierto(false)}
+                placeholder="Escribe para buscar por nombre…"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 focus:bg-white transition"
+              />
+            </div>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {filtrados.length ? (
+              filtrados.map((p) => <Fila key={p.id} p={p} />)
+            ) : (
+              <div className="px-3 py-6 text-center text-[12.5px] text-slate-400">
+                Ningún producto coincide con “{busqueda}”.
+              </div>
+            )}
+          </div>
+          {productos.length > 200 && !q ? (
+            <div className="px-3 py-1.5 text-[11px] text-slate-400 border-t border-slate-100 bg-slate-50">
+              Mostrando los primeros 200 · escribe para filtrar
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /* ─────────────────────────────────────────────────────────────
    CategoriaField
@@ -561,6 +736,9 @@ const ProductoModal = ({
      más: sigue siendo el usuario quien revisa y guarda. Ver
      modales/ImportarInmuebleModal.jsx. */
   borradorInicial = null,
+  /* embedded: se dibuja dentro de otro modal (el wizard del bot), sin su
+     propio fondo, cabecera ni pie oscuro. La lógica es exactamente la misma. */
+  embedded = false,
 }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
@@ -873,6 +1051,7 @@ const ProductoModal = ({
         descripcion_upsell: p.descripcion_upsell ?? "",
         precio_upsell: p.precio_upsell ?? "",
         imagen_upsell: null,
+        id_producto_upsell: p.id_producto_upsell ?? "",
         combos_producto: normalizeCombos(p.combos_producto),
         es_privado: privVal,
         material: p.material ?? "",
@@ -1091,6 +1270,9 @@ const ProductoModal = ({
          que el asistente le leía al cliente— hasta que se escribía algo encima. */
       const CAMPOS_BORRABLES = [
         "descripcion",
+        /* Volver a "Sin upsell" debe llegar como vacío: si no se manda, el
+           backend cree que no se tocó y el bot sigue ofreciendo el producto. */
+        "id_producto_upsell",
         "nombre_upsell",
         "descripcion_upsell",
         "precio_upsell",
@@ -1212,61 +1394,81 @@ const ProductoModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3"
-      style={{ background: "rgba(5,7,20,.72)", backdropFilter: "blur(12px)" }}
-      onKeyDown={(e) => e.key === "Escape" && onClose()}
+      className={
+        embedded
+          ? "w-full"
+          : "fixed inset-0 z-50 flex items-center justify-center p-3"
+      }
+      style={
+        embedded
+          ? undefined
+          : { background: "rgba(5,7,20,.72)", backdropFilter: "blur(12px)" }
+      }
+      onKeyDown={(e) => !embedded && e.key === "Escape" && onClose()}
     >
       <div
-        className="w-full max-w-5xl max-h-[92vh] rounded-2xl overflow-hidden flex flex-col"
-        style={{
-          boxShadow: "0 24px 80px rgba(0,0,0,.55)",
-          animation: "pmIn .22s cubic-bezier(.34,1.4,.64,1)",
-        }}
+        className={
+          embedded
+            ? "w-full rounded-xl overflow-hidden flex flex-col border border-slate-200"
+            : "w-full max-w-5xl max-h-[92vh] rounded-2xl overflow-hidden flex flex-col"
+        }
+        style={
+          embedded
+            ? undefined
+            : {
+                boxShadow: "0 24px 80px rgba(0,0,0,.55)",
+                animation: "pmIn .22s cubic-bezier(.34,1.4,.64,1)",
+              }
+        }
       >
         {/* ═══════════ HEADER — todo azul, sin línea blanca ═══════════ */}
-        <div className="flex items-center justify-between px-6 py-5 flex-shrink-0 bg-[#171931]">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#171931]"
-              style={{
-                background: "rgba(255,255,255,.12)",
-                border: "1px solid rgba(255,255,255,.18)",
-              }}
-            >
-              <i
-                className={`bx ${editingProduct ? "bx-edit" : "bx-plus-circle"} text-white text-xl`}
-              />
-            </div>
-            <div>
-              <h2 className="text-white font-bold text-base leading-tight">
-                {editingProduct ? "Editar producto" : "Agregar producto"}
-              </h2>
-              <p className="text-indigo-300 text-xs mt-0.5">
-                {editingProduct
-                  ? `ID #${editingProduct.id} · ${editingProduct.nombre}`
-                  : "Completa los campos requeridos para crear el producto"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {editingProduct && (
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-indigo-300 bg-white/8 px-3 py-1.5 rounded-lg border border-white/10">
-                <i className="bx bx-pencil text-xs" />
-                Modo edición
+        {!embedded && (
+          <div className="flex items-center justify-between px-6 py-5 flex-shrink-0 bg-[#171931]">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#171931]"
+                style={{
+                  background: "rgba(255,255,255,.12)",
+                  border: "1px solid rgba(255,255,255,.18)",
+                }}
+              >
+                <i
+                  className={`bx ${editingProduct ? "bx-edit" : "bx-plus-circle"} text-white text-xl`}
+                />
               </div>
-            )}
-            <button
-              onClick={onClose}
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors text-white/60 hover:text-white hover:bg-white/12"
-            >
-              <i className="bx bx-x text-xl" />
-            </button>
+              <div>
+                <h2 className="text-white font-bold text-base leading-tight">
+                  {editingProduct ? "Editar producto" : "Agregar producto"}
+                </h2>
+                <p className="text-indigo-300 text-xs mt-0.5">
+                  {editingProduct
+                    ? `ID #${editingProduct.id} · ${editingProduct.nombre}`
+                    : "Completa los campos requeridos para crear el producto"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {editingProduct && (
+                <div className="hidden sm:flex items-center gap-1.5 text-xs text-indigo-300 bg-white/8 px-3 py-1.5 rounded-lg border border-white/10">
+                  <i className="bx bx-pencil text-xs" />
+                  Modo edición
+                </div>
+              )}
+              <button
+                onClick={onClose}
+                className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors text-white/60 hover:text-white hover:bg-white/12"
+              >
+                <i className="bx bx-x text-xl" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ═══════════ BODY — blanco ═══════════ */}
-        <div className="flex-1 overflow-y-auto bg-white">
+        <div
+          className={embedded ? "bg-white" : "flex-1 overflow-y-auto bg-white"}
+        >
           {/* Traído de una publicación. El banner va acá arriba, dentro del
               formulario: un popup encima de este modal se dibuja detrás de su
               fondo borroso y hay que cerrar el formulario para poder leerlo. */}
@@ -2309,7 +2511,11 @@ const ProductoModal = ({
             <div className="p-6 space-y-6">
               {/* Imagen */}
               <div>
-                <SecHead icon="bx-image-alt" title="Imagen del producto" />
+                <SecHead icon="bx-image-alt" title="Imagen principal" />
+                <p className="text-[11.5px] text-slate-500 -mt-2 mb-3 leading-snug">
+                  Es la foto que se muestra en el listado y la primera que
+                  recibe el cliente cuando el bot presenta el producto.
+                </p>
                 <DropZone
                   dropRef={dropRef}
                   onDrop={dropImage}
@@ -2364,6 +2570,33 @@ const ProductoModal = ({
                     setF("video", null);
                     setVideoRemoved(true); // ← NUEVO: marcar que el usuario quitó el video
                   }}
+                />
+              </div>
+
+              {/* ═══ Upsell (producto adicional) ═══
+                  Referencia a OTRO producto del catálogo: el bot lo ofrece UNA
+                  vez cuando el cliente confirma la compra y, si acepta, entra
+                  como línea extra del pedido (y de la orden en Dropi). Sin
+                  upsell elegido, el bot no ofrece nada. */}
+              <div>
+                <SecHead
+                  icon="bx-cart-add"
+                  title="Producto adicional (upsell)"
+                />
+                <p className="text-[12px] text-slate-500 -mt-1 mb-2.5">
+                  Cuando el cliente confirme la compra, el bot le ofrecerá una
+                  sola vez agregar este producto a su orden (ej.: “Antes de
+                  despachar tu pedido, ¿deseas agregar un cepillo por $4.99?”).
+                  Si lo dejas en “Sin upsell”, el bot no ofrece nada extra.
+                </p>
+                <UpsellPicker
+                  productos={(productosExistentes || []).filter(
+                    (px) =>
+                      px?.id != null &&
+                      String(px.id) !== String(editingProduct?.id ?? ""),
+                  )}
+                  value={form.id_producto_upsell}
+                  onChange={(v) => setF("id_producto_upsell", v)}
                 />
               </div>
 
@@ -2562,32 +2795,42 @@ const ProductoModal = ({
           </div>
         </div>
 
-        {/* ═══════════ FOOTER — todo azul ═══════════ */}
-        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0 gap-4 bg-[#171931]">
-          <p className="text-indigo-300 text-xs hidden sm:block truncate">
+        {/* ═══════════ FOOTER — todo azul (claro cuando va incrustado) ═══════════ */}
+        <div
+          className={`flex items-center justify-between px-6 py-4 flex-shrink-0 gap-4 ${
+            embedded ? "bg-slate-50 border-t border-slate-200" : "bg-[#171931]"
+          }`}
+        >
+          <p
+            className={`text-xs hidden sm:block truncate ${
+              embedded ? "text-slate-500" : "text-indigo-300"
+            }`}
+          >
             {editingProduct
               ? "Los cambios se aplicarán inmediatamente al guardar."
               : "El producto quedará disponible para catálogos y flujos de automatización."}
           </p>
 
           <div className="flex gap-3 flex-shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-              style={{
-                border: "1.5px solid rgba(255,255,255,.25)",
-                color: "rgba(255,255,255,.8)",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "rgba(255,255,255,.1)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-            >
-              Cancelar
-            </button>
+            {!embedded && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                style={{
+                  border: "1.5px solid rgba(255,255,255,.25)",
+                  color: "rgba(255,255,255,.8)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "rgba(255,255,255,.1)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                Cancelar
+              </button>
+            )}
 
             <button
               type="button"
@@ -2632,7 +2875,11 @@ const ProductoModal = ({
               ) : (
                 <>
                   <i className="bx bx-save text-base" />
-                  {editingProduct ? "Actualizar producto" : "Agregar producto"}
+                  {editingProduct
+                    ? embedded
+                      ? "Guardar cambios del producto"
+                      : "Actualizar producto"
+                    : "Agregar producto"}
                 </>
               )}
             </button>
