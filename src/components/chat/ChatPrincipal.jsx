@@ -1123,6 +1123,9 @@ const ChatPrincipal = ({
     if (!raw) return "";
     if (raw === "IA_logistica") return "IA Logística";
     if (raw === "IA_ventas") return "IA Ventas";
+    // Mensaje fijo / respuesta rápida del wizard de producto: salen sin IA.
+    if (raw === "IA_mensaje_fijo" || raw === "IA_wizard") return "Mensaje fijo";
+    if (raw === "IA_respuesta_rapida") return "Respuesta rápida";
     if (raw === "cron_template_programado") return "Programación de Template";
 
     if (["webook", "automatizador", "automatizador_wait"].includes(raw))
@@ -2211,8 +2214,25 @@ const ChatPrincipal = ({
                         )}
 
                         {mensaje.responsable && (
-                          <div className="text-[13px] font-bold text-gray-800 mb-1 leading-none">
-                            Enviado por {prettyAgentName(mensaje.responsable)}:
+                          <div className="text-[13px] font-bold text-gray-800 mb-1 leading-none flex flex-wrap items-center gap-1.5">
+                            <span>
+                              Enviado por {prettyAgentName(mensaje.responsable)}:
+                            </span>
+                            {/* El mensaje fijo y las respuestas rápidas del
+                                wizard de producto salen sin pasar por el
+                                modelo: se marcan para que se vea la
+                                optimización. El consumo en tokens/dinero se
+                                muestra agregado en Asistentes, no por mensaje. */}
+                            {["IA_wizard", "IA_mensaje_fijo", "IA_respuesta_rapida"].includes(
+                              String(mensaje.responsable),
+                            ) ? (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[10px] font-semibold"
+                                title="Configurado por producto: se envió sin consumir IA"
+                              >
+                                <i className="bx bx-bolt-circle" /> sin IA
+                              </span>
+                            ) : null}
                           </div>
                         )}
 

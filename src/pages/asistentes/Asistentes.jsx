@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import Select, { components } from "react-select";
 import chatApi from "../../api/chatcenter";
 import GuiaOpenAIModal from "./modales/OpenAiModal";
+import ConsumoAsistente from "./ConsumoAsistente";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -881,6 +882,9 @@ const Asistentes = () => {
           </div>
         </div>
       </div>
+
+      {/* Consumo del asistente: respuestas con/sin IA, tokens y costo por día */}
+      <ConsumoAsistente idConfiguracion={id_configuracion} />
 
       {/* Modal API Key (estructura tipo CrearConfiguracionModal) */}
       {showModalApiKey && (

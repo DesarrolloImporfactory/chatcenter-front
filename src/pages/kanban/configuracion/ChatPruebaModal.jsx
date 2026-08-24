@@ -579,6 +579,21 @@ const ChatPruebaModal = ({
                 >
                   Escribe un mensaje para probar cómo responde este asistente
                 </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: ".72rem",
+                    color: "#94a3b8",
+                    maxWidth: 300,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  Aquí se prueba únicamente el asistente de esta etapa, sin producto
+                  ni anuncio de origen. Para probar la conversación de un producto
+                  (mensaje inicial y respuestas rápidas), ve a Productos → Listado,
+                  abre el producto con “Editar” y usa la Vista previa; o usa “Probar
+                  como cliente” indicando el anuncio.
+                </div>
               </div>
             )}
 
