@@ -26,9 +26,16 @@ const ESTADOS_DROPI = [
 ];
 
 /**
- * Aliclik (Perú) usa el mismo vocabulario de estados, pero no todos: su API no
- * expone el número de guía en ningún endpoint, así que "GUIA GENERADA" no
- * existe, y tampoco maneja carritos abandonados.
+ * Aliclik (Perú) usa el mismo vocabulario de estados, pero no todos: su API
+ * todavía no expone el número de guía en ningún endpoint, así que
+ * "GUIA GENERADA" no existe, y tampoco maneja carritos abandonados.
+ *
+ * ⚠️ Esta lista tiene que coincidir con ESTADOS_ALICLIK del backend
+ * (services/aliclik_notifier.service.js). Cuando Aliclik entregue la guía, allá
+ * se prende ALICLIK_EXPONE_GUIA y acá hay que sumar "GUIA GENERADA" después de
+ * "PENDIENTE" y vaciar VARIABLES_SIN_GUIA. Si solo se cambia un lado, el
+ * estado se puede configurar pero nunca dispara (o al revés: dispara y no hay
+ * dónde configurarlo).
  */
 const ESTADOS_ALICLIK = [
   "PENDIENTE CONFIRMACION",
@@ -46,9 +53,10 @@ const PROVEEDORES = [
   { key: "aliclik", label: "Aliclik", nota: "Perú", estados: ESTADOS_ALICLIK },
 ];
 
-// Variables que dependen de la guía de envío. Aliclik no la expone, así que
-// para ese proveedor se ocultan: dejarlas elegibles solo produciría mensajes
-// con el parámetro vacío.
+// Variables que dependen de la guía de envío. Aliclik todavía no la expone,
+// así que para ese proveedor se ocultan: dejarlas elegibles solo produciría
+// mensajes con el parámetro vacío. Se vacía este Set cuando llegue la guía
+// (ver el aviso de ESTADOS_ALICLIK arriba).
 const VARIABLES_SIN_GUIA = new Set([
   "numero_guia",
   "transportadora",
@@ -668,7 +676,8 @@ const DropisPlantillas = ({ id_configuracion }) => {
 
   // Proveedor de fulfillment cuyas plantillas se están configurando. La tabla
   // es la misma para todos; lo que cambia es la columna `proveedor` y qué
-  // estados existen.
+  // estados existen. Aliclik además HEREDA de Dropi: el backend devuelve la
+  // config de Dropi marcada con `heredado` para los estados sin fila propia.
   const [proveedor, setProveedor] = useState("dropi");
   const proveedorActual =
     PROVEEDORES.find((p) => p.key === proveedor) || PROVEEDORES[0];
@@ -702,7 +711,9 @@ const DropisPlantillas = ({ id_configuracion }) => {
           })
           .then((res) =>
             res.data?.success
-              ? Object.values(res.data.data).filter((v) => v.activo).length
+              ? Object.values(res.data.data).filter(
+                  (v) => v.activo && !v.heredado,
+                ).length
               : 0,
           )
           .catch(() => 0),
@@ -1083,6 +1094,11 @@ const DropisPlantillas = ({ id_configuracion }) => {
         .dp-expand-btn:hover { background:#e2e8f0; }
         .dp-divider { height:1px;background:#e5e7eb;margin:10px 0; }
         .dp-hint { font-size:.68rem;color:#94a3b8;margin-top:4px;line-height:1.4; }
+        .dp-aviso-herencia { display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:12px;border-radius:10px;border:1.5px solid #bfdbfe;background:#eff6ff;font-size:.76rem;color:#1e40af;line-height:1.45; }
+        .dp-aviso-herencia i { font-size:1rem;flex-shrink:0;margin-top:1px;color:#3b82f6; }
+        .dp-chip-heredado { display:inline-flex;align-items:center;gap:3px;margin-left:7px;padding:1px 7px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;vertical-align:middle; }
+        .dp-chip-heredado i { font-size:.72rem; }
+        .dp-aviso-sin-guia { font-size:.68rem;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 8px;margin-top:5px;max-width:360px;line-height:1.4; }
         .dp-solomover { display:flex;align-items:center;gap:8px;padding:9px 11px;margin-bottom:10px;border-radius:10px;border:1.5px solid #fed7aa;background:#fff7ed;cursor:pointer;user-select:none; }
         .dp-solomover input { width:16px;height:16px;accent-color:#ea580c;cursor:pointer;flex-shrink:0;margin:0; }
         .dp-solomover span { font-size:.78rem;font-weight:600;color:#9a3412;line-height:1.35; }
@@ -1215,9 +1231,10 @@ const DropisPlantillas = ({ id_configuracion }) => {
                 </div>
               ) : (
                 <>
-                  {/* Pestañas de proveedor. Cada uno guarda su propia
-                      configuración en la misma tabla, separada por la columna
-                      `proveedor`. */}
+                  {/* Pestañas de proveedor. Todo vive en la misma tabla,
+                      separado por la columna `proveedor`. Dropi es la base:
+                      Aliclik hereda estado por estado y solo guarda fila
+                      propia cuando el cliente quiere que ahí sea distinto. */}
                   <div
                     style={{
                       display: "flex",
@@ -1269,6 +1286,19 @@ const DropisPlantillas = ({ id_configuracion }) => {
                       );
                     })}
                   </div>
+
+                  {proveedor === "aliclik" && (
+                    <div className="dp-aviso-herencia">
+                      <i className="bx bx-link" />
+                      <div>
+                        <b>Aliclik usa la misma configuración que Dropi.</b> No
+                        hace falta volver a llenarla: cada estado hereda su
+                        plantilla y su columna de la pestaña Dropi. Guardá acá
+                        solo los estados que quieras que sean distintos en
+                        Aliclik.
+                      </div>
+                    </div>
+                  )}
 
                   <div
                     style={{
@@ -1359,6 +1389,12 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                 }}
                               >
                                 {estado}
+                                {cfg.heredado && (
+                                  <span className="dp-chip-heredado">
+                                    <i className="bx bx-link" /> Heredado de
+                                    Dropi
+                                  </span>
+                                )}
                               </div>
                               {descripcionEstado(estado) && (
                                 <div
@@ -1395,6 +1431,14 @@ const DropisPlantillas = ({ id_configuracion }) => {
                                       param
                                     </span>
                                   )}
+                                </div>
+                              )}
+                              {isActivo && cfg.sin_envio_por_guia && (
+                                <div className="dp-aviso-sin-guia">
+                                  Aliclik todavía no entrega la guía, así que
+                                  esta plantilla no se envía: el cliente solo
+                                  se mueve de columna. Para avisarle igual,
+                                  guardá acá una plantilla que no use la guía.
                                 </div>
                               )}
                               {isActivo && soloMover && (
