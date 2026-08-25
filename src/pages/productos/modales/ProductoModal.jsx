@@ -739,6 +739,11 @@ const ProductoModal = ({
   /* embedded: se dibuja dentro de otro modal (el wizard del bot), sin su
      propio fondo, cabecera ni pie oscuro. La lógica es exactamente la misma. */
   embedded = false,
+  /* submitRef: quien incrusta este formulario quiere disparar el guardado
+     desde SU propio pie (el wizard tiene un "Guardar cambios" global). Se le
+     entrega handleSave por ref y este formulario oculta su pie propio para
+     no mostrar dos botones de guardar. */
+  submitRef = null,
 }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
@@ -1237,14 +1242,17 @@ const ProductoModal = ({
   };
 
   /* ── Submit ── */
+  /* Devuelve true si el producto quedó guardado y false si no (validación o
+     error): el wizard usa ese resultado para avanzar de paso solo cuando el
+     guardado de verdad ocurrió. */
   const handleSave = async () => {
     if (!form.nombre.trim()) {
       Swal.fire({ icon: "warning", title: "Ingresa el nombre del producto" });
-      return;
+      return false;
     }
     if (!form.precio) {
       Swal.fire({ icon: "warning", title: "Ingresa el precio" });
-      return;
+      return false;
     }
     if (esVariable && !variaciones.some(variacionCompleta)) {
       Swal.fire({
@@ -1252,7 +1260,7 @@ const ProductoModal = ({
         title: "Falta la variedad",
         text: `Marcaste que se vende en varias opciones: agrega al menos un ${atributo.toLowerCase()}.`,
       });
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -1372,6 +1380,7 @@ const ProductoModal = ({
       });
       onSaved();
       onClose();
+      return true;
     } catch (err) {
       console.error(err);
       Swal.fire({
@@ -1379,10 +1388,21 @@ const ProductoModal = ({
         title: "Error al guardar",
         text: err?.response?.data?.message || "Intenta de nuevo.",
       });
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  /* Entrega el guardado a quien incrusta (siempre la versión más reciente
+     del closure; al desmontar se limpia para no dejar una función muerta). */
+  useEffect(() => {
+    if (!submitRef) return undefined;
+    submitRef.current = handleSave;
+    return () => {
+      submitRef.current = null;
+    };
+  });
 
   if (!open) return null;
 
@@ -2795,9 +2815,14 @@ const ProductoModal = ({
           </div>
         </div>
 
-        {/* ═══════════ FOOTER — todo azul (claro cuando va incrustado) ═══════════ */}
+        {/* ═══════════ FOOTER — todo azul (claro cuando va incrustado).
+            Con submitRef el pie desaparece: el guardado vive en el pie del
+            wizard (botón global "Guardar cambios") y dos botones de guardar
+            en pantalla solo confunden. ═══════════ */}
         <div
-          className={`flex items-center justify-between px-6 py-4 flex-shrink-0 gap-4 ${
+          className={`items-center justify-between px-6 py-4 flex-shrink-0 gap-4 ${
+            embedded && submitRef ? "hidden" : "flex"
+          } ${
             embedded ? "bg-slate-50 border-t border-slate-200" : "bg-[#171931]"
           }`}
         >
