@@ -24,6 +24,8 @@ import Swal from "sweetalert2";
 import { aplicarEventoProgramado } from "../../components/chat/programadosChatStore";
 import { useMemo } from "react";
 import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
+import { useAlertasSinRespuesta } from "../../hooks/useAlertasSinRespuesta";
+import ModalChatsSinRespuesta from "../../components/chat/ModalChatsSinRespuesta";
 
 const Chat = () => {
   const formatFecha = (fechaISO) => {
@@ -755,6 +757,7 @@ const Chat = () => {
 
           if (index !== -1) {
             actualizado[index].mensaje_created_at = fechaMySQL;
+            actualizado[index].mensaje_rol = 1;
             actualizado[index].texto_mensaje = texto_mensaje;
             actualizado[index].mensajes_pendientes =
               (actualizado[index].mensajes_pendientes || 0) + 1;
@@ -766,6 +769,7 @@ const Chat = () => {
             const nuevoChat = {
               id: idChat,
               mensaje_created_at: fechaMySQL,
+              mensaje_rol: 1,
               texto_mensaje,
               celular_cliente: telefono_recibe,
               mensajes_pendientes: 1,
@@ -1203,6 +1207,7 @@ const Chat = () => {
           actualizado[index] = {
             ...actualizado[index],
             mensaje_created_at: fechaISO,
+            mensaje_rol: 1,
             texto_mensaje,
             tipo_mensaje,
             ruta_archivo,
@@ -1223,6 +1228,7 @@ const Chat = () => {
           tipo_mensaje,
           ruta_archivo,
           mensaje_created_at: fechaISO,
+          mensaje_rol: 1,
           mensajes_pendientes: 0,
           visto: 1,
           source: source ?? selectedChat?.source,
@@ -1870,10 +1876,44 @@ const Chat = () => {
   const [selectedNovedad, setSelectedNovedad] = useState(null);
   const [selectedEstado_contacto, setSelectedEstado_contacto] = useState([]);
   const [selectedLectura, setSelectedLectura] = useState(null);
+  const [selectedSinRespuesta, setSelectedSinRespuesta] = useState(null);
   const [selectedAsesor, setSelectedAsesor] = useState(null);
   const [selectedProductoAd, setSelectedProductoAd] = useState(null);
   const [selectedTab, setSelectedTab] = useState("abierto");
   const [filteredChats, setFilteredChats] = useState([]);
+
+  /* Alerta de chats sin respuesta (solo configuraciones habilitadas):
+     ámbar a los 15 min, rojo a los 30 y aviso emergente para esos últimos. */
+  const {
+    niveles: nivelesSinRespuesta,
+    aviso: avisoSinRespuesta,
+    cerrarAviso: cerrarAvisoSinRespuesta,
+    total: totalSinRespuesta,
+    truncado: truncadoSinRespuesta,
+  } = useAlertasSinRespuesta(filteredChats, id_configuracion);
+
+  /* El aviso también lista chats que no están cargados en la vista (la
+     lista pagina), así que ahí no alcanza con seleccionar el objeto: hay
+     que traerlo completo antes de abrirlo. */
+  const abrirChatSinRespuesta = async (chat) => {
+    const cargado = (filteredChats || []).find(
+      (c) => String(c.id) === String(chat.id),
+    );
+    if (cargado) {
+      handleSelectChat(cargado);
+      return;
+    }
+
+    try {
+      const { data } = await getChatById(chat.id, id_configuracion);
+      if (!data?.data) return;
+      setMensajesAcumulados((prev) => [data.data, ...prev]);
+      handleSelectChat(data.data);
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Sin conversación", "No se pudo abrir ese chat.", "info");
+    }
+  };
   const [offset, setOffset] = useState(0);
   const [cursorFecha, setCursorFecha] = useState(null);
   const [cursorId, setCursorId] = useState(null);
@@ -2216,6 +2256,7 @@ const Chat = () => {
 
       // ✅ 1) Cancelar cualquier listener CHATS pendiente anterior
       socketRef.current.off("CHATS");
+      socketRef.current.off("ERROR");
 
       // ✅ 2) Incrementar nonce — este request es el "dueño" actual
       const myNonce = ++chatRequestIdRef.current;
@@ -2238,6 +2279,7 @@ const Chat = () => {
           selectedTab,
           selectedEstado_contacto,
           selectedLectura,
+          selectedSinRespuesta,
           selectedAsesor,
           selectedProductoAd,
           source: sourceToSend,
@@ -2260,6 +2302,16 @@ const Chat = () => {
         rol_usuario_global,
         payload,
       );
+
+      /* Si findChats revienta, el backend emite ERROR y no CHATS. Sin este
+         listener la lista se quedaba vacía sin decir nada —ya se limpió en
+         el reset— y parecía que no había chats en vez de una consulta rota. */
+      socketRef.current.once("ERROR", (err) => {
+        if (myNonce !== chatRequestIdRef.current) return;
+        console.error("[CHATS] el backend respondió ERROR:", err?.message);
+        setCargandoChats(false);
+        setIsLoading(false);
+      });
 
       // ✅ 3) Registrar listener fresco — descarta respuestas stale por nonce
       socketRef.current.once("CHATS", (data) => {
@@ -2310,6 +2362,7 @@ const Chat = () => {
       selectedTab,
       selectedEstado_contacto,
       selectedLectura,
+      selectedSinRespuesta,
       selectedAsesor,
       selectedProductoAd,
       scopeChats,
@@ -2437,6 +2490,7 @@ const Chat = () => {
             /* si se cumple se actualiza */
             if (index !== -1) {
               actualizado[index].mensaje_created_at = msg.created_at;
+              actualizado[index].mensaje_rol = isIncoming ? 0 : 1;
               actualizado[index].texto_mensaje = msg.texto_mensaje;
               actualizado[index].tipo_mensaje = msg.tipo_mensaje;
               actualizado[index].source =
@@ -2465,6 +2519,7 @@ const Chat = () => {
               id: msg.celular_recibe,
               id_configuracion: msg.id_configuracion,
               mensaje_created_at: msg.created_at,
+              mensaje_rol: isIncoming ? 0 : 1,
               texto_mensaje: msg.texto_mensaje,
               tipo_mensaje: msg.tipo_mensaje,
               mensajes_pendientes: isIncoming ? 1 : 0,
@@ -2638,6 +2693,7 @@ const Chat = () => {
     selectedTab,
     selectedEstado_contacto,
     selectedLectura,
+    selectedSinRespuesta,
     selectedAsesor,
     selectedProductoAd,
     scopeChats,
@@ -2953,6 +3009,7 @@ const Chat = () => {
           }
 
           actualizado[index].mensaje_created_at = msg.created_at;
+          actualizado[index].mensaje_rol = isIncoming ? 0 : 1;
           actualizado[index].texto_mensaje = msg.texto_mensaje;
           actualizado[index].tipo_mensaje = msg.tipo_mensaje;
           actualizado[index].source = msg.source || actualizado[index].source;
@@ -2979,6 +3036,7 @@ const Chat = () => {
               ...chat,
               id: chat.id ?? chatId,
               mensaje_created_at: msg.created_at,
+              mensaje_rol: isIncoming ? 0 : 1,
               texto_mensaje: msg.texto_mensaje,
               tipo_mensaje: msg.tipo_mensaje,
               mensajes_pendientes: isIncoming ? 1 : 0,
@@ -2990,6 +3048,7 @@ const Chat = () => {
               id: chatId,
               id_configuracion: cfg,
               mensaje_created_at: msg.created_at,
+              mensaje_rol: isIncoming ? 0 : 1,
               texto_mensaje: msg.texto_mensaje,
               tipo_mensaje: msg.tipo_mensaje,
               mensajes_pendientes: isIncoming ? 1 : 0,
@@ -3330,6 +3389,7 @@ const Chat = () => {
       {/* Historial de chats */}
       <Sidebar
         filteredChats={filteredChats}
+        nivelesSinRespuesta={nivelesSinRespuesta}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         setNumeroModal={setNumeroModal}
@@ -3377,6 +3437,8 @@ const Chat = () => {
         onChangeChannelAndFetch={onChangeChannelAndFetch}
         id_configuracion={id_configuracion}
         selectedLectura={selectedLectura}
+        selectedSinRespuesta={selectedSinRespuesta}
+        setSelectedSinRespuesta={setSelectedSinRespuesta}
         setSelectedLectura={setSelectedLectura}
         selectedAsesor={selectedAsesor}
         setSelectedAsesor={setSelectedAsesor}
@@ -3735,6 +3797,14 @@ const Chat = () => {
           </div>
         </div>
       )}
+      {/* Aviso de clientes con más de 30 minutos sin respuesta */}
+      <ModalChatsSinRespuesta
+        chats={avisoSinRespuesta}
+        onCerrar={cerrarAvisoSinRespuesta}
+        onSelect={abrirChatSinRespuesta}
+        total={totalSinRespuesta}
+        truncado={truncadoSinRespuesta}
+      />
     </div>
   );
 };
