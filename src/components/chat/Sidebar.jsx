@@ -12,6 +12,11 @@ import useProgramadosChats from "./useProgramadosChats";
 import { formatFechaProgramada } from "../../services/programados.service";
 import { limpiarFormatoWhatsapp } from "../../utils/waFormat";
 import {
+  NIVEL_CRITICO,
+  alertasSinRespuestaActivas,
+  formatEspera,
+} from "../../config/alertasSinRespuesta";
+import {
   estadoDeuda,
   hayAlertaDeuda,
   montoAlerta,
@@ -44,6 +49,10 @@ function compareChats(a, b) {
   const tb = new Date(b.mensaje_created_at).getTime() || 0;
   if (tb !== ta) return tb - ta;
   return (b.id ?? 0) - (a.id ?? 0);
+}
+
+function compareChatsAntiguos(a, b) {
+  return -compareChats(a, b);
 }
 
 function getChannelKey(value) {
@@ -837,6 +846,7 @@ function MessageItem({
   deudaCartera,
   membresiaVencida,
   programado,
+  alertaSinRespuesta,
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const liRef = useRef(null);
@@ -952,6 +962,22 @@ function MessageItem({
         ? "Sin cuenta en ImporChat"
         : "Tiene cuenta, pero no ha ingresado su tarjeta, ni tiene plan vigente";
 
+  /* ── Alerta de espera sin respuesta ──
+   * Llega ya calculada desde arriba (un solo reloj para toda la lista).
+   * El fondo cede ante la notificación de transferencia: esa alerta es
+   * puntual y ya se ganó ese lugar. El badge de minutos, en cambio, se
+   * muestra siempre, porque es el dato que no se confunde con otro color.
+   */
+  const nivelEspera = alertaSinRespuesta?.nivel || null;
+  const esperaCritica = nivelEspera === NIVEL_CRITICO;
+  const etiquetaEspera = formatEspera(alertaSinRespuesta?.minutos);
+
+  const fondoEspera = !nivelEspera
+    ? ""
+    : esperaCritica
+      ? "bg-rose-50 hover:bg-rose-100/70"
+      : "bg-amber-50/70 hover:bg-amber-100/60";
+
   return (
     <li
       ref={liRef}
@@ -962,7 +988,7 @@ function MessageItem({
           ? "bg-slate-50 cursor-default"
           : esNotificacion
             ? "bg-amber-100/70 hover:bg-amber-50 border-l-4 border-amber-300"
-            : [fondoCliente || "hover:bg-slate-50 hover:shadow-xs"].join(" "),
+            : fondoEspera || fondoCliente || "hover:bg-slate-50 hover:shadow-xs",
         // El borde va aparte para que sobreviva al fondo ámbar
         !esNotificacion ? bordeCliente : "",
       ].join(" ")}
@@ -1140,6 +1166,21 @@ function MessageItem({
           <span className="text-[9.5px] text-slate-400 leading-tight whitespace-nowrap">
             {formatFecha(mensaje?.mensaje_created_at)}
           </span>
+          {nivelEspera && (
+            <span
+              className={[
+                "inline-flex items-center gap-0.5 rounded-full px-1.5 py-[1px]",
+                "text-[8px] font-semibold leading-none whitespace-nowrap",
+                esperaCritica
+                  ? "bg-rose-600 text-white"
+                  : "bg-amber-400 text-amber-950",
+              ].join(" ")}
+              title={`Sin responder hace ${etiquetaEspera}`}
+            >
+              <i className="bx bx-time-five text-[9px]" />
+              {etiquetaEspera}
+            </span>
+          )}
           {tienePendientes && (
             <span className="inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-blue-600 px-1 text-[8px] font-semibold text-white">
               {mensaje.mensajes_pendientes}
@@ -1322,11 +1363,14 @@ export const Sidebar = ({
   id_configuracion,
   selectedLectura,
   setSelectedLectura,
+  selectedSinRespuesta,
+  setSelectedSinRespuesta,
   selectedAsesor,
   setSelectedAsesor,
   selectedProductoAd,
   setSelectedProductoAd,
   lista_usuarios,
+  nivelesSinRespuesta = {},
 }) => {
   const [input_busqueda, setInput_busqueda] = useState(searchTerm ?? "");
 
@@ -1525,12 +1569,15 @@ export const Sidebar = ({
     [filtroProducto, filteredChats],
   );
 
+  /* Con el filtro de espera activo el backend devuelve del que más lleva
+     esperando al que menos; si acá se reordenara por fecha descendente
+     como siempre, la lista quedaría justo al revés de lo pedido. */
   const chatsVisibles = useMemo(
     () =>
       [...chatsFiltradosPorProducto]
-        .sort(compareChats)
+        .sort(selectedSinRespuesta ? compareChatsAntiguos : compareChats)
         .slice(0, mensajesVisibles),
-    [chatsFiltradosPorProducto, mensajesVisibles],
+    [chatsFiltradosPorProducto, mensajesVisibles, selectedSinRespuesta],
   );
   const deudasPorCorreo = useDeudasChats(chatsVisibles, id_configuracion);
   const membresiasVencidasPorCorreo = useMembresiasVencidasChats(
@@ -1616,6 +1663,7 @@ export const Sidebar = ({
     selectedEtiquetas,
     selectedEstado_contacto,
     selectedLectura,
+    selectedSinRespuesta,
     selectedAsesor,
     selectedProductoAd,
     selectedNovedad,
@@ -1629,6 +1677,7 @@ export const Sidebar = ({
       (selectedEtiquetas?.length || 0) +
       (selectedEstado_contacto?.value ? 1 : 0) +
       (selectedLectura ? 1 : 0) +
+      (selectedSinRespuesta ? 1 : 0) +
       (selectedAsesor ? 1 : 0) +
       (selectedProductoAd ? 1 : 0) +
       (selectedNovedad ? 1 : 0) +
@@ -1640,10 +1689,13 @@ export const Sidebar = ({
 
   const hayFiltrosActivos = numFiltros > 0;
 
+  const alertaEsperaActiva = alertasSinRespuestaActivas(id_configuracion);
+
   const limpiarFiltros = () => {
     setSelectedEtiquetas([]);
     setSelectedEstado_contacto(null);
     setSelectedLectura(null);
+    setSelectedSinRespuesta(null);
     setSelectedAsesor(null);
     setSelectedProductoAd(null);
     setSelectedNovedad(null);
@@ -1912,6 +1964,35 @@ export const Sidebar = ({
                   />
                 )}
               </FilterPill>
+
+              {/* Sin responder — ordena del que más lleva esperando al que
+                  menos. Va con el mismo gate que los colores y el aviso.
+                  No aplica en resueltos: un chat cerrado no espera. */}
+              {alertaEsperaActiva && selectedTab !== "resueltos" && (
+                <FilterPill
+                  icon="bx bx-time-five"
+                  label="Sin responder"
+                  value={selectedSinRespuesta?.label}
+                  onClear={() => setSelectedSinRespuesta(null)}
+                >
+                  {({ close }) => (
+                    <Select
+                      {...popoutProps}
+                      options={[
+                        { value: 15, label: "Más de 15 min" },
+                        { value: 30, label: "Más de 30 min" },
+                        { value: 60, label: "Más de 1 hora" },
+                        { value: 1440, label: "Más de 1 día" },
+                      ]}
+                      value={selectedSinRespuesta}
+                      onChange={(opt) => {
+                        setSelectedSinRespuesta(opt);
+                        close();
+                      }}
+                    />
+                  )}
+                </FilterPill>
+              )}
 
               {/* Asesor — solo admins */}
               {(rol_usuario === "administrador" ||
@@ -2216,6 +2297,7 @@ export const Sidebar = ({
                     ]
                   }
                   programado={programadosPorChat[mensaje.id]}
+                  alertaSinRespuesta={nivelesSinRespuesta[mensaje.id]}
                 />
               );
             });

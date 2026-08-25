@@ -13,6 +13,7 @@ import Programados from "./Programados";
 import NuevoContacto from "./modales/NuevoContacto";
 import EnviarTemplateMasivo from "./modales/EnviarTemplateMasivo";
 import TablaContactos from "./TablaContactos";
+import FlujosMasivos from "./FlujosMasivos";
 import FilterBar from "./FilterBar";
 import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 
@@ -2874,6 +2875,20 @@ export default function Contactos() {
         >
           Mensajes Programados
         </button>
+
+        <button
+          onClick={() => setActiveTab("flujos")}
+          className={`pb-3 text-sm font-medium transition ${
+            activeTab === "flujos"
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Flujos masivos
+          <span className="ml-1.5 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">
+            Nuevo
+          </span>
+        </button>
       </div>
 
       {activeTab === "contactos" && (
@@ -3037,6 +3052,14 @@ export default function Contactos() {
       )}
 
       {activeTab === "programados" && <Programados />}
+
+      {/* Flujos masivos: audiencia por filtros + valores de plantilla
+          resueltos por contacto desde su orden (Dropi/Shopify). */}
+      {activeTab === "flujos" && (
+        <div className="flex-1 overflow-y-auto">
+          <FlujosMasivos />
+        </div>
+      )}
 
       {/* ===== Modales de etiquetas ===== */}
       <ModalTags

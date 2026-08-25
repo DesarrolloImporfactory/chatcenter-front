@@ -59,7 +59,8 @@ const haceCuanto = (v) => {
   if (dias <= 0) return "hoy";
   if (dias === 1) return "ayer";
   if (dias < 30) return `hace ${dias} días`;
-  if (dias < 365) return `hace ${Math.floor(dias / 30)} mes${dias >= 60 ? "es" : ""}`;
+  if (dias < 365)
+    return `hace ${Math.floor(dias / 30)} mes${dias >= 60 ? "es" : ""}`;
   return fechaCorta(v);
 };
 
@@ -249,7 +250,15 @@ const Productos2View = () => {
       return 0;
     });
     return data;
-  }, [productos, wizards, search, filtroCategoria, filtroTipo, filtroBot, sort]);
+  }, [
+    productos,
+    wizards,
+    search,
+    filtroCategoria,
+    filtroTipo,
+    filtroBot,
+    sort,
+  ]);
 
   const totalPages = Math.max(
     1,
@@ -538,7 +547,9 @@ const Productos2View = () => {
               </span>
               <span className="text-slate-300">·</span>
               <span>
-                <strong className="text-emerald-600">{totalConfigurados}</strong>{" "}
+                <strong className="text-emerald-600">
+                  {totalConfigurados}
+                </strong>{" "}
                 con mensaje fijo
               </span>
               {listaProcesada.length !== productos.length && (
@@ -653,7 +664,10 @@ const Productos2View = () => {
                               justify-center flex-shrink-0 ring-1 ring-slate-200 cursor-zoom-in transition-transform group-hover:scale-105 group-hover:ring-indigo-300"
                               onClick={() =>
                                 p.imagen_url &&
-                                setModalImagen({ abierta: true, url: p.imagen_url })
+                                setModalImagen({
+                                  abierta: true,
+                                  url: p.imagen_url,
+                                })
                               }
                             >
                               {p.imagen_url ? (
@@ -715,21 +729,8 @@ const Productos2View = () => {
                           {p.precio_proveedor != null &&
                             Number(p.precio_proveedor) > 0 && (
                               <div className="text-[10.5px] text-slate-400 font-medium mt-0.5 whitespace-nowrap">
-                                Costo {currency.format(Number(p.precio_proveedor))}
-                                {Number(p.precio) > Number(p.precio_proveedor) ? (
-                                  <span
-                                    className="ml-1 inline-flex rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 px-1.5 py-px text-[10px] font-semibold"
-                                    title="Margen sobre el costo"
-                                  >
-                                    +
-                                    {Math.round(
-                                      ((Number(p.precio) - Number(p.precio_proveedor)) /
-                                        Number(p.precio_proveedor)) *
-                                        100,
-                                    )}
-                                    %
-                                  </span>
-                                ) : null}
+                                Costo{" "}
+                                {currency.format(Number(p.precio_proveedor))}
                               </div>
                             )}
                         </td>
