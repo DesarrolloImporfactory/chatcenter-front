@@ -420,8 +420,8 @@ function VariedadPicker({ opciones, texto, cantidadPedido, onChange }) {
         </p>
       ) : noCuadra ? (
         <p className="mt-1.5 text-[11px] text-amber-700">
-          El reparto suma {suma} y el pedido es de {cant} unidad(es). Ajusta
-          las cantidades de cada variedad o cambia la cantidad total.
+          El reparto suma {suma} y el pedido es de {cant} unidad(es). Ajusta las
+          cantidades de cada variedad o cambia la cantidad total.
         </p>
       ) : (
         <p className="mt-1.5 text-[11px] text-gray-500">
@@ -453,6 +453,7 @@ export default function AutoOrdenesFallidas({
   const [editingKey, setEditingKey] = useState(null);
   const [form, setForm] = useState({});
   const [submittingKey, setSubmittingKey] = useState(null);
+  const [cancelingKey, setCancelingKey] = useState(null);
   const [showDetalleKey, setShowDetalleKey] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [filtroOrigen, setFiltroOrigen] = useState("todos");
@@ -645,6 +646,50 @@ export default function AutoOrdenesFallidas({
       });
     } finally {
       setSubmittingKey(null);
+    }
+  };
+
+  /* "El cliente canceló el pedido": mueve el CONTACTO a la columna de
+     cancelados (no toca la orden ni el log). Con eso deja de cumplir el
+     filtro del listado y el pedido desaparece de esta lista — el mismo
+     efecto que arrastrar la tarjeta en el kanban, sin salir del panel. */
+  const marcarCancelado = async (it) => {
+    const k = keyOf(it);
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning",
+      title: "¿El cliente canceló el pedido?",
+      text: `${it.datos?.nombre || "El contacto"} pasará a la columna de cancelados y este pedido saldrá de la lista. No se crea ni se toca ninguna orden.`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, canceló",
+      cancelButtonText: "Volver",
+      confirmButtonColor: "#e11d48",
+    });
+    if (!isConfirmed) return;
+
+    setCancelingKey(k);
+    try {
+      const res = await chatApi.post(
+        "dropi_integrations/auto-orders/marcar-cancelado",
+        { id_configuracion, id_cliente: it.id_cliente },
+      );
+      if (res?.data?.ok) {
+        setItems((prev) => prev.filter((x) => keyOf(x) !== k));
+        setTotal((t) => Math.max(0, t - 1));
+        if (editingKey === k) setEditingKey(null);
+        Toast.fire({ icon: "success", title: "Cliente movido a cancelados" });
+      } else {
+        Toast.fire({
+          icon: "error",
+          title: res?.data?.message || "No se pudo mover el cliente",
+        });
+      }
+    } catch (e) {
+      Toast.fire({
+        icon: "error",
+        title: e?.response?.data?.message || "No se pudo mover el cliente",
+      });
+    } finally {
+      setCancelingKey(null);
     }
   };
 
@@ -1054,9 +1099,7 @@ export default function AutoOrdenesFallidas({
                                       opciones={opciones2}
                                       texto={form.variedad2}
                                       cantidadPedido={form.cantidad2}
-                                      onChange={(t) =>
-                                        setField("variedad2", t)
-                                      }
+                                      onChange={(t) => setField("variedad2", t)}
                                     />
                                   );
                                 })()}
@@ -1093,8 +1136,8 @@ export default function AutoOrdenesFallidas({
 
                               <div className="mt-2 flex items-center justify-between text-[11px]">
                                 <span className="text-gray-500">
-                                  Ambos productos deben salir de la misma
-                                  bodega en Dropi.
+                                  Ambos productos deben salir de la misma bodega
+                                  en Dropi.
                                 </span>
                                 <span className="font-bold text-gray-800">
                                   Total del pedido: $
@@ -1112,7 +1155,9 @@ export default function AutoOrdenesFallidas({
 
                           <div className="flex items-center gap-2 mt-4">
                             <button
-                              onClick={() => submit(it, construirDatosBot(form))}
+                              onClick={() =>
+                                submit(it, construirDatosBot(form))
+                              }
                               disabled={isSubmitting}
                               className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold shadow hover:opacity-95 transition disabled:opacity-60"
                             >
@@ -1166,6 +1211,21 @@ export default function AutoOrdenesFallidas({
                                 <i className="bx bx-refresh text-base" />
                               )}
                               Reintentar
+                            </button>
+                          )}
+                          {it.id_cliente && (
+                            <button
+                              onClick={() => marcarCancelado(it)}
+                              disabled={cancelingKey === k || isSubmitting}
+                              title="El cliente canceló: pasa el contacto a la columna de cancelados y este pedido desaparece de la lista"
+                              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 text-sm font-semibold hover:bg-rose-100 transition disabled:opacity-60"
+                            >
+                              {cancelingKey === k ? (
+                                <i className="bx bx-loader-alt bx-spin text-base" />
+                              ) : (
+                                <i className="bx bx-user-x text-base" />
+                              )}
+                              Canceló
                             </button>
                           )}
                         </div>

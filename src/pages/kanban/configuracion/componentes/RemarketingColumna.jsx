@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../../api/chatcenter";
 
@@ -35,6 +35,144 @@ const COLUMNA_CON_PLAZO = "retiro_agencia";
 
 const calcTotalMinutos = (secs) =>
   secs.reduce((acc, s) => acc + Number(s.tiempo_espera_minutos || 0), 0);
+
+/* Selector de plantilla con buscador y lista con scroll propio. El <select>
+   nativo se volvía inmanejable en cuentas con 50+ plantillas: sin filtro y
+   con el dropdown del navegador ocupando media pantalla. */
+function TemplatePicker({
+  value,
+  opciones,
+  obligatoria,
+  opcionIncompatible,
+  onChange,
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const fuera = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", fuera);
+    return () => document.removeEventListener("mousedown", fuera);
+  }, [open]);
+
+  const filtro = q.trim().toLowerCase();
+  const filtradas = filtro
+    ? opciones.filter((t) => t.name.toLowerCase().includes(filtro))
+    : opciones;
+
+  const elegir = (name) => {
+    onChange(name);
+    setOpen(false);
+    setQ("");
+  };
+
+  return (
+    <div ref={boxRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        className="rm2-tpl-btn"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            color: value ? "#111827" : "#9ca3af",
+          }}
+        >
+          {value
+            ? `${value}${opcionIncompatible ? " ⚠ (con variables)" : ""}`
+            : obligatoria
+              ? "Selecciona una plantilla..."
+              : "Sin plantilla (solo dentro de 24h)"}
+        </span>
+        <i
+          className={`bx bx-chevron-${open ? "up" : "down"}`}
+          style={{ color: "#6b7280", flexShrink: 0 }}
+        />
+      </button>
+
+      {open && (
+        <div className="rm2-tpl-pop">
+          <div style={{ padding: 8, borderBottom: "1px solid #f1f5f9" }}>
+            <input
+              autoFocus
+              className="rm2-tpl-search"
+              placeholder={`Buscar entre ${opciones.length} plantilla${opciones.length === 1 ? "" : "s"}...`}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <div className="rm2-tpl-list">
+            {!obligatoria && !filtro && (
+              <button
+                type="button"
+                className="rm2-tpl-item"
+                style={{ color: "#6b7280", fontStyle: "italic" }}
+                onClick={() => elegir("")}
+              >
+                Sin plantilla (solo dentro de 24h)
+              </button>
+            )}
+            {/* La plantilla ya guardada que hoy no se puede elegir: se muestra
+                para que se vea POR QUÉ no sirve (misma lógica que tenía el
+                select nativo). */}
+            {opcionIncompatible && !filtro && (
+              <button
+                type="button"
+                className="rm2-tpl-item"
+                onClick={() => elegir(opcionIncompatible)}
+              >
+                <span>{opcionIncompatible}</span>
+                <span style={{ color: "#b45309", fontSize: ".68rem" }}>
+                  ⚠ con variables
+                </span>
+              </button>
+            )}
+            {filtradas.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                className={`rm2-tpl-item${tpl.name === value ? " sel" : ""}`}
+                onClick={() => elegir(tpl.name)}
+              >
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {tpl.name}
+                </span>
+                {tpl.name === value && (
+                  <i className="bx bx-check" style={{ color: "#15803d" }} />
+                )}
+              </button>
+            ))}
+            {!filtradas.length && (
+              <div
+                style={{
+                  padding: "14px 12px",
+                  fontSize: ".78rem",
+                  color: "#9ca3af",
+                  textAlign: "center",
+                }}
+              >
+                Ninguna plantilla coincide con “{q}”
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* Métodos disponibles si el cliente respondió en últimas 24h */
 const METODOS_24H = [
@@ -1416,6 +1554,36 @@ const RemarketingColumna = ({
       }
     }
 
+    /* IA y respuesta rápida solo pueden salir si el cliente escribió hace
+       menos de 24 h. En columnas que se llenan por webhook (pendiente
+       confirmación, retiro en agencia…) el cliente muchas veces NUNCA ha
+       escrito, así que sin plantilla de respaldo el seguimiento se cancela
+       sin enviar nada — y el usuario cree que tiene remarketing cuando no
+       tiene ninguno. Se puede guardar igual, pero con confirmación expresa. */
+    const sinRespaldo = secuencias
+      .map((s, i) => ({ s, n: i + 1 }))
+      .filter(
+        ({ s }) => s.metodo_dentro_24h !== "ninguno" && !s.nombre_template,
+      );
+    if (sinRespaldo.length) {
+      const nums = sinRespaldo.map(({ n }) => n).join(", ");
+      const ok = await Swal.fire({
+        icon: "warning",
+        title: "Hay seguimientos que pueden no enviarse",
+        html:
+          `El seguimiento ${nums} usa IA o respuesta rápida <b>sin plantilla de respaldo</b>. ` +
+          `Solo se enviará a clientes que te hayan escrito en las últimas 24 horas: ` +
+          `al que no responde — justo al que quieres recordarle — <b>no se le enviará nada</b>.<br/><br/>` +
+          `Crea una plantilla tipo recordatorio (aprobada por Meta) y asígnala como respaldo ` +
+          `para garantizar el envío en los mismos tiempos.`,
+        showCancelButton: true,
+        confirmButtonText: "Guardar así",
+        cancelButtonText: "Volver y elegir plantilla",
+        confirmButtonColor: "#d97706",
+      });
+      if (!ok.isConfirmed) return;
+    }
+
     const remarketings = secuencias.map((s, i) => {
       let hFormat = s.header_format;
       let hUrl = s.header_media_url;
@@ -1611,6 +1779,15 @@ const RemarketingColumna = ({
         .rm2-metodo-card .mc-desc { font-size:.66rem; color:#6b7280; line-height:1.3; }
         .rm2-select { width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid #e5e7eb; background:#f9fafb; font-size:.85rem; color:#111827; outline:none; transition:border-color .2s; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:32px; cursor:pointer; font-family:inherit; }
         .rm2-select:focus { border-color:${BG_DARK}; box-shadow:0 0 0 3px rgba(23,25,49,.1); background-color:#fff; }
+        .rm2-tpl-btn { width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-radius:10px; border:1.5px solid #e5e7eb; background:#f9fafb; font-size:.85rem; cursor:pointer; font-family:inherit; text-align:left; transition:border-color .2s; }
+        .rm2-tpl-btn:hover { border-color:#cbd5e1; }
+        .rm2-tpl-pop { position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:60; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.14); overflow:hidden; }
+        .rm2-tpl-search { width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid #e5e7eb; font-size:.8rem; outline:none; box-sizing:border-box; font-family:inherit; }
+        .rm2-tpl-search:focus { border-color:${BG_DARK}; }
+        .rm2-tpl-list { max-height:216px; overflow-y:auto; overscroll-behavior:contain; }
+        .rm2-tpl-item { width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border:none; background:#fff; font-size:.8rem; color:#111827; cursor:pointer; text-align:left; font-family:inherit; }
+        .rm2-tpl-item:hover { background:#f8fafc; }
+        .rm2-tpl-item.sel { background:rgba(23,25,49,.05); font-weight:600; }
         .rm2-textarea { width:100%; min-height:140px; padding:10px 12px; border-radius:10px; border:1.5px solid #ddd6fe; background:#fff; font-size:.78rem; color:#1f2937; outline:none; transition:border-color .2s; font-family:'SF Mono','Consolas','Menlo',monospace; line-height:1.5; resize:vertical; box-sizing:border-box; }
         .rm2-textarea:focus { border-color:#8b5cf6; box-shadow:0 0 0 3px rgba(139,92,246,.12); }
         .rm2-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; font-size:.72rem; font-weight:600; }
@@ -2170,38 +2347,56 @@ const RemarketingColumna = ({
                                 />
                               ) : (
                                 <>
-                                  <select
-                                    className="rm2-select"
+                                  <TemplatePicker
                                     value={sec.nombre_template}
-                                    onChange={(e) =>
-                                      handlePlantillaChange(idx, e.target.value)
-                                    }
-                                  >
-                                    <option value="">
-                                      {requiereTemplate(sec)
-                                        ? "Selecciona una plantilla..."
-                                        : "Sin plantilla (solo dentro de 24h)"}
-                                    </option>
-                                    {/* La plantilla ya guardada que hoy no se
-                                        puede elegir: se agrega suelta para que
-                                        el select no aparezca vacío y se vea POR
-                                        QUÉ no sirve. Si es compatible ya viene
-                                        en la lista de abajo — agregarla aquí la
-                                        duplicaría. */}
-                                    {sec.nombre_template &&
+                                    opciones={plantillasSinVars}
+                                    obligatoria={requiereTemplate(sec)}
+                                    opcionIncompatible={
+                                      sec.nombre_template &&
                                       tplObj &&
-                                      !plantillaCompatible(tplObj) && (
-                                        <option value={sec.nombre_template}>
-                                          {sec.nombre_template} ⚠ (con
-                                          variables)
-                                        </option>
-                                      )}
-                                    {plantillasSinVars.map((tpl) => (
-                                      <option key={tpl.id} value={tpl.name}>
-                                        {tpl.name}
-                                      </option>
-                                    ))}
-                                  </select>
+                                      !plantillaCompatible(tplObj)
+                                        ? sec.nombre_template
+                                        : null
+                                    }
+                                    onChange={(name) =>
+                                      handlePlantillaChange(idx, name)
+                                    }
+                                  />
+
+                                  {sec.metodo_dentro_24h !== "ninguno" &&
+                                    !sec.nombre_template && (
+                                      <div
+                                        style={{
+                                          marginTop: 8,
+                                          padding: "8px 10px",
+                                          borderRadius: 10,
+                                          background: "#fffbeb",
+                                          border: "1px solid #fde68a",
+                                          color: "#92400e",
+                                          fontSize: ".72rem",
+                                          lineHeight: 1.45,
+                                          display: "flex",
+                                          gap: 6,
+                                        }}
+                                      >
+                                        <i
+                                          className="bx bx-error"
+                                          style={{ fontSize: 14, marginTop: 1 }}
+                                        />
+                                        <span>
+                                          <strong>
+                                            Sin plantilla de respaldo este
+                                            seguimiento puede no salir:
+                                          </strong>{" "}
+                                          la IA y las respuestas rápidas solo
+                                          se envían si el cliente te escribió
+                                          hace menos de 24 h. Al que no
+                                          responde no le llegará nada — crea
+                                          una plantilla tipo recordatorio y
+                                          asígnala aquí.
+                                        </span>
+                                      </div>
+                                    )}
 
                                   <div className="rm2-helper-text">
                                     <i

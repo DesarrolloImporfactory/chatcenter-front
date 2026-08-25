@@ -129,6 +129,14 @@ export default function WizardProductoModal({
 }) {
   const [step, setStep] = useState(1);
   const [cargando, setCargando] = useState(false);
+
+  /* Al cambiar de paso, el cuerpo vuelve arriba. Sin esto, quien llenó el
+     paso 1 hasta abajo entraba al paso 2 con el scroll al fondo y no veía
+     el botón "Completar con IA" — que es justo lo primero del paso. */
+  const bodyRef = useRef(null);
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [step]);
   const [producto, setProducto] = useState(null);
   const [combosValidos, setCombosValidos] = useState([]);
   const [mediaFija, setMediaFija] = useState([]); // foto/video del catálogo
@@ -638,7 +646,10 @@ export default function WizardProductoModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto bg-slate-50/60 px-5 py-4">
+        <div
+          ref={bodyRef}
+          className="flex-1 overflow-y-auto bg-slate-50/60 px-5 py-4"
+        >
           {cargando ? (
             <div className="py-16 text-center text-slate-500">
               <i className="bx bx-loader-alt bx-spin text-3xl" />
@@ -705,6 +716,10 @@ export default function WizardProductoModal({
                       nada más.
                     </p>
                   </div>
+                  {/* Con el bot sin contenido este botón ES el paso: grande,
+                      con degradado y sombra. Sin animaciones — el halo con
+                      animate-ping escalaba fuera del botón, tapaba el texto
+                      y hacía aparecer/desaparecer el scroll horizontal. */}
                   <button
                     type="button"
                     disabled={generando}
@@ -723,10 +738,10 @@ export default function WizardProductoModal({
                       }
                       generarTextos();
                     }}
-                    className={`shrink-0 rounded-lg px-5 py-2.5 text-[13px] font-semibold inline-flex items-center gap-2 transition disabled:opacity-50 ${
+                    className={`shrink-0 inline-flex items-center gap-2 transition disabled:opacity-50 ${
                       contenidoVacio
-                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                        : "border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        ? "rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-[14px] font-bold text-white shadow-lg shadow-indigo-300/60 ring-2 ring-indigo-200 hover:opacity-95"
+                        : "rounded-lg border border-indigo-200 px-5 py-2.5 text-[13px] font-semibold text-indigo-700 hover:bg-indigo-50"
                     }`}
                   >
                     {generando ? (
@@ -735,7 +750,8 @@ export default function WizardProductoModal({
                       </>
                     ) : contenidoVacio ? (
                       <>
-                        <i className="bx bx-magic-wand" /> Completar con IA
+                        <i className="bx bxs-magic-wand text-base" />
+                        Completar con IA
                       </>
                     ) : (
                       <>
