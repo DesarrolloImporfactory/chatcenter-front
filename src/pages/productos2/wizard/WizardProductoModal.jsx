@@ -137,6 +137,21 @@ export default function WizardProductoModal({
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 });
   }, [step]);
+
+  /* Guardado del paso 1 desde el pie del wizard: ProductoModal entrega su
+     handleSave por esta ref y oculta su botón propio — un solo "Guardar
+     cambios" global para todo el modal. Devuelve true solo si guardó. */
+  const productoSubmitRef = useRef(null);
+  const [guardandoProducto, setGuardandoProducto] = useState(false);
+  const guardarProducto = async () => {
+    if (!productoSubmitRef.current) return false;
+    setGuardandoProducto(true);
+    try {
+      return (await productoSubmitRef.current()) === true;
+    } finally {
+      setGuardandoProducto(false);
+    }
+  };
   const [producto, setProducto] = useState(null);
   const [combosValidos, setCombosValidos] = useState([]);
   const [mediaFija, setMediaFija] = useState([]); // foto/video del catálogo
@@ -681,6 +696,7 @@ export default function WizardProductoModal({
                 key={`${producto.id}-${producto.fecha_actualizacion || ""}`}
                 open
                 embedded
+                submitRef={productoSubmitRef}
                 editingProduct={producto}
                 categorias={categorias}
                 onCategoriasChange={onCategoriasChange}
@@ -1322,25 +1338,55 @@ export default function WizardProductoModal({
               </button>
             )}
 
+            {/* "Guardar cambios" es UNO solo y vive aquí en los 3 pasos:
+                en el 1 guarda el producto (vía submitRef del formulario
+                incrustado, que ya no muestra su botón propio); en el 2 y 3
+                guarda el contenido del bot. */}
+            {step === 1 ? (
+              <button
+                type="button"
+                disabled={cargando || !producto || guardandoProducto}
+                onClick={guardarProducto}
+                className="rounded-lg bg-indigo-600 text-white px-5 py-2 text-[13px] font-semibold hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                {guardandoProducto ? (
+                  <>
+                    <i className="bx bx-loader-alt bx-spin" /> Guardando…
+                  </>
+                ) : (
+                  <>
+                    <i className="bx bx-save" /> Guardar cambios
+                  </>
+                )}
+              </button>
+            ) : null}
+
             {step >= 2 ? (
               <button
                 type="button"
                 disabled={guardando || cargando}
                 onClick={() => guardar({ activar: false })}
-                className="rounded-lg border border-indigo-200 text-indigo-700 px-4 py-2 text-[13px] font-semibold hover:bg-indigo-50 disabled:opacity-50"
+                className="rounded-lg border border-indigo-200 text-indigo-700 px-4 py-2 text-[13px] font-semibold hover:bg-indigo-50 disabled:opacity-50 inline-flex items-center gap-1.5"
               >
-                Guardar borrador
+                <i className="bx bx-save" /> Guardar cambios
               </button>
             ) : null}
 
             {step === 1 ? (
               <button
                 type="button"
-                disabled={cargando || !producto}
-                onClick={() => setStep(2)}
-                className="rounded-lg bg-[#171931] text-white px-5 py-2 text-[13px] font-semibold disabled:opacity-50"
+                disabled={cargando || !producto || guardandoProducto}
+                onClick={async () => {
+                  /* Guardar antes de avanzar: el formulario del paso 1 se
+                     desmonta al cambiar de paso y lo editado sin guardar se
+                     perdería en silencio. Solo avanza si el guardado pasó
+                     (la validación del formulario ya avisa qué falta). */
+                  const ok = await guardarProducto();
+                  if (ok) setStep(2);
+                }}
+                className="rounded-lg bg-[#171931] text-white px-5 py-2 text-[13px] font-semibold disabled:opacity-50 inline-flex items-center gap-1.5"
               >
-                Configurar el bot
+                <i className="bx bx-slider-alt" /> Ajustes avanzados
               </button>
             ) : null}
 
@@ -1364,8 +1410,8 @@ export default function WizardProductoModal({
                 {guardando
                   ? "Guardando…"
                   : form.wizard_completado
-                    ? "Guardar y mantener activo"
-                    : "Activar para los clientes"}
+                    ? "Guardar cambios del flujo"
+                    : "Guardar y activar flujo"}
               </button>
             ) : null}
           </div>

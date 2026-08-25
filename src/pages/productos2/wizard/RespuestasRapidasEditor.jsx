@@ -189,6 +189,19 @@ export default function RespuestasRapidasEditor({
         <i className="bx bx-plus" /> Agregar respuesta
       </button>
 
+      {/* El remate lo pone el sistema al enviar; sin este aviso, el usuario
+          cree que su FAQ sale "seca" o duplica la pregunta a mano. */}
+      <p className="flex items-start gap-1.5 rounded-lg bg-indigo-50 border border-indigo-100 px-2.5 py-2 text-[11.5px] text-indigo-800 leading-snug">
+        <i className="bx bx-target-lock mt-0.5" />
+        <span>
+          <b>Cierre de venta automático:</b> si tu respuesta no termina con
+          una pregunta, el bot le agrega solo una pregunta de cierre al
+          enviarla (ej. “¿Cuántas unidades te aparto?”). Si prefieres tu
+          propio remate, termina la respuesta preguntando y se respeta tal
+          cual.
+        </span>
+      </p>
+
       <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
         <div className="text-[12px] font-semibold text-slate-700">
           Prueba qué haría el bot
