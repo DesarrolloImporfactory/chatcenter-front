@@ -228,6 +228,37 @@ const especCompleta = () =>
     `- 429/500: reintentar con espera exponencial. 400/401/403: corregir la petición o pedir una llave con el scope.`,
   ].join("\n");
 
+/* Nombre legible de un recurso auditado. */
+const recursoLegible = (recurso = "", accion = "") => {
+  if (accion === "revert") {
+    const m = recurso.match(/#(\d+)/);
+    return `Reversión del cambio ${m ? `#${m[1]}` : ""}`.trim();
+  }
+  let m = recurso.match(/^bot\.columna\.(\d+)$/);
+  if (m) return `Prompt de la columna #${m[1]}`;
+  m = recurso.match(/^flujos\.remarketing\.(.+)$/);
+  if (m) return `Remarketing de "${m[1]}"`;
+  m = recurso.match(/^rapidas\.(.+)$/);
+  if (m) return `Respuesta rápida "${m[1]}"`;
+  m = recurso.match(/^plantillas_meta\.(.+)$/);
+  if (m) return `Plantilla de WhatsApp "${m[1]}"`;
+  return recurso;
+};
+
+const ACCION_BADGE = {
+  update: "text-amber-700 bg-amber-50 border-amber-200",
+  create: "text-sky-700 bg-sky-50 border-sky-200",
+  delete: "text-rose-700 bg-rose-50 border-rose-200",
+  revert: "text-emerald-700 bg-emerald-50 border-emerald-200",
+};
+
+const ACCION_LABEL = {
+  update: "editó",
+  create: "creó",
+  delete: "eliminó",
+  revert: "reversión",
+};
+
 const fmtFecha = (v) => {
   if (!v) return "—";
   const d = new Date(v);
@@ -275,6 +306,11 @@ export default function ApiPublica() {
   const [keyNueva, setKeyNueva] = useState(null);
   // Endpoint de configuración expandido en la doc
   const [endpointAbierto, setEndpointAbierto] = useState(null);
+  // Actividad (auditoría de escrituras de los CRMs conectados)
+  const [actividad, setActividad] = useState([]);
+  const [cargandoAct, setCargandoAct] = useState(false);
+  const [detalleAct, setDetalleAct] = useState(null); // { id, previo, nuevo… }
+  const [revirtiendo, setRevirtiendo] = useState(false);
 
   const cargar = useCallback(async () => {
     if (!idConfiguracion) return setCargando(false);
@@ -335,6 +371,64 @@ export default function ApiPublica() {
     cargar();
   };
 
+  const cargarActividad = useCallback(async () => {
+    if (!idConfiguracion) return;
+    setCargandoAct(true);
+    setDetalleAct(null);
+    try {
+      const { data } = await chatApi.get("/api_keys/auditoria", {
+        params: { id_configuracion: idConfiguracion },
+      });
+      setActividad(data?.data || []);
+    } catch (_) {
+      setActividad([]);
+    } finally {
+      setCargandoAct(false);
+    }
+  }, [idConfiguracion]);
+
+  useEffect(() => {
+    if (tab === "actividad") cargarActividad();
+  }, [tab, cargarActividad]);
+
+  const verDetalleAct = async (id) => {
+    if (detalleAct?.id === id) return setDetalleAct(null);
+    try {
+      const { data } = await chatApi.get("/api_keys/auditoria", {
+        params: { id_configuracion: idConfiguracion, id },
+      });
+      setDetalleAct(data?.data || null);
+    } catch (_) {
+      toast.error("No se pudo cargar el detalle");
+    }
+  };
+
+  const revertirAct = async (fila) => {
+    const r = await Swal.fire({
+      icon: "warning",
+      title: "¿Deshacer este cambio?",
+      html: `Se restaura <b>${recursoLegible(fila.recurso, fila.accion)}</b> al estado que tenía ANTES de que ${fila.llave || "el sistema externo"} lo tocara.<br/><br/>La reversión también queda registrada — puedes volver a cualquier punto.`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, deshacer",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#d97706",
+    });
+    if (!r.isConfirmed) return;
+    setRevirtiendo(true);
+    try {
+      const { data } = await chatApi.post("/api_keys/auditoria/revertir", {
+        id_configuracion: idConfiguracion,
+        id: fila.id,
+      });
+      toast.success(data?.message || "Cambio revertido");
+      cargarActividad();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "No se pudo revertir");
+    } finally {
+      setRevirtiendo(false);
+    }
+  };
+
   const toggleScope = (scope) =>
     setScopesSel((prev) =>
       prev.includes(scope)
@@ -372,6 +466,7 @@ export default function ApiPublica() {
           {[
             { id: "llaves", icon: "bx-key", label: "Mis llaves" },
             { id: "docs", icon: "bx-book-open", label: "Documentación" },
+            { id: "actividad", icon: "bx-history", label: "Actividad" },
           ].map((t) => (
             <button
               key={t.id}
@@ -635,6 +730,135 @@ export default function ApiPublica() {
                         >
                           Revocar
                         </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ══ TAB ACTIVIDAD — qué cambiaron los CRMs conectados y deshacer ══ */}
+      {tab === "actividad" && (
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="px-4 md:px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-slate-800">
+                Actividad de tus sistemas conectados
+              </h2>
+              <p className="text-[12px] text-slate-500">
+                Cada cambio que hace un CRM externo queda registrado con el
+                valor anterior — puedes deshacerlo con un clic.
+              </p>
+            </div>
+            <button
+              onClick={cargarActividad}
+              className="inline-flex items-center gap-1 text-[12px] font-semibold text-slate-500 hover:text-slate-800"
+            >
+              <i className="bx bx-refresh" /> Actualizar
+            </button>
+          </div>
+
+          <div className="p-4 md:p-5">
+            {cargandoAct ? (
+              <div className="space-y-2">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-[52px] rounded-lg bg-slate-100 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : actividad.length === 0 ? (
+              <div className="text-center py-10 px-4">
+                <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                  <i className="bx bx-history text-3xl text-slate-400" />
+                </div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Sin cambios registrados todavía
+                </p>
+                <p className="text-[13px] text-slate-500 mt-1 max-w-md mx-auto">
+                  Cuando un sistema con permisos de escritura edite tu bot, tus
+                  flujos o tus plantillas, aparecerá aquí con la opción de
+                  deshacerlo.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {actividad.map((a) => {
+                  const abierto = detalleAct?.id === a.id;
+                  const esRevert = a.accion === "revert";
+                  return (
+                    <div
+                      key={a.id}
+                      className="rounded-xl border border-slate-200 overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => verDetalleAct(a.id)}
+                        className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition ${abierto ? "bg-slate-50" : "hover:bg-slate-50"}`}
+                      >
+                        <span
+                          className={`text-[10px] font-bold border rounded px-1.5 py-[1px] shrink-0 ${ACCION_BADGE[a.accion] || ACCION_BADGE.update}`}
+                        >
+                          {ACCION_LABEL[a.accion] || a.accion}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-semibold text-slate-800 truncate">
+                            {recursoLegible(a.recurso, a.accion)}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            {fmtFecha(a.created_at)} ·{" "}
+                            {esRevert
+                              ? "deshecho desde el panel"
+                              : `por ${a.llave || "sistema externo"}`}
+                          </p>
+                        </div>
+                        <i
+                          className={`bx bx-chevron-${abierto ? "up" : "down"} text-slate-400`}
+                        />
+                      </button>
+
+                      {abierto && detalleAct && (
+                        <div className="border-t border-slate-100 bg-slate-50 px-3.5 py-3">
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div>
+                              <p className="text-[10.5px] font-bold uppercase tracking-wide text-slate-400 mb-1">
+                                Antes (lo que se restauraría)
+                              </p>
+                              <pre className="bg-white border border-slate-200 rounded-lg p-2 text-[11px] text-slate-700 overflow-auto max-h-44 whitespace-pre-wrap break-words">
+                                {detalleAct.previo
+                                  ? JSON.stringify(detalleAct.previo, null, 2)
+                                  : "(nada)"}
+                              </pre>
+                            </div>
+                            <div>
+                              <p className="text-[10.5px] font-bold uppercase tracking-wide text-slate-400 mb-1">
+                                Después (lo que escribió)
+                              </p>
+                              <pre className="bg-white border border-slate-200 rounded-lg p-2 text-[11px] text-slate-700 overflow-auto max-h-44 whitespace-pre-wrap break-words">
+                                {detalleAct.nuevo
+                                  ? JSON.stringify(detalleAct.nuevo, null, 2)
+                                  : "(nada)"}
+                              </pre>
+                            </div>
+                          </div>
+                          {!esRevert && a.reversible ? (
+                            <button
+                              type="button"
+                              disabled={revirtiendo}
+                              onClick={() => revertirAct(a)}
+                              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[13px] font-semibold px-3.5 py-2 disabled:opacity-50 transition"
+                            >
+                              <i
+                                className={`bx ${revirtiendo ? "bx-loader-alt bx-spin" : "bx-undo"}`}
+                              />
+                              Deshacer este cambio
+                            </button>
+                          ) : null}
+                        </div>
                       )}
                     </div>
                   );
