@@ -80,8 +80,6 @@ export function CrearUsuarioForm({
     kit: toFlag(clienteExistente?.kit),
     tiendas: toFlag(clienteExistente?.tiendas),
     franquicias: toFlag(clienteExistente?.franquicias),
-    // dropsystem ya no tiene checkbox (paquete retirado del panel), pero se
-    // preserva el valor vigente para no borrárselo al actualizar.
     dropsystem: toFlag(clienteExistente?.dropsystem),
     kit_importador: toFlag(clienteExistente?.kit_importador),
     motor_ventas: toFlag(clienteExistente?.motor_ventas),
