@@ -24,6 +24,9 @@ export const PAQUETES = [
   { key: "kit_importador", label: "Kit del Importador" },
   // Motor de Ventas: curso 57 + botones ImporChat y Dropi.
   { key: "motor_ventas", label: "Motor de Ventas" },
+  // DropSystem (relanzado ago-2026): curso The Ecommerce Method (32),
+  // Calculadora Ecommerce y 2 meses de ImporChat de cortesía.
+  { key: "dropsystem", label: "DropSystem" },
 ];
 
 /** Medios de pago aceptados por Asesor/agregar_pago. */
