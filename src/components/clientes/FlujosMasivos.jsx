@@ -37,12 +37,19 @@ const botonesTodos = (tpl) => {
 const botonesVar = (tpl) =>
   botonesTodos(tpl).filter((b) => /\{\{\d+\}\}/.test(b?.url || ""));
 
-/* v1: solo plantillas sin encabezado multimedia ni variables en el header. */
+/* Encabezado con IMAGEN → el flujo la llena con la FOTO DEL PRODUCTO de cada
+   contacto (galería de su orden Dropi → catálogo por ID → nombre exacto). */
+const tieneHeaderImagen = (tpl) =>
+  String(headerDe(tpl)?.format || "").toUpperCase() === "IMAGE";
+
+/* Soportadas: sin header, header de texto fijo, o header de IMAGEN (foto del
+   producto por contacto). Video/documento y texto con variables, aún no. */
 const plantillaSoportada = (tpl) => {
   const h = headerDe(tpl);
   if (!h) return true;
   const fmt = String(h.format || "").toUpperCase();
-  if (["IMAGE", "VIDEO", "DOCUMENT"].includes(fmt)) return false;
+  if (fmt === "IMAGE") return true;
+  if (["VIDEO", "DOCUMENT"].includes(fmt)) return false;
   if (/\{\{\d+\}\}/.test(h.text || "")) return false;
   return true;
 };
@@ -315,11 +322,22 @@ export default function FlujosMasivos() {
     return contacto?.valores?.[m.valor] || "";
   };
 
+  /* Con plantilla de imagen, el contacto SIN foto identificada queda fuera
+     obligatoriamente: Meta no acepta esa plantilla sin imagen, y mandar la
+     foto de OTRO producto (el cliente tiene varios modelos parecidos) es
+     peor que no enviar. */
+  const requiereImagen = tplSel ? tieneHeaderImagen(tplSel) : false;
+
   const contactosLote = () => {
-    const todos = audiencia?.data || [];
+    let todos = audiencia?.data || [];
+    if (requiereImagen) todos = todos.filter((c) => c.imagen_producto);
     if (!excluirIncompletos || !mapeo.length) return todos;
     return todos.filter((c) => mapeo.every((m) => valorPara(c, m)));
   };
+
+  const sinFoto = requiereImagen
+    ? (audiencia?.data || []).filter((c) => !c.imagen_producto).length
+    : 0;
 
   const incompletos = mapeo.length
     ? (audiencia?.data || []).filter(
@@ -388,6 +406,16 @@ export default function FlujosMasivos() {
           language_code: tplSel.language || "es",
           template_parameters: mapeo.map(() => "-"),
           parametros_por_cliente,
+          /* Plantilla con encabezado de imagen: la foto de CADA contacto.
+             Los contactos sin foto ya quedaron fuera del lote. */
+          ...(requiereImagen
+            ? {
+                header_format: "IMAGE",
+                header_media_por_cliente: Object.fromEntries(
+                  lote.map((c) => [String(c.id), c.imagen_producto]),
+                ),
+              }
+            : {}),
           fecha_programada: fecha.replace("T", " ") + ":00",
           timezone: zona,
           meta: { origen: "flujos_masivos" },
@@ -868,6 +896,7 @@ export default function FlujosMasivos() {
                             {botonesVar(t).length
                               ? ` + ${botonesVar(t).length} botón`
                               : ""}
+                            {tieneHeaderImagen(t) ? " · 📷 foto" : ""}
                           </span>
                         </button>
                       );
@@ -950,6 +979,31 @@ export default function FlujosMasivos() {
                       </div>
                     ))}
                   </div>
+                  {requiereImagen && (
+                    <div className="mt-3 flex items-start gap-1.5 rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-[11px] leading-relaxed text-sky-800">
+                      <i className="bx bx-image mt-0.5" />
+                      <span>
+                        <b>
+                          Esta plantilla lleva la foto del producto de cada
+                          contacto
+                        </b>{" "}
+                        (galería de su orden Dropi → catálogo por ID → nombre
+                        exacto).
+                        {sinFoto > 0 && (
+                          <>
+                            {" "}
+                            <b className="text-amber-700">
+                              {sinFoto} contacto{sinFoto === 1 ? "" : "s"} sin
+                              foto identificada quedan fuera del flujo
+                            </b>{" "}
+                            — la plantilla no puede salir sin imagen y jamás
+                            se manda la foto de otro producto.
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Aviso SIEMPRE visible en flujos de retiro: ámbar con
                       arreglo a un clic si mapearon Dirección; informativo
                       si ya están usando Lugar de retiro. */}
@@ -1029,10 +1083,32 @@ export default function FlujosMasivos() {
                   )}
                 </>
               ) : (
-                <p className="text-xs text-slate-500">
-                  Esta plantilla no tiene variables: se envía igual para
-                  todos.
-                </p>
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-slate-500">
+                    Esta plantilla no tiene variables de texto
+                    {requiereImagen
+                      ? ": solo cambia la foto por contacto."
+                      : ": se envía igual para todos."}
+                  </p>
+                  {requiereImagen && (
+                    <div className="flex items-start gap-1.5 rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-[11px] leading-relaxed text-sky-800">
+                      <i className="bx bx-image mt-0.5" />
+                      <span>
+                        <b>Lleva la foto del producto de cada contacto</b>{" "}
+                        (orden Dropi → catálogo por ID → nombre exacto).
+                        {sinFoto > 0 && (
+                          <>
+                            {" "}
+                            <b className="text-amber-700">
+                              {sinFoto} sin foto identificada quedan fuera
+                            </b>
+                            .
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
               ))}
           </div>
 
@@ -1100,6 +1176,18 @@ export default function FlujosMasivos() {
                         }
                       </span>
                     </div>
+                  )}
+                  {/* La foto que va en el encabezado, la de ESTE contacto */}
+                  {requiereImagen && contactoPreview?.imagen_producto && (
+                    <img
+                      src={contactoPreview.imagen_producto}
+                      alt="Foto del producto"
+                      className="mb-1 max-w-[85%] rounded-t-xl bg-white object-cover shadow"
+                      style={{ maxHeight: 180 }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
                   )}
                   <div className="max-w-[85%] whitespace-pre-wrap rounded-xl rounded-tl-none bg-white p-3 text-sm text-slate-800 shadow">
                     {previewBodyPara(contactoPreview) || "…"}
