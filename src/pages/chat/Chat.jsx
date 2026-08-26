@@ -3155,9 +3155,53 @@ const Chat = () => {
 
     socketRef.current.on("MESSAGE_STATUS_UPDATE", onMessageStatusUpdate);
 
+    // ✅ NUEVO: el cliente editó o eliminó un mensaje que ya está en pantalla.
+    // No llega un mensaje nuevo, se actualiza el que ya estaba, así que sin
+    // esto el asesor tendría que recargar el chat para enterarse.
+    const onMessageUpdated = ({
+      id_configuracion: cfg,
+      id,
+      chat_id,
+      es_ultimo,
+      texto_mensaje,
+      texto_original,
+      editado_at,
+      eliminado_at,
+    }) => {
+      if (String(cfg) !== String(id_configuracion)) return;
+
+      setMensajesOrdenados((prev) =>
+        prev.map((m) =>
+          String(m.id) === String(id)
+            ? { ...m, texto_mensaje, texto_original, editado_at, eliminado_at }
+            : m,
+        ),
+      );
+
+      // El preview del sidebar sólo cambia si lo tocado fue el último mensaje
+      // del chat; si el cliente borró uno de más arriba, la fila queda igual.
+      if (!chat_id || !es_ultimo) return;
+
+      setMensajesAcumulados((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(chat_id)
+            ? {
+                ...c,
+                texto_mensaje,
+                mensaje_editado_at: editado_at,
+                mensaje_eliminado_at: eliminado_at,
+              }
+            : c,
+        ),
+      );
+    };
+
+    socketRef.current.on("MESSAGE_UPDATED", onMessageUpdated);
+
     return () => {
       socketRef.current.off("UPDATE_CHAT", onUpdateChat);
       socketRef.current.off("MESSAGE_STATUS_UPDATE", onMessageStatusUpdate);
+      socketRef.current.off("MESSAGE_UPDATED", onMessageUpdated);
     };
   }, [
     isSocketConnected,

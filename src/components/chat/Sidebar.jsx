@@ -882,6 +882,13 @@ function MessageItem({
     ? `🔔 Notificación: ${previewCortoBase}`
     : previewCortoBase;
 
+  /* Último mensaje eliminado o editado por el cliente. El sidebar no puede
+     seguir mostrando el texto ni la miniatura de algo que el cliente ya borró:
+     avisa igual que el chat. El original no se pierde, sigue guardado y se ve
+     al abrir la conversación. */
+  const ultimoEliminado = !!mensaje?.mensaje_eliminado_at;
+  const ultimoEditado = !!mensaje?.mensaje_editado_at;
+
   const rawRuta = mensaje?.ruta_archivo || "";
   const rutaMedia = (() => {
     if (!rawRuta) return "";
@@ -1002,10 +1009,10 @@ function MessageItem({
         anchorRef={eyeRef}
         open={previewOpen}
         onForceClose={() => setPreviewOpen(false)}
-        tipo={tipoDetectado}
-        texto={textoPreview}
-        ruta={rutaMedia}
-        rutaRaw={rawRuta}
+        tipo={ultimoEliminado ? "text" : tipoDetectado}
+        texto={ultimoEliminado ? "Mensaje eliminado" : textoPreview}
+        ruta={ultimoEliminado ? "" : rutaMedia}
+        rutaRaw={ultimoEliminado ? "" : rawRuta}
         isTemplate={isTemplate}
         replyRef={replyRef}
         replyAuthor={replyAuthor || (!own ? nombre : "Tú")}
@@ -1193,15 +1200,25 @@ function MessageItem({
           <PillCanal source={mensaje?.source} />
           <span
             className="truncate"
-            title={tipoDetectado === "location" ? "Ubicación" : textoPreview}
-          >
-            {tipoDetectado === "audio"
-              ? "🎧 Audio"
-              : tipoDetectado === "image"
-                ? "🖼️ Imagen"
+            title={
+              ultimoEliminado
+                ? "El cliente eliminó este mensaje"
                 : tipoDetectado === "location"
-                  ? "📍 Ubicación"
-                  : previewCorto}
+                  ? "Ubicación"
+                  : textoPreview
+            }
+          >
+            {ultimoEliminado
+              ? "🚫 Mensaje eliminado"
+              : tipoDetectado === "audio"
+                ? "🎧 Audio"
+                : tipoDetectado === "image"
+                  ? "🖼️ Imagen"
+                  : tipoDetectado === "location"
+                    ? "📍 Ubicación"
+                    : ultimoEditado
+                      ? `✎ ${previewCorto}`
+                      : previewCorto}
           </span>
         </div>
       </div>
