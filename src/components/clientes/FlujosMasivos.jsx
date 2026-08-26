@@ -987,8 +987,8 @@ export default function FlujosMasivos() {
                           Esta plantilla lleva la foto del producto de cada
                           contacto
                         </b>{" "}
-                        (galería de su orden Dropi → catálogo por ID → nombre
-                        exacto).
+                        (la imagen de tu catálogo — por ID de Dropi o nombre
+                        — y si no está, la foto de la orden).
                         {sinFoto > 0 && (
                           <>
                             {" "}
@@ -1095,7 +1095,8 @@ export default function FlujosMasivos() {
                       <i className="bx bx-image mt-0.5" />
                       <span>
                         <b>Lleva la foto del producto de cada contacto</b>{" "}
-                        (orden Dropi → catálogo por ID → nombre exacto).
+                        (la imagen de tu catálogo; si no está, la de la
+                        orden).
                         {sinFoto > 0 && (
                           <>
                             {" "}

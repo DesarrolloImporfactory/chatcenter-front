@@ -322,10 +322,11 @@ function TemplatePreview({ template, bodyParams }) {
           <i className="bx bx-image" style={{ marginTop: 1 }} />
           <span>
             <b>Foto automática del producto:</b> al enviarse, la imagen se
-            reemplaza por la foto del producto del pedido de cada cliente
-            (orden de Dropi → tu catálogo por ID → nombre). Si no se
-            identifica el producto, sale la imagen de ejemplo de la
-            plantilla.
+            reemplaza por la foto del producto del pedido de cada cliente —
+            <b> la imagen que mantienes en tu catálogo</b> (aunque la hayas
+            cambiado después de importar de Dropi) y, si el producto no está
+            en tu catálogo, la foto de la orden de Dropi. Si no se identifica
+            el producto, sale la imagen de ejemplo de la plantilla.
           </span>
         </div>
       )}
