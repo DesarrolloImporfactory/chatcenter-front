@@ -2090,6 +2090,89 @@ const ChatPrincipal = ({
                     continue;
                   }
 
+                  // ── Mensaje eliminado por quien lo envió ─────────────────
+                  // WhatsApp lo hace desaparecer del chat del otro lado, pero
+                  // acá se conserva: para la operación el texto que el cliente
+                  // borró suele ser justo el dato que importa (la dirección
+                  // que corrigió, el precio que ya no quiere que se vea). Se
+                  // avisa que fue eliminado, como en WhatsApp, y el original
+                  // queda a un clic en vez de perderse.
+                  if (mensaje.eliminado_at) {
+                    const esPropio = mensaje.rol_mensaje === 1;
+                    const textoPrevio =
+                      mensaje.texto_original || mensaje.texto_mensaje || "";
+
+                    // Si no era texto, al menos se dice qué era: el archivo
+                    // sigue guardado en nuestro servidor, pero mostrarlo tal
+                    // cual contradiría el aviso de eliminado.
+                    const ETIQUETA_MEDIA = {
+                      image: "una imagen",
+                      video: "un video",
+                      audio: "un audio",
+                      document: "un documento",
+                      sticker: "un sticker",
+                      location: "una ubicación",
+                      contacts: "un contacto",
+                    };
+                    const etiquetaMedia = ETIQUETA_MEDIA[mensaje.tipo_mensaje];
+
+                    items.push(
+                      <div
+                        key={key}
+                        id={`msg-${mensaje.id}`}
+                        className={`flex ${
+                          esPropio ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        <div
+                          className="
+                            relative px-4 py-3 md:px-5 md:py-3.5 rounded-2xl
+                            max-w-[80%] md:max-w-[70%] min-w-[52%] sm:min-w-[38%] md:min-w-[32%]
+                            bg-gray-50 text-gray-500
+                            border border-dashed border-gray-300
+                          "
+                        >
+                          <div className="flex items-center gap-2 text-[15px] md:text-sm italic pr-12">
+                            <i className="bx bx-block text-lg shrink-0" />
+                            <span>
+                              {esPropio
+                                ? "Eliminaste este mensaje"
+                                : "Este mensaje fue eliminado"}
+                            </span>
+                          </div>
+
+                          {etiquetaMedia && (
+                            <div className="mt-1 text-[12px] not-italic">
+                              Era {etiquetaMedia}.
+                            </div>
+                          )}
+
+                          {textoPrevio ? (
+                            <details className="mt-1.5 text-[12px] not-italic">
+                              <summary className="cursor-pointer select-none hover:text-gray-700">
+                                <i className="bx bx-show align-middle mr-1" />
+                                Ver el mensaje original
+                              </summary>
+                              <div className="mt-1 px-2 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-[13px] whitespace-pre-wrap break-words">
+                                {renderTextoWhatsapp(textoPrevio)}
+                              </div>
+                            </details>
+                          ) : null}
+
+                          <span
+                            className="absolute bottom-1 right-2 text-xs text-gray-400"
+                            title={`Enviado ${formatFecha(
+                              mensaje.created_at,
+                            )} · eliminado ${formatFecha(mensaje.eliminado_at)}`}
+                          >
+                            {formatHora(mensaje.created_at)}
+                          </span>
+                        </div>
+                      </div>,
+                    );
+                    continue;
+                  }
+
                   const hasError = !!mensaje?.error_meta;
                   const errorText = hasError
                     ? mensaje.error_meta.mensaje_error ||
@@ -2238,6 +2321,23 @@ const ChatPrincipal = ({
 
                         {/* ✅ NUEVO: Preview del mensaje al que responde */}
                         <ReplyPreview contextWamid={mensaje.context_wamid} />
+
+                        {/* ── Texto previo a la edición ──────────────────────
+                            WhatsApp deja ver el historial de ediciones; acá
+                            basta con el original, que es contra lo que el
+                            asesor necesita comparar. Va tachado y plegado para
+                            no competir con el texto vigente. */}
+                        {mensaje.editado_at && mensaje.texto_original ? (
+                          <details className="mb-1.5 text-[12px] opacity-75">
+                            <summary className="cursor-pointer select-none hover:opacity-100">
+                              <i className="bx bx-edit-alt align-middle mr-1" />
+                              Ver el mensaje antes de editarse
+                            </summary>
+                            <div className="mt-1 px-2 py-1.5 rounded-lg bg-black/5 line-through decoration-gray-400/70 whitespace-pre-wrap break-words">
+                              {renderTextoWhatsapp(mensaje.texto_original)}
+                            </div>
+                          </details>
+                        ) : null}
 
                         {/* Contenido del mensaje (texto, audio, imagen, etc.) */}
                         <span className="text-[15px] md:text-sm pb-2 inline-block w-full">
@@ -2908,6 +3008,18 @@ const ChatPrincipal = ({
                           className={`absolute bottom-1 right-2 text-xs flex items-center gap-0.5 ${timestampClass}`}
                           title={formatFecha(mensaje.created_at)}
                         >
+                          {/* Igual que WhatsApp: la marca de editado va pegada
+                              a la hora, no metida dentro del texto. */}
+                          {mensaje.editado_at && (
+                            <span
+                              className="italic"
+                              title={`Editado el ${formatFecha(
+                                mensaje.editado_at,
+                              )}`}
+                            >
+                              editado
+                            </span>
+                          )}
                           {formatHora(mensaje.created_at)}
                           <MessageStatusTicks mensaje={mensaje} />
                         </span>
