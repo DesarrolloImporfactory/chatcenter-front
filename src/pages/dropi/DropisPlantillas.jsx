@@ -301,6 +301,35 @@ function TemplatePreview({ template, bodyParams }) {
         Vista previa WhatsApp
       </div>
 
+      {/* Plantilla con encabezado de IMAGEN: en los envíos automáticos la
+          imagen NO es fija — el sistema pone la foto del producto del pedido
+          de cada cliente. Sin este aviso, el usuario cree que siempre saldrá
+          la imagen de ejemplo. */}
+      {headerFmt === "IMAGE" && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 6,
+            background: "#eff6ff",
+            borderBottom: "1px solid #dbeafe",
+            padding: "7px 10px",
+            fontSize: ".68rem",
+            lineHeight: 1.4,
+            color: "#1d4ed8",
+          }}
+        >
+          <i className="bx bx-image" style={{ marginTop: 1 }} />
+          <span>
+            <b>Foto automática del producto:</b> al enviarse, la imagen se
+            reemplaza por la foto del producto del pedido de cada cliente
+            (orden de Dropi → tu catálogo por ID → nombre). Si no se
+            identifica el producto, sale la imagen de ejemplo de la
+            plantilla.
+          </span>
+        </div>
+      )}
+
       {/* Fondo estilo WhatsApp */}
       <div
         style={{
