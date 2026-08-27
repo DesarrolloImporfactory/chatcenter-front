@@ -1,4 +1,4 @@
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Toaster } from "react-hot-toast";
 import "./App.css";
@@ -392,12 +392,18 @@ function App() {
                 />
 
                 <Route
-                  path="/estados_contactos_dinamico"
+                  path="/estado_contactos"
                   element={
                     <MainLayout>
                       <Estado_contactos_dinamico />
                     </MainLayout>
                   }
+                />
+
+                {/* Ruta vieja: enlaces guardados siguen funcionando */}
+                <Route
+                  path="/estados_contactos_dinamico"
+                  element={<Navigate to="/estado_contactos" replace />}
                 />
 
                 <Route

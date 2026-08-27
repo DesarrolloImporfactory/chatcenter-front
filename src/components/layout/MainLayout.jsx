@@ -316,6 +316,7 @@ function MainLayout({ children }) {
         "/estados_contactos_ventas",
         "/estados_contactos_imporshop",
         "/estados_contactos_eventos",
+        "/estado_contactos",
         "/valoraciones",
       ].includes(location.pathname)
     ) {
@@ -351,7 +352,7 @@ function MainLayout({ children }) {
         : tipo_configuracion === "imporshop"
           ? "/estados_contactos_imporshop"
           : tipo_configuracion === "kanban"
-            ? "/estados_contactos_dinamico"
+            ? "/estado_contactos"
             : tipo_configuracion === "imporshop_proveedor"
               ? "/estados_contactos_imporshop_proveedor"
               : "/estados_contactos";

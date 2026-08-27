@@ -43,122 +43,39 @@ const ORPHANS_COLUMN = {
 const LS_VISIBLES = (cfg) => `kanban_columnas_visibles_${cfg}`;
 const LS_HUERFANOS = (cfg) => `kanban_mostrar_huerfanos_${cfg}`;
 
-// ── PreviewContent ─────────────────────────────────────────────
-function PreviewContent({ tipo, texto, ruta, rutaRaw, replyRef, replyAuthor }) {
-  const parseDocMeta = (raw) => {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return { ruta: raw, nombre: "Documento", size: 0, mimeType: "" };
-    }
-  };
-  const Quote = () =>
-    replyRef ? (
-      <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white/90">
-        <div className="flex">
-          <div className="w-1.5 bg-slate-300/70" />
-          <div className="flex-1 p-3">
-            <div className="mb-1 text-[11px] font-semibold text-slate-600">
-              <i className="bx bx-reply text-[14px] align-[-1px]" />{" "}
-              Respondiendo a {replyAuthor || "mensaje"}
-            </div>
-            <div className="whitespace-pre-wrap break-words text-[13px] text-slate-700 line-clamp-6">
-              {replyRef}
-            </div>
-          </div>
-        </div>
-      </div>
-    ) : null;
+// ── Helpers visuales de tarjeta ────────────────────────────────
+const tiempoRelativo = (iso) => {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(diff) || diff < 60000) return "ahora";
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} d`;
+  const mo = Math.floor(d / 30);
+  return `${mo} mes${mo > 1 ? "es" : ""}`;
+};
 
-  if (tipo === "audio")
-    return (
-      <div>
-        <Quote />
-        <audio controls src={rutaRaw || ruta} className="w-full" />
-      </div>
-    );
-  if (tipo === "image" || tipo === "sticker")
-    return (
-      <div>
-        <Quote />
-        <img
-          src={ruta}
-          alt="Imagen"
-          className="max-w-[480px] w-full h-auto rounded-xl border border-slate-200 shadow-sm"
-        />
-      </div>
-    );
-  if (tipo === "video")
-    return (
-      <div>
-        <Quote />
-        <video
-          controls
-          className="w-full max-w-[480px] rounded-xl border border-slate-200 shadow-sm"
-          src={ruta}
-        />
-      </div>
-    );
-  if (tipo === "document") {
-    const meta = parseDocMeta(ruta);
-    const href = /^https?:\/\//.test(meta.ruta)
-      ? meta.ruta
-      : `https://new.imporsuitpro.com/${meta.ruta || ""}`;
-    const sizeLabel = meta.size
-      ? meta.size > 1048576
-        ? `${(meta.size / 1048576).toFixed(2)} MB`
-        : `${(meta.size / 1024).toFixed(0)} KB`
-      : "";
-    const ext = (
-      meta.ruta?.split(".").pop() ||
-      meta.mimeType?.split("/").pop() ||
-      ""
-    ).toUpperCase();
-    return (
-      <div>
-        <Quote />
-        <a
-          className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white/80 shadow-sm hover:bg-slate-50 transition"
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <i className="bx bxs-file-blank text-2xl text-slate-600" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-semibold text-slate-800">
-              {meta.nombre || "Documento"}
-            </div>
-            <div className="text-[12px] text-slate-500">
-              {[sizeLabel, ext].filter(Boolean).join(" • ")}
-            </div>
-          </div>
-          <i className="bx bx-download text-xl text-blue-600" />
-        </a>
-      </div>
-    );
-  }
+const inicialesDe = (nombre) => {
+  const partes = String(nombre || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!partes.length) return "?";
   return (
-    <div>
-      <Quote />
-      <div
-        style={{
-          backdropFilter: "blur(14px)",
-          background: "rgba(255,255,255,.55)",
-          padding: "18px 20px",
-          borderRadius: "18px",
-          border: "1px solid rgba(255,255,255,0.4)",
-          boxShadow: "0 8px 24px rgba(0,0,0,.12)",
-          whiteSpace: "pre-wrap",
-          fontSize: "15px",
-          lineHeight: "1.65",
-          color: "#1A1A1A",
-        }}
-      >
-        {texto}
-      </div>
-    </div>
-  );
-}
+    (partes[0][0] || "") + (partes.length > 1 ? partes[1][0] || "" : "")
+  ).toUpperCase();
+};
+
+// Color estable por nombre (hash → hue), para que cada contacto tenga su tono
+const colorAvatar = (nombre) => {
+  const s = String(nombre || "?");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return `hsl(${h}, 60%, 45%)`;
+};
 
 // ─────────────────────────────────────────────────────────────
 // Estado_contactos (dinámico + filtros)
@@ -180,6 +97,7 @@ const Estado_contactos = () => {
     bot_openia: null,
     fecha_desde: null,
     fecha_hasta: null,
+    productos: [],
   });
 
   // Vista del tablero
@@ -193,11 +111,6 @@ const Estado_contactos = () => {
   const [tiempoRemarketing, setTiempoRemarketing] = useState("0");
   const [loadingPlantillas, setLoadingPlantillas] = useState(false);
   const [guardandoRemarketing, setGuardandoRemarketing] = useState(false);
-
-  // Preview
-  const [previewData, setPreviewData] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
 
   const scrollLockRef = useRef({});
   const LIMIT = 20;
@@ -220,10 +133,28 @@ const Estado_contactos = () => {
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
 
   // ── 1. Init id_configuracion ──────────────────────────────
+  /* Al salir a /conexiones el menú puede dejar "null"/"undefined" como string
+     en localStorage; parseInt lo vuelve NaN. Sin este guard la vista cargaba
+     un tablero ajeno (columnas de plantillas globales de otra configuración).
+     Mismo patrón que Chat.jsx / CategoriasView: avisar y mandar a /conexiones. */
   useEffect(() => {
-    const idc = localStorage.getItem("id_configuracion");
-    if (idc) setId_configuracion(parseInt(idc, 10));
-  }, []);
+    const idc = parseInt(localStorage.getItem("id_configuracion"), 10);
+    if (!Number.isInteger(idc) || idc <= 0) {
+      localStorage.removeItem("id_configuracion");
+      localStorage.removeItem("tipo_configuracion");
+      localStorage.removeItem("id_plataforma_conf");
+      Swal.fire({
+        icon: "warning",
+        title: "No existe una configuración seleccionada",
+        text: "Selecciona una conexión para ver el estado de tus contactos.",
+        confirmButtonText: "Ir a conexiones",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }).then(() => navigate("/conexiones"));
+      return;
+    }
+    setId_configuracion(idc);
+  }, [navigate]);
 
   // ── 2. Cargar columnas ────────────────────────────────────
   const cargarColumnas = useCallback(async () => {
@@ -536,39 +467,14 @@ const Estado_contactos = () => {
     }
   };
 
-  // Preview
-  const handlePreview = async (contacto) => {
-    setPreviewLoading(true);
-    setPreviewData(null);
-    try {
-      const { data } = await chatApi.post(
-        "/clientes_chat_center/listar_ultimo_mensaje",
-        { id_cliente: contacto.id, id_configuracion },
-      );
-      if (!data?.success || !Array.isArray(data.data) || !data.data.length) {
-        Toast.fire({ icon: "error", title: "No hay mensajes aún" });
-        return;
-      }
-      const msg = data.data[0];
-      setPreviewData({
-        tipo: msg.tipo_mensaje,
-        texto: msg.texto_mensaje,
-        ruta: msg.ruta_archivo,
-        rutaRaw: msg.ruta_archivo,
-        replyRef: null,
-        replyAuthor: null,
-      });
-      setExpandedId(contacto.id);
-    } catch {
-      Toast.fire({ icon: "error", title: "Error API" });
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
+  /* Total real por columna (viene del COUNT del backend), no lo cargado en
+     pantalla: con paginación de 20 el conteo visible mentía. */
   const totalContactos = useMemo(
     () =>
-      Object.values(boardData).reduce((a, c) => a + (c?.items?.length || 0), 0),
+      Object.values(boardData).reduce(
+        (a, c) => a + (Number(c?.total) || 0),
+        0,
+      ),
     [boardData],
   );
 
@@ -604,224 +510,331 @@ const Estado_contactos = () => {
   );
 
   // ── Render tarjeta ────────────────────────────────────────
-  const renderContactCard = (contacto, colKey) => {
+  const renderContactCard = (contacto, colKey, isDragging = false) => {
     const esHuerfano = colKey === ORPHANS_KEY;
     const nombre =
       [contacto.nombre_cliente, contacto.apellido_cliente]
         .filter(Boolean)
         .join(" ") || "Sin nombre";
     const telefono = contacto.celular_cliente || null;
-    const botColor = contacto.bot_openia === 1 ? "#2ECC71" : "#E74C3C";
+    const botOn = contacto.bot_openia === 1;
+    const hace = tiempoRelativo(contacto.ultimo_mensaje_at);
+    // ultimo_rol_mensaje: 0 = escribió el cliente, 1 = escribimos nosotros
+    const ultimoDelCliente =
+      contacto.ultimo_rol_mensaje !== null &&
+      contacto.ultimo_rol_mensaje !== undefined
+        ? String(contacto.ultimo_rol_mensaje) === "0"
+        : null;
+    const etiquetas = contacto.etiquetas || [];
+
+    const btnCopiar = telefono && (
+      <button
+        type="button"
+        className="kanban-copy"
+        title="Copiar número"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigator?.clipboard
+            ?.writeText(String(telefono))
+            .then(() =>
+              Toast.fire({ icon: "success", title: "Número copiado" }),
+            );
+        }}
+        style={{
+          border: "none",
+          background: "transparent",
+          padding: 0,
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          color: "#94a3b8",
+        }}
+      >
+        <i className="bx bx-copy" style={{ fontSize: 13 }} />
+      </button>
+    );
+
+    const tiempoSpan = hace ? (
+      <span
+        title={
+          ultimoDelCliente === null
+            ? "Tiempo desde el último mensaje de la conversación"
+            : ultimoDelCliente
+              ? "Último mensaje: del cliente"
+              : "Último mensaje: tuyo"
+        }
+        style={{
+          fontSize: "0.66rem",
+          color: "#64748b",
+          fontWeight: 600,
+          background: "rgba(100,116,139,.09)",
+          borderRadius: 6,
+          padding: "2px 8px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          maxWidth: "100%",
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <i className="bx bx-time-five" style={{ fontSize: 11, flexShrink: 0 }} />
+        {hace === "ahora"
+          ? "Última actividad · ahora"
+          : `Última actividad · hace ${hace}`}
+      </span>
+    ) : null;
+
+    const btnAbrir = (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          window.open(
+            `/chat/${contacto.id}`,
+            "_blank",
+            "noopener,noreferrer",
+          );
+        }}
+        className="kanban-btn-abrir"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          width: "100%",
+          padding: "6px 0",
+          borderRadius: 8,
+          border: "1px solid rgba(99,102,241,.3)",
+          background: "rgba(99,102,241,.06)",
+          color: "#4f46e5",
+          fontWeight: 700,
+          fontSize: "0.72rem",
+          cursor: "pointer",
+          transition: "all .15s",
+        }}
+      >
+        Abrir
+        <i className="bx bx-right-arrow-alt" style={{ fontSize: 13 }} />
+      </button>
+    );
+
+    const badgeHuerfano = esHuerfano && (
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          fontSize: "0.68rem",
+          padding: "2px 8px",
+          borderRadius: 999,
+          backgroundColor: "#FEF3C7",
+          color: "#92400E",
+          border: "1px solid rgba(245,158,11,.3)",
+          marginTop: 8,
+          fontWeight: 600,
+        }}
+        title="Este estado ya no existe en tus columnas activas"
+      >
+        <i className="bx bx-error-circle" style={{ fontSize: 12 }} />
+        Estado:{" "}
+        {contacto.estado_contacto && contacto.estado_contacto !== ""
+          ? contacto.estado_contacto
+          : "(sin estado)"}
+      </div>
+    );
+
+    const chipsRow = (contacto.producto_ad || etiquetas.length > 0) && (
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 4,
+          marginTop: 8,
+        }}
+      >
+        {contacto.producto_ad && (
+          <span
+            title={`Entró por un anuncio de: ${contacto.producto_ad}`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              fontSize: "0.64rem",
+              fontWeight: 700,
+              color: "#6d28d9",
+              background: "rgba(139,92,246,.08)",
+              border: "1px solid rgba(139,92,246,.25)",
+              borderRadius: 999,
+              padding: "1px 7px",
+              maxWidth: "100%",
+            }}
+          >
+            <i
+              className="bx bx-purchase-tag-alt"
+              style={{ fontSize: 10, flexShrink: 0 }}
+            />
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {contacto.producto_ad}
+            </span>
+          </span>
+        )}
+        {etiquetas.slice(0, 3).map((et, i) => (
+          <span
+            key={i}
+            title={et.nombre}
+            style={{
+              fontSize: "0.64rem",
+              fontWeight: 700,
+              color: "#fff",
+              background: et.color || "#94a3b8",
+              borderRadius: 999,
+              padding: "1px 8px",
+              maxWidth: 90,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {et.nombre}
+          </span>
+        ))}
+        {etiquetas.length > 3 && (
+          <span
+            title={etiquetas
+              .slice(3)
+              .map((e) => e.nombre)
+              .join(", ")}
+            style={{
+              fontSize: "0.64rem",
+              fontWeight: 700,
+              color: "#64748b",
+              background: "rgba(100,116,139,.12)",
+              borderRadius: 999,
+              padding: "1px 7px",
+            }}
+          >
+            +{etiquetas.length - 3}
+          </span>
+        )}
+      </div>
+    );
+
     return (
       <div
         key={contacto.id}
+        className="kanban-contact-card"
         style={{
           backgroundColor: "#fff",
           borderRadius: 12,
           padding: "10px 12px",
-          boxShadow: "0 4px 10px rgba(0,0,0,.08)",
-          marginBottom: 10,
-          fontSize: "0.85rem",
+          marginBottom: 8,
+          fontSize: "0.8rem",
           border: esHuerfano
             ? "1px solid rgba(245,158,11,.35)"
-            : "1px solid rgba(0,0,0,.04)",
-          transition: "transform .12s,box-shadow .12s",
+            : "1px solid rgba(15,23,42,.06)",
+          boxShadow: isDragging
+            ? "0 14px 30px rgba(79,70,229,.22)"
+            : "0 1px 3px rgba(15,23,42,.06)",
+          transform: isDragging ? "rotate(1.5deg)" : undefined,
+          transition: "box-shadow .15s, transform .15s",
         }}
-        className="kanban-contact-card"
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 4,
-          }}
-        >
-          <span style={{ fontWeight: 600 }}>{nombre}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <i
-              className="bx bx-bot"
-              style={{ fontSize: "1.25rem", color: botColor }}
-            />
-            <i
-              className="bx bx-show"
-              style={{ fontSize: "1.2rem", color: "#555", cursor: "pointer" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePreview(contacto);
-              }}
-              onMouseEnter={(e) => (e.target.style.color = "#111")}
-              onMouseLeave={(e) => (e.target.style.color = "#555")}
-            />
-          </div>
-        </div>
-        {telefono && (
-          <div
-            style={{
-              opacity: 0.9,
-              marginBottom: 6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <i className="bx bx-mobile" style={{ fontSize: 14 }} />
-              <span>{telefono}</span>
-            </div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigator?.clipboard
-                  ?.writeText(String(telefono))
-                  .then(() =>
-                    Toast.fire({ icon: "success", title: "Número copiado" }),
-                  );
-              }}
+        {/* Fila principal: avatar + nombre/teléfono + preview */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <div
               style={{
-                border: "none",
-                background: "transparent",
-                padding: "6px 8px",
-                borderRadius: 10,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                color: "#9CA3AF",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(0,0,0,.06)";
-                e.currentTarget.style.color = "#4B5563";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "#9CA3AF";
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                background: colorAvatar(nombre),
+                color: "#fff",
+                display: "grid",
+                placeItems: "center",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                letterSpacing: ".02em",
               }}
             >
-              <i className="bx bx-copy" style={{ fontSize: 18 }} />
-            </button>
+              {inicialesDe(nombre)}
+            </div>
+            <span
+              title={botOn ? "Bot activo" : "Bot inactivo"}
+              style={{
+                position: "absolute",
+                right: -2,
+                bottom: -2,
+                width: 11,
+                height: 11,
+                borderRadius: 999,
+                background: botOn ? "#22c55e" : "#ef4444",
+                border: "2px solid #fff",
+              }}
+            />
           </div>
-        )}
-        {esHuerfano && (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: "0.7rem",
-              padding: "3px 8px",
-              borderRadius: 999,
-              backgroundColor: "#FEF3C7",
-              color: "#92400E",
-              border: "1px solid rgba(245,158,11,.3)",
-              marginBottom: 6,
-              fontWeight: 600,
-            }}
-            title="Este estado ya no existe en tus columnas activas"
-          >
-            <i className="bx bx-error-circle" style={{ fontSize: 12 }} />
-            Estado:{" "}
-            {contacto.estado_contacto && contacto.estado_contacto !== ""
-              ? contacto.estado_contacto
-              : "(sin estado)"}
-          </div>
-        )}
 
-        {!esHuerfano && contacto.estado_contacto && (
-          <div
-            style={{
-              display: "inline-block",
-              fontSize: "0.75rem",
-              padding: "2px 8px",
-              borderRadius: 999,
-              backgroundColor: "#e3f2fd",
-              color: "#0d47a1",
-              marginBottom: 8,
-            }}
-          >
-            {contacto.estado_contacto.replace(/_/g, " ").toUpperCase()}
-          </div>
-        )}
-        <button
-          onClick={() =>
-            window.open(`/chat/${contacto.id}`, "_blank", "noopener,noreferrer")
-          }
-          style={{
-            marginTop: 8,
-            width: "100%",
-            padding: "8px 14px",
-            borderRadius: 10,
-            border: "none",
-            background: "linear-gradient(135deg,#2E8BFF,#6A5CFF)",
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: "0.85rem",
-            cursor: "pointer",
-            transition: "all .2s",
-            boxShadow: "0 3px 8px rgba(46,139,255,.3)",
-          }}
-          className="kanban-btn-abrir"
-        >
-          Abrir
-        </button>
-        {expandedId === contacto.id && (
-          <div
-            style={{
-              marginTop: 10,
-              background: "#F8F9FF",
-              borderRadius: 12,
-              padding: 14,
-              border: "1px solid rgba(0,0,0,.05)",
-              animation: "expand .2s ease",
-              minHeight: 80,
-            }}
-          >
-            {previewLoading && (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 600,
+                color: "#0f172a",
+                fontSize: "0.82rem",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {nombre}
+            </div>
+            {telefono && (
               <div
                 style={{
-                  textAlign: "center",
-                  padding: "25px 0",
-                  opacity: 0.7,
-                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: "#64748b",
+                  fontSize: "0.73rem",
+                  marginTop: 1,
                 }}
               >
-                <i
-                  className="bx bx-loader-alt bx-spin"
-                  style={{ fontSize: 20 }}
-                />
-                <div>Cargando...</div>
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {telefono}
+                </span>
+                {btnCopiar}
               </div>
             )}
-            {!previewLoading && previewData && (
-              <>
-                <PreviewContent
-                  tipo={previewData.tipo}
-                  texto={previewData.texto}
-                  ruta={previewData.ruta}
-                  rutaRaw={previewData.rutaRaw}
-                  replyRef={previewData.replyRef}
-                  replyAuthor={previewData.replyAuthor}
-                />
-                <div style={{ textAlign: "right", marginTop: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: "#0D6EFD",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      setExpandedId(null);
-                      setPreviewData(null);
-                    }}
-                  >
-                    Cerrar
-                  </span>
-                </div>
-              </>
-            )}
           </div>
-        )}
+        </div>
+
+        {badgeHuerfano}
+        {chipsRow}
+
+        {/* Pie: actividad en su propia línea y Abrir a lo ancho — no
+            desborda la columna y es cómodo en celular */}
+        <div
+          style={{
+            marginTop: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            alignItems: "flex-start",
+          }}
+        >
+          {tiempoSpan}
+          {btnAbrir}
+        </div>
       </div>
     );
   };
@@ -1121,30 +1134,31 @@ const Estado_contactos = () => {
         <div
           style={{
             background: "#171931",
-            borderRadius: 18,
-            padding: "22px 26px",
-            marginBottom: "1.8rem",
-            boxShadow: "0 12px 28px rgba(0,0,0,.45)",
+            borderRadius: 16,
+            padding: "16px 22px",
+            marginBottom: "0.9rem",
+            boxShadow: "0 8px 20px rgba(0,0,0,.35)",
             border: "1px solid rgba(255,255,255,.05)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: "1.5rem",
+            gap: "1rem",
+            flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "1.2rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.9rem" }}>
             <div
               style={{
-                width: 50,
-                height: 50,
+                width: 42,
+                height: 42,
                 borderRadius: 999,
                 background: "linear-gradient(135deg,#2E8BFF,#6A5CFF)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#fff",
-                fontSize: "1.5rem",
-                boxShadow: "0 6px 20px rgba(46,139,255,.45)",
+                fontSize: "1.25rem",
+                boxShadow: "0 5px 16px rgba(46,139,255,.45)",
               }}
             >
               <i className="bx bx-bar-chart-alt-2" />
@@ -1152,57 +1166,49 @@ const Estado_contactos = () => {
             <div>
               <h1
                 style={{
-                  fontSize: "1.9rem",
+                  fontSize: "1.35rem",
                   fontWeight: 700,
                   margin: 0,
                   color: "#fff",
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.2,
                 }}
               >
-                Distribución de estados contactos
+                Estado de contactos
               </h1>
               <p
                 style={{
-                  color: "#d3d3d3",
-                  margin: "6px 0 0",
-                  fontSize: "1rem",
+                  color: "#cbd5e1",
+                  margin: "3px 0 0",
+                  fontSize: "0.82rem",
                 }}
               >
-                Visualiza en qué etapa del proceso se encuentra cada contacto.
+                En qué etapa del proceso está cada contacto.
               </p>
             </div>
           </div>
           <div
             style={{
-              textAlign: "right",
-              fontSize: "0.9rem",
-              minWidth: 130,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "6px 14px",
+              borderRadius: 999,
+              background: "rgba(255,255,255,.12)",
+              fontSize: "0.8rem",
               color: "#fff",
+              fontWeight: 600,
             }}
           >
-            <div
+            <span
               style={{
-                padding: "5px 12px",
+                width: 8,
+                height: 8,
                 borderRadius: 999,
-                backgroundColor: "rgba(255,255,255,.12)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                marginBottom: 6,
+                backgroundColor: "#4caf50",
               }}
-            >
-              <span
-                style={{
-                  width: 9,
-                  height: 9,
-                  borderRadius: 999,
-                  backgroundColor: "#4caf50",
-                }}
-              />
-              <span style={{ fontWeight: 600 }}>Contactos activos</span>
-            </div>
-            <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>
-              {totalContactos}
-            </div>
+            />
+            {totalContactos} contactos
           </div>
         </div>
 
@@ -1222,27 +1228,16 @@ const Estado_contactos = () => {
         {isLoading && (
           <div
             style={{
-              marginBottom: "1rem",
-              fontSize: "0.9rem",
+              marginBottom: "0.6rem",
+              fontSize: "0.75rem",
               display: "inline-flex",
               alignItems: "center",
-              gap: 8,
-              padding: "6px 12px",
-              borderRadius: 999,
-              backgroundColor: "#e3f2fd",
-              color: "#0d47a1",
+              gap: 6,
+              color: "#6366f1",
+              fontWeight: 600,
             }}
           >
-            <span
-              style={{
-                display: "inline-block",
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                backgroundColor: "#0d47a1",
-                animation: "pulseDot 1s infinite ease-in-out",
-              }}
-            />
+            <i className="bx bx-loader-alt bx-spin" style={{ fontSize: 14 }} />
             Cargando contactos...
           </div>
         )}
@@ -1262,8 +1257,8 @@ const Estado_contactos = () => {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: `repeat(${columnasParaRender.length},minmax(220px,1fr))`,
-              gap: "1rem",
+              gridTemplateColumns: `repeat(${columnasParaRender.length},minmax(235px,1fr))`,
+              gap: "0.75rem",
               overflowX: "auto",
             }}
           >
@@ -1273,6 +1268,10 @@ const Estado_contactos = () => {
               const isColLoading = !!boardData[colKey]?.loading;
               const esIaVentas = colKey === "ia_ventas";
               const esHuerfano = colKey === ORPHANS_KEY;
+              const accent = esHuerfano
+                ? "#f59e0b"
+                : column.color_texto || "#6366f1";
+              const total = boardData[colKey]?.total ?? items.length;
 
               return (
                 <Droppable droppableId={colKey} key={colKey}>
@@ -1281,105 +1280,104 @@ const Estado_contactos = () => {
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       style={{
-                        backgroundColor: column.color_fondo,
-                        borderRadius: 16,
-                        padding: 12,
+                        backgroundColor: "#F1F3F6",
+                        borderRadius: 14,
+                        padding: "0 8px 8px",
                         display: "flex",
                         flexDirection: "column",
                         maxHeight: "75vh",
-                        boxShadow: "0 8px 18px rgba(0,0,0,.08)",
                         border: esHuerfano
-                          ? "1.5px dashed rgba(245,158,11,.5)"
-                          : "1px solid rgba(0,0,0,.04)",
+                          ? "1.5px dashed rgba(245,158,11,.55)"
+                          : "1.5px solid rgba(148,163,184,.4)",
+                        borderTop: esHuerfano
+                          ? "3px solid rgba(245,158,11,.6)"
+                          : `3px solid ${accent}`,
                       }}
                     >
                       {/* Header columna */}
                       <div
                         style={{
-                          fontWeight: 700,
-                          fontSize: "0.95rem",
-                          marginBottom: "0.5rem",
                           display: "flex",
-                          justifyContent: "space-between",
                           alignItems: "center",
+                          gap: 7,
+                          padding: "10px 4px 8px",
                         }}
                       >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            color: column.color_texto,
-                          }}
-                        >
-                          {column.icono && (
-                            <i
-                              className={column.icono}
-                              style={{ fontSize: "1rem" }}
-                            />
-                          )}
-                          <span>{column.nombre}</span>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
+                        {column.icono ? (
+                          <i
+                            className={column.icono}
+                            style={{
+                              fontSize: 14,
+                              color: accent,
+                              flexShrink: 0,
+                            }}
+                          />
+                        ) : (
                           <span
                             style={{
-                              fontSize: "0.8rem",
-                              backgroundColor: "rgba(255,255,255,.9)",
+                              width: 8,
+                              height: 8,
                               borderRadius: 999,
-                              padding: "3px 9px",
-                              boxShadow: "0 2px 6px rgba(0,0,0,.08)",
-                              display: "flex",
+                              background: accent,
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                        <span
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            fontWeight: 700,
+                            fontSize: "0.82rem",
+                            color: "#1e293b",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={column.nombre}
+                        >
+                          {column.nombre}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "0.7rem",
+                            backgroundColor:
+                              column.color_fondo || "rgba(15,23,42,.06)",
+                            color: accent,
+                            borderRadius: 999,
+                            padding: "1px 8px",
+                            fontWeight: 700,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {total}
+                        </span>
+                        {esIaVentas && (
+                          <button
+                            onClick={() => {
+                              setShowModalRemarketing(true);
+                              fetchPlantillas();
+                            }}
+                            title="Configurar remarketing"
+                            style={{
+                              display: "inline-flex",
                               alignItems: "center",
-                              gap: 4,
-                              fontWeight: 700,
+                              padding: 4,
+                              borderRadius: 8,
+                              border: "1px solid rgba(99,102,241,.3)",
+                              background: "rgba(99,102,241,.08)",
+                              color: "#4338ca",
+                              cursor: "pointer",
+                              flexShrink: 0,
                             }}
                           >
-                            {boardData[colKey]?.total ?? items.length}
-                          </span>
-                          {esIaVentas && (
-                            <button
-                              onClick={() => {
-                                setShowModalRemarketing(true);
-                                fetchPlantillas();
-                              }}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 5,
-                                padding: "4px 10px",
-                                borderRadius: 999,
-                                border: "1px solid rgba(99,102,241,.3)",
-                                background: "rgba(99,102,241,.08)",
-                                color: "#4338ca",
-                                fontSize: "0.75rem",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              <i
-                                className="bx bx-time-five"
-                                style={{ fontSize: 13 }}
-                              />
-                              Remarketing
-                            </button>
-                          )}
-                        </div>
+                            <i
+                              className="bx bx-time-five"
+                              style={{ fontSize: 14 }}
+                            />
+                          </button>
+                        )}
                       </div>
-
-                      <div
-                        style={{
-                          height: 1,
-                          backgroundColor: "rgba(0,0,0,.06)",
-                          marginBottom: 8,
-                        }}
-                      />
 
                       {/* Lista */}
                       <div
@@ -1407,27 +1405,44 @@ const Estado_contactos = () => {
                               draggableId={String(contacto.id)}
                               index={index}
                             >
-                              {(provided) => (
+                              {(provided, snapshot) => (
                                 <div
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
                                 >
-                                  {renderContactCard(contacto, colKey)}
+                                  {renderContactCard(
+                                    contacto,
+                                    colKey,
+                                    snapshot.isDragging,
+                                  )}
                                 </div>
                               )}
                             </Draggable>
                           ))
                         ) : (
-                          <div
-                            style={{
-                              fontSize: "0.8rem",
-                              opacity: 0.7,
-                              fontStyle: "italic",
-                            }}
-                          >
-                            No se encontraron resultados.
-                          </div>
+                          !isColLoading && (
+                            <div
+                              style={{
+                                border: "1.5px dashed rgba(100,116,139,.25)",
+                                borderRadius: 10,
+                                padding: "16px 8px",
+                                textAlign: "center",
+                                fontSize: "0.72rem",
+                                color: "#94a3b8",
+                              }}
+                            >
+                              <i
+                                className="bx bx-inbox"
+                                style={{
+                                  fontSize: 18,
+                                  display: "block",
+                                  marginBottom: 2,
+                                }}
+                              />
+                              Sin contactos
+                            </div>
+                          )
                         )}
                         {isColLoading && (
                           <div
@@ -1552,10 +1567,10 @@ const Estado_contactos = () => {
       )}
 
       <style>{`
-        @keyframes pulseDot{0%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.4}100%{transform:scale(1);opacity:1}}
-        @keyframes expand{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-        .kanban-contact-card:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,.12)}
-        .kanban-btn-abrir:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 6px 14px rgba(46,139,255,.45)}
+        .kanban-contact-card:hover{box-shadow:0 6px 16px rgba(15,23,42,.10) !important;transform:translateY(-1px)}
+        .kanban-copy{opacity:0;transition:opacity .12s}
+        .kanban-contact-card:hover .kanban-copy{opacity:1}
+        .kanban-btn-abrir:hover{background:#4f46e5 !important;color:#fff !important;border-color:#4f46e5 !important}
         .kanban-btn-abrir:active{transform:scale(.97)}
       `}</style>
     </div>
