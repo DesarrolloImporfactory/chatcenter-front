@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import chatApi from "../../../api/chatcenter";
 
 import ModalPersonalizarVista from "./modales/ModalPersonalizarVista";
@@ -10,58 +16,329 @@ const hace7 = () => {
   d.setDate(d.getDate() - 7);
   return d.toISOString().slice(0, 10);
 };
-const inicioMes = () => {
+const hace30 = () => {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  d.setDate(d.getDate() - 30);
+  return d.toISOString().slice(0, 10);
 };
 
 const RANGOS = [
-  { label: "Hoy", fd: hoy, fh: hoy },
-  { label: "Últimos 7 días", fd: hace7, fh: hoy },
-  { label: "Este mes", fd: inicioMes, fh: hoy },
-  { label: "Todos", fd: () => "", fh: () => "" },
+  { key: "hoy", label: "Hoy", corto: "Hoy", fd: hoy, fh: hoy },
+  { key: "7d", label: "7 días", corto: "7d", fd: hace7, fh: hoy },
+  { key: "30d", label: "30 días", corto: "30d", fd: hace30, fh: hoy },
 ];
 
-const Chip = ({ label, onRemove }) => (
-  <div
+const Dot = ({ color }) => (
+  <span
     style={{
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 5,
-      padding: "4px 10px 4px 12px",
+      width: 8,
+      height: 8,
       borderRadius: 999,
-      background: "rgba(99,102,241,.1)",
-      border: "1px solid rgba(99,102,241,.25)",
-      color: "#4338ca",
-      fontSize: "0.78rem",
-      fontWeight: 600,
+      background: color,
+      display: "inline-block",
+      flexShrink: 0,
     }}
-  >
-    {label}
-    <button
-      onClick={onRemove}
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        padding: 0,
-        color: "#6366f1",
-        lineHeight: 1,
-        display: "grid",
-        placeItems: "center",
-      }}
-    >
-      <i className="bx bx-x" style={{ fontSize: 14 }} />
-    </button>
-  </div>
+  />
 );
 
+/* Multiselect genérico en pill: mismo look para agentes y productos.
+   items: [{id, nombre, badge?}] — badge es un texto corto opcional (ej. "ads"). */
+const MultiSelectPill = ({
+  icon,
+  placeholder,
+  plural,
+  items,
+  selected,
+  onToggle,
+  onClear,
+  loading,
+  footer,
+  maxWidth = 190,
+  className,
+  compact = false,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const ref = useRef(null);
+  const dropRef = useRef(null);
+
+  /* El dropdown va en position:fixed (la barra scrollea horizontal y un
+     absolute quedaría recortado por el overflow del contenedor). */
+  const toggleOpen = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const r = ref.current?.getBoundingClientRect();
+    if (r) {
+      setPos({
+        top: r.bottom + 6,
+        left: Math.max(8, Math.min(r.left, window.innerWidth - 286)),
+      });
+    }
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    // Un scroll fuera del dropdown lo cierra (con fixed no puede "seguir" al pill)
+    const onScroll = (e) => {
+      if (dropRef.current && dropRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [open]);
+
+  const filtrados = useMemo(() => {
+    const t = term.trim().toLowerCase();
+    if (!t) return items;
+    return items.filter((i) =>
+      String(i.nombre || "").toLowerCase().includes(t),
+    );
+  }, [items, term]);
+
+  const nombreDe = (id) => {
+    const it = items.find((x) => String(x.id) === String(id));
+    return it ? it.nombre : `#${id}`;
+  };
+
+  const label =
+    selected.length === 0
+      ? placeholder
+      : selected.length === 1
+        ? nombreDe(selected[0])
+        : `${selected.length} ${plural}`;
+
+  const activo = selected.length > 0;
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{ position: "relative", flexShrink: 0 }}
+    >
+      <button
+        onClick={toggleOpen}
+        className="kf-pillbtn"
+        title={label}
+        style={{
+          ...pill,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: compact ? 4 : 6,
+          cursor: "pointer",
+          border: `1.5px solid ${activo ? "#6366f1" : "#e2e8f0"}`,
+          background: activo ? "rgba(99,102,241,.06)" : "#f8fafc",
+          color: activo ? "#4338ca" : "#475569",
+          fontWeight: activo ? 700 : 500,
+          maxWidth: compact ? undefined : maxWidth,
+        }}
+      >
+        <i className={`bx ${icon}`} style={{ fontSize: 14, flexShrink: 0 }} />
+        {compact ? (
+          activo && (
+            <span
+              style={{
+                fontSize: "0.66rem",
+                fontWeight: 700,
+                background: "rgba(99,102,241,.15)",
+                borderRadius: 999,
+                padding: "0 5px",
+              }}
+            >
+              {selected.length}
+            </span>
+          )
+        ) : (
+          <>
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {label}
+            </span>
+            <i
+              className={`bx bx-chevron-${open ? "up" : "down"}`}
+              style={{ fontSize: 14, flexShrink: 0 }}
+            />
+          </>
+        )}
+      </button>
+
+      {open && (
+        <div
+          ref={dropRef}
+          style={{ ...drop, top: pos.top, left: pos.left, width: 270 }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 10px",
+              borderBottom: "1px solid rgba(0,0,0,.06)",
+            }}
+          >
+            <i
+              className="bx bx-search"
+              style={{ color: "#94a3b8", fontSize: 14 }}
+            />
+            <input
+              type="text"
+              autoFocus
+              placeholder={`Buscar ${plural}…`}
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setOpen(false);
+              }}
+              style={{
+                border: "none",
+                outline: "none",
+                fontSize: ".78rem",
+                width: "100%",
+                background: "transparent",
+                color: "#0f172a",
+                fontFamily: "inherit",
+              }}
+            />
+            {activo && (
+              <button
+                onClick={onClear}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#ef4444",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Quitar
+              </button>
+            )}
+          </div>
+
+          <div style={{ maxHeight: 230, overflowY: "auto" }}>
+            {loading && (
+              <div style={dropMsg}>
+                <i className="bx bx-loader-alt bx-spin" /> Cargando…
+              </div>
+            )}
+            {!loading && filtrados.length === 0 && (
+              <div style={{ ...dropMsg, fontStyle: "italic" }}>
+                Sin coincidencias.
+              </div>
+            )}
+            {!loading &&
+              filtrados.map((it) => {
+                const act = selected.some((x) => String(x) === String(it.id));
+                return (
+                  <button
+                    key={it.id}
+                    onClick={() => onToggle(it.id)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "7px 10px",
+                      border: "none",
+                      background: act ? "rgba(99,102,241,.07)" : "transparent",
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 15,
+                        height: 15,
+                        borderRadius: 4,
+                        flexShrink: 0,
+                        border: `1.5px solid ${act ? "#6366f1" : "#cbd5e1"}`,
+                        background: act ? "#6366f1" : "#fff",
+                        display: "grid",
+                        placeItems: "center",
+                        color: "#fff",
+                      }}
+                    >
+                      {act && (
+                        <i className="bx bx-check" style={{ fontSize: 12 }} />
+                      )}
+                    </span>
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: "0.78rem",
+                        color: "#1f2937",
+                        fontWeight: act ? 700 : 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {it.nombre}
+                    </span>
+                    {it.badge && (
+                      <span
+                        title={it.badgeTitle || ""}
+                        style={{
+                          fontSize: "0.62rem",
+                          fontWeight: 700,
+                          color: "#0d9488",
+                          background: "rgba(13,148,136,.08)",
+                          border: "1px solid rgba(13,148,136,.25)",
+                          borderRadius: 999,
+                          padding: "0 6px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {it.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+          </div>
+          {footer && (
+            <div
+              style={{
+                padding: "6px 10px",
+                borderTop: "1px solid rgba(0,0,0,.05)",
+                fontSize: "0.66rem",
+                color: "#94a3b8",
+              }}
+            >
+              {footer}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* Barra de filtros compacta dentro de un cajón blanco: cada filtro es un pill
+   y se aplica al instante (sin botón "Aplicar"). */
 const KanbanFiltros = ({
   id_configuracion,
   onChange,
   onSearch,
-  buscando = false, // ⭐ true mientras el tablero consulta
-  // ⭐ NUEVOS props
+  buscando = false,
   kanbanColumnas = [],
   columnasVisibles = null,
   onColumnasVisiblesChange,
@@ -70,16 +347,62 @@ const KanbanFiltros = ({
 }) => {
   const [agentes, setAgentes] = useState([]);
   const [loadingAg, setLoadingAg] = useState(false);
-  const [abierto, setAbierto] = useState(false);
   const [modalVistaOpen, setModalVistaOpen] = useState(false);
 
-  // ⭐ busqueda = lo que se está escribiendo | buscado = lo que YA se aplicó
+  const [productos, setProductos] = useState([]);
+  const [loadingProd, setLoadingProd] = useState(false);
+
+  /* Ancho REAL de la barra (no del viewport: abrir el menú lateral también
+     angosta). Con menos espacio los pills pasan a modo ícono para seguir
+     cabiendo en UNA línea sin scroll; solo en anchos de celular se apila. */
+  const rootRef = useRef(null);
+  const [anchoBarra, setAnchoBarra] = useState(9999);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect?.width;
+      if (w) setAnchoBarra(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const movil = anchoBarra < 860;
+  const compacto = !movil && anchoBarra < 1330;
+
+  // busqueda = lo que se escribe | buscado = lo aplicado
   const [busqueda, setBusqueda] = useState("");
   const [buscado, setBuscado] = useState("");
 
+  const [local, setLocal] = useState({
+    encargados: [],
+    bot_openia: "",
+    fecha_desde: "",
+    fecha_hasta: "",
+    productos: [],
+  });
+
+  const buildFiltros = (l = local) => ({
+    // El backend acepta array o escalar en id_encargado
+    id_encargado: l.encargados.map(Number),
+    bot_openia: l.bot_openia !== "" ? Number(l.bot_openia) : null,
+    fecha_desde: l.fecha_desde || null,
+    fecha_hasta: l.fecha_hasta || null,
+    productos: l.productos.map(Number),
+  });
+
+  /* Auto-aplicar: cada cambio dispara onChange de una vez */
+  const actualizar = (patch) => {
+    setLocal((p) => {
+      const next = { ...p, ...patch };
+      onChange(buildFiltros(next));
+      return next;
+    });
+  };
+
   const ejecutarBusqueda = () => {
     const t = busqueda.trim();
-    if (t === buscado) return; // no repetir si no cambió
+    if (t === buscado) return;
     setBuscado(t);
     onSearch?.(t);
   };
@@ -88,31 +411,22 @@ const KanbanFiltros = ({
     setBusqueda("");
     if (buscado !== "") {
       setBuscado("");
-      onSearch?.(""); // recarga sin filtro
+      onSearch?.("");
     }
   };
 
-  const [local, setLocal] = useState({
-    id_encargado: "",
-    bot_openia: "",
-    fecha_desde: "",
-    fecha_hasta: "",
-  });
-
-  const set = (k, v) => setLocal((p) => ({ ...p, [k]: v }));
-
-  // ⭐ NUEVO: derivar info de la vista
   const totalCols = kanbanColumnas.length;
   const visiblesCount = columnasVisibles?.size ?? totalCols;
   const todasVisibles = visiblesCount === totalCols;
 
   const activos = [
-    local.id_encargado !== "",
+    local.encargados.length > 0,
     local.bot_openia !== "",
     local.fecha_desde !== "" || local.fecha_hasta !== "",
-    !todasVisibles, // ⭐ contar como filtro activo si no se muestran todas
-    !mostrarHuerfanos, // ⭐ contar como filtro activo si están ocultos
-    buscado !== "", // ⭐ contar la búsqueda activa
+    local.productos.length > 0,
+    !todasVisibles,
+    !mostrarHuerfanos,
+    buscado !== "",
   ].filter(Boolean).length;
 
   const cargarAgentes = useCallback(async () => {
@@ -131,607 +445,444 @@ const KanbanFiltros = ({
     }
   }, [id_configuracion, agentes.length]);
 
+  const cargarProductos = useCallback(async () => {
+    if (!id_configuracion || productos.length) return;
+    setLoadingProd(true);
+    try {
+      const { data } = await chatApi.post(
+        "/clientes_chat_center/listar_productos_filtro",
+        { id_configuracion },
+      );
+      if (data?.success) setProductos(data.data || []);
+    } catch {
+      /* silencioso */
+    } finally {
+      setLoadingProd(false);
+    }
+  }, [id_configuracion, productos.length]);
+
   useEffect(() => {
-    if (abierto) cargarAgentes();
-  }, [abierto, cargarAgentes]);
-
-  const buildFiltros = (l = local) => ({
-    id_encargado: l.id_encargado !== "" ? Number(l.id_encargado) : null,
-    bot_openia: l.bot_openia !== "" ? Number(l.bot_openia) : null,
-    fecha_desde: l.fecha_desde || null,
-    fecha_hasta: l.fecha_hasta || null,
-  });
-
-  const aplicar = (override) => {
-    onChange(buildFiltros(override));
-    setAbierto(false);
-  };
+    cargarAgentes();
+    cargarProductos();
+  }, [cargarAgentes, cargarProductos]);
 
   const limpiar = () => {
-    // ⭐ limpiar también la búsqueda
     setBusqueda("");
     if (buscado !== "") {
       setBuscado("");
       onSearch?.("");
     }
-
     const vacio = {
-      id_encargado: "",
+      encargados: [],
       bot_openia: "",
       fecha_desde: "",
       fecha_hasta: "",
+      productos: [],
     };
     setLocal(vacio);
-    onChange({
-      id_encargado: null,
-      bot_openia: null,
-      fecha_desde: null,
-      fecha_hasta: null,
-    });
-    // ⭐ NUEVO: también reset de vista
+    onChange(buildFiltros(vacio));
     if (onColumnasVisiblesChange) {
       onColumnasVisiblesChange(kanbanColumnas.map((c) => c.estado_db));
     }
     if (onMostrarHuerfanosChange) onMostrarHuerfanosChange(true);
-    setAbierto(false);
   };
 
-  const aplicarRango = (r) => {
-    const nuevo = { ...local, fecha_desde: r.fd(), fecha_hasta: r.fh() };
-    setLocal(nuevo);
+  const toggleEn = (campo) => (id) => {
+    const sid = String(id);
+    const lista = local[campo];
+    const ya = lista.some((x) => String(x) === sid);
+    actualizar({
+      [campo]: ya
+        ? lista.filter((x) => String(x) !== sid)
+        : [...lista, id],
+    });
   };
 
-  const nombreAgente = (id) => {
-    const a = agentes.find((x) => String(x.id) === String(id));
-    return a ? a.nombre : "—";
-  };
+  const hayFecha = local.fecha_desde !== "" || local.fecha_hasta !== "";
 
-  // ⭐ NUEVO: toggle de una columna
-  const toggleColumna = (estado_db) => {
-    if (!columnasVisibles) return;
-    const nuevo = new Set(columnasVisibles);
-    if (nuevo.has(estado_db)) {
-      nuevo.delete(estado_db);
-    } else {
-      nuevo.add(estado_db);
-    }
-    onColumnasVisiblesChange?.([...nuevo]);
-  };
+  const itemsAgentes = useMemo(
+    () =>
+      agentes.map((a) => ({
+        id: a.id,
+        nombre: a.nombre + (a.rol ? ` · ${a.rol}` : ""),
+      })),
+    [agentes],
+  );
 
-  const seleccionarTodas = () => {
-    onColumnasVisiblesChange?.(kanbanColumnas.map((c) => c.estado_db));
-  };
-  const deseleccionarTodas = () => {
-    // Mantener al menos 1 (la primera) — el padre también valida
-    if (kanbanColumnas.length > 0) {
-      onColumnasVisiblesChange?.([kanbanColumnas[0].estado_db]);
-    }
-  };
+  const itemsProductos = useMemo(
+    () =>
+      productos.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        badge: Number(p.veces_anuncio) > 0 ? "ads" : null,
+        badgeTitle: "Con anuncios vinculados",
+      })),
+    [productos],
+  );
 
   return (
-    <div style={{ marginBottom: "1.2rem" }}>
-      {/* Trigger + chips */}
+    <div ref={rootRef} style={{ marginBottom: "0.9rem", position: "relative" }}>
+      {/* Cajón blanco: UNA sola línea sin scroll. La barra se mide a sí misma
+          y compacta sus pills (modo ícono) cuando el espacio baja; en anchos
+          de celular se apila ordenado. Dropdowns en position:fixed. */}
       <div
+        className={`kf-bar${movil ? " kf-movil" : ""}`}
         style={{
+          background: "#fff",
+          border: "1px solid rgba(15,23,42,.08)",
+          borderRadius: 14,
+          boxShadow: "0 2px 10px rgba(15,23,42,.05)",
+          padding: "8px 12px",
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: 8,
           flexWrap: "wrap",
         }}
       >
-        <button
-          onClick={() => setAbierto((p) => !p)}
+        {/* Buscador (compacto: es solo un nombre o número) */}
+        <div
+          className="kf-buscador"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: "#f8fafc",
+            borderRadius: 10,
+            border: `1.5px solid ${buscado ? "#6366f1" : "#e2e8f0"}`,
+            padding: "5px 8px 5px 10px",
+            minWidth: 130,
+            maxWidth: 240,
+            flex: "1 1 150px",
+          }}
+        >
+          <i
+            className={`bx ${buscando ? "bx-loader-alt bx-spin" : "bx-search"}`}
+            style={{ color: "#94a3b8", fontSize: 15, flexShrink: 0 }}
+          />
+          <input
+            type="text"
+            placeholder="Nombre o teléfono…"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") ejecutarBusqueda();
+              if (e.key === "Escape") limpiarBusqueda();
+            }}
+            style={{
+              border: "none",
+              outline: "none",
+              fontSize: ".8rem",
+              color: "#0f172a",
+              background: "transparent",
+              width: "100%",
+              fontFamily: "inherit",
+            }}
+          />
+          {busqueda && (
+            <button
+              onClick={limpiarBusqueda}
+              title="Limpiar (Esc)"
+              style={btnIcon}
+            >
+              <i className="bx bx-x" style={{ fontSize: 15 }} />
+            </button>
+          )}
+          <button
+            onClick={ejecutarBusqueda}
+            disabled={buscando || busqueda.trim() === buscado}
+            title="Buscar (Enter)"
+            style={{
+              ...btnIcon,
+              color:
+                buscando || busqueda.trim() === buscado ? "#cbd5e1" : "#6366f1",
+            }}
+          >
+            <i className="bx bx-right-arrow-alt" style={{ fontSize: 17 }} />
+          </button>
+        </div>
+
+        {/* Agentes (multiselect) */}
+        <MultiSelectPill
+          icon="bx-user"
+          placeholder="Agente"
+          plural="agentes"
+          items={itemsAgentes}
+          selected={local.encargados}
+          onToggle={toggleEn("encargados")}
+          onClear={() => actualizar({ encargados: [] })}
+          loading={loadingAg}
+          maxWidth={180}
+          className="kf-stretch"
+          compact={compacto}
+        />
+
+        {/* Bot: segmentado con punto de color */}
+        <div
+          className="kf-seg"
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 7,
-            padding: "8px 16px",
-            borderRadius: 999,
-            border: `1.5px solid ${activos ? "#6366f1" : "rgba(0,0,0,.12)"}`,
-            background: activos ? "rgba(99,102,241,.08)" : "#fff",
-            color: activos ? "#4338ca" : "#374151",
-            fontWeight: 600,
-            fontSize: "0.85rem",
-            cursor: "pointer",
-            transition: "all .15s",
+            background: "#f8fafc",
+            border: "1.5px solid #e2e8f0",
+            borderRadius: 10,
+            padding: 2,
+            gap: 2,
+            flexShrink: 0,
           }}
         >
-          <i className="bx bx-filter-alt" style={{ fontSize: "1rem" }} />
-          Filtros y vista
-          {activos > 0 && (
-            <span
-              style={{
-                background: "#6366f1",
-                color: "#fff",
-                borderRadius: 999,
-                fontSize: "0.72rem",
-                fontWeight: 700,
-                padding: "1px 7px",
-              }}
-            >
-              {activos}
-            </span>
-          )}
-          <i
-            className={`bx bx-chevron-${abierto ? "up" : "down"}`}
-            style={{ fontSize: "1rem" }}
-          />
-        </button>
+          {[
+            { v: "", label: "Bot", dot: null },
+            { v: "1", label: "Activo", dot: "#22c55e" },
+            { v: "0", label: "Inactivo", dot: "#ef4444" },
+          ].map((op) => {
+            const act = local.bot_openia === op.v;
+            return (
+              <button
+                key={op.v}
+                onClick={() => actualizar({ bot_openia: op.v })}
+                title={op.dot ? `Bot ${op.label.toLowerCase()}` : "Bot: todos"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 9px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: act ? "#eef2ff" : "transparent",
+                  color: act ? "#4338ca" : "#64748b",
+                  fontWeight: act ? 700 : 500,
+                  fontSize: "0.76rem",
+                  cursor: "pointer",
+                  transition: "all .12s",
+                }}
+              >
+                {compacto ? (
+                  op.dot ? (
+                    <Dot color={op.dot} />
+                  ) : (
+                    <i className="bx bx-bot" style={{ fontSize: 14 }} />
+                  )
+                ) : (
+                  <>
+                    {op.dot && <Dot color={op.dot} />}
+                    {op.label}
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-        {/* Chips filtros existentes */}
-        {local.id_encargado !== "" && (
-          <Chip
-            label={`Agente: ${nombreAgente(local.id_encargado)}`}
-            onRemove={() => {
-              set("id_encargado", "");
-              onChange({ ...buildFiltros(), id_encargado: null });
-            }}
-          />
-        )}
-        {local.bot_openia !== "" && (
-          <Chip
-            label={`Bot: ${local.bot_openia === "1" ? "Activo" : "Inactivo"}`}
-            onRemove={() => {
-              set("bot_openia", "");
-              onChange({ ...buildFiltros(), bot_openia: null });
-            }}
-          />
-        )}
-        {(local.fecha_desde || local.fecha_hasta) && (
-          <Chip
-            label={`Último msg: ${local.fecha_desde || "…"} → ${local.fecha_hasta || "…"}`}
-            onRemove={() => {
-              set("fecha_desde", "");
-              set("fecha_hasta", "");
-              onChange({
-                ...buildFiltros(),
-                fecha_desde: null,
-                fecha_hasta: null,
-              });
-            }}
-          />
-        )}
+        {/* Producto (multiselect) */}
+        <MultiSelectPill
+          icon="bx-purchase-tag-alt"
+          placeholder="Producto"
+          plural="productos"
+          items={itemsProductos}
+          selected={local.productos}
+          onToggle={toggleEn("productos")}
+          onClear={() => actualizar({ productos: [] })}
+          loading={loadingProd}
+          footer="Contactos llegados desde un anuncio de ese producto."
+          maxWidth={190}
+          className="kf-stretch"
+          compact={compacto}
+        />
 
-        {/* ⭐ NUEVO: Chip búsqueda activa */}
-        {buscado && (
-          <Chip label={`Buscando: "${buscado}"`} onRemove={limpiarBusqueda} />
-        )}
-
-        {/* ⭐ NUEVO: Chip vista */}
-        {!todasVisibles && (
-          <Chip
-            label={`Viendo ${visiblesCount} de ${totalCols} columnas`}
-            onRemove={seleccionarTodas}
-          />
-        )}
-        {!mostrarHuerfanos && (
-          <Chip
-            label="Sin clasificar oculto"
-            onRemove={() => onMostrarHuerfanosChange?.(true)}
-          />
-        )}
-
-        {activos > 0 && (
-          <button
-            onClick={limpiar}
-            style={{
-              fontSize: "0.8rem",
-              color: "#ef4444",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
-          >
-            Limpiar todo
-          </button>
-        )}
-
-        {/* ⭐ Buscador global — SOLO busca con Enter o con el botón */}
+        {/* Fecha: rango siempre visible + rápidos a la derecha */}
         <div
+          className="kf-fecha"
+          title="Fecha del último mensaje"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            flexShrink: 0,
+            background: hayFecha ? "rgba(99,102,241,.05)" : "#f8fafc",
+            border: `1.5px solid ${hayFecha ? "#6366f1" : "#e2e8f0"}`,
+            borderRadius: 10,
+            padding: "3px 8px",
+          }}
+        >
+          <i
+            className="bx bx-calendar"
+            style={{
+              fontSize: 15,
+              color: hayFecha ? "#4338ca" : "#94a3b8",
+              flexShrink: 0,
+            }}
+          />
+          <input
+            type="date"
+            value={local.fecha_desde}
+            onChange={(e) => actualizar({ fecha_desde: e.target.value })}
+            style={inpFecha}
+          />
+          <span style={{ color: "#9ca3af", fontSize: "0.75rem" }}>→</span>
+          <input
+            type="date"
+            value={local.fecha_hasta}
+            onChange={(e) => actualizar({ fecha_hasta: e.target.value })}
+            style={inpFecha}
+          />
+          {hayFecha && (
+            <button
+              onClick={() => actualizar({ fecha_desde: "", fecha_hasta: "" })}
+              title="Quitar fecha"
+              style={btnIcon}
+            >
+              <i className="bx bx-x" style={{ fontSize: 15 }} />
+            </button>
+          )}
+        </div>
+
+        {/* Rápidos: hoy / 7 / 30 días */}
+        <div
+          className="kf-seg"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            background: "#f8fafc",
+            border: "1.5px solid #e2e8f0",
+            borderRadius: 10,
+            padding: 2,
+            gap: 2,
+            flexShrink: 0,
+          }}
+        >
+          {RANGOS.map((r) => {
+            const act =
+              local.fecha_desde === r.fd() && local.fecha_hasta === r.fh();
+            return (
+              <button
+                key={r.key}
+                onClick={() =>
+                  actualizar(
+                    act
+                      ? { fecha_desde: "", fecha_hasta: "" }
+                      : { fecha_desde: r.fd(), fecha_hasta: r.fh() },
+                  )
+                }
+                style={{
+                  padding: "4px 9px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: act ? "#eef2ff" : "transparent",
+                  color: act ? "#4338ca" : "#64748b",
+                  fontWeight: act ? 700 : 500,
+                  fontSize: "0.76rem",
+                  cursor: "pointer",
+                  transition: "all .12s",
+                  whiteSpace: "nowrap",
+                }}
+                title={`Último mensaje: ${r.label.toLowerCase()}`}
+              >
+                {compacto ? r.corto : r.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Personalizar + Limpiar al final, empujados a la derecha */}
+        <div
+          className="kf-acciones"
           style={{
             marginLeft: "auto",
             display: "flex",
-            flexDirection: "column",
-            gap: 3,
+            alignItems: "center",
+            gap: 8,
+            flexShrink: 0,
+            paddingLeft: 4,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: "#fff",
-                borderRadius: 12,
-                border: `1.5px solid ${buscado ? "#6366f1" : "#e5e7eb"}`,
-                padding: "7px 12px",
-                boxShadow: "0 2px 8px rgba(0,0,0,.06)",
-                minWidth: 240,
-              }}
-            >
-              <i
-                className="bx bx-search"
-                style={{ color: "#94a3b8", fontSize: "1.1rem", flexShrink: 0 }}
-              />
-              <input
-                type="text"
-                placeholder="Buscar por nombre o teléfono..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") ejecutarBusqueda();
-                  if (e.key === "Escape") limpiarBusqueda();
-                }}
-                style={{
-                  border: "none",
-                  outline: "none",
-                  fontSize: ".85rem",
-                  color: "#0f172a",
-                  background: "transparent",
-                  width: "100%",
-                  fontFamily: "inherit",
-                }}
-              />
-              {busqueda && (
-                <button
-                  onClick={limpiarBusqueda}
-                  title="Limpiar (Esc)"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#94a3b8",
-                    padding: 0,
-                    display: "flex",
-                  }}
-                >
-                  <i className="bx bx-x" style={{ fontSize: "1.1rem" }} />
-                </button>
-              )}
-            </div>
-
+          {activos > 0 && (
             <button
-              onClick={ejecutarBusqueda}
-              disabled={buscando || busqueda.trim() === buscado}
-              title="Buscar (Enter)"
+              onClick={limpiar}
+              title="Limpiar todos los filtros"
               style={{
-                padding: "9px 16px",
-                borderRadius: 12,
+                fontSize: "0.75rem",
+                color: "#ef4444",
+                background: "none",
                 border: "none",
-                background:
-                  buscando || busqueda.trim() === buscado
-                    ? "#cbd5e1"
-                    : "linear-gradient(135deg,#6366f1,#4f46e5)",
-                color: "#fff",
+                cursor: "pointer",
                 fontWeight: 700,
-                fontSize: "0.83rem",
-                cursor:
-                  buscando || busqueda.trim() === buscado
-                    ? "default"
-                    : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
+                padding: "4px 4px",
                 whiteSpace: "nowrap",
-                transition: "all .15s",
               }}
             >
-              {buscando ? (
-                <>
-                  <i className="bx bx-loader-alt bx-spin" /> Buscando
-                </>
-              ) : (
-                <>
-                  <i className="bx bx-search" /> Buscar
-                </>
-              )}
+              <i className="bx bx-x" style={{ fontSize: 13 }} />{" "}
+              {compacto ? `(${activos})` : `Limpiar (${activos})`}
             </button>
-          </div>
-
-          {/* Aviso: el FULLTEXT ignora palabras de menos de 3 letras */}
-          {busqueda.trim().length > 0 &&
-            busqueda.trim().length < 3 &&
-            !/\d/.test(busqueda) && (
-              <span
-                style={{
-                  fontSize: "0.72rem",
-                  color: "#f59e0b",
-                  paddingLeft: 4,
-                }}
-              >
-                <i className="bx bx-info-circle" /> Escribe al menos 3 letras
-              </span>
-            )}
+          )}
+          <button
+            onClick={() => setModalVistaOpen(true)}
+            title="Personalizar columnas del tablero"
+            style={{
+              ...pill,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              cursor: "pointer",
+              border: `1.5px solid ${!todasVisibles || !mostrarHuerfanos ? "#6366f1" : "#e2e8f0"}`,
+              background:
+                !todasVisibles || !mostrarHuerfanos
+                  ? "rgba(99,102,241,.06)"
+                  : "#f8fafc",
+              color:
+                !todasVisibles || !mostrarHuerfanos ? "#4338ca" : "#475569",
+              fontWeight: !todasVisibles || !mostrarHuerfanos ? 700 : 500,
+            }}
+          >
+            <i className="bx bx-columns" style={{ fontSize: 14 }} />
+            {!compacto && <span>Personalizar</span>}
+            <span
+              style={{
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                background:
+                  !todasVisibles || !mostrarHuerfanos
+                    ? "rgba(99,102,241,.15)"
+                    : "rgba(100,116,139,.12)",
+                borderRadius: 999,
+                padding: "0 6px",
+              }}
+            >
+              {visiblesCount}/{totalCols}
+            </span>
+          </button>
         </div>
       </div>
 
-      {/* Panel expandible */}
-      {abierto && (
-        <div
-          style={{
-            marginTop: 10,
-            background: "#fff",
-            borderRadius: 16,
-            border: "1px solid rgba(0,0,0,.08)",
-            padding: "18px 20px",
-            boxShadow: "0 4px 16px rgba(0,0,0,.07)",
-          }}
-        >
-          {/* ⭐ NUEVO: Sección vista del tablero */}
-          {/* Botón compacto para abrir modal de personalización de vista */}
-          <div style={{ marginBottom: 16 }}>
-            <button
-              onClick={() => setModalVistaOpen(true)}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "12px 14px",
-                borderRadius: 12,
-                border: `1.5px solid ${!todasVisibles || !mostrarHuerfanos ? "#6366f1" : "rgba(0,0,0,.1)"}`,
-                background:
-                  !todasVisibles || !mostrarHuerfanos
-                    ? "rgba(99,102,241,.05)"
-                    : "#fafafa",
-                cursor: "pointer",
-                transition: "all .15s",
-                textAlign: "left",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.borderColor = "#6366f1")
-              }
-              onMouseLeave={(e) => {
-                if (todasVisibles && mostrarHuerfanos) {
-                  e.currentTarget.style.borderColor = "rgba(0,0,0,.1)";
-                }
-              }}
-            >
-              <span
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: "linear-gradient(135deg,#6366f1,#4f46e5)",
-                  display: "grid",
-                  placeItems: "center",
-                  color: "#fff",
-                  flexShrink: 0,
-                }}
-              >
-                <i className="bx bx-columns" style={{ fontSize: 18 }} />
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontWeight: 700,
-                    fontSize: "0.88rem",
-                    color: "#0f172a",
-                  }}
-                >
-                  Personalizar vista del tablero
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.76rem",
-                    color: "#64748b",
-                    marginTop: 2,
-                  }}
-                >
-                  Viendo{" "}
-                  <strong style={{ color: "#4338ca" }}>{visiblesCount}</strong>{" "}
-                  de {totalCols} columnas
-                  {!mostrarHuerfanos && (
-                    <span style={{ color: "#92400e" }}>
-                      {" "}
-                      · "Sin clasificar" oculto
-                    </span>
-                  )}
-                </div>
-              </div>
-              <i
-                className="bx bx-chevron-right"
-                style={{ fontSize: 20, color: "#94a3b8", flexShrink: 0 }}
-              />
-            </button>
-          </div>
-
-          {/* Wrapper: filtros (crece) + acciones (derecha fija) */}
-          <div
+      {/* Aviso FULLTEXT: mínimo 3 letras */}
+      {busqueda.trim().length > 0 &&
+        busqueda.trim().length < 3 &&
+        !/\d/.test(busqueda) && (
+          <span
             style={{
-              display: "flex",
-              gap: 16,
-              flexWrap: "wrap",
-              alignItems: "stretch",
+              fontSize: "0.7rem",
+              color: "#f59e0b",
+              paddingLeft: 4,
+              display: "inline-block",
+              marginTop: 3,
             }}
           >
-            {/* Grid interno de los 3 filtros */}
-            <div
-              style={{
-                flex: "1 1 400px",
-                minWidth: 0,
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 16,
-              }}
-            >
-              {/* Agente */}
-              <div>
-                <label style={lbl}>
-                  <i className="bx bx-user" style={{ marginRight: 5 }} />
-                  Agente encargado
-                </label>
-                {loadingAg ? (
-                  <p
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "#888",
-                      margin: "8px 0",
-                    }}
-                  >
-                    <i className="bx bx-loader-alt bx-spin" /> Cargando...
-                  </p>
-                ) : (
-                  <select
-                    value={local.id_encargado}
-                    onChange={(e) => set("id_encargado", e.target.value)}
-                    style={sel}
-                  >
-                    <option value="">Todos los agentes</option>
-                    {agentes.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nombre}
-                        {a.rol ? ` · ${a.rol}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+            <i className="bx bx-info-circle" /> Escribe al menos 3 letras
+          </span>
+        )}
 
-              {/* Bot */}
-              <div>
-                <label style={lbl}>
-                  <i className="bx bx-bot" style={{ marginRight: 5 }} />
-                  Estado del bot
-                </label>
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  {[
-                    { v: "", label: "Todos" },
-                    { v: "1", label: "🟢 Activo" },
-                    { v: "0", label: "🔴 Inactivo" },
-                  ].map((op) => (
-                    <button
-                      key={op.v}
-                      onClick={() => set("bot_openia", op.v)}
-                      style={{
-                        flex: 1,
-                        padding: "7px 0",
-                        borderRadius: 10,
-                        border: `1.5px solid ${local.bot_openia === op.v ? "#6366f1" : "rgba(0,0,0,.1)"}`,
-                        background:
-                          local.bot_openia === op.v
-                            ? "rgba(99,102,241,.08)"
-                            : "#fafafa",
-                        color:
-                          local.bot_openia === op.v ? "#4338ca" : "#374151",
-                        fontWeight: local.bot_openia === op.v ? 700 : 500,
-                        fontSize: "0.8rem",
-                        cursor: "pointer",
-                        transition: "all .12s",
-                      }}
-                    >
-                      {op.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+      {/* Modo móvil (la barra mide < 860px): se apila en filas ordenadas —
+          pills a lo ancho, segmentados repartidos, fechas estiradas. */}
+      <style>{`
+        .kf-movil .kf-buscador { flex: 1 1 100%; max-width: none !important; }
+        .kf-movil .kf-stretch { flex: 1 1 45%; min-width: 140px; }
+        .kf-movil .kf-pillbtn { width: 100%; max-width: none !important; }
+        .kf-movil .kf-seg { flex: 1 1 100%; }
+        .kf-movil .kf-seg > button { flex: 1 1 auto; justify-content: center; }
+        .kf-movil .kf-fecha { flex: 1 1 100%; justify-content: space-between; }
+        .kf-movil .kf-fecha input { width: auto !important; flex: 1 1 80px; }
+        .kf-movil .kf-acciones { margin-left: 0 !important; width: 100%; justify-content: flex-end; }
+      `}</style>
 
-              {/* Fecha */}
-              <div>
-                <label style={lbl}>
-                  <i className="bx bx-calendar" style={{ marginRight: 5 }} />
-                  Último mensaje
-                </label>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    flexWrap: "wrap",
-                    margin: "6px 0 8px",
-                  }}
-                >
-                  {RANGOS.map((r) => (
-                    <button
-                      key={r.label}
-                      onClick={() => aplicarRango(r)}
-                      style={{
-                        padding: "4px 10px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(0,0,0,.1)",
-                        background: "#f3f4f6",
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        color: "#374151",
-                      }}
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="date"
-                    value={local.fecha_desde}
-                    onChange={(e) => set("fecha_desde", e.target.value)}
-                    style={{ ...inp, flex: 1 }}
-                  />
-                  <span style={{ color: "#9ca3af", fontSize: "0.8rem" }}>
-                    →
-                  </span>
-                  <input
-                    type="date"
-                    value={local.fecha_hasta}
-                    onChange={(e) => set("fecha_hasta", e.target.value)}
-                    style={{ ...inp, flex: 1 }}
-                  />
-                </div>
-              </div>
-            </div>
-            {/* fin grid interno de filtros */}
-
-            {/* Acciones - ancho fijo a la derecha */}
-            <div
-              style={{
-                flex: "0 0 180px",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "flex-end",
-                gap: 8,
-              }}
-            >
-              <button
-                onClick={() => aplicar()}
-                style={{
-                  padding: 10,
-                  borderRadius: 12,
-                  border: "none",
-                  background: "linear-gradient(135deg,#6366f1,#4f46e5)",
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: "0.85rem",
-                  cursor: "pointer",
-                  boxShadow: "0 3px 8px rgba(99,102,241,.35)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                }}
-              >
-                <i className="bx bx-check" />
-                Aplicar filtros
-              </button>
-              <button
-                onClick={limpiar}
-                style={{
-                  padding: 9,
-                  borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,.1)",
-                  background: "#fff",
-                  color: "#6b7280",
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                  cursor: "pointer",
-                }}
-              >
-                Limpiar
-              </button>
-            </div>
-          </div>
-          {/* fin wrapper flex filtros + acciones */}
-        </div>
-      )}
       {/* Modal personalizar vista */}
       <ModalPersonalizarVista
         open={modalVistaOpen}
@@ -747,44 +898,49 @@ const KanbanFiltros = ({
 };
 
 // Estilos compartidos
-const lbl = {
-  display: "block",
-  fontSize: "0.8rem",
-  fontWeight: 600,
-  color: "#374151",
-  marginBottom: 4,
-};
-const sel = {
-  width: "100%",
-  padding: "8px 10px",
+const pill = {
+  padding: "6px 10px",
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,.12)",
-  fontSize: "0.82rem",
-  outline: "none",
-  background: "#fafafa",
-  color: "#374151",
-};
-const inp = {
-  padding: "7px 9px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,.12)",
-  fontSize: "0.8rem",
-  outline: "none",
-  background: "#fafafa",
-  color: "#374151",
-};
-const quickBtnStyle = (active) => ({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 5,
-  padding: "6px 12px",
-  borderRadius: 999,
-  border: `1.5px solid ${active ? "#6366f1" : "rgba(0,0,0,.1)"}`,
-  background: active ? "rgba(99,102,241,.08)" : "#fafafa",
-  color: active ? "#4338ca" : "#6b7280",
-  cursor: "pointer",
   fontSize: "0.78rem",
-  fontWeight: 600,
-});
+  outline: "none",
+  fontFamily: "inherit",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
+};
+const btnIcon = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  color: "#94a3b8",
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+};
+const drop = {
+  position: "fixed",
+  background: "#fff",
+  borderRadius: 12,
+  border: "1px solid rgba(0,0,0,.1)",
+  boxShadow: "0 12px 32px rgba(0,0,0,.14)",
+  zIndex: 1000,
+  overflow: "hidden",
+};
+const dropMsg = {
+  padding: "12px 10px",
+  fontSize: "0.78rem",
+  color: "#94a3b8",
+};
+const inpFecha = {
+  padding: "3px 2px",
+  borderRadius: 6,
+  border: "none",
+  fontSize: "0.74rem",
+  outline: "none",
+  background: "transparent",
+  color: "#374151",
+  minWidth: 0,
+  width: 108,
+  fontFamily: "inherit",
+};
 
 export default KanbanFiltros;
