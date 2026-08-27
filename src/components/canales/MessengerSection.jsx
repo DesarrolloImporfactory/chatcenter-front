@@ -10,6 +10,53 @@ const MS_ENDPOINTS = {
   pages: "/messenger/facebook/pages",
   connect: "/messenger/facebook/connect",
   connectedList: "/messenger/pages/connections", // devuelve datos sin tokens
+  health: "/messenger/pages/health", // pregunta a Meta si el token sigue vivo
+};
+
+// Aviso de reconexión.
+//
+// `status='active'` en la BD no garantiza que el token sirva: Meta lo invalida
+// cuando el usuario cambia su contraseña o pierde el rol en la página, y hasta
+// ahora nada lo detectaba — los mensajes salientes fallaban en silencio. Este
+// banner es la única señal que tiene el cliente de que debe reconectar.
+const AvisoReconexion = ({ paginas, onReconectar }) => {
+  if (!paginas.length) return null;
+  return (
+    <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+      <div className="flex items-start gap-3">
+        <span className="text-xl leading-none">⚠️</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-rose-900">
+            {paginas.length === 1
+              ? "Tu página de Facebook se desconectó"
+              : `${paginas.length} páginas de Facebook se desconectaron`}
+          </div>
+          <p className="text-sm text-rose-800 mt-1">
+            Facebook invalidó el acceso, así que{" "}
+            <strong>no se están enviando los mensajes salientes</strong>. Los
+            mensajes que te escriben sí siguen llegando. Vuelve a conectar la
+            página para restablecerlo.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {paginas.map((p) => (
+              <li key={p.page_id} className="text-xs text-rose-700">
+                <span className="font-medium">
+                  {p.page_name || p.page_id}
+                </span>
+                {p.token_error ? ` — ${p.token_error}` : null}
+              </li>
+            ))}
+          </ul>
+          <button
+            onClick={onReconectar}
+            className="mt-3 px-4 py-2 rounded-xl bg-rose-600 text-white text-sm hover:bg-rose-700"
+          >
+            Reconectar página
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // Skeleton compacto (mismo tamaño visual aprox. que WA/IG)
@@ -211,6 +258,7 @@ export default function MessengerSection() {
   const [connected, setConnected] = useState([]); // conexiones guardadas en DB
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
+  const [salud, setSalud] = useState([]); // diagnóstico de tokens por página
 
   const id_configuracion = useMemo(() => {
     const idc = localStorage.getItem("id_configuracion");
@@ -250,6 +298,7 @@ export default function MessengerSection() {
       } finally {
         setInit(false); // listos para decidir qué mostrar
       }
+      fetchSalud(); // en segundo plano: no bloquea el render
     })();
   }, [id_configuracion, redirect_uri]);
 
@@ -318,6 +367,22 @@ export default function MessengerSection() {
     }
   };
 
+  // Consulta a Meta si los tokens siguen vivos. Va aparte de fetchConnected
+  // porque llama a Graph y tarda: no debe bloquear el render de la card.
+  const fetchSalud = async () => {
+    if (!id_configuracion) return;
+    try {
+      const { data } = await chatApi.get(MS_ENDPOINTS.health, {
+        params: { id_configuracion },
+      });
+      setSalud(data.data || []);
+    } catch {
+      // Si el chequeo falla no se asume nada: mejor no mostrar aviso que
+      // mostrar uno falso y mandar al cliente a reconectar sin motivo.
+      setSalud([]);
+    }
+  };
+
   // Mientras decide (init) mostramos skeleton
   if (init) {
     return (
@@ -330,8 +395,18 @@ export default function MessengerSection() {
   const isConnected = connected.length > 0;
   const first = connected[0]; // mostramos una sola card
 
+  // Solo las que Meta dio por muertas con certeza. `token_valido === null`
+  // significa que el chequeo no fue concluyente (fallo transitorio de Graph):
+  // ésas NO se muestran, para no pedir reconexiones innecesarias.
+  const requierenReconexion = salud.filter((p) => p.token_valido === false);
+
   return (
     <div className="space-y-6">
+      <AvisoReconexion
+        paginas={requierenReconexion}
+        onReconectar={handleStartLogin}
+      />
+
       {status && (
         <div
           className={`px-4 py-2 rounded-xl shadow ${
