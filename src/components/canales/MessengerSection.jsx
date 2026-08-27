@@ -374,6 +374,12 @@ export default function MessengerSection() {
     try {
       const { data } = await chatApi.get(MS_ENDPOINTS.health, {
         params: { id_configuracion },
+        // silentError evita el toast global del interceptor (chatcenter.js:290
+        // convierte cualquier 404 en "Recurso no encontrado."). Este chequeo es
+        // secundario y se dispara solo al abrir la pestaña: si el backend aún no
+        // tiene la ruta desplegada —o falla— el cliente no debe ver un error
+        // rojo por algo que no pidió. Simplemente no se muestra el aviso.
+        silentError: true,
       });
       setSalud(data.data || []);
     } catch {
