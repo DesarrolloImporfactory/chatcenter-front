@@ -39,6 +39,10 @@ export default function IntegracionesAliclik() {
   const [storeName, setStoreName] = useState("");
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(false);
+  /* Datos del envío por agencia Shalom. Opcionales: la vinculación funciona
+     sin ellos, solo que el bot no puede ofrecer esa alternativa. */
+  const [yape, setYape] = useState("");
+  const [ruc, setRuc] = useState("");
 
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
@@ -77,6 +81,8 @@ export default function IntegracionesAliclik() {
   const openCreate = () => {
     setMode("create");
     setStoreName(localStorage.getItem("nombre_configuracion") || "");
+    setYape("");
+    setRuc("");
     setToken("");
     setShowToken(false);
     setShowModal(true);
@@ -85,6 +91,8 @@ export default function IntegracionesAliclik() {
   const openEdit = () => {
     setMode("edit");
     setStoreName(activa?.store_name || "");
+    setYape(activa?.yape_number || "");
+    setRuc(activa?.ruc || "");
     setToken("");
     setShowToken(false);
     setShowModal(true);
@@ -107,6 +115,8 @@ export default function IntegracionesAliclik() {
           id_configuracion,
           store_name: storeName.trim(),
           token: token.trim(),
+          yape_number: yape.trim(),
+          ruc: ruc.trim(),
         });
         setShowModal(false);
         await fetchIntegraciones();
@@ -128,7 +138,13 @@ export default function IntegracionesAliclik() {
           confirmButtonColor: "#171931",
         });
       } else {
-        const payload = { store_name: storeName.trim() };
+        const payload = {
+          store_name: storeName.trim(),
+          // Van siempre, incluso vacíos: así vaciar el campo también lo borra
+          // en la base. El token no, porque vacío significa "no lo cambies".
+          yape_number: yape.trim(),
+          ruc: ruc.trim(),
+        };
         if (token.trim()) payload.token = token.trim();
         await chatApi.patch(`aliclik_integrations/${activa.id}`, payload);
         setShowModal(false);
@@ -703,6 +719,66 @@ export default function IntegracionesAliclik() {
                   Lo encuentras en Aliclik, en la configuración de tu
                   integración, bajo “Token de acceso”.
                 </p>
+              </div>
+
+              {/* ── Envío por agencia (Shalom Perú) ──
+                  Va al final y separado: no hace falta para vincular, y quien
+                  solo quiere conectar su tienda no debería sentir que le faltan
+                  campos por llenar. */}
+              <div className="pt-4 border-t border-gray-100">
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <i className="bx bx-package text-xl text-indigo-600 shrink-0 mt-px" />
+                    <p className="text-[12px] leading-relaxed text-indigo-900">
+                      Estos datos se usan cuando{" "}
+                      <strong>ninguna transportadora cubre la zona</strong> de tu
+                      comprador. En ese caso el bot le ofrece el envío por la
+                      agencia <strong>Shalom Perú</strong>, que pide un{" "}
+                      <strong>anticipo de S/ 20</strong> — y así tu cliente tiene
+                      mayor seguridad de que su paquete va en camino.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Número de Yape
+                      <span className="font-normal text-gray-400 ml-1">
+                        (opcional)
+                      </span>
+                    </label>
+                    <input
+                      value={yape}
+                      onChange={(e) => setYape(e.target.value)}
+                      inputMode="numeric"
+                      placeholder="987654321"
+                      className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      El celular que recibe los pagos, 9 dígitos.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      RUC del negocio
+                      <span className="font-normal text-gray-400 ml-1">
+                        (opcional)
+                      </span>
+                    </label>
+                    <input
+                      value={ruc}
+                      onChange={(e) => setRuc(e.target.value)}
+                      inputMode="numeric"
+                      placeholder="20123456789"
+                      className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      11 dígitos, para la guía de Shalom.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
