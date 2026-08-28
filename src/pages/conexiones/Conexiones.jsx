@@ -45,8 +45,9 @@ const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
   </div>
 );
 
-const pill = (classes, text) => (
+const pill = (classes, text, title) => (
   <span
+    title={title}
     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}
   >
     {text}
@@ -640,8 +641,19 @@ const Conexiones = () => {
       data = data.filter((c) => isConectado(c) === objetivo);
     }
     if (filtroPago) {
-      const objetivo = filtroPago === "activo" ? 1 : 0;
-      data = data.filter((c) => Number(c.metodo_pago) === objetivo);
+      const okOpenai = (c) =>
+        c.openai_activo === undefined || c.openai_activo === null
+          ? true
+          : Number(c.openai_activo) === 1;
+      if (filtroPago === "aldia") {
+        data = data.filter(
+          (c) => Number(c.metodo_pago) === 1 && okOpenai(c),
+        );
+      } else if (filtroPago === "openai") {
+        data = data.filter((c) => !okOpenai(c));
+      } else if (filtroPago === "meta") {
+        data = data.filter((c) => Number(c.metodo_pago) !== 1);
+      }
     }
     return data;
   }, [configuracionAutomatizada, search, filtroEstado, filtroPago]);
@@ -1305,9 +1317,10 @@ const Conexiones = () => {
                 value={filtroPago}
                 onChange={(e) => setFiltroPago(e.target.value)}
               >
-                <option value="">Todos los pagos</option>
-                <option value="activo">Pago activo</option>
-                <option value="inactivo">Pago inactivo</option>
+                <option value="">Servicios: todos</option>
+                <option value="aldia">Servicios al día</option>
+                <option value="openai">OpenAI sin saldo</option>
+                <option value="meta">Pago en Meta Business con problema</option>
               </select>
               <button
                 type="button"
@@ -1416,6 +1429,16 @@ const Conexiones = () => {
                   const yaVinculado =
                     Number(config?.ya_vinculado) === 1 || conectado;
                   const pagoActivo = Number(config.metodo_pago) === 1;
+                  /* openai_activo=0: el motor detectó falta de saldo en la
+                     cuenta de OpenAI del cliente y el asistente está en
+                     pausa. Si el listado aún no trae el campo (deploy del
+                     back pendiente), se asume OK para no alarmar en falso. */
+                  const openaiOk =
+                    config.openai_activo === undefined ||
+                    config.openai_activo === null
+                      ? true
+                      : Number(config.openai_activo) === 1;
+                  const todoAlDia = pagoActivo && openaiOk;
                   const msgConectado = isMessengerConectado(config);
                   const igConectado = isInstagramConectado(config);
                   const yaSincronizo =
@@ -1478,15 +1501,49 @@ const Conexiones = () => {
                                 <span
                                   className={`w-1.5 h-1.5 rounded-full ${conectado ? "bg-emerald-500" : "bg-slate-400"}`}
                                 />
-                                {conectado ? "Activo" : "Pendiente"}
+                                {conectado ? "Conectado" : "Pendiente"}
                               </>,
+                              conectado
+                                ? "WhatsApp vinculado y funcionando"
+                                : "Aún falta vincular WhatsApp en esta conexión",
                             )}
-                            {pill(
-                              pagoActivo
-                                ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
-                                : "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
-                              pagoActivo ? "Pago activo" : "Pago inactivo",
-                            )}
+                            {/* Estado real de los servicios de ESTA conexión:
+                                un solo sello verde cuando todo funciona; si
+                                algo falla, sale el problema concreto (OpenAI
+                                sin saldo — openai_activo=0 — y/o el cobro de
+                                WhatsApp en Meta — error 131042). Nada de esto
+                                es el plan de la plataforma. */}
+                            {todoAlDia
+                              ? pill(
+                                  "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+                                  <>
+                                    <i className="bx bx-check-shield text-[13px]" />
+                                    Servicios al día
+                                  </>,
+                                  "Saldo de OpenAI y cobro de WhatsApp en Meta funcionando. Tu plan de la plataforma va aparte.",
+                                )
+                              : (
+                                  <>
+                                    {!openaiOk &&
+                                      pill(
+                                        "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+                                        <>
+                                          <i className="bx bx-error-circle text-[13px]" />
+                                          OpenAI sin saldo
+                                        </>,
+                                        "Tu cuenta de OpenAI se quedó sin saldo y el asistente está en pausa. Entra a la conexión para recargar y comprobar al instante.",
+                                      )}
+                                    {!pagoActivo &&
+                                      pill(
+                                        "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
+                                        <>
+                                          <i className="bx bx-credit-card text-[13px]" />
+                                          Revisar pago en Meta Business
+                                        </>,
+                                        "Hay un inconveniente con el método de pago de tu cuenta de WhatsApp Business. Se soluciona en la facturación de Meta Business Suite (business.facebook.com). No es tu plan de la plataforma.",
+                                      )}
+                                  </>
+                                )}
                           </div>
                         </div>
 
