@@ -720,6 +720,252 @@ const fmtDuracion = (min) => {
 };
 
 /* ─────────────────────────────────────────────────────────────
+   Anuncios de Meta vinculados al producto (opcional).
+
+   Liga el source_id del anuncio a este producto (anuncios_producto,
+   via manual): todo cliente que entre por ese anuncio queda anclado
+   al producto desde el primer mensaje — el bot, el filtro del kanban
+   y los flujos masivos lo leen — aunque el título del anuncio sea de
+   puro marketing ("ENVÍO GRATIS") o el anuncio se edite o apague.
+   La lista de "detectados" evita que el cliente busque el ID: son los
+   anuncios que ya llegaron por los chats y nadie ha ligado.
+───────────────────────────────────────────────────────────── */
+const AnunciosMetaProducto = ({ idProducto }) => {
+  const idConfiguracion = Number(localStorage.getItem("id_configuracion"));
+  const [abierto, setAbierto] = useState(false);
+  const [vinculados, setVinculados] = useState([]);
+  const [detectados, setDetectados] = useState([]);
+  const [totalDetectados, setTotalDetectados] = useState(0);
+  const [busca, setBusca] = useState("");
+  const [manual, setManual] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  const toast = (icon, title) =>
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon,
+      title,
+      showConfirmButton: false,
+      timer: 1800,
+      timerProgressBar: true,
+    });
+
+  const cargar = async (q = busca) => {
+    try {
+      const { data } = await chatApi.post("/productos/anunciosDeProducto", {
+        id_configuracion: idConfiguracion,
+        id_producto: idProducto,
+        q: q || "",
+      });
+      setVinculados(data?.vinculados || []);
+      setDetectados(data?.detectados || []);
+      setTotalDetectados(Number(data?.total_detectados || 0));
+    } catch (_) {
+      /* sección opcional: si falla, simplemente no estorba */
+    }
+  };
+
+  /* La búsqueda va al backend: una cuenta puede tener cientos de anuncios
+     sin vincular y aquí solo llegan los 30 con más contactos — sin esto, el
+     anuncio chico o recién creado "no aparecía" aunque el sistema lo tenía. */
+  useEffect(() => {
+    if (!idProducto || !idConfiguracion) return;
+    const t = setTimeout(() => cargar(busca), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idProducto, busca]);
+
+  const vincular = async (sourceId) => {
+    const sid = String(sourceId || "").trim();
+    if (!sid) return;
+    setGuardando(true);
+    try {
+      const { data } = await chatApi.post(
+        "/productos/vincularAnuncioProducto",
+        {
+          id_configuracion: idConfiguracion,
+          id_producto: idProducto,
+          source_id: sid,
+        },
+      );
+      if (data?.ok) {
+        setManual("");
+        toast("success", "Anuncio vinculado");
+        await cargar();
+      } else {
+        toast("error", data?.msg || "No se pudo vincular");
+      }
+    } catch (e) {
+      toast("error", e?.response?.data?.msg || "No se pudo vincular");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const desvincular = async (sourceId) => {
+    try {
+      await chatApi.post("/productos/desvincularAnuncioProducto", {
+        id_configuracion: idConfiguracion,
+        id_producto: idProducto,
+        source_id: sourceId,
+      });
+      toast("success", "Anuncio desvinculado");
+      await cargar();
+    } catch (_) {
+      toast("error", "No se pudo desvincular");
+    }
+  };
+
+  return (
+    <div className="mt-2 rounded-xl border border-violet-200 bg-violet-50/50">
+      <button
+        type="button"
+        onClick={() => setAbierto((o) => !o)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
+      >
+        <i className="bx bx-target-lock text-violet-500" />
+        <span className="text-xs font-semibold text-violet-800">
+          Anuncios de Meta vinculados
+          {vinculados.length ? ` (${vinculados.length})` : ""}
+          <span className="font-normal text-violet-500"> — opcional</span>
+        </span>
+        <i
+          className={`bx bx-chevron-${abierto ? "up" : "down"} ml-auto text-violet-400`}
+        />
+      </button>
+
+      {abierto && (
+        <div className="space-y-2.5 border-t border-violet-100 px-3 py-2.5 text-xs">
+          <p className="text-[11px] leading-relaxed text-slate-500">
+            Liga los anuncios de este producto y el sistema sabrá qué producto
+            busca cada cliente que entre por ellos — aunque el título del
+            anuncio no diga el nombre (ej. “ENVÍO GRATIS”) y aunque luego lo
+            edites o lo apagues.
+          </p>
+
+          {vinculados.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {vinculados.map((a) => (
+                <span
+                  key={a.source_id}
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-violet-200 bg-white px-2.5 py-1"
+                  title={`ID ${a.source_id}${a.via ? ` · vía ${a.via}` : ""}`}
+                >
+                  <span className="truncate font-medium text-slate-700">
+                    {a.headline || `ID ${a.source_id}`}
+                  </span>
+                  <span className="shrink-0 font-mono text-[9px] text-slate-400">
+                    {a.source_id}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => desvincular(a.source_id)}
+                    title="Desvincular"
+                    className="shrink-0 text-slate-300 hover:text-rose-500"
+                  >
+                    <i className="bx bx-x" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {(totalDetectados > 0 || busca) && (
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="font-semibold text-slate-600">
+                  Detectados en tus chats, aún sin producto:
+                </p>
+                <span className="shrink-0 text-[10px] text-slate-400">
+                  {detectados.length} de {totalDetectados}
+                </span>
+              </div>
+              {/* Solo llegan los 30 con más contactos: el buscador encuentra
+                  al resto por título o por ID, directo en el servidor. */}
+              {(totalDetectados > detectados.length || busca) && (
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar entre todos por título o ID…"
+                  className="mb-1.5 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] outline-none focus:border-violet-300"
+                />
+              )}
+              <div className="flex max-h-44 flex-col gap-1 overflow-y-auto">
+                {detectados.map((d) => (
+                  <div
+                    key={d.source_id}
+                    className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-slate-700">
+                        {d.headline || "(sin título)"}
+                      </div>
+                      <div className="font-mono text-[10px] text-slate-400">
+                        {d.source_id} · {d.clientes} contacto
+                        {Number(d.clientes) === 1 ? "" : "s"}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => vincular(d.source_id)}
+                      disabled={guardando}
+                      className="shrink-0 rounded-lg bg-violet-600 px-2.5 py-1 font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      Vincular
+                    </button>
+                  </div>
+                ))}
+                {!detectados.length && busca && (
+                  <p className="py-2 text-center text-[11px] text-slate-400">
+                    Nada coincide con “{busca}” — también puedes pegar el ID
+                    abajo.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5">
+            <input
+              value={manual}
+              onChange={(e) => setManual(e.target.value)}
+              placeholder="O pega el ID del anuncio (ej. 120242836177870488)"
+              className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 font-mono text-[11px] outline-none focus:border-violet-300"
+            />
+            <button
+              type="button"
+              onClick={() => vincular(manual)}
+              disabled={guardando || !manual.trim()}
+              className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              Vincular
+            </button>
+          </div>
+
+          <details className="text-[11px] text-slate-500">
+            <summary className="cursor-pointer font-semibold text-violet-700">
+              ¿De dónde saco el ID del anuncio?
+            </summary>
+            <ul className="mt-1 list-disc space-y-1 pl-4">
+              <li>
+                <b>Lo más fácil:</b> de la lista de arriba — cada anuncio por el
+                que te escribe un cliente queda detectado aquí solo.
+              </li>
+              <li>
+                <b>Desde el chat:</b> en el recuadro morado “Vino desde un
+                anuncio” de cualquier mensaje, junto a “Ver anuncio”, está el ID
+                con su botón de copiar.
+              </li>
+            </ul>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────────
    MAIN
 ───────────────────────────────────────────────────────────── */
 const ProductoModal = ({
@@ -1530,6 +1776,17 @@ const ProductoModal = ({
                       producto tal como lo guardas aquí, para que el bot lo
                       reconozca y responda correctamente a tus clientes.
                     </p>
+                    {/* Si el título del anuncio NO puede ser el del producto
+                        (o ya está publicado), el vínculo por ID lo resuelve. */}
+                    {editingProduct?.id ? (
+                      <AnunciosMetaProducto idProducto={editingProduct.id} />
+                    ) : (
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        <i className="bx bx-target-lock align-middle mr-0.5 text-violet-300" />
+                        Al guardar podrás vincular el ID de sus anuncios de Meta
+                        (opcional).
+                      </p>
+                    )}
                   </div>
 
                   <div>

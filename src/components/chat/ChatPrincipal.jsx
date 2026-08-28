@@ -2358,6 +2358,7 @@ const ChatPrincipal = ({
                               const source_url = adData.source_url || "";
                               const thumbnail_url = adData.thumbnail_url || "";
                               const source_type = adData.source_type || "";
+                              const source_id = adData.source_id || "";
                               const original_type =
                                 adData.original_type || "text";
                               const original_media =
@@ -2426,6 +2427,45 @@ const ChatPrincipal = ({
                                         </span>
                                         <i className="bx bx-chevron-right text-[13px] text-violet-500 group-hover:translate-x-0.5 transition-transform" />
                                       </a>
+                                    )}
+
+                                    {/* El ID del anuncio (source_id): "Ver
+                                        anuncio" abre la publicación de IG/FB,
+                                        que NO trae este ID. Con él, en
+                                        Productos se liga el anuncio a su
+                                        producto y el sistema reconoce qué
+                                        busca cada cliente que entre por él. */}
+                                    {source_id && (
+                                      <div className="flex items-center justify-between gap-2 px-3 py-1 bg-white/80 border-t border-violet-200/60">
+                                        <span
+                                          className="truncate font-mono text-[9.5px] text-violet-400"
+                                          title="ID del anuncio de Meta — vincúlalo a su producto en Productos"
+                                        >
+                                          ID anuncio: {source_id}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          title="Copiar ID del anuncio (para vincularlo a su producto en Productos)"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigator.clipboard?.writeText(
+                                              String(source_id),
+                                            );
+                                            Swal.fire({
+                                              toast: true,
+                                              position: "top-end",
+                                              icon: "success",
+                                              title: "ID del anuncio copiado",
+                                              showConfirmButton: false,
+                                              timer: 1400,
+                                              timerProgressBar: true,
+                                            });
+                                          }}
+                                          className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded hover:bg-violet-100 text-violet-500"
+                                        >
+                                          <i className="bx bx-copy text-[11px]" />
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
 

@@ -413,7 +413,7 @@ const Productos2View = () => {
             text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap"
         >
           <i className="bx bx-import text-base" />
-          Importar de Dropi
+          Importar desde Dropi
         </button>
       )}
       <button
