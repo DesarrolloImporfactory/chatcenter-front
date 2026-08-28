@@ -13,19 +13,39 @@ const TITULOS_FALLO = {
   indeterminado: "No pudimos comprobarlo",
 };
 
-/* "Ya pagué": le pide al backend que compruebe el saldo AHORA.
+/* Misma línea en TODOS los avisos de este flujo: esquinas 18px, spinner
+   índigo y botón de marca. Sin esto, el "Comprobando..." y el resultado
+   salían con el look cuadrado default de SweetAlert. */
+function inyectarEstilos() {
+  if (document.getElementById("oa-css")) return;
+  const style = document.createElement("style");
+  style.id = "oa-css";
+  style.textContent = `
+    .oa-pop { border-radius: 18px !important; }
+    .oa-pop .swal2-title { font-size: 21px; color: #0f172a; letter-spacing: -0.01em; }
+    .oa-pop .swal2-loader { border-color: #4f46e5 transparent #4f46e5 transparent !important; }
+    .oa-pop .swal2-styled.swal2-confirm { border-radius: 10px; font-weight: 700; padding: 10px 22px; }
+    .oa-pop .swal2-styled.swal2-cancel { border-radius: 10px; font-weight: 600; }
+  `;
+  document.head.appendChild(style);
+}
+const CLASE_POP = { popup: "oa-pop" };
+
+/* "Ya recargué": le pide al backend que compruebe el saldo AHORA.
    Devuelve true solo si la cuenta quedó reactivada. */
 async function reintentarOpenAI(id_configuracion) {
+  inyectarEstilos();
   Swal.fire({
-    title: "Comprobando con OpenAI...",
+    title: "Comprobando con OpenAI…",
     html: `
-      <div style="font-size:14px; line-height:1.6;">
-        Estamos haciendo una llamada de prueba a tu cuenta.
+      <div style="font-size:14px; line-height:1.6; color:#64748b;">
+        Estamos haciendo una llamada de prueba a tu cuenta. Toma unos segundos.
       </div>
     `,
     allowOutsideClick: false,
     allowEscapeKey: false,
     showConfirmButton: false,
+    customClass: CLASE_POP,
     didOpen: () => Swal.showLoading(),
   });
 
@@ -38,9 +58,15 @@ async function reintentarOpenAI(id_configuracion) {
     if (data?.ok) {
       await Swal.fire({
         icon: "success",
-        title: "¡Listo!",
-        text: data.mensaje || "Tu asistente vuelve a responder.",
-        confirmButtonColor: "#6366f1",
+        title: "¡Tu asistente está de vuelta!",
+        html: `
+          <div style="font-size:14px; line-height:1.6; color:#64748b;">
+            ${data.mensaje || "Comprobamos tu cuenta de OpenAI y ya responde con normalidad."}
+          </div>
+        `,
+        confirmButtonText: "Entendido",
+        confirmButtonColor: "#4f46e5",
+        customClass: CLASE_POP,
       });
       return true;
     }
@@ -50,8 +76,17 @@ async function reintentarOpenAI(id_configuracion) {
       // error del sistema: se muestra como advertencia para no alarmar.
       icon: data?.motivo === "sin_saldo" ? "warning" : "error",
       title: TITULOS_FALLO[data?.motivo] || "No pudimos reactivarlo",
-      text: data?.mensaje || "Vuelve a intentarlo en un momento.",
-      confirmButtonColor: "#6366f1",
+      html: `
+        <div style="font-size:14px; line-height:1.6; color:#64748b;">
+          ${
+            data?.mensaje ||
+            "OpenAI todavía no refleja el pago. Suele acreditarse en unos minutos: vuelve a intentarlo enseguida."
+          }
+        </div>
+      `,
+      confirmButtonText: "Entendido",
+      confirmButtonColor: "#4f46e5",
+      customClass: CLASE_POP,
     });
     return false;
   } catch (err) {
@@ -59,8 +94,14 @@ async function reintentarOpenAI(id_configuracion) {
     await Swal.fire({
       icon: "error",
       title: "No pudimos comprobarlo",
-      text: "No se pudo contactar al servidor. Revisa tu conexión e inténtalo de nuevo.",
-      confirmButtonColor: "#6366f1",
+      html: `
+        <div style="font-size:14px; line-height:1.6; color:#64748b;">
+          No se pudo contactar al servidor. Revisa tu conexión e inténtalo de nuevo.
+        </div>
+      `,
+      confirmButtonText: "Entendido",
+      confirmButtonColor: "#4f46e5",
+      customClass: CLASE_POP,
     });
     return false;
   }
@@ -68,14 +109,15 @@ async function reintentarOpenAI(id_configuracion) {
 
 /* Aviso de OpenAI sin saldo.
    ─────────────────────────────────────────────────────────────
-   El backend marca `openai_activo = 0` cuando una llamada falla por saldo, y
-   por su cuenta lo vuelve a poner en 1 recién en la PRIMERA LLAMADA EXITOSA —
-   es decir, cuando el bot recibe y contesta el siguiente mensaje. No hay un
-   cron que verifique el saldo.
+   Misma línea sobria que el aviso "Acción requerida en Meta"
+   (avisoMetodoPagoMeta): título, explicación en texto plano y dos botones.
+   "Ya recargué" va como enlace dentro del texto — es la acción de quien
+   vuelve después de pagar, no necesita un botonzote.
 
-   Ese hueco generaba tickets en cadena ("ya recargué y me sigue apareciendo"),
-   porque el cliente no tenía forma de comprobarlo. Para eso está "Ya pagué":
-   pide una comprobación real contra OpenAI en el momento. */
+   El backend marca `openai_activo = 0` cuando una llamada falla por saldo, y
+   lo vuelve a poner en 1 recién en la primera llamada exitosa. "Ya recargué"
+   pide una comprobación real contra OpenAI en el momento, sin esperar al
+   siguiente mensaje de un cliente. */
 export async function checkOpenAIStatus() {
   const tipo = localStorage.getItem("tipo_configuracion");
   const id_configuracion = localStorage.getItem("id_configuracion");
@@ -89,44 +131,60 @@ export async function checkOpenAIStatus() {
 
     if (data.openai_activo === 1) return;
 
+    inyectarEstilos();
+
     /* Se vuelve a mostrar mientras el cliente siga intentando: tras abrir la
-       página de pago querrá pulsar "Ya pagué" al volver, y tras un intento
-       fallido querrá reintentar. Cada vuelta exige un clic suyo, y "Más tarde"
-       cierra siempre. */
+       página de pago querrá comprobar al volver, y tras un intento fallido
+       querrá reintentar. "Más tarde" cierra siempre. */
     let seguirMostrando = true;
     while (seguirMostrando) {
       seguirMostrando = false;
 
+      // La marca el enlace "Ya recargué" del texto antes de cerrar el aviso.
+      let comprobar = false;
+
       const result = await Swal.fire({
         icon: "warning",
-        title: "OpenAI sin saldo",
+        title: "Tu asistente está en pausa",
         html: `
           <div style="font-size:14px; line-height:1.6; text-align:left;">
-            Tu asistente no está respondiendo porque tu cuenta de OpenAI se
-            quedó sin saldo. Recárgala para que vuelva a funcionar.
+            Tu cuenta de OpenAI se quedó sin saldo y el asistente dejó de
+            responder a tus clientes. Esto no tiene relación con tu plan de la
+            plataforma, que sigue activo.
             <br/><br/>
-            Si ya la recargaste, pulsa <strong>Ya pagué</strong> y lo
-            comprobamos al instante contra tu cuenta.
+            Se soluciona recargando saldo en tu cuenta de OpenAI. Si ya lo
+            hiciste,
+            <a href="#" id="oa-ya-recargue"
+               style="color:#4f46e5; font-weight:600;">pulsa aquí y lo
+            comprobamos al instante</a>.
           </div>
         `,
         allowOutsideClick: false,
         allowEscapeKey: false,
-        confirmButtonText: "Ir a recargar en OpenAI",
-        showDenyButton: true,
-        denyButtonText: "Ya pagué",
+        confirmButtonText: "Recargar en OpenAI",
         showCancelButton: true,
         cancelButtonText: "Más tarde",
-        confirmButtonColor: "#6366f1",
-        denyButtonColor: "#16a34a",
+        confirmButtonColor: "#4f46e5",
+        customClass: CLASE_POP,
+        didOpen: () => {
+          const link = document.getElementById("oa-ya-recargue");
+          if (link) {
+            link.addEventListener("click", (e) => {
+              e.preventDefault();
+              comprobar = true;
+              Swal.close();
+            });
+          }
+        },
       });
 
-      if (result.isConfirmed) {
-        window.open(URL_BILLING, "_blank");
-        // Vuelve a salir el aviso para que "Ya pagué" esté a mano al regresar.
-        seguirMostrando = true;
-      } else if (result.isDenied) {
+      if (comprobar) {
         const reactivado = await reintentarOpenAI(id_configuracion);
         if (!reactivado) seguirMostrando = true;
+      } else if (result.isConfirmed) {
+        window.open(URL_BILLING, "_blank");
+        // Vuelve a salir el aviso para que "pulsa aquí" esté a mano al volver.
+        seguirMostrando = true;
       }
     }
   } catch (err) {

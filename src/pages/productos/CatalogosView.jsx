@@ -149,13 +149,6 @@ const CatalogosView = () => {
   const headerActions = (
     <div className="flex gap-2">
       <button
-        onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-lg font-medium border border-white/20 transition-colors text-sm"
-      >
-        <i className="bx bx-left-arrow-alt text-base" />
-        Volver
-      </button>
-      <button
         onClick={openCreate}
         className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50
           px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
