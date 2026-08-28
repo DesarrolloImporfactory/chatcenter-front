@@ -42,16 +42,35 @@ const botonesVar = (tpl) =>
 const tieneHeaderImagen = (tpl) =>
   String(headerDe(tpl)?.format || "").toUpperCase() === "IMAGE";
 
-/* Soportadas: sin header, header de texto fijo, o header de IMAGEN (foto del
-   producto por contacto). Video/documento y texto con variables, aún no. */
+/* VIDEO/DOCUMENT no tienen foto por contacto: se manda el ARCHIVO CON QUE SE
+   CREÓ la plantilla (example.header_handle), igual para todos. El backend lo
+   descarga y lo re-sube (Video API / S3) al programar, porque el handle de
+   Meta es efímero. */
+const headerFmtDe = (tpl) =>
+  String(headerDe(tpl)?.format || "").toUpperCase();
+const assetDefaultDe = (tpl) =>
+  headerDe(tpl)?.example?.header_handle?.[0] || null;
+const tieneHeaderVideoDoc = (tpl) =>
+  ["VIDEO", "DOCUMENT"].includes(headerFmtDe(tpl));
+
+/* Soportadas: sin header, header de texto fijo, header de IMAGEN (foto del
+   producto por contacto) o VIDEO/DOCUMENTO con adjunto predeterminado.
+   Fuera: texto con variables, y video/documento sin archivo de ejemplo. */
 const plantillaSoportada = (tpl) => {
   const h = headerDe(tpl);
   if (!h) return true;
   const fmt = String(h.format || "").toUpperCase();
   if (fmt === "IMAGE") return true;
-  if (["VIDEO", "DOCUMENT"].includes(fmt)) return false;
+  if (["VIDEO", "DOCUMENT"].includes(fmt)) return !!assetDefaultDe(tpl);
   if (/\{\{\d+\}\}/.test(h.text || "")) return false;
   return true;
+};
+
+const motivoNoSoportada = (tpl) => {
+  const fmt = headerFmtDe(tpl);
+  if (["VIDEO", "DOCUMENT"].includes(fmt))
+    return "La plantilla no tiene archivo de ejemplo en el encabezado: Meta no la deja salir sin adjunto";
+  return "Encabezado de texto con variables: aún no soportado en flujos";
 };
 
 const FUENTE_BADGE = {
@@ -63,10 +82,25 @@ const FUENTE_BADGE = {
     label: "Orden Shopify",
     cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
+  /* Sin orden pero con anuncio rastreado: el producto (y su foto/video)
+     salen del anuncio por el que entró el contacto. */
+  anuncio: {
+    label: "Por anuncio",
+    cls: "bg-violet-50 text-violet-700 border-violet-200",
+  },
   contacto: {
     label: "Solo contacto",
     cls: "bg-slate-50 text-slate-600 border-slate-200",
   },
+};
+
+/* Mismos colores por estado que el tab de mensajes programados. */
+const BADGE_ESTADO = {
+  enviado: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  error: "bg-red-50 text-red-700 border-red-200",
+  procesando: "bg-blue-50 text-blue-700 border-blue-200",
+  cancelado: "bg-slate-100 text-slate-500 border-slate-300 line-through",
+  pendiente: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
 const HORAS_SIN_RESPUESTA = [
@@ -146,6 +180,11 @@ export default function FlujosMasivos() {
   const [tplOpen, setTplOpen] = useState(false);
   const [mapeo, setMapeo] = useState([]);
   const [excluirIncompletos, setExcluirIncompletos] = useState(false);
+  /* Header IMAGE o VIDEO: "producto" = la foto/video del producto de cada
+     contacto (catálogo); "plantilla" = el archivo con que se creó la
+     plantilla, igual para todos. Con "producto", quien no tenga cae al de
+     la plantilla (si la plantilla trae adjunto de ejemplo). */
+  const [mediaOrigen, setMediaOrigen] = useState("producto");
   const [previewIdx, setPreviewIdx] = useState(0);
   const tplBoxRef = useRef(null);
 
@@ -153,10 +192,21 @@ export default function FlujosMasivos() {
   const [fecha, setFecha] = useState("");
   const [zona, setZona] = useState(zonaDelNavegador);
   const [programando, setProgramando] = useState(false);
+  /* A qué columna del kanban pasa cada contacto DESPUÉS de que su mensaje
+     sale con éxito ("" = se queda donde está — el envío nunca movía de
+     columna y nadie lo sabía). Lo ejecuta el cron contacto por contacto;
+     los fallidos no se mueven, para poder reintentarles el flujo. */
+  const [estadoDestino, setEstadoDestino] = useState("");
 
   // ── Resultados ──
   const [lotes, setLotes] = useState([]);
   const [loadingLotes, setLoadingLotes] = useState(false);
+  /* Detalle por lote: a QUIÉN le llegó y a quién no, con el error de Meta
+     por contacto — el mismo feedback del tab de mensajes programados. Al
+     abrir un lote con errores se muestran solo los errores (lo que se busca
+     es "¿en qué chat falló?"); "Ver todos" abre la lista completa. */
+  const [loteAbierto, setLoteAbierto] = useState(null);
+  const [verTodosDelLote, setVerTodosDelLote] = useState(false);
 
   /* ── Cargas iniciales ── */
   useEffect(() => {
@@ -252,10 +302,12 @@ export default function FlujosMasivos() {
             fecha_programada: it.fecha_programada,
             total: 0,
             estados: {},
+            items: [],
           });
         }
         const l = porLote.get(it.uuid_lote);
         l.total += 1;
+        l.items.push(it);
         const e = String(it.estado || "pendiente");
         l.estados[e] = (l.estados[e] || 0) + 1;
       }
@@ -293,6 +345,9 @@ export default function FlujosMasivos() {
     setTplSel(tpl);
     setTplOpen(false);
     setBuscaTpl("");
+    // Foto: lo natural es la del producto de cada orden; video: el de la
+    // plantilla (pocos catálogos tienen video por producto).
+    setMediaOrigen(tieneHeaderImagen(tpl) ? "producto" : "plantilla");
     const n = varsBody(tpl);
     // En flujos de retiro en agencia lo típico es {{1}} lugar y {{2}} guía;
     // en el resto, nombre/producto/total. Solo defaults: se cambian a un clic.
@@ -322,15 +377,37 @@ export default function FlujosMasivos() {
     return contacto?.valores?.[m.valor] || "";
   };
 
-  /* Con plantilla de imagen, el contacto SIN foto identificada queda fuera
-     obligatoriamente: Meta no acepta esa plantilla sin imagen, y mandar la
-     foto de OTRO producto (el cliente tiene varios modelos parecidos) es
-     peor que no enviar. */
   const requiereImagen = tplSel ? tieneHeaderImagen(tplSel) : false;
+
+  /* VIDEO/DOCUMENT: el archivo de la plantilla para el lote; con VIDEO el
+     usuario puede preferir el video del producto de cada contacto. */
+  const headerVideoDoc =
+    tplSel && tieneHeaderVideoDoc(tplSel)
+      ? { format: headerFmtDe(tplSel), url: assetDefaultDe(tplSel) }
+      : null;
+
+  /* La imagen/video de ejemplo con que se creó la plantilla: sirve de
+     "igual para todos" y de respaldo para el contacto sin foto/video. */
+  const assetPlantilla = tplSel ? assetDefaultDe(tplSel) : null;
+
+  const conVideoProducto = (audiencia?.data || []).filter(
+    (c) => c.video_producto,
+  ).length;
+  const conFotoProducto = (audiencia?.data || []).filter(
+    (c) => c.imagen_producto,
+  ).length;
+  const productosConVideo = audiencia?.catalogo?.productos_con_video || 0;
+
+  /* El contacto SIN foto identificada queda fuera SOLO si no hay respaldo:
+     Meta no acepta la plantilla sin imagen, y mandar la foto de OTRO
+     producto es peor que no enviar. Si la plantilla trae su imagen de
+     ejemplo, ese contacto la recibe y nadie queda fuera. */
+  const usaFotoProducto = requiereImagen && mediaOrigen === "producto";
+  const excluyeSinFoto = usaFotoProducto && !assetPlantilla;
 
   const contactosLote = () => {
     let todos = audiencia?.data || [];
-    if (requiereImagen) todos = todos.filter((c) => c.imagen_producto);
+    if (excluyeSinFoto) todos = todos.filter((c) => c.imagen_producto);
     if (!excluirIncompletos || !mapeo.length) return todos;
     return todos.filter((c) => mapeo.every((m) => valorPara(c, m)));
   };
@@ -354,7 +431,7 @@ export default function FlujosMasivos() {
     return text;
   };
 
-  const fuentes = { dropi: 0, shopify: 0, contacto: 0 };
+  const fuentes = { dropi: 0, shopify: 0, anuncio: 0, contacto: 0 };
   for (const c of audiencia?.data || [])
     fuentes[c.fuente] = (fuentes[c.fuente] || 0) + 1;
 
@@ -381,7 +458,13 @@ export default function FlujosMasivos() {
           : "") +
         `<br/>Salida: <b>${fecha.replace("T", " ")}</b> (hora de ${
           ZONAS.find((z) => z.tz === zona)?.label || zona
-        })`,
+        })` +
+        (estadoDestino
+          ? `<br/>Al enviarse, cada contacto pasa a <b>${
+              columnas.find((c) => c.estado_db === estadoDestino)?.nombre ||
+              estadoDestino
+            }</b>`
+          : `<br/>Los contactos se quedan en su columna actual`),
       showCancelButton: true,
       confirmButtonText: "Programar flujo",
       cancelButtonText: "Volver",
@@ -406,26 +489,78 @@ export default function FlujosMasivos() {
           language_code: tplSel.language || "es",
           template_parameters: mapeo.map(() => "-"),
           parametros_por_cliente,
-          /* Plantilla con encabezado de imagen: la foto de CADA contacto.
-             Los contactos sin foto ya quedaron fuera del lote. */
+          /* Encabezado de IMAGEN: con "producto" va la foto de CADA contacto
+             (header_media_por_cliente) y la imagen de ejemplo de la
+             plantilla queda de respaldo global para quien no tenga; con
+             "plantilla" solo va la de ejemplo, igual para todos. El backend
+             descarga el ejemplo y lo re-sube a S3 (el handle de Meta
+             caduca). */
           ...(requiereImagen
             ? {
                 header_format: "IMAGE",
-                header_media_por_cliente: Object.fromEntries(
-                  lote.map((c) => [String(c.id), c.imagen_producto]),
-                ),
+                ...(assetPlantilla
+                  ? {
+                      header_default_asset: {
+                        enabled: true,
+                        format: "IMAGE",
+                        url: assetPlantilla,
+                        source: "template_example",
+                        name: "Adjunto predeterminado del template",
+                      },
+                    }
+                  : {}),
+                ...(mediaOrigen === "producto"
+                  ? {
+                      header_media_por_cliente: Object.fromEntries(
+                        lote
+                          .filter((c) => c.imagen_producto)
+                          .map((c) => [String(c.id), c.imagen_producto]),
+                      ),
+                    }
+                  : {}),
+              }
+            : {}),
+          /* VIDEO/DOCUMENT: igual — ejemplo de la plantilla como global (vía
+             Video API para video) y, con "video del producto", el de cada
+             contacto que lo tenga en el catálogo. */
+          ...(headerVideoDoc
+            ? {
+                header_format: headerVideoDoc.format,
+                header_default_asset: {
+                  enabled: true,
+                  format: headerVideoDoc.format,
+                  url: headerVideoDoc.url,
+                  source: "template_example",
+                  name: "Adjunto predeterminado del template",
+                },
+                ...(headerVideoDoc.format === "VIDEO" &&
+                mediaOrigen === "producto"
+                  ? {
+                      header_media_por_cliente: Object.fromEntries(
+                        lote
+                          .filter((c) => c.video_producto)
+                          .map((c) => [String(c.id), c.video_producto]),
+                      ),
+                    }
+                  : {}),
               }
             : {}),
           fecha_programada: fecha.replace("T", " ") + ":00",
           timezone: zona,
-          meta: { origen: "flujos_masivos" },
+          meta: {
+            origen: "flujos_masivos",
+            ...(estadoDestino ? { estado_destino: estadoDestino } : {}),
+          },
         },
+        // Con video, programar incluye descargar + convertir + subir.
+        { timeout: 300000 },
       );
       if (data?.ok !== false) {
         Toast.fire({ icon: "success", title: "Flujo programado 🚀" });
         setTplSel(null);
         setMapeo([]);
         setFecha("");
+        setEstadoDestino("");
         setPaso(1);
         fetchLotes();
       } else {
@@ -522,6 +657,148 @@ export default function FlujosMasivos() {
     if (!idCliente) return;
     window.open(`/chat/${idCliente}`, "_blank", "noopener,noreferrer");
   };
+
+  /* Cajas del encabezado multimedia del paso 2 (se usan igual con y sin
+     variables de texto): qué imagen/video sale, en lenguaje del catálogo. */
+  const bloqueVideoDoc = headerVideoDoc && (
+    <div className="rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-[11px] leading-relaxed text-sky-800">
+      <div className="flex items-start gap-1.5">
+        <i
+          className={`bx ${headerVideoDoc.format === "VIDEO" ? "bx-video" : "bx-file"} mt-0.5`}
+        />
+        <span>
+          <b>
+            Esta plantilla lleva{" "}
+            {headerVideoDoc.format === "VIDEO" ? "video" : "documento"} en el
+            encabezado.
+          </b>{" "}
+          {headerVideoDoc.format === "DOCUMENT"
+            ? "Se envía el documento con que fue creada — el mismo para todos."
+            : "¿Cuál video se envía?"}
+        </span>
+      </div>
+      {headerVideoDoc.format === "VIDEO" && (
+        <div className="mt-2 flex flex-col gap-1.5 pl-5">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="media_origen"
+              checked={mediaOrigen === "plantilla"}
+              onChange={() => setMediaOrigen("plantilla")}
+              className="h-3.5 w-3.5"
+            />
+            El video de la plantilla — el mismo para todos
+          </label>
+          <label
+            className={`flex items-start gap-2 ${
+              productosConVideo === 0 ? "opacity-60" : ""
+            }`}
+          >
+            <input
+              type="radio"
+              name="media_origen"
+              disabled={productosConVideo === 0}
+              checked={mediaOrigen === "producto"}
+              onChange={() => setMediaOrigen("producto")}
+              className="mt-0.5 h-3.5 w-3.5"
+            />
+            <span>
+              El video del producto de cada contacto.
+              {productosConVideo === 0 ? (
+                <span className="block text-sky-700/80">
+                  Ningún producto de tu catálogo tiene video todavía —
+                  cárgalo en tus productos para activar esta opción.
+                </span>
+              ) : (
+                <span className="block text-sky-700/80">
+                  {productosConVideo} producto
+                  {productosConVideo === 1 ? "" : "s"} de tu catálogo{" "}
+                  {productosConVideo === 1 ? "tiene" : "tienen"} video:{" "}
+                  {conVideoProducto} contacto
+                  {conVideoProducto === 1 ? "" : "s"} de este flujo{" "}
+                  {conVideoProducto === 1 ? "recibiría" : "recibirían"} el de
+                  su producto; los demás, el de la plantilla.
+                </span>
+              )}
+            </span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+
+  const bloqueImagen =
+    requiereImagen &&
+    (assetPlantilla ? (
+      <div className="rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-[11px] leading-relaxed text-sky-800">
+        <div className="flex items-start gap-1.5">
+          <i className="bx bx-image mt-0.5" />
+          <span>
+            <b>Esta plantilla lleva imagen en el encabezado.</b> ¿Cuál foto
+            se envía?
+          </span>
+        </div>
+        <div className="mt-2 flex flex-col gap-1.5 pl-5">
+          <label className="flex items-start gap-2">
+            <input
+              type="radio"
+              name="media_origen"
+              checked={mediaOrigen === "producto"}
+              onChange={() => setMediaOrigen("producto")}
+              className="mt-0.5 h-3.5 w-3.5"
+            />
+            <span>
+              La foto del producto de cada contacto (tu catálogo; si no está,
+              la de su orden).
+              <span className="block text-sky-700/80">
+                {conFotoProducto} de {audiencia?.total || 0} contacto
+                {(audiencia?.total || 0) === 1 ? "" : "s"}{" "}
+                {conFotoProducto === 1 ? "tiene" : "tienen"} foto de su
+                producto identificada
+                {sinFoto > 0
+                  ? `; los ${sinFoto} restantes reciben la imagen de la plantilla`
+                  : ""}
+                .
+              </span>
+            </span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="media_origen"
+              checked={mediaOrigen === "plantilla"}
+              onChange={() => setMediaOrigen("plantilla")}
+              className="h-3.5 w-3.5"
+            />
+            La imagen de la plantilla — la misma para todos
+          </label>
+        </div>
+      </div>
+    ) : (
+      /* Sin imagen de ejemplo no hay respaldo posible: se mantiene la regla
+         de siempre — foto del producto, y quien no tenga queda fuera. */
+      <div className="flex items-start gap-1.5 rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-[11px] leading-relaxed text-sky-800">
+        <i className="bx bx-image mt-0.5" />
+        <span>
+          <b>
+            Esta plantilla lleva la foto del producto de cada contacto
+          </b>{" "}
+          (la imagen de tu catálogo — por ID de Dropi o nombre — y si no
+          está, la foto de la orden).
+          {sinFoto > 0 && (
+            <>
+              {" "}
+              <b className="text-amber-700">
+                {sinFoto} contacto{sinFoto === 1 ? "" : "s"} sin foto
+                identificada quedan fuera del flujo
+              </b>{" "}
+              — la plantilla no puede salir sin imagen y jamás se manda la
+              foto de otro producto.
+            </>
+          )}
+        </span>
+      </div>
+    ));
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -662,8 +939,9 @@ export default function FlujosMasivos() {
             <p className="mt-4 flex items-start gap-1.5 text-[11px] text-slate-400">
               <i className="bx bx-info-circle mt-0.5" />
               Los datos de cada contacto (nombre, producto, total, guía…) se
-              toman solos de su orden en Dropi o Shopify — no tienes que
-              escribir nada.
+              toman solos de su orden en Dropi o Shopify — y si aún no tiene
+              orden, del anuncio por el que entró. No tienes que escribir
+              nada.
             </p>
           </div>
 
@@ -695,6 +973,11 @@ export default function FlujosMasivos() {
                     {fuentes.shopify > 0 && (
                       <span className={`rounded-full border px-2 py-0.5 ${FUENTE_BADGE.shopify.cls}`}>
                         {fuentes.shopify} orden Shopify
+                      </span>
+                    )}
+                    {fuentes.anuncio > 0 && (
+                      <span className={`rounded-full border px-2 py-0.5 ${FUENTE_BADGE.anuncio.cls}`}>
+                        {fuentes.anuncio} por anuncio
                       </span>
                     )}
                     {fuentes.contacto > 0 && (
@@ -884,11 +1167,7 @@ export default function FlujosMasivos() {
                               ? "text-slate-800 hover:bg-slate-50"
                               : "cursor-not-allowed text-slate-300"
                           }`}
-                          title={
-                            soportada
-                              ? ""
-                              : "Encabezado multimedia o con variables: aún no soportado en flujos"
-                          }
+                          title={soportada ? "" : motivoNoSoportada(t)}
                         >
                           <span className="truncate">{t.name}</span>
                           <span className="shrink-0 text-[10px] text-slate-400">
@@ -896,7 +1175,13 @@ export default function FlujosMasivos() {
                             {botonesVar(t).length
                               ? ` + ${botonesVar(t).length} botón`
                               : ""}
-                            {tieneHeaderImagen(t) ? " · 📷 foto" : ""}
+                            {tieneHeaderImagen(t)
+                              ? " · 📷 foto"
+                              : headerFmtDe(t) === "VIDEO"
+                                ? " · 🎬 video"
+                                : headerFmtDe(t) === "DOCUMENT"
+                                  ? " · 📄 doc"
+                                  : ""}
                           </span>
                         </button>
                       );
@@ -979,29 +1264,10 @@ export default function FlujosMasivos() {
                       </div>
                     ))}
                   </div>
-                  {requiereImagen && (
-                    <div className="mt-3 flex items-start gap-1.5 rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-[11px] leading-relaxed text-sky-800">
-                      <i className="bx bx-image mt-0.5" />
-                      <span>
-                        <b>
-                          Esta plantilla lleva la foto del producto de cada
-                          contacto
-                        </b>{" "}
-                        (la imagen de tu catálogo — por ID de Dropi o nombre
-                        — y si no está, la foto de la orden).
-                        {sinFoto > 0 && (
-                          <>
-                            {" "}
-                            <b className="text-amber-700">
-                              {sinFoto} contacto{sinFoto === 1 ? "" : "s"} sin
-                              foto identificada quedan fuera del flujo
-                            </b>{" "}
-                            — la plantilla no puede salir sin imagen y jamás
-                            se manda la foto de otro producto.
-                          </>
-                        )}
-                      </span>
-                    </div>
+                  {bloqueImagen && <div className="mt-3">{bloqueImagen}</div>}
+
+                  {bloqueVideoDoc && (
+                    <div className="mt-3">{bloqueVideoDoc}</div>
                   )}
 
                   {/* Aviso SIEMPRE visible en flujos de retiro: ámbar con
@@ -1090,25 +1356,8 @@ export default function FlujosMasivos() {
                       ? ": solo cambia la foto por contacto."
                       : ": se envía igual para todos."}
                   </p>
-                  {requiereImagen && (
-                    <div className="flex items-start gap-1.5 rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-[11px] leading-relaxed text-sky-800">
-                      <i className="bx bx-image mt-0.5" />
-                      <span>
-                        <b>Lleva la foto del producto de cada contacto</b>{" "}
-                        (la imagen de tu catálogo; si no está, la de la
-                        orden).
-                        {sinFoto > 0 && (
-                          <>
-                            {" "}
-                            <b className="text-amber-700">
-                              {sinFoto} sin foto identificada quedan fuera
-                            </b>
-                            .
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  )}
+                  {bloqueVideoDoc}
+                  {bloqueImagen}
                 </div>
               ))}
           </div>
@@ -1178,18 +1427,79 @@ export default function FlujosMasivos() {
                       </span>
                     </div>
                   )}
-                  {/* La foto que va en el encabezado, la de ESTE contacto */}
-                  {requiereImagen && contactoPreview?.imagen_producto && (
-                    <img
-                      src={contactoPreview.imagen_producto}
-                      alt="Foto del producto"
-                      className="mb-1 max-w-[85%] rounded-t-xl bg-white object-cover shadow"
-                      style={{ maxHeight: 180 }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  )}
+                  {/* La foto que va en el encabezado: la de ESTE contacto, o
+                      la de la plantilla según lo elegido (y como respaldo
+                      del que no tiene foto propia). */}
+                  {requiereImagen &&
+                    (() => {
+                      const esDelProducto =
+                        mediaOrigen === "producto" &&
+                        !!contactoPreview?.imagen_producto;
+                      const srcImg = esDelProducto
+                        ? contactoPreview.imagen_producto
+                        : assetPlantilla;
+                      if (!srcImg) return null;
+                      return (
+                        <div className="mb-1 max-w-[85%]">
+                          <img
+                            key={srcImg}
+                            src={srcImg}
+                            alt="Imagen del encabezado"
+                            className="w-full rounded-t-xl bg-white object-cover shadow"
+                            style={{ maxHeight: 180 }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                          {mediaOrigen === "producto" && assetPlantilla && (
+                            <div className="mt-0.5 text-[9px] text-slate-500">
+                              {esDelProducto
+                                ? "Foto del producto de este contacto"
+                                : "Sin foto propia: recibe la imagen de la plantilla"}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  {/* Video/documento del encabezado. Con "video del
+                      producto" se ve el de ESTE contacto (o el de la
+                      plantilla si no tiene). El handle de Meta suele dejar
+                      reproducir el preview; si caduca, queda el bloque. */}
+                  {headerVideoDoc &&
+                    (headerVideoDoc.format === "VIDEO" ? (
+                      (() => {
+                        const esDelProducto =
+                          mediaOrigen === "producto" &&
+                          !!contactoPreview?.video_producto;
+                        const srcVideo = esDelProducto
+                          ? contactoPreview.video_producto
+                          : headerVideoDoc.url;
+                        return (
+                          <div className="mb-1 max-w-[85%]">
+                            <video
+                              key={srcVideo}
+                              src={srcVideo}
+                              controls
+                              muted
+                              className="w-full rounded-t-xl bg-black shadow"
+                              style={{ maxHeight: 180 }}
+                            />
+                            {mediaOrigen === "producto" && (
+                              <div className="mt-0.5 text-[9px] text-slate-500">
+                                {esDelProducto
+                                  ? "Video del producto de este contacto"
+                                  : "Sin video propio: recibe el de la plantilla"}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="mb-1 flex max-w-[85%] items-center gap-2 rounded-t-xl bg-white p-3 text-xs text-slate-600 shadow">
+                        <i className="bx bxs-file-pdf text-2xl text-rose-500" />
+                        Documento de la plantilla
+                      </div>
+                    ))}
                   <div className="max-w-[85%] whitespace-pre-wrap rounded-xl rounded-tl-none bg-white p-3 text-sm text-slate-800 shadow">
                     {previewBodyPara(contactoPreview) || "…"}
                   </div>
@@ -1335,6 +1645,36 @@ export default function FlujosMasivos() {
               </div>
             </div>
 
+            {/* El envío por sí solo NO mueve de columna — aquí se decide y
+                queda dicho explícitamente, que antes nadie lo sabía. */}
+            <div className="rounded-xl bg-slate-50 p-3">
+              <label className="mb-1 block text-[11px] font-semibold text-slate-600">
+                <i className="bx bx-columns mr-1 text-indigo-500" />
+                Después de enviarse, ¿a qué columna pasa cada contacto?
+              </label>
+              <select
+                value={estadoDestino}
+                onChange={(e) => setEstadoDestino(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs"
+              >
+                <option value="">
+                  Se quedan en su columna actual (no mover)
+                </option>
+                {columnas.map((col) => (
+                  <option
+                    key={col.estado_db || col.id}
+                    value={col.estado_db}
+                  >
+                    Mover a “{col.nombre || col.estado_db}”
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[10px] text-slate-400">
+                Se mueve contacto por contacto cuando SU mensaje sale con
+                éxito; los que fallen se quedan donde están.
+              </p>
+            </div>
+
             <div className="flex items-center justify-between">
               <button
                 type="button"
@@ -1393,45 +1733,153 @@ export default function FlujosMasivos() {
             const env = l.estados.enviado || 0;
             const err = l.estados.error || 0;
             const pct = l.total ? Math.round((env / l.total) * 100) : 0;
+            const abierto = loteAbierto === l.uuid_lote;
+            const soloErrores = abierto && !verTodosDelLote && err > 0;
+            const detalle = soloErrores
+              ? l.items.filter((it) => it.estado === "error")
+              : l.items;
             return (
-              <div
-                key={l.uuid_lote}
-                className="flex flex-wrap items-center gap-3 px-5 py-3 text-xs"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold text-slate-800">
-                    {l.nombre_template}
+              <div key={l.uuid_lote}>
+                <div className="flex flex-wrap items-center gap-3 px-5 py-3 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold text-slate-800">
+                      {l.nombre_template}
+                    </div>
+                    <div className="text-slate-400">
+                      {l.fecha_programada} · {l.total} destinatario
+                      {l.total === 1 ? "" : "s"}
+                    </div>
+                    <div className="mt-1 h-1.5 w-full max-w-[240px] overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="text-slate-400">
-                    {l.fecha_programada} · {l.total} destinatario
-                    {l.total === 1 ? "" : "s"}
-                  </div>
-                  <div className="mt-1 h-1.5 w-full max-w-[240px] overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-emerald-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
-                  {env} enviados
-                </span>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold text-slate-600">
-                  {pend} pendientes
-                </span>
-                {err > 0 && (
-                  <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 font-semibold text-rose-600">
-                    {err} con error
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+                    {env} enviados
                   </span>
-                )}
-                {pend > 0 && (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold text-slate-600">
+                    {pend} pendientes
+                  </span>
+                  {err > 0 && (
+                    <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 font-semibold text-rose-600">
+                      {err} con error
+                    </span>
+                  )}
+                  {pend > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => cancelarLote(l.uuid_lote)}
+                      className="rounded-lg border border-rose-200 px-2.5 py-1 font-semibold text-rose-600 hover:bg-rose-50"
+                    >
+                      Cancelar pendientes
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => cancelarLote(l.uuid_lote)}
-                    className="rounded-lg border border-rose-200 px-2.5 py-1 font-semibold text-rose-600 hover:bg-rose-50"
+                    onClick={() => {
+                      setLoteAbierto(abierto ? null : l.uuid_lote);
+                      setVerTodosDelLote(false);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 hover:bg-slate-50"
                   >
-                    Cancelar pendientes
+                    <i
+                      className={`bx bx-chevron-${abierto ? "up" : "down"}`}
+                    />
+                    {abierto ? "Ocultar" : "Ver detalle"}
                   </button>
+                </div>
+
+                {abierto && (
+                  <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-3">
+                    {err > 0 && (
+                      <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setVerTodosDelLote(false)}
+                          className={`rounded-full border px-2.5 py-1 ${
+                            soloErrores
+                              ? "border-rose-300 bg-rose-50 text-rose-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                          }`}
+                        >
+                          Solo errores ({err})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVerTodosDelLote(true)}
+                          className={`rounded-full border px-2.5 py-1 ${
+                            !soloErrores
+                              ? "border-slate-400 bg-white text-slate-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                          }`}
+                        >
+                          Todos ({l.total})
+                        </button>
+                      </div>
+                    )}
+                    <div className="max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+                      {detalle.slice(0, 200).map((it) => (
+                        <div
+                          key={it.id}
+                          className="flex flex-wrap items-start gap-2 px-3 py-2 text-[11px]"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-slate-800">
+                              {it.nombre_cliente
+                                ? `${it.nombre_cliente} ${it.apellido_cliente || ""}`.trim()
+                                : "Sin nombre"}
+                              <span className="ml-2 font-normal text-slate-400">
+                                {it.telefono}
+                              </span>
+                            </div>
+                            {it.estado === "enviado" && it.enviado_en && (
+                              <div className="text-slate-400">
+                                Enviado: {it.enviado_en}
+                              </div>
+                            )}
+                            {/* El PORQUÉ del fallo, tal como lo devolvió
+                                Meta: sin esto el cliente solo ve "1 error"
+                                y no sabe ni en qué chat ni la causa. */}
+                            {it.estado === "error" && it.error_message && (
+                              <div className="mt-0.5 whitespace-pre-wrap break-words rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
+                                {it.error_message}
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 font-semibold ${
+                              BADGE_ESTADO[it.estado] || BADGE_ESTADO.pendiente
+                            }`}
+                          >
+                            {String(it.estado || "pendiente").toUpperCase()}
+                          </span>
+                          {it.id_cliente_chat_center && (
+                            <button
+                              type="button"
+                              onClick={() => abrirChat(it.id_cliente_chat_center)}
+                              title="Abrir chat del cliente"
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                            >
+                              <i className="bx bxs-chat text-xs" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {!detalle.length && (
+                        <div className="px-3 py-4 text-center text-[11px] text-slate-400">
+                          Sin registros para mostrar.
+                        </div>
+                      )}
+                      {detalle.length > 200 && (
+                        <div className="px-3 py-2 text-center text-[10px] text-slate-400">
+                          Mostrando 200 de {detalle.length} — el detalle
+                          completo está en el tab Programados.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             );
