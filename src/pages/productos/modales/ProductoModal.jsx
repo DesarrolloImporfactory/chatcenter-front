@@ -735,6 +735,8 @@ const AnunciosMetaProducto = ({ idProducto }) => {
   const [abierto, setAbierto] = useState(false);
   const [vinculados, setVinculados] = useState([]);
   const [detectados, setDetectados] = useState([]);
+  const [totalDetectados, setTotalDetectados] = useState(0);
+  const [busca, setBusca] = useState("");
   const [manual, setManual] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -749,23 +751,30 @@ const AnunciosMetaProducto = ({ idProducto }) => {
       timerProgressBar: true,
     });
 
-  const cargar = async () => {
+  const cargar = async (q = busca) => {
     try {
       const { data } = await chatApi.post("/productos/anunciosDeProducto", {
         id_configuracion: idConfiguracion,
         id_producto: idProducto,
+        q: q || "",
       });
       setVinculados(data?.vinculados || []);
       setDetectados(data?.detectados || []);
+      setTotalDetectados(Number(data?.total_detectados || 0));
     } catch (_) {
       /* sección opcional: si falla, simplemente no estorba */
     }
   };
 
+  /* La búsqueda va al backend: una cuenta puede tener cientos de anuncios
+     sin vincular y aquí solo llegan los 30 con más contactos — sin esto, el
+     anuncio chico o recién creado "no aparecía" aunque el sistema lo tenía. */
   useEffect(() => {
-    if (idProducto && idConfiguracion) cargar();
+    if (!idProducto || !idConfiguracion) return;
+    const t = setTimeout(() => cargar(busca), 400);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idProducto]);
+  }, [idProducto, busca]);
 
   const vincular = async (sourceId) => {
     const sid = String(sourceId || "").trim();
@@ -862,13 +871,28 @@ const AnunciosMetaProducto = ({ idProducto }) => {
             </div>
           )}
 
-          {detectados.length > 0 && (
+          {(totalDetectados > 0 || busca) && (
             <div>
-              <p className="mb-1 font-semibold text-slate-600">
-                Detectados en tus chats, aún sin producto:
-              </p>
-              <div className="flex max-h-36 flex-col gap-1 overflow-y-auto">
-                {detectados.slice(0, 8).map((d) => (
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="font-semibold text-slate-600">
+                  Detectados en tus chats, aún sin producto:
+                </p>
+                <span className="shrink-0 text-[10px] text-slate-400">
+                  {detectados.length} de {totalDetectados}
+                </span>
+              </div>
+              {/* Solo llegan los 30 con más contactos: el buscador encuentra
+                  al resto por título o por ID, directo en el servidor. */}
+              {(totalDetectados > detectados.length || busca) && (
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar entre todos por título o ID…"
+                  className="mb-1.5 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] outline-none focus:border-violet-300"
+                />
+              )}
+              <div className="flex max-h-44 flex-col gap-1 overflow-y-auto">
+                {detectados.map((d) => (
                   <div
                     key={d.source_id}
                     className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1"
@@ -892,6 +916,12 @@ const AnunciosMetaProducto = ({ idProducto }) => {
                     </button>
                   </div>
                 ))}
+                {!detectados.length && busca && (
+                  <p className="py-2 text-center text-[11px] text-slate-400">
+                    Nada coincide con “{busca}” — también puedes pegar el ID
+                    abajo.
+                  </p>
+                )}
               </div>
             </div>
           )}
