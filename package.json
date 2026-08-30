@@ -1,7 +1,7 @@
 {
   "name": "chatcenter-business-messenger",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.2",
   "type": "module",
   "description": "Professional messaging platform that facilitates secure business communication between companies and TikTok users.",
   "author": "Imporfactory",
