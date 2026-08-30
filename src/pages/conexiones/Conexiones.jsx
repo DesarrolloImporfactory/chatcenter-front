@@ -23,6 +23,16 @@ import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 import EditarConexionModal from "./Modales/EditarConexionModal";
 
+/* Cuentas a las que no se les muestra "Eliminar conexión" en el menú de la
+   tarjeta. Ese botón no borra nada: llama a configuraciones/toggle_suspension y
+   deja la conexión en suspendido = 1, y el cliente no puede revertirlo — la
+   reactivación la hacemos nosotros directo en la BD. La cuenta 649
+   (Importaverimax) suspendió así su conexión 320 desde el celular el 2026-08-29
+   sin darse cuenta y se quedó sin WhatsApp hasta que reportó.
+   Para ver quién suspendió qué: node scripts/verSuspensiones.js <id_config>
+   en el backend (tabla configuraciones_suspension_log). */
+const CUENTAS_SIN_ELIMINAR_CONEXION = new Set([649]);
+
 const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
   <div className="group relative overflow-hidden rounded-xl bg-white/[0.07] ring-1 ring-white/10 backdrop-blur-xl px-3.5 py-2.5 transition-all duration-300 hover:bg-white/[0.11] hover:ring-white/20">
     <div
@@ -661,6 +671,13 @@ const Conexiones = () => {
   const handleAbrirConfiguracionAutomatizada = () =>
     setModalConfiguracionAutomatizada(true);
   const [idConfiguracionFB, setIdConfiguracionFB] = useState(null);
+
+  /* Ver CUENTAS_SIN_ELIMINAR_CONEXION arriba. Number(undefined) es NaN y el
+     Set no lo contiene, así que mientras carga userData el menú se comporta
+     como siempre. */
+  const puedeEliminarConexion = !CUENTAS_SIN_ELIMINAR_CONEXION.has(
+    Number(userData?.id_usuario),
+  );
 
   const confirmarEliminar = async (config) => {
     if (!userData) return;
@@ -1603,21 +1620,25 @@ const Conexiones = () => {
                                   Editar conexión
                                 </button>
                               )}
-                              <div className="my-1 h-px bg-slate-100" />
-                              <button
-                                type="button"
-                                role="menuitem"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMenuOpenId(null);
-                                  confirmarEliminar(config);
-                                }}
-                                disabled={suspendiendoId === config.id}
-                                className="w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition disabled:opacity-50"
-                              >
-                                <i className="bx bx-trash text-base" />
-                                Eliminar conexión
-                              </button>
+                              {puedeEliminarConexion && (
+                                <>
+                                  <div className="my-1 h-px bg-slate-100" />
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMenuOpenId(null);
+                                      confirmarEliminar(config);
+                                    }}
+                                    disabled={suspendiendoId === config.id}
+                                    className="w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition disabled:opacity-50"
+                                  >
+                                    <i className="bx bx-trash text-base" />
+                                    Eliminar conexión
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
