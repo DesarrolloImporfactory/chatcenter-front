@@ -227,6 +227,133 @@ const TabAsistente = ({
     }
   };
 
+  // ── Retiro en agencia Servientrega (piloto, opción de la CONEXIÓN) ──
+  // Al activarse, el backend adjunta el archivo de agencias al asistente e
+  // inyecta el bloque de instrucciones en todas las columnas IA. El estado
+  // "piloto" decide si el switch se muestra (por ahora solo config 10).
+  const [retiroAgencia, setRetiroAgencia] = useState(false);
+  const [retiroAgenciaPiloto, setRetiroAgenciaPiloto] = useState(false);
+  const [retiroAgenciaArchivo, setRetiroAgenciaArchivo] = useState(null);
+  const [retiroAgenciaLoading, setRetiroAgenciaLoading] = useState(false);
+  const [previewAgencias, setPreviewAgencias] = useState(null); // {nombre, texto}
+  const [previewBusqueda, setPreviewBusqueda] = useState("");
+
+  useEffect(() => {
+    if (!idConfiguracion) return;
+    chatApi
+      .post("/kanban_columnas/retiro_agencia_estado", {
+        id_configuracion: idConfiguracion,
+      })
+      .then(async ({ data }) => {
+        const d = data?.data || {};
+        setRetiroAgenciaPiloto(!!d.piloto);
+        setRetiroAgencia(!!d.activo);
+        setRetiroAgenciaArchivo(d.archivo || null);
+        // Si recargó la página con un toggle corriendo por detrás, engancharse
+        // a la espera para que el switch no mienta.
+        if (d.trabajo?.en_curso) {
+          setRetiroAgenciaLoading(true);
+          const fin = await esperarToggleRetiro();
+          if (fin) {
+            setRetiroAgencia(!!fin.activo);
+            setRetiroAgenciaArchivo(fin.archivo || null);
+            cargarAsistente();
+          }
+          setRetiroAgenciaLoading(false);
+        }
+      })
+      .catch(() => {});
+  }, [idConfiguracion]);
+
+  // El toggle responde al instante y el trabajo pesado (subir + indexar el
+  // directorio en OpenAI, ~30-60s) corre en el backend: acá se consulta el
+  // estado cada 2s hasta que data.trabajo.en_curso sea false. Sin esto, el
+  // axios cortaba por timeout y parecía que "explotó" aunque terminara bien.
+  const esperarToggleRetiro = async () => {
+    for (let i = 0; i < 60; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const { data } = await chatApi.post(
+          "/kanban_columnas/retiro_agencia_estado",
+          { id_configuracion: idConfiguracion },
+        );
+        const d = data?.data || {};
+        if (!d.trabajo || !d.trabajo.en_curso) return d;
+      } catch {
+        /* un fallo puntual del polling no corta la espera */
+      }
+    }
+    return null; // no terminó en ~2 min
+  };
+
+  const toggleRetiroAgencia = async () => {
+    const activar = !retiroAgencia;
+    setRetiroAgenciaLoading(true);
+    try {
+      await chatApi.post("/kanban_columnas/retiro_agencia_toggle", {
+        id_configuracion: idConfiguracion,
+        activo: activar,
+      });
+      Toast.fire({
+        icon: "info",
+        title: activar
+          ? "Activando: indexando el directorio de agencias…"
+          : "Desactivando…",
+      });
+
+      const d = await esperarToggleRetiro();
+      if (d) {
+        setRetiroAgencia(!!d.activo);
+        setRetiroAgenciaArchivo(d.archivo || null);
+        // El toggle cambió el prompt y los archivos de la columna por
+        // detrás: recargar el asistente para que el textarea y la lista de
+        // archivos reflejen la verdad sin tener que recargar la página.
+        cargarAsistente();
+      }
+      if (d?.trabajo?.error) {
+        Toast.fire({ icon: "error", title: d.trabajo.error });
+      } else if (d) {
+        Toast.fire({
+          icon: "success",
+          title: activar
+            ? "El bot ya ofrece retiro en agencias Servientrega"
+            : "Retiro en agencia desactivado",
+        });
+      } else {
+        Toast.fire({
+          icon: "warning",
+          title:
+            "Está tardando más de lo normal; recarga la página en un momento",
+        });
+      }
+    } catch (err) {
+      Toast.fire({
+        icon: "error",
+        title:
+          err?.response?.data?.message ||
+          "No se pudo actualizar el retiro en agencia",
+      });
+    } finally {
+      setRetiroAgenciaLoading(false);
+    }
+  };
+
+  const abrirPreviewAgencias = async () => {
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_columnas/retiro_agencia_preview",
+        { id_configuracion: idConfiguracion },
+      );
+      setPreviewBusqueda("");
+      setPreviewAgencias(data?.data || null);
+    } catch {
+      Toast.fire({
+        icon: "error",
+        title: "No hay archivo de agencias para previsualizar",
+      });
+    }
+  };
+
   // ── Actualización de orden al confirmar (columna Pendiente Confirmación) ──
   const [autoActualizar, setAutoActualizar] = useState(false);
   const [autoActualizarLoading, setAutoActualizarLoading] = useState(false);
@@ -847,6 +974,19 @@ const TabAsistente = ({
   const [ultimaSync, setUltimaSync] = useState(null);
   const [tieneContextoProductos, setTieneContextoProductos] = useState(false);
 
+  // La fecha real de la última sincronización vive en el backend
+  // (catalog_synced_at, que actualizan TANTO el botón manual COMO las
+  // sincronizaciones automáticas al agregar/editar/importar productos) y ya
+  // viene en el prop `columnas`. Antes ultimaSync arrancaba en null y el
+  // panel decía "Sin sincronizar aún" aunque el catálogo llevara semanas
+  // sincronizándose solo — el cliente creía que nunca se había indexado.
+  useEffect(() => {
+    const col = columnas?.find((c) => c.id === columnaId);
+    setUltimaSync(
+      col?.catalog_synced_at ? new Date(col.catalog_synced_at) : null,
+    );
+  }, [columnaId, columnas]);
+
   const toggleContextoProductos = async () => {
     const nuevoValor = !tieneContextoProductos;
     try {
@@ -1449,27 +1589,9 @@ const TabAsistente = ({
                 )}
               </button>
 
-              <a
-                href={`https://platform.openai.com/assistants/${asistente.assistant_id}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  padding: "5px 11px",
-                  borderRadius: 8,
-                  border: "1px solid #86efac",
-                  background: "#fff",
-                  color: "#16a34a",
-                  fontSize: "0.78rem",
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                }}
-              >
-                <i className="bx bx-link-external" />
-                Ver en OpenAI
-              </a>
+              {/* "Ver en OpenAI" se retiró: con la Responses API el asistente
+                  ya no existe como objeto en OpenAI (ids local_...) y el link
+                  llevaba a una página muerta. El prompt real es el de acá. */}
               <button
                 onClick={() => setShowChat(true)}
                 style={{
@@ -1610,6 +1732,168 @@ const TabAsistente = ({
               </div>
             )}
           </div>
+
+          {/* ═══ Retiro en agencia Servientrega (piloto, toda la conexión) ═══ */}
+          {retiroAgenciaPiloto && (
+            <div
+              style={{
+                borderRadius: 14,
+                border: retiroAgencia
+                  ? "1px solid rgba(245,158,11,.4)"
+                  : "1px solid rgba(99,102,241,.2)",
+                background: retiroAgencia
+                  ? "linear-gradient(135deg, rgba(245,158,11,.07), rgba(16,185,129,.05))"
+                  : "#fafafa",
+                padding: "14px 18px",
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      background: retiroAgencia
+                        ? "rgba(245,158,11,.14)"
+                        : "#f1f5f9",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <i
+                      className="bx bx-store-alt"
+                      style={{
+                        fontSize: "1.4rem",
+                        color: retiroAgencia ? "#f59e0b" : "#94a3b8",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        fontSize: "0.95rem",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      Ofrecer retiro en agencias Servientrega
+                      <span
+                        style={{
+                          fontSize: ".62rem",
+                          fontWeight: 700,
+                          color: "#b45309",
+                          background: "rgba(245,158,11,.15)",
+                          borderRadius: 6,
+                          padding: "2px 6px",
+                          letterSpacing: ".04em",
+                        }}
+                      >
+                        PILOTO
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                      {retiroAgencia
+                        ? "Cuando el cliente elige retiro, el bot busca en el directorio y le ofrece de 3 a 5 oficinas reales según su ciudad y sector"
+                        : "Activa esta opción para que el bot recomiende oficinas Servientrega reales al cliente que elige retiro"}
+                    </div>
+                  </div>
+                </div>
+                {retiroAgenciaLoading ? (
+                  <i
+                    className="bx bx-loader-alt bx-spin"
+                    style={{ color: "#f59e0b", fontSize: "1.3rem" }}
+                  />
+                ) : (
+                  <Toggle
+                    checked={retiroAgencia}
+                    onChange={toggleRetiroAgencia}
+                  />
+                )}
+              </div>
+
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: ".72rem",
+                  color: "#94a3b8",
+                  lineHeight: 1.5,
+                  paddingTop: 10,
+                  borderTop: "1px dashed rgba(0,0,0,.07)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                {retiroAgencia ? (
+                  <span>
+                    <i
+                      className="bx bx-info-circle"
+                      style={{ marginRight: 4 }}
+                    />
+                    El bot solo ofrece oficinas que existan en el directorio
+                    {retiroAgenciaArchivo?.nombre
+                      ? ` (${retiroAgenciaArchivo.nombre})`
+                      : ""}
+                    , y recién cuando el cliente eligió retiro. Si no
+                    encuentra la ciudad o el cliente no reconoce ninguna,
+                    cierra el pedido con la agencia por confirmar —{" "}
+                    <strong>nunca frena la venta</strong>. Aplica a{" "}
+                    <strong>todas las columnas</strong> de la conexión.
+                  </span>
+                ) : (
+                  <span>
+                    <i
+                      className="bx bx-info-circle"
+                      style={{ marginRight: 4 }}
+                    />
+                    Sin activar, tu bot <strong>no cambia en nada</strong>:
+                    sigue preguntando si el envío es a domicilio o a una
+                    agencia, recoge ciudad, dirección y referencias, y cierra
+                    la orden con los datos tal como el cliente los dé — igual
+                    que hoy. Al activarlo, lo único que se agrega es que las
+                    agencias que ofrece salen de un directorio real con
+                    nombre y dirección.
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={abrirPreviewAgencias}
+                  style={{
+                    border: "1px solid rgba(245,158,11,.4)",
+                    background: "#fff",
+                    borderRadius: 8,
+                    padding: "5px 12px",
+                    color: "#b45309",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <i className="bx bx-search-alt" />
+                  Ver directorio de oficinas
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ═══ Auto-creación de órdenes Dropi (solo en la columna que cierra la venta) ═══ */}
           {disparaGenerarGuia && (
@@ -2028,8 +2312,10 @@ const TabAsistente = ({
               >
                 <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
                   {ultimaSync
-                    ? `Última sync: ${ultimaSync.toLocaleTimeString()}`
-                    : "Sin sincronizar aún — presiona el botón para indexar"}
+                    ? `Última sincronización: ${ultimaSync.toLocaleString()}`
+                    : "Aún sin sincronizar"}
+                  {" · "}se actualiza sola al guardar tus productos; el botón
+                  solo la fuerza ahora
                 </div>
                 <button
                   onClick={sincronizarCatalogo}
@@ -2578,6 +2864,337 @@ const TabAsistente = ({
           cargarAsistente();
         }}
       />
+
+      {/* ═══ Modal vista previa del archivo de agencias Servientrega ═══
+          Responde "¿por qué mi bot no ofreció tal agencia?": si no aparece
+          en este texto, no existe para el bot. */}
+      {previewAgencias && (
+        <div
+          onClick={() => setPreviewAgencias(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.55)",
+            zIndex: 1200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              width: "min(760px, 100%)",
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 18px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, color: "#0f172a" }}>
+                  <i
+                    className="bx bx-store-alt"
+                    style={{ color: "#f59e0b", marginRight: 6 }}
+                  />
+                  {previewAgencias.nombre}
+                </div>
+                <div style={{ fontSize: ".72rem", color: "#94a3b8" }}>
+                  Este es el archivo exacto que consulta tu bot: si una
+                  agencia no aparece aquí, el bot no la puede ofrecer.
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {previewAgencias.texto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Descarga el directorio tal cual lo consulta el bot,
+                      // con el NOMBRE CANÓNICO ya puesto: el cliente lo
+                      // edita y lo resube sin inventarse nombre ni formato.
+                      const blob = new Blob([previewAgencias.texto], {
+                        type: "text/plain;charset=utf-8",
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download =
+                        previewAgencias.nombre ||
+                        "AGENCIAS_SERVIENTREGA_RETIRO_OFICINA.txt";
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      URL.revokeObjectURL(url);
+                    }}
+                    style={{
+                      border: "1px solid rgba(99,102,241,.35)",
+                      background: "rgba(99,102,241,.07)",
+                      borderRadius: 8,
+                      padding: "6px 12px",
+                      color: "#4f46e5",
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <i className="bx bx-download" />
+                    Descargar .txt
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPreviewAgencias(null)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    fontSize: "1.4rem",
+                    color: "#64748b",
+                    cursor: "pointer",
+                  }}
+                >
+                  <i className="bx bx-x" />
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: "10px 18px 0" }}>
+              <input
+                type="text"
+                value={previewBusqueda}
+                onChange={(e) => setPreviewBusqueda(e.target.value)}
+                placeholder="Buscar ciudad o agencia (ej: Palora, Machala, Terminal)…"
+                style={{
+                  width: "100%",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 10,
+                  padding: "8px 12px",
+                  fontSize: ".85rem",
+                  outline: "none",
+                }}
+              />
+            </div>
+            {previewAgencias.texto ? (
+              (() => {
+                // El directorio se muestra por OFICINAS COMPLETAS, no por
+                // líneas: el filtro viejo por línea escondía la dirección
+                // (que va en la línea siguiente al nombre) y parecía que el
+                // archivo no la tenía. La búsqueda ignora tildes y busca en
+                // sector + ciudad + provincia + dirección a la vez.
+                const texto = previewAgencias.texto || "";
+                const regs = [];
+                let pend = null;
+                for (const l of texto.split("\n")) {
+                  const m = l.match(
+                    /Oficina Servientrega\s*—\s*Sector (.+?) · Ciudad: (.+?) · Provincia: (.+)/,
+                  );
+                  if (m) {
+                    pend = {
+                      sector: m[1].trim(),
+                      ciudad: m[2].trim(),
+                      provincia: m[3].trim(),
+                    };
+                    continue;
+                  }
+                  const d = l.match(/Direcci[oó]n:\s*(.+)/);
+                  if (d && pend) {
+                    regs.push({ ...pend, direccion: d[1].trim() });
+                    pend = null;
+                  }
+                }
+                const norm = (s) =>
+                  String(s || "")
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/\p{M}/gu, "");
+                const q = norm(previewBusqueda.trim());
+
+                // Archivo propio con otro formato: cae al texto crudo con
+                // filtro por línea, mejor eso que nada.
+                if (!regs.length) {
+                  const lineas = q
+                    ? texto.split("\n").filter((l) => norm(l).includes(q))
+                    : [texto];
+                  return (
+                    <pre
+                      style={{
+                        margin: 0,
+                        padding: "12px 18px",
+                        overflow: "auto",
+                        fontSize: ".76rem",
+                        lineHeight: 1.55,
+                        color: "#334155",
+                        whiteSpace: "pre-wrap",
+                        fontFamily: "inherit",
+                        flex: 1,
+                      }}
+                    >
+                      {lineas.length ? lineas.join("\n") : "— Sin coincidencias —"}
+                    </pre>
+                  );
+                }
+
+                const vis = q
+                  ? regs.filter((r) =>
+                      norm(
+                        `${r.sector} ${r.ciudad} ${r.provincia} ${r.direccion}`,
+                      ).includes(q),
+                    )
+                  : regs;
+                const ciudades = new Set(vis.map((r) => r.ciudad)).size;
+
+                return (
+                  <div style={{ overflow: "auto", flex: 1, padding: "8px 18px 14px" }}>
+                    <div
+                      style={{
+                        fontSize: ".72rem",
+                        color: "#94a3b8",
+                        padding: "4px 2px 8px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {vis.length} oficina{vis.length === 1 ? "" : "s"} ·{" "}
+                      {ciudades} ciudad{ciudades === 1 ? "" : "es"}
+                      {q ? ` para "${previewBusqueda.trim()}"` : " en el directorio"}
+                    </div>
+                    {vis.length === 0 ? (
+                      <div
+                        style={{
+                          padding: "16px 4px",
+                          fontSize: ".8rem",
+                          color: "#64748b",
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        Sin coincidencias: esa ciudad, sector o dirección no
+                        existe en el directorio, y por eso el bot no la puede
+                        ofrecer.
+                      </div>
+                    ) : (
+                      // Agrupado por ciudad: una búsqueda como "latacunga"
+                      // puede coincidir también con una DIRECCIÓN de otra
+                      // ciudad (ej. la calle Latacunga en Quito); sin los
+                      // encabezados, ese "2 ciudades" confundía.
+                      (() => {
+                        const grupos = [];
+                        for (const r of vis) {
+                          const clave = `${r.ciudad} · ${r.provincia}`;
+                          const g = grupos.find((x) => x.clave === clave);
+                          if (g) g.items.push(r);
+                          else grupos.push({ clave, items: [r] });
+                        }
+                        return grupos.map((g) => (
+                          <div key={g.clave}>
+                            <div
+                              style={{
+                                fontSize: ".7rem",
+                                fontWeight: 800,
+                                color: "#6366f1",
+                                background: "rgba(99,102,241,.08)",
+                                borderRadius: 7,
+                                padding: "4px 9px",
+                                margin: "10px 0 2px",
+                                display: "inline-block",
+                              }}
+                            >
+                              {g.clave} · {g.items.length} oficina
+                              {g.items.length === 1 ? "" : "s"}
+                            </div>
+                            {g.items.map((r, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  padding: "9px 2px",
+                                  borderBottom: "1px solid #eef0f6",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: ".82rem",
+                                    fontWeight: 700,
+                                    color: "#0f172a",
+                                  }}
+                                >
+                                  {r.sector}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: ".76rem",
+                                    color: "#475569",
+                                    lineHeight: 1.45,
+                                  }}
+                                >
+                                  {r.direccion}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ));
+                      })()
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <div
+                style={{
+                  padding: "18px",
+                  fontSize: ".8rem",
+                  color: "#64748b",
+                  lineHeight: 1.6,
+                }}
+              >
+                <i className="bx bx-user-check" style={{ marginRight: 5 }} />
+                Estás usando <strong>tu propio directorio</strong> (subido por
+                ti). La vista previa solo está disponible para el directorio
+                de la plataforma; para revisar el tuyo, abre el archivo
+                original que subiste.
+              </div>
+            )}
+            <div
+              style={{
+                margin: "0 18px 16px",
+                borderRadius: 12,
+                border: "1px solid rgba(99,102,241,.35)",
+                borderLeft: "4px solid #6366f1",
+                background: "rgba(99,102,241,.07)",
+                padding: "12px 14px",
+                fontSize: ".8rem",
+                color: "#3730a3",
+                lineHeight: 1.6,
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                <i className="bx bx-upload" style={{ marginRight: 5 }} />
+                ¿Quieres usar tu propio directorio?
+              </div>
+              1) Descárgalo con el botón <strong>Descargar .txt</strong> de
+              arriba (ya sale con el nombre y el formato correctos). 2) Edita
+              lo que necesites manteniendo la estructura: por cada oficina su
+              ciudad, sector y dirección, agrupadas por provincia. 3) Elimina
+              el archivo actual en <strong>Archivos de conocimiento</strong> y
+              sube el tuyo — mismo nombre, formato .txt. El sistema lo tomará
+              automáticamente para todas las columnas, sin apagar el
+              interruptor.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
