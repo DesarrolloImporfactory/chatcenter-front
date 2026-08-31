@@ -285,6 +285,22 @@ export default function MessengerSection() {
       try {
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
+
+        // El `code` se saca de la URL ANTES de usarlo, no después.
+        //
+        // Meta lo acepta una sola vez y expira en ~10 minutos, pero acá el
+        // componente se monta y desmonta cada vez que se cambia de pestaña
+        // (AdministradorCanales lo renderiza con `tab === "messenger" && ...`).
+        // Mientras el code siguiera en la query, cada remontaje reintentaba el
+        // intercambio con un code ya quemado y el error tapaba a la conexión
+        // que sí había funcionado. Se conserva el resto de la query (`tab`)
+        // porque es el redirect_uri que se le declaró a Meta.
+        if (code) {
+          url.searchParams.delete("code");
+          url.searchParams.delete("state");
+          window.history.replaceState({}, "", url.toString());
+        }
+
         if (code && id_configuracion) {
           setLoading(true);
           try {
@@ -306,7 +322,9 @@ export default function MessengerSection() {
             );
             setStatus({
               type: "error",
-              text: "Fallo al intercambiar el code.",
+              text:
+                err?.response?.data?.message ||
+                "Fallo al intercambiar el code.",
             });
           } finally {
             setLoading(false);
@@ -347,7 +365,11 @@ export default function MessengerSection() {
       });
       setPages(data.pages || data.pages_with_ig || []);
       setStatus({ type: "success", text: "Páginas cargadas." });
-    } catch {
+    } catch (err) {
+      console.error(
+        "[MS_OAUTH] listar páginas falló:",
+        err?.response?.data || err?.message || err,
+      );
       setStatus({ type: "error", text: "No se pudieron listar las páginas." });
     } finally {
       setLoading(false);
