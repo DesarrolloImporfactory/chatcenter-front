@@ -4,6 +4,16 @@ import SectionHeader from "./SectionHeader";
 import StatusPill from "./StatusPill";
 import ChannelCard from "./ChannelCard";
 
+// Configuración de Facebook Login for Business ("metaInbox" en el App Dashboard).
+//
+// Sin este parámetro el backend cae en el login clásico y toma los permisos de
+// una lista hardcodeada en el servidor, no los de esta configuración. No falla
+// de forma visible: Facebook descarta en silencio los permisos que no tienen
+// Advanced Access y la conexión se completa con la mitad de lo que necesita,
+// así que el síntoma aparece mucho después (no se listan páginas, no llegan
+// comentarios). Es el mismo id que usan Conexiones.jsx y AdminConexiones.jsx.
+const FBL_CONFIG_ID = "1106951720999970";
+
 const MS_ENDPOINTS = {
   loginUrl: "/messenger/facebook/login-url",
   exchange: "/messenger/facebook/oauth/exchange",
@@ -285,7 +295,15 @@ export default function MessengerSection() {
             });
             setOauthSessionId(data.oauth_session_id);
             setStatus({ type: "success", text: "Sesión OAuth creada." });
-          } catch {
+          } catch (err) {
+            // El catch vacío que había acá dejaba "Fallo al intercambiar el
+            // code" como única pista, y la causa real (code ya usado por
+            // recargar la página, o redirect_uri distinto) sólo se veía en el
+            // servidor. Con esto queda también en la consola del navegador.
+            console.error(
+              "[MS_OAUTH] exchange falló:",
+              err?.response?.data || err?.message || err,
+            );
             setStatus({
               type: "error",
               text: "Fallo al intercambiar el code.",
@@ -307,7 +325,7 @@ export default function MessengerSection() {
     try {
       setLoading(true);
       const { data } = await chatApi.get(MS_ENDPOINTS.loginUrl, {
-        params: { id_configuracion, redirect_uri },
+        params: { id_configuracion, redirect_uri, config_id: FBL_CONFIG_ID },
       });
       window.location.href = data.url;
     } catch {
