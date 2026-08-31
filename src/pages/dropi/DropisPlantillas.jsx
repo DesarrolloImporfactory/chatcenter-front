@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import RespondedorLogistico from "./RespondedorLogistico";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -1242,6 +1243,11 @@ const DropisPlantillas = ({ id_configuracion }) => {
 
             {/* ── Body ── */}
             <div className="dp-body">
+              {/* Respondedor logístico sin IA: configuración de TODA la
+                  cuenta (no por proveedor ni por estado), por eso vive fuera
+                  de las pestañas. */}
+              <RespondedorLogistico id_configuracion={id_configuracion} />
+
               {loading ? (
                 <div
                   style={{
