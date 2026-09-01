@@ -17,6 +17,7 @@ import ProductoModal from "../../productos/modales/ProductoModal";
 import WaPreview from "./WaPreview";
 import MediaManager from "./MediaManager";
 import RespuestasRapidasEditor from "./RespuestasRapidasEditor";
+import FlujoVentaEditor from "./FlujoVentaEditor";
 
 const PASOS = [
   { n: 1, label: "Producto", icon: "bx-box" },
@@ -50,8 +51,10 @@ const WIZARD_VACIO = {
   bullets: [],
   media: [],
   respuestas_rapidas: [],
+  flujo_pasos: [],
   mensaje_inicial: "",
   usar_respuestas_rapidas: 1,
+  usar_flujo_pasos: 0,
   wizard_completado: 0,
   activo: 1,
 };
@@ -169,6 +172,10 @@ export default function WizardProductoModal({
   const [simulando, setSimulando] = useState(false);
   const [simResponseId, setSimResponseId] = useState(null); // hilo de la IA del simulador
   const [simColumna, setSimColumna] = useState(null); // { id, nombre, activa_ia } que atiende ahora
+  const [simFlujoPaso, setSimFlujoPaso] = useState(0); // paso del flujo de venta (-1 = terminado)
+  // Producto que atiende la simulación AHORA: cambia si el embudo deriva a un
+  // producto alterno (edad fuera de rango). null = el producto del modal.
+  const [simProductoId, setSimProductoId] = useState(null);
   const [huboCambios, setHuboCambios] = useState(false); // para que el listado solo recargue si hace falta
   const [envioLibre, setEnvioLibre] = useState(false); // campo libre de "envío y pago"
   const previewTimer = useRef(null);
@@ -200,6 +207,7 @@ export default function WizardProductoModal({
         respuestas_rapidas: Array.isArray(w.respuestas_rapidas)
           ? w.respuestas_rapidas
           : [],
+        flujo_pasos: Array.isArray(w.flujo_pasos) ? w.flujo_pasos : [],
         linea_envio:
           w.linea_envio === undefined || w.linea_envio === null
             ? WIZARD_VACIO.linea_envio
@@ -223,7 +231,9 @@ export default function WizardProductoModal({
     setSimTexto("");
     setSimResponseId(null);
     setSimColumna(null);
-    setHuboCambios(false);
+    setSimFlujoPaso(0);
+    setSimProductoId(null);
+  setHuboCambios(false);
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, idProducto]);
@@ -429,15 +439,19 @@ export default function WizardProductoModal({
     setSimTexto("");
     setSimulacion((s) => [...s, { cliente: texto, pensando: true }]);
     try {
+      // Tras una derivación, la simulación sigue con el producto ALTERNO: su
+      // wizard (rápidas, flujo, ficha) se lee de BD, no del formulario.
+      const enAlterno = simProductoId && simProductoId !== idProducto;
       const { data } = await chatApi.post(
         "/producto-wizard/simular",
         {
           id_configuracion: idc,
-          id_producto: idProducto,
+          id_producto: enAlterno ? simProductoId : idProducto,
           mensaje: texto,
           mensaje_fijo: mensajeFinal,
           previous_response_id: simResponseId,
           id_columna: simColumna?.id || null,
+          flujo_paso: simFlujoPaso,
           historial: simulacion
             .filter((t) => !t.pensando)
             .flatMap((t) => [
@@ -445,13 +459,18 @@ export default function WizardProductoModal({
               t.bot ? { rol: "bot", texto: t.bot } : null,
             ])
             .filter(Boolean),
-          wizard: {
-            tipo_venta: form.tipo_venta,
-            descripcion_ia: producto?.descripcion || form.descripcion_ia || "",
-            bullets: form.bullets,
-            respuestas_rapidas: form.respuestas_rapidas,
-            usar_respuestas_rapidas: form.usar_respuestas_rapidas,
-          },
+          wizard: enAlterno
+            ? { desde_bd: true }
+            : {
+                tipo_venta: form.tipo_venta,
+                descripcion_ia:
+                  producto?.descripcion || form.descripcion_ia || "",
+                bullets: form.bullets,
+                respuestas_rapidas: form.respuestas_rapidas,
+                usar_respuestas_rapidas: form.usar_respuestas_rapidas,
+                flujo_pasos: form.flujo_pasos,
+                usar_flujo_pasos: form.usar_flujo_pasos,
+              },
         },
         { silentError: true, timeout: 150000 },
       );
@@ -467,13 +486,36 @@ export default function WizardProductoModal({
         return;
       }
       if (r.previous_response_id) setSimResponseId(r.previous_response_id);
-      const tag = r.tipo === "rapida" ? "sin IA" : null;
+      if (Number.isInteger(r.flujo_paso)) setSimFlujoPaso(r.flujo_paso);
+      const tag =
+        r.tipo === "rapida" || r.tipo === "flujo" ? "sin IA" : null;
+      // Media del turno como ADJUNTOS de verdad (igual que en vivo): las del
+      // paso del flujo vienen como URLs y las de la IA ya tipadas.
+      const aMedia = (lista) =>
+        (Array.isArray(lista) ? lista : []).map((m) =>
+          typeof m === "object" && m?.url
+            ? m
+            : {
+                tipo: /\.(mp4|mov|3gp)(\?|$)/i.test(String(m)) ? "video" : "image",
+                url: String(m),
+              },
+        );
+      const mediaTurno = [...aMedia(r.media_flujo), ...aMedia(r.media_ia)];
       const turno = {
         cliente: texto,
-        bot: r.respuesta || "(sin respuesta)",
+        bot: r.respuesta || (mediaTurno.length ? "" : "(sin respuesta)"),
+        media: mediaTurno,
         remitente: r.remitente || (r.tipo === "rapida" ? "Respuesta rápida" : "IA"),
         tag,
       };
+      if (r.flujo_completo) {
+        turno.nota =
+          "El embudo terminó todos sus pasos: desde aquí la IA toma los datos del cliente y cierra el pedido.";
+      }
+      if (r.cambiar_producto?.id) {
+        setSimProductoId(r.cambiar_producto.id);
+        turno.nota = `La conversación siguió con “${r.cambiar_producto.nombre}”: desde aquí las respuestas rápidas, el embudo y la IA responden por ESE producto (su configuración guardada).`;
+      }
       if (r.siguiente_columna) {
         const sc = r.siguiente_columna;
         setSimColumna({ id: sc.id, nombre: sc.nombre, activa_ia: sc.activa_ia });
@@ -499,7 +541,32 @@ export default function WizardProductoModal({
       if (r.faq_omitida) {
         turno.nota = `${turno.nota ? `${turno.nota} ` : ""}Respondió la IA y no la respuesta rápida “${r.faq_omitida}” porque el mensaje traía intención de compra: en ese caso siempre sigue el asistente para avanzar el pedido.`;
       }
-      setSimulacion((s) => [...s.filter((t) => !t.pensando), turno]);
+      const turnos = [];
+      const hayPostVenta =
+        r.post_venta && (r.post_venta.copy || r.post_venta.media?.length);
+      const postVentaTurno = hayPostVenta
+        ? {
+            bot: r.post_venta.copy || "",
+            media: aMedia(r.post_venta.media),
+            remitente: "Flujo de venta · venta realizada",
+            tag: "sin IA",
+          }
+        : null;
+      if (r.resumen_oculto && postVentaTurno) {
+        // Con la opción "no enviar el resumen", el cliente solo ve el mensaje
+        // final; la orden y el cambio de etapa se procesan igual por dentro.
+        turnos.push({
+          ...postVentaTurno,
+          cliente: texto,
+          nota: `${turno.nota ? `${turno.nota} ` : ""}El resumen del pedido NO se le envió al cliente (opción del embudo): la orden a Dropi y el cambio de etapa se procesan igual con esos datos por dentro.`,
+        });
+      } else {
+        turnos.push(turno);
+        // Mensaje de VENTA REALIZADA del embudo: en vivo sale justo después
+        // del resumen de cierre; acá se muestra como turno extra.
+        if (postVentaTurno) turnos.push(postVentaTurno);
+      }
+      setSimulacion((s) => [...s.filter((t) => !t.pensando), ...turnos]);
     } catch (e) {
       setSimulacion((s) => [
         ...s.filter((t) => !t.pensando),
@@ -1136,6 +1203,18 @@ export default function WizardProductoModal({
                   }
                 />
               </Card>
+
+              {/* Apartado propio, con marco notorio: es OTRO modo de vender
+                  (embudo por copys), no parte del contenido del bot de arriba. */}
+              <FlujoVentaEditor
+                value={form.flujo_pasos}
+                onChange={(v) => set({ flujo_pasos: v })}
+                activo={Boolean(form.usar_flujo_pasos)}
+                onToggleActivo={(on) => set({ usar_flujo_pasos: on ? 1 : 0 })}
+                mediaDisponible={form.media}
+                idConfiguracion={idc}
+                idProducto={idProducto}
+              />
             </div>
           ) : null}
 
@@ -1192,6 +1271,8 @@ export default function WizardProductoModal({
                           setSimulacion([]);
                           setSimResponseId(null);
                           setSimColumna(null);
+                          setSimFlujoPaso(0);
+                          setSimProductoId(null);
                         }}
                         className="h-8 w-8 rounded-full bg-white text-slate-500 flex items-center justify-center"
                         title="Empezar la simulación de cero"

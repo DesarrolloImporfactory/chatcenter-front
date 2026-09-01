@@ -170,6 +170,13 @@ export default function WaPreview({
             {extras.map((e, i) => (
               <React.Fragment key={`extra-${i}`}>
                 {e.cliente ? <Burbuja lado="in">{e.cliente}</Burbuja> : null}
+                {/* Adjuntos del turno (pasos del flujo, IA, venta realizada):
+                    salen ANTES del texto, igual que en el envío real. */}
+                {Array.isArray(e.media)
+                  ? e.media.map((m, k) => (
+                      <MediaBurbuja key={`extra-${i}-media-${k}-${m.url}`} item={m} />
+                    ))
+                  : null}
                 {e.bot ? (
                   <Burbuja lado="out" tag={e.tag || null} remitente={e.remitente || null}>
                     {e.bot}
