@@ -38,6 +38,7 @@ import TutorialesView from "./pages/tutoriales/TutorialesView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import AdministradorCanales from "./pages/administradorcanales/AdministradorCanales";
+import Comentarios from "./pages/comentarios/Comentarios";
 import Asistentes from "./pages/asistentes/Asistentes";
 import Estado_contactos_imporfactory from "./pages/contactos/Estado_contactos_imporfactory";
 import Estado_contactos_ventas from "./pages/contactos/Estado_contactos_ventas";
@@ -228,6 +229,19 @@ function App() {
                   element={
                     <MainLayout>
                       <AdministradorCanales />
+                    </MainLayout>
+                  }
+                />
+
+                {/* Comentarios de publicaciones de Facebook. Sección propia y
+                    no una pestaña del chat: son públicos, son un árbol y no
+                    tienen ventana de 24h, así que no comparten reglas con las
+                    conversaciones. */}
+                <Route
+                  path="/comentarios"
+                  element={
+                    <MainLayout>
+                      <Comentarios />
                     </MainLayout>
                   }
                 />

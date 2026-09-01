@@ -472,6 +472,25 @@ function MainLayout({ children }) {
               </span>
             </a>
 
+            {/* Comentarios de Facebook */}
+            <a
+              href="/comentarios"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/comentarios"
+                  ? "bg-gray-200 font-semibold"
+                  : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                goTo("/comentarios");
+              }}
+            >
+              <i className="bx bx-message-rounded-dots text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Comentarios
+              </span>
+            </a>
+
             {/* ====== Contactos ====== */}
             <button
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
