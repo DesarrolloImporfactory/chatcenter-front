@@ -28,7 +28,10 @@ export default function PoliticasView() {
             <a href="/condiciones-servicio" className="link">
               Condiciones del Servicio
             </a>
-            <a href="info@imporfactoryusa.com" className="link">
+            <a href="/eliminacion-datos" className="link">
+              Eliminación de datos
+            </a>
+            <a href="mailto:info@imporfactoryusa.com" className="link">
               Contacto
             </a>
           </div>

@@ -75,6 +75,7 @@ import RegisterGuided from "./pages/landing/RegisterGuided";
 // Páginas legales
 import PoliticasView from "./pages/politicas/PoliticasView";
 import CondicionesView from "./pages/condiciones/CondicionesView";
+import EliminacionDatos from "./pages/politicas/EliminacionDatos";
 import PoliticaPrivacidadTikTok from "./pages/politicas/PoliticaPrivacidadTikTok";
 import TerminosServicioTikTok from "./pages/politicas/TerminosServicioTikTok";
 import PoliticasTikTokIndex from "./pages/politicas/PoliticasTikTokIndex";
@@ -169,6 +170,10 @@ function App() {
         <Routes>
           <Route path="/politica-privacidad" element={<PoliticasView />} />
           <Route path="/condiciones-servicio" element={<CondicionesView />} />
+          {/* Instrucciones de eliminación de datos. Es la URL que se declara en
+              la configuración de la app de Meta: tiene que ser pública y sin
+              login, porque la abre gente que no tiene cuenta con nosotros. */}
+          <Route path="/eliminacion-datos" element={<EliminacionDatos />} />
           <Route path="/politicas-tiktok" element={<PoliticasTikTokIndex />} />
           <Route
             path="/politica-privacidad-tiktok"

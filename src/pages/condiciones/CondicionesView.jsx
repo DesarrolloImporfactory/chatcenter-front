@@ -43,9 +43,32 @@ export default function CondicionesView() {
         <section>
           <h2>1. Descripción del servicio</h2>
           <p>
-            ImporChat permite autenticar con Google, visualizar disponibilidad y
-            crear/gestionar eventos de calendario según permisos otorgados por
-            usted.
+            ImporChat es una herramienta de uso empresarial que centraliza en
+            una sola bandeja las conversaciones que un negocio mantiene con sus
+            clientes a través de distintos canales de mensajería, y añade
+            funciones de gestión comercial sobre esas conversaciones.
+          </p>
+          <ul className="check">
+            <li>
+              Recepción y envío de mensajes de WhatsApp Business, Facebook
+              Messenger, Instagram Direct y TikTok.
+            </li>
+            <li>
+              Lectura y respuesta de comentarios en las publicaciones de las
+              páginas de Facebook que el negocio conecta.
+            </li>
+            <li>
+              Asignación de conversaciones a agentes, embudo de ventas tipo
+              kanban, plantillas y automatizaciones.
+            </li>
+            <li>
+              Gestión de pedidos, catálogo e integraciones logísticas, y un
+              módulo opcional de calendario con Google.
+            </li>
+          </ul>
+          <p className="note">
+            ImporChat es un producto independiente. No está afiliado,
+            patrocinado ni respaldado por Meta Platforms, TikTok ni Google.
           </p>
         </section>
 
@@ -70,9 +93,56 @@ export default function CondicionesView() {
         <section className="card">
           <h2>4. Permisos y datos</h2>
           <p>
-            Para operar, ImporChat solicita permisos de Google (OAuth). Usted
-            puede revocar accesos desde su cuenta de Google. El uso de datos se
-            rige por la Política de Privacidad.
+            Para funcionar, ImporChat se conecta a plataformas de terceros
+            mediante autorizaciones que usted otorga expresamente. Solicitamos
+            los permisos estrictamente necesarios para prestar las funciones
+            descritas.
+          </p>
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Plataforma</th>
+                  <th>Para qué la usamos</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Meta (Facebook, Messenger, Instagram, WhatsApp)</td>
+                  <td>
+                    Recibir y enviar mensajes de las páginas y cuentas que usted
+                    conecta, y leer y responder los comentarios de sus
+                    publicaciones.
+                  </td>
+                </tr>
+                <tr>
+                  <td>TikTok</td>
+                  <td>Recibir y enviar mensajes de su cuenta de empresa.</td>
+                </tr>
+                <tr>
+                  <td>Google</td>
+                  <td>Inicio de sesión y módulo de calendario, si lo activa.</td>
+                </tr>
+                <tr>
+                  <td>Stripe</td>
+                  <td>Procesamiento de pagos de la suscripción.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <strong>
+              No vendemos ni cedemos a terceros los datos obtenidos de estas
+              plataformas
+            </strong>
+            , ni los empleamos para publicidad, elaboración de perfiles ajenos
+            al servicio o venta de bases de datos.
+          </p>
+          <p>
+            Usted puede revocar cualquier conexión en el momento que quiera,
+            desde la propia plataforma o desde ImporChat. Para eliminar los
+            datos ya almacenados, consulte{" "}
+            <a href="/eliminacion-datos">Eliminación de datos</a>.
           </p>
         </section>
 

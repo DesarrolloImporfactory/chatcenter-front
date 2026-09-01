@@ -93,3 +93,35 @@ h2 {
     flex-wrap: wrap;
   }
 }
+
+/* Tablas y notas al pie de sección.
+   Copiadas de politicas.css: las Condiciones ahora incluyen la tabla de
+   plataformas conectadas y comparten el mismo lenguaje visual que la Política
+   de Privacidad, pero cada página carga su propia hoja de estilos. */
+.table-scroll {
+  overflow: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.table th,
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.table th {
+  font-weight: 700;
+  font-size: 14px;
+  background: #fafcff;
+}
+.note {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 10px;
+}
