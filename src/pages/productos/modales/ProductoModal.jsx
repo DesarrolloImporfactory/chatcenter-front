@@ -1062,6 +1062,10 @@ const ProductoModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, camposFicha, editingProduct]);
   const [previewUrl, setPreviewUrl] = useState(null);
+  // Lightbox de la imagen principal: la vista previa del formulario se recorta
+  // (object-cover) y el usuario creía que así se enviaba; este visor muestra
+  // la imagen COMPLETA, tal cual le llega al cliente.
+  const [verImagenCompleta, setVerImagenCompleta] = useState(false);
   const [previewVideo, setPreviewVideo] = useState(null);
   const [previewUpsell, setPreviewUpsell] = useState(null);
 
@@ -2803,11 +2807,28 @@ const ProductoModal = ({
                   hint="PNG, JPG, WEBP — máx. 5 MB"
                   preview={
                     previewUrl ? (
-                      <img
-                        src={previewUrl}
-                        alt="Preview"
-                        className="w-full max-h-44 object-cover rounded-xl ring-1 ring-slate-200"
-                      />
+                      <div className="relative">
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          className="w-full max-h-44 object-cover rounded-xl ring-1 ring-slate-200"
+                        />
+                        {/* La miniatura se recorta solo aquí; al cliente le
+                            llega completa. El botón lo deja comprobar. */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setVerImagenCompleta(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white px-3 py-1.5 text-[12px] font-semibold shadow-lg backdrop-blur-[1px]"
+                            title="Ver la imagen completa, tal cual la recibe el cliente"
+                          >
+                            <i className="bx bx-show text-base" /> Ver completa
+                          </button>
+                        </div>
+                      </div>
                     ) : null
                   }
                   onRemove={() => {
@@ -3168,6 +3189,34 @@ const ProductoModal = ({
           </div>
         </div>
       </div>
+
+      {/* Visor de la imagen COMPLETA (la miniatura del formulario se recorta,
+          pero al cliente le llega entera; esto lo deja comprobar). */}
+      {verImagenCompleta && previewUrl ? (
+        <div
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/85 p-4 cursor-zoom-out"
+          onClick={() => setVerImagenCompleta(false)}
+        >
+          <img
+            src={previewUrl}
+            alt="Imagen completa"
+            className="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl"
+          />
+          <div className="mt-3 flex items-center gap-2 text-[13px] text-white/90 bg-white/10 rounded-full px-4 py-1.5">
+            <i className="bx bx-check-circle text-emerald-400 text-base" />
+            Así, completa, es como le llega al cliente — en el formulario solo
+            se recorta la vista previa.
+          </div>
+          <button
+            type="button"
+            onClick={() => setVerImagenCompleta(false)}
+            className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
+            title="Cerrar"
+          >
+            <i className="bx bx-x text-xl" />
+          </button>
+        </div>
+      ) : null}
 
       <style>{`
         @keyframes pmIn {
