@@ -173,6 +173,42 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
     });
   };
 
+  // Activar/pausar la campaña completa de un lanzamiento (el porqué del
+  // "en pausa": revisar en el Ads Manager sin gastar y prenderla desde aquí).
+  const [togglingLanzamiento, setTogglingLanzamiento] = useState(null);
+  const handleToggleCampania = async (l, status) => {
+    setTogglingLanzamiento(l.id);
+    try {
+      const { data } = await chatApi.post("/meta_ads/campaigns/toggle", {
+        id_configuracion,
+        campaign_id: l.campaign_id,
+        status,
+      });
+      if (data?.success) {
+        Swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "success",
+          title:
+            status === "ACTIVE" ? "Campaña activada 🚀" : "Campaña pausada",
+          showConfirmButton: false,
+          timer: 2000,
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Meta rechazó el cambio",
+          text: data?.message || "Inténtalo de nuevo.",
+          customClass: { popup: "rounded-2xl" },
+        });
+      }
+    } catch (err) {
+      console.error("Toggle campaña error:", err);
+    } finally {
+      setTogglingLanzamiento(null);
+    }
+  };
+
   // ── Estados de carga / sin conexión ──
   if (loading) {
     return (
@@ -268,11 +304,20 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                     <th className="px-3 py-2 font-semibold">Resultado</th>
                     <th className="px-3 py-2 font-semibold">Estado</th>
                     <th className="px-3 py-2 font-semibold">Presupuesto</th>
-                    <th className="px-3 py-2 font-semibold">Anuncio</th>
+                    <th className="px-3 py-2 font-semibold">Anuncios</th>
+                    <th className="px-3 py-2 font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lanzamientos.map((l) => (
+                  {lanzamientos.map((l) => {
+                    let nAds = l.ad_id ? 1 : 0;
+                    try {
+                      const arr = l.ads_json ? JSON.parse(l.ads_json) : null;
+                      if (Array.isArray(arr) && arr.length) nAds = arr.length;
+                    } catch {
+                      /* un solo anuncio como fallback */
+                    }
+                    return (
                     <tr key={l.id} className="border-b border-slate-50">
                       <td className="px-5 py-2.5 text-slate-500 whitespace-nowrap">
                         {fmtFecha(l.created_at)}
@@ -303,16 +348,52 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                           : "—"}
                       </td>
                       <td className="px-3 py-2.5">
-                        {l.ad_id ? (
-                          <span className="font-mono text-slate-600">
-                            {l.ad_id}
+                        {nAds > 0 ? (
+                          <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-semibold">
+                            {nAds} {nAds === 1 ? "anuncio" : "anuncios"}
                           </span>
                         ) : (
                           "—"
                         )}
                       </td>
+                      <td className="px-3 py-2.5">
+                        {l.resultado === "ok" && l.campaign_id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleToggleCampania(l, "ACTIVE")}
+                              disabled={togglingLanzamiento === l.id}
+                              title="Activar campaña"
+                              className="p-1.5 rounded-lg text-emerald-600 bg-emerald-50 ring-1 ring-emerald-100 hover:bg-emerald-100 transition disabled:opacity-50"
+                            >
+                              <i
+                                className={`bx ${togglingLanzamiento === l.id ? "bx-loader-alt animate-spin" : "bx-play"}`}
+                              />
+                            </button>
+                            <button
+                              onClick={() => handleToggleCampania(l, "PAUSED")}
+                              disabled={togglingLanzamiento === l.id}
+                              title="Pausar campaña"
+                              className="p-1.5 rounded-lg text-amber-600 bg-amber-50 ring-1 ring-amber-100 hover:bg-amber-100 transition disabled:opacity-50"
+                            >
+                              <i className="bx bx-pause" />
+                            </button>
+                            <a
+                              href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids=${l.campaign_id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Ver en el Ads Manager"
+                              className="p-1.5 rounded-lg text-slate-500 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+                            >
+                              <i className="bx bx-link-external" />
+                            </a>
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -361,6 +442,22 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {plantillas.map((p) => {
             const incompleta = (p.faltantes || []).length > 0;
+            let geoLabel = p.paises;
+            try {
+              const g = p.geo_json ? JSON.parse(p.geo_json) : null;
+              if (g?.modo === "especifico" && g.lugares?.length) {
+                geoLabel = `${g.lugares.length} zona${g.lugares.length > 1 ? "s" : ""} · ${(g.paises || []).join(",")}`;
+              }
+            } catch {
+              /* CSV de países como fallback */
+            }
+            let nCreativos = p.imagen_hash ? 1 : 0;
+            try {
+              const imgs = p.imagenes_json ? JSON.parse(p.imagenes_json) : null;
+              if (Array.isArray(imgs) && imgs.length) nCreativos = imgs.length;
+            } catch {
+              /* una sola imagen como fallback */
+            }
             return (
               <div
                 key={p.id}
@@ -406,11 +503,16 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                       {Number(p.presupuesto_diario).toFixed(2)} {currency}/día
                     </span>
                     <span className="px-2 py-0.5 rounded-full bg-slate-50 ring-1 ring-slate-200 text-slate-600">
-                      {p.paises}
+                      {geoLabel}
                     </span>
                     <span className="px-2 py-0.5 rounded-full bg-slate-50 ring-1 ring-slate-200 text-slate-600">
                       {p.edad_min}-{p.edad_max} · {GENERO_LABEL[p.genero] || "Todos"}
                     </span>
+                    {nCreativos > 1 && (
+                      <span className="px-2 py-0.5 rounded-full bg-violet-50 ring-1 ring-violet-200 text-violet-600">
+                        {nCreativos} creativos
+                      </span>
+                    )}
                   </div>
                   {Number(p.veces_lanzada) > 0 && (
                     <p className="text-[10px] text-slate-400 mt-2">
