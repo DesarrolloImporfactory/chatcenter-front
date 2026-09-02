@@ -135,3 +135,11 @@ h2 {
     flex-wrap: wrap;
   }
 }
+
+/* Subsecciones. La política pasó a distinguir los datos del negocio de los de
+   las personas que le escriben, y esa separación se pierde si todos los
+   títulos pesan igual. */
+h3 {
+  font-size: clamp(16px, 1.8vw, 18px);
+  margin: 20px 0 8px;
+}
