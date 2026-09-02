@@ -185,6 +185,7 @@ export function CrearUsuarioForm({
       etiquetaAsesor: ventaForm.venta.etiquetaAsesor,
       etiquetaCiclo: ventaForm.venta.etiquetaCiclo,
       idPlantilla: idPlantillaActiva,
+      enviarWhatsapp: ventaForm.venta.enviarWhatsapp,
     });
 
     const d = res?.data ?? {};
@@ -221,6 +222,15 @@ export function CrearUsuarioForm({
     const avisos = [];
     if (!d.pago_registrado && Number(ventaForm.venta.montoPagado) > 0) {
       avisos.push(`El pago NO se registró: ${d.pago_error ?? "error desconocido"}`);
+    }
+    // La plantilla del producto. `omitido` marca «no correspondía» —el Club,
+    // cuya bienvenida sale por el webhook de encuesta— y no es un fallo:
+    // avisarlo mandaría al agente a buscar un problema que no existe.
+    const wa = d.whatsapp;
+    if (ventaForm.venta.enviarWhatsapp && wa?.enviado) {
+      toast.success(`WhatsApp enviado (${wa.plantilla})`);
+    } else if (ventaForm.venta.enviarWhatsapp && !wa?.omitido) {
+      avisos.push(`WhatsApp no enviado: ${wa?.motivo ?? "error desconocido"}`);
     }
     if (res?.webhook && !res.webhook.enviado) {
       avisos.push(`El webhook no se envió: ${res.webhook.error ?? "error desconocido"}`);

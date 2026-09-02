@@ -97,9 +97,12 @@ export async function registrarVenta(payload, { signal } = {}) {
     imagenes_urls: Array.isArray(payload.imagenesUrls) ? payload.imagenesUrls : [],
     rol: Number(payload.rol ?? 16),
     tipo_venta: payload.tipoVenta ?? "caliente",
-    // Después del pago solo debe salir el webhook de encuesta. La plantilla
-    // automática asociada al producto no se envía desde ChatCenter.
-    enviar_whatsapp: false,
+    // La bienvenida del producto sale igual que desde el panel: la plantilla la
+    // decide lo vendido. El Club es la excepción y la aplica el back, porque su
+    // mensaje ya lo manda el webhook de encuesta; mandarlo también acá sería el
+    // mismo texto dos veces. Mientras esto estuvo en `false`, una venta de
+    // Ecommerce, Kit o Dropsystem cerrada desde ImporChat no recibía NADA.
+    enviar_whatsapp: payload.enviarWhatsapp !== false,
     // Por nombre: la misma etiqueta tiene otro id en cada configuración.
     etiqueta_asesor: payload.etiquetaAsesor || "",
     etiqueta_ciclo: payload.etiquetaCiclo || "",

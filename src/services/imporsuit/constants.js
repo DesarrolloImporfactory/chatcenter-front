@@ -14,7 +14,9 @@ export const ROLES_ASIGNABLES = [
 /** Paquetes/membresías — cada key es una columna flag (0/1) en `users`. */
 export const PAQUETES = [
   { key: "membresia_ecommerce", label: "Membresía de Importaciones" },
-  { key: "ecommerce", label: "Ecommerce" },
+  // "Dropsystem" es el nombre nuevo (sep-2026) del programa que se vendía como
+  // The Ecommerce Method. La columna sigue siendo `ecommerce`.
+  { key: "ecommerce", label: "Dropsystem" },
   { key: "importacion", label: "Importaciones" },
   { key: "infoaduana", label: "Infoaduana" },
   { key: "kit", label: "Kit" },
@@ -24,9 +26,8 @@ export const PAQUETES = [
   { key: "kit_importador", label: "Kit del Importador" },
   // Motor de Ventas: curso 57 + botones ImporChat y Dropi.
   { key: "motor_ventas", label: "Motor de Ventas" },
-  // DropSystem (relanzado ago-2026): curso The Ecommerce Method (32),
-  // Calculadora Ecommerce y 2 meses de ImporChat de cortesía.
-  { key: "dropsystem", label: "DropSystem" },
+  // El paquete `dropsystem` salió del alta en sep-2026: quedó absorbido por el
+  // programa renombrado, que es el flag `ecommerce` de arriba.
 ];
 
 /** Medios de pago aceptados por Asesor/agregar_pago. */
