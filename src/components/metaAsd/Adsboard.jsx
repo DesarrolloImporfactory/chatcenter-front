@@ -9,6 +9,7 @@ import AdsboardCampaignsTable from "./adsboard/AdsboardCampaignsTable";
 import AdsboardTopAdsTable from "./adsboard/AdsboardTopAdsTable";
 import AdsboardAttributionFunnel from "./adsboard/AdsboardAttributionFunnel";
 import AdsboardAttributionAds from "./adsboard/AdsboardAttributionAds";
+import AdsLauncherTab from "./adsboard/AdsLauncherTab";
 import DropiDailyMetricsTable from "../../pages/dropi/dropiboard/proporcional/DropiDailyMetricsTable";
 
 /**
@@ -230,6 +231,14 @@ const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
   ]);
 
   const currency = accountData?.currency || "USD";
+
+  // Piloto del Lanzador de campañas: visible solo para estas conexiones
+  // mientras se completan los permisos de páginas en Meta (verificación de
+  // acceso + pages_manage_ads). Dejar la lista vacía = visible para todos.
+  const LAUNCHER_PILOTO = [610];
+  const launcherVisible =
+    LAUNCHER_PILOTO.length === 0 ||
+    LAUNCHER_PILOTO.includes(Number(selectedConfigId));
 
   const handleChangeConfig = (id) => {
     setSelectedConfigId(id);
@@ -476,8 +485,9 @@ const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
           </div>
         )}
 
-        {/* DASHBOARD DATA */}
-        {hasFetched && !dashLoading && accountData && (
+        {/* DASHBOARD DATA — con Ads conectado las tabs se muestran aunque el
+            período no tenga insights (el Lanzador no depende de métricas) */}
+        {hasFetched && !dashLoading && (accountData || isAdsConnected) && (
           <>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
               <div className="flex gap-1 flex-wrap">
@@ -499,6 +509,15 @@ const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
                     icon: "bx-medal",
                     label: "Ads atribuidos",
                   },
+                  ...(launcherVisible
+                    ? [
+                        {
+                          key: "launcher",
+                          icon: "bx-rocket",
+                          label: "Lanzador",
+                        },
+                      ]
+                    : []),
                 ].map((t) => (
                   <button
                     key={t.key}
@@ -560,11 +579,17 @@ const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
                 onRetry={fetchMarketingControl}
               />
             )}
+            {activeTab === "launcher" && launcherVisible && (
+              <AdsLauncherTab
+                id_configuracion={selectedConfigId}
+                currency={currency}
+              />
+            )}
           </>
         )}
 
         {/* NO DATA */}
-        {hasFetched && !dashLoading && !accountData && (
+        {hasFetched && !dashLoading && !accountData && !isAdsConnected && (
           <div className="rounded-2xl border border-slate-200 bg-white px-8 py-16 text-center">
             <i className="bx bx-bar-chart text-4xl text-slate-300 mb-3" />
             <h3 className="text-sm font-bold text-slate-600 mb-1">

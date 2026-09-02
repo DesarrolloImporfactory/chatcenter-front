@@ -574,8 +574,15 @@ const Conexiones = () => {
           // ads_management y Meta responde "(#100) Unsupported get request".
           // `rerequest` obliga a mostrar el consentimiento de anuncios, y el
           // scope explícito cubre el caso en que se caiga al login clásico.
+          // Permisos de páginas: el Lanzador de campañas necesita que el
+          // cliente comparta también su fanpage (el anuncio CTWA sale a nombre
+          // de la página). pages_show_list la lista, pages_read_engagement lee
+          // su nombre y pages_manage_ads permite crear anuncios con ella. La
+          // config de login debe incluir el activo Páginas para que el popup
+          // la pida.
           auth_type: "rerequest",
-          scope: "ads_read,ads_management",
+          scope:
+            "ads_read,ads_management,pages_show_list,pages_read_engagement,pages_manage_ads",
         },
       );
     },
