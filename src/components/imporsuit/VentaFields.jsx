@@ -171,7 +171,43 @@ const INITIAL_VENTA = {
   // Importaciones), creándolas si el nombre todavía no existe.
   etiquetaAsesor: "",
   etiquetaCiclo: "",
+  // Bienvenida del producto por WhatsApp. Encendida por defecto, igual que en
+  // el panel: lo normal después de un pago es que al cliente le llegue su
+  // mensaje. Se apaga a mano en una recompra, donde el chat ya existe.
+  enviarWhatsapp: true,
 };
+
+/**
+ * Paquetes con plantilla aprobada en Meta. Espejo de `PLANTILLA_POR_PRODUCTO`
+ * en `Class/RegistroImportacionesWhatsApp.php` (imporsutipro): si allá se
+ * aprueba una nueva, hay que sumarla acá o el aviso mentirá.
+ *
+ * `kit_importador` no tiene plantilla propia: reusa `kitdearranque`.
+ */
+const PAQUETES_CON_PLANTILLA = [
+  "ecommerce",
+  "importacion",
+  "kit",
+  "kit_importador",
+  "dropsystem",
+];
+
+/**
+ * El paquete cuya bienvenida sale por el webhook de encuesta y NO como
+ * plantilla del producto — el mismo `PAQUETE_ENCUESTA` de `VentaModel`.
+ */
+const PAQUETE_POR_ENCUESTA = "importacion";
+
+/** null = el producto no dispara WhatsApp; undefined = todavía no eligió. */
+function plantillaDelProducto(producto) {
+  if (!producto) return undefined;
+  return PAQUETES_CON_PLANTILLA.includes(producto.flagPaquete)
+    ? producto.flagPaquete
+    : null;
+}
+
+/** ¿Su bienvenida la manda la encuesta en vez de la plantilla del producto? */
+const vaPorEncuesta = (producto) => producto?.flagPaquete === PAQUETE_POR_ENCUESTA;
 
 /** Estado, catálogos y validación del bloque de venta. */
 export function useVentaForm(activo) {
@@ -513,6 +549,48 @@ export function VentaFields({ form, disabled }) {
           disabled={disabled}
         />
       </div>
+
+      {/* Bienvenida por WhatsApp + alta del hilo en ImporChat. Mismo
+          interruptor que el panel: en una recompra el chat ya existe y el
+          agente puede querer saltárselo. */}
+      <label
+        className={`mt-3 flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${
+          venta.enviarWhatsapp
+            ? "border-emerald-300 bg-emerald-50"
+            : "border-gray-200 bg-white"
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={venta.enviarWhatsapp}
+          onChange={(e) => setCampo("enviarWhatsapp", e.target.checked)}
+          disabled={disabled}
+          className="mt-0.5 h-4 w-4 cursor-pointer accent-emerald-600"
+        />
+        <span>
+          <span className="block font-semibold text-gray-800">
+            Enviar bienvenida por WhatsApp
+          </span>
+          <span className="mt-0.5 block text-[11px] text-gray-500">
+            Manda la plantilla del producto desde Soporte Importaciones y abre
+            el chat en ImporChat.
+            {plantillaDelProducto(productoSel) === null && (
+              <span className="text-amber-700">
+                {" "}
+                Este producto no tiene plantilla aprobada: no se enviará nada.
+              </span>
+            )}
+            {/* Con el Club el interruptor no cambia nada: su bienvenida sale
+                por el webhook de encuesta, que manda esa misma plantilla. */}
+            {vaPorEncuesta(productoSel) && (
+              <span className="text-amber-700">
+                {" "}
+                Su bienvenida sale por el webhook de encuesta, no por acá.
+              </span>
+            )}
+          </span>
+        </span>
+      </label>
 
       {/* Plan de cuotas: lo que el agente le va a decir al cliente. Se calcula
           igual que en el back, así que es lo que realmente va a quedar. */}
