@@ -1559,12 +1559,18 @@ const RemarketingColumna = ({
        confirmación, retiro en agencia…) el cliente muchas veces NUNCA ha
        escrito, así que sin plantilla de respaldo el seguimiento se cancela
        sin enviar nada — y el usuario cree que tiene remarketing cuando no
-       tiene ninguno. Se puede guardar igual, pero con confirmación expresa. */
-    const sinRespaldo = secuencias
-      .map((s, i) => ({ s, n: i + 1 }))
-      .filter(
-        ({ s }) => s.metodo_dentro_24h !== "ninguno" && !s.nombre_template,
-      );
+       tiene ninguno. Se puede guardar igual, pero con confirmación expresa.
+       En contacto_inicial NO aplica: el chat entra ahí únicamente porque el
+       cliente escribió, y la suma de esperas ya se validó ≤24h más arriba,
+       así que el envío cae siempre dentro de la ventana — avisar era ruido. */
+    const sinRespaldo =
+      estado_db === "contacto_inicial"
+        ? []
+        : secuencias
+            .map((s, i) => ({ s, n: i + 1 }))
+            .filter(
+              ({ s }) => s.metodo_dentro_24h !== "ninguno" && !s.nombre_template,
+            );
     if (sinRespaldo.length) {
       const nums = sinRespaldo.map(({ n }) => n).join(", ");
       const ok = await Swal.fire({
@@ -1580,6 +1586,7 @@ const RemarketingColumna = ({
         confirmButtonText: "Guardar así",
         cancelButtonText: "Volver y elegir plantilla",
         confirmButtonColor: "#d97706",
+        customClass: { container: "rm2-swal-top" },
       });
       if (!ok.isConfirmed) return;
     }
