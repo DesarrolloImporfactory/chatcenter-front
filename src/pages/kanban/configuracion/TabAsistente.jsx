@@ -1789,20 +1789,10 @@ const TabAsistente = ({
                         gap: 8,
                       }}
                     >
+                    {/* Sin badge "PILOTO": el gate real vive en el backend
+                        (data.piloto decide si el switch existe) y el cliente
+                        ve una función terminada, no un experimento. */}
                       Ofrecer retiro en agencias Servientrega
-                      <span
-                        style={{
-                          fontSize: ".62rem",
-                          fontWeight: 700,
-                          color: "#b45309",
-                          background: "rgba(245,158,11,.15)",
-                          borderRadius: 6,
-                          padding: "2px 6px",
-                          letterSpacing: ".04em",
-                        }}
-                      >
-                        PILOTO
-                      </span>
                     </div>
                     <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
                       {retiroAgencia
