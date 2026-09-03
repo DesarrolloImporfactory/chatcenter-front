@@ -35,6 +35,12 @@ const SCOPES_ESCRITURA = [
     titulo: "Editar plantillas",
     desc: "Crear/editar atajos del chat y plantillas de WhatsApp.",
   },
+  {
+    scope: "mensajes:write",
+    icon: "bx-send",
+    titulo: "Enviar mensajes",
+    desc: "Enviar plantillas aprobadas (incluso a números que nunca escribieron) y fotos/videos a chats abiertos.",
+  },
 ];
 
 const METODO_BADGE = {
@@ -148,6 +154,36 @@ const ENDPOINTS_CONFIG = [
     desc: "Elimina un atajo.",
   },
   {
+    grupo: "mensajes",
+    metodo: "GET",
+    path: "/conversaciones?telefono=573001234567",
+    scope: "read",
+    desc: "Busca la conversación por teléfono (cualquier formato). Devuelve chat_id, columna del kanban y si está dentro de la ventana de 24h.",
+  },
+  {
+    grupo: "mensajes",
+    metodo: "GET",
+    path: "/conversaciones/:chat_id/mensajes",
+    scope: "read",
+    desc: "Mensajes del chat (paginados con ?limit y ?antes_de_id). Las notas de voz traen el campo `transcripcion` cuando el bot la generó al recibirlas.",
+  },
+  {
+    grupo: "mensajes",
+    metodo: "POST",
+    path: "/mensajes/plantilla",
+    scope: "mensajes:write",
+    desc: "Envía una plantilla aprobada por Meta a cualquier número — si nunca escribió, crea el chat. Soporta imagen en el header (header_media_url) y variables que desbordan a los botones URL dinámicos.",
+    body: `{ "telefono": "573001234567", "nombre_template": "confirmacion_pedido", "template_parameters": ["Daniel", "PED-1042"], "header_media_url": "https://cdn.midominio.com/banner.jpg", "nombre": "Daniel" }`,
+  },
+  {
+    grupo: "mensajes",
+    metodo: "POST",
+    path: "/mensajes/media",
+    scope: "mensajes:write",
+    desc: "Envía foto o video (URL https pública) a un chat dentro de la ventana de 24h. Fuera de ventana Meta solo acepta plantillas.",
+    body: `{ "chat_id": 12345, "tipo": "image", "url": "https://cdn.midominio.com/producto.jpg", "caption": "Así se ve en rojo" }`,
+  },
+  {
     grupo: "meta",
     metodo: "GET",
     path: "/plantillas-meta",
@@ -193,6 +229,13 @@ const GRUPOS_CONFIG = [
     desc: "Las plantillas aprobadas por Meta de la cuenta.",
     scope: "plantillas:write",
   },
+  {
+    id: "mensajes",
+    icon: "bx-send",
+    titulo: "Mensajería",
+    desc: "Buscar chats por teléfono, leer mensajes (con transcripción de audios) y enviar plantillas o media.",
+    scope: "mensajes:write",
+  },
 ];
 
 /* Especificación completa en texto: el cliente la copia y se la pasa a su
@@ -205,7 +248,7 @@ const especCompleta = () =>
     `Autenticación: header "Authorization: Bearer <API_KEY>" en cada petición.`,
     `La llave define la conexión: nunca se envía id_configuracion.`,
     `Límite: 60 peticiones/minuto por llave. Respuestas en JSON.`,
-    `Permisos por llave (scopes): read (todos los GET), bot:write, flujos:write, plantillas:write. Sin el scope, la escritura responde 403.`,
+    `Permisos por llave (scopes): read (todos los GET), bot:write, flujos:write, plantillas:write, mensajes:write. Sin el scope, la escritura responde 403.`,
     ``,
     `## Métricas (GET, scope read)`,
     ...ENDPOINTS.map(
@@ -224,7 +267,10 @@ const especCompleta = () =>
     ),
     ``,
     `## Notas`,
-    `- Toda escritura queda auditada con el valor anterior (reversible por soporte).`,
+    `- Toda escritura queda auditada con el valor anterior (reversible por soporte). Los envíos también se auditan (plantilla, número, wamid).`,
+    `- Envíos: máximo 20 por minuto por llave. Fuera de la ventana de 24h (el cliente no escribe hace más de 24h) Meta solo acepta plantillas aprobadas: /mensajes/media responde 422 y hay que usar /mensajes/plantilla.`,
+    `- Teléfonos: se aceptan con o sin código de país (se completa con el país de la conexión). GET /conversaciones los encuentra en cualquier formato.`,
+    `- Transcripción de audios: se genera al RECIBIR la nota de voz, solo en chats con el bot activo. Audios anteriores o de chats con bot apagado vienen con transcripcion = null.`,
     `- 429/500: reintentar con espera exponencial. 400/401/403: corregir la petición o pedir una llave con el scope.`,
   ].join("\n");
 
@@ -242,6 +288,10 @@ const recursoLegible = (recurso = "", accion = "") => {
   if (m) return `Respuesta rápida "${m[1]}"`;
   m = recurso.match(/^plantillas_meta\.(.+)$/);
   if (m) return `Plantilla de WhatsApp "${m[1]}"`;
+  m = recurso.match(/^mensajes\.plantilla\.(.+)$/);
+  if (m) return `Plantilla enviada al ${m[1]}`;
+  m = recurso.match(/^mensajes\.media\.(\d+)$/);
+  if (m) return `Foto/video al chat #${m[1]}`;
   return recurso;
 };
 
@@ -250,6 +300,8 @@ const ACCION_BADGE = {
   create: "text-sky-700 bg-sky-50 border-sky-200",
   delete: "text-rose-700 bg-rose-50 border-rose-200",
   revert: "text-emerald-700 bg-emerald-50 border-emerald-200",
+  send: "text-indigo-700 bg-indigo-50 border-indigo-200",
+  send_error: "text-rose-700 bg-rose-50 border-rose-200",
 };
 
 const ACCION_LABEL = {
@@ -257,6 +309,8 @@ const ACCION_LABEL = {
   create: "creó",
   delete: "eliminó",
   revert: "reversión",
+  send: "envió",
+  send_error: "envío fallido",
 };
 
 const fmtFecha = (v) => {
