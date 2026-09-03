@@ -473,7 +473,7 @@ function MainLayout({ children }) {
             </a>
 
             {/* Comentarios de Facebook */}
-            <a
+            {/* <a
               href="/comentarios"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
                 location.pathname === "/comentarios"
@@ -489,7 +489,7 @@ function MainLayout({ children }) {
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
                 Comentarios
               </span>
-            </a>
+            </a> */}
 
             {/* ====== Contactos ====== */}
             <button

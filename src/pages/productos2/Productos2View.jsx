@@ -11,6 +11,7 @@ import Swal from "sweetalert2";
 import Header from "../Header/pageHeader";
 import { useDropi } from "../../context/DropiContext";
 import ImportarProductosDropi from "../productos/modales/ImportarProductosDropi";
+import ImportarProductosAliclik from "../productos/modales/ImportarProductosAliclik";
 import CargaMasivaModal from "../productos/modales/CargaMasivaModal";
 import ProductoModal from "../productos/modales/ProductoModal";
 import ImportarDesdeEnlaceModal from "../productos/modales/ImportarDesdeEnlaceModal";
@@ -76,7 +77,7 @@ const estadoBot = (w) => {
 ───────────────────────────────────────────────────────────── */
 const Productos2View = () => {
   const navigate = useNavigate();
-  const { isDropiLinked } = useDropi();
+  const { isDropiLinked, isAliclikLinked } = useDropi();
 
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
@@ -110,6 +111,15 @@ const Productos2View = () => {
   const [dropiStart, setDropiStart] = useState(0);
   const [dropiProducts, setDropiProducts] = useState([]);
   const dropiPageSize = 12;
+
+  /* Aliclik */
+  const [aliclikModalOpen, setAliclikModalOpen] = useState(false);
+  const [aliclikLoading, setAliclikLoading] = useState(false);
+  const [aliclikSearch, setAliclikSearch] = useState("");
+  const [aliclikPage, setAliclikPage] = useState(1);
+  const [aliclikProducts, setAliclikProducts] = useState([]);
+  const [aliclikTotal, setAliclikTotal] = useState(0);
+  const aliclikPageSize = 12;
 
   /* Filtros + paginación */
   const [search, setSearch] = useState("");
@@ -340,6 +350,87 @@ const Productos2View = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dropiModalOpen]);
 
+  /* ── Aliclik ──
+     Su catálogo pagina de verdad (~2.300 productos) y solo se puede filtrar
+     por nombre: no hay búsqueda por id ni por EAN. Por eso el modal trae
+     controles de página, a diferencia del de Dropi. */
+  const fetchAliclikProducts = async (pagina = 1) => {
+    setAliclikLoading(true);
+    try {
+      const idc = Number(localStorage.getItem("id_configuracion"));
+      const { data } = await chatApi.post("/productos/listarProductosAliclik", {
+        id_configuracion: idc,
+        page: pagina,
+        limit: aliclikPageSize,
+        search: aliclikSearch,
+      });
+      setAliclikProducts(data?.data?.objects || []);
+      setAliclikTotal(Number(data?.data?.count || 0));
+      setAliclikPage(pagina);
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al listar Aliclik",
+        text:
+          e?.response?.data?.message ||
+          "No se pudo leer el catálogo de Aliclik.",
+      });
+    } finally {
+      setAliclikLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (aliclikModalOpen) fetchAliclikProducts(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aliclikModalOpen]);
+
+  const importarAliclik = async (producto) => {
+    const idc = Number(localStorage.getItem("id_configuracion"));
+    const nVar = producto?.skus?.length || 0;
+    const { isConfirmed } = await Swal.fire({
+      title: `¿Importar "${producto.nombre}"?`,
+      text:
+        nVar > 1
+          ? `Se traen sus ${nVar} variantes. Al terminar se abre la configuración del bot para ese producto.`
+          : "Al terminar se abre la configuración del bot para ese producto.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, importar",
+    });
+    if (!isConfirmed) return;
+    try {
+      const { data } = await chatApi.post(
+        "/productos/importarProductoAliclik",
+        {
+          id_configuracion: idc,
+          aliclik_product_id: producto.id,
+          // Solo es una pista para que el backend lo ubique rápido dentro
+          // del catálogo: los datos que se guardan los relee de Aliclik.
+          nombre: producto.nombre,
+        },
+      );
+      Swal.fire({
+        icon: data?.alreadyImported ? "info" : "success",
+        title: data?.alreadyImported
+          ? "Ya estaba importado"
+          : "Producto importado",
+        timer: 1400,
+        showConfirmButton: false,
+      });
+      setAliclikModalOpen(false);
+      await fetchData();
+      const nuevo = data?.data;
+      if (nuevo?.id) abrirWizard({ id: nuevo.id, nombre: nuevo.nombre });
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al importar",
+        text: e?.response?.data?.message || undefined,
+      });
+    }
+  };
+
   const importarDropi = async (dropiId) => {
     const idc = Number(localStorage.getItem("id_configuracion"));
     const { isConfirmed } = await Swal.fire({
@@ -414,6 +505,21 @@ const Productos2View = () => {
         >
           <i className="bx bx-import text-base" />
           Importar desde Dropi
+        </button>
+      )}
+      {isAliclikLinked === true && (
+        <button
+          onClick={() => {
+            setAliclikSearch("");
+            setAliclikProducts([]);
+            setAliclikPage(1);
+            setAliclikModalOpen(true);
+          }}
+          className="inline-flex items-center gap-2 bg-[#7c3aed] hover:bg-[#6d28d9]
+            text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap"
+        >
+          <i className="bx bx-import text-base" />
+          Importar desde Aliclik
         </button>
       )}
       <button
@@ -1123,6 +1229,27 @@ const Productos2View = () => {
         loading={dropiLoading}
         products={dropiProducts}
         onImport={importarDropi}
+      />
+
+      {/* ══ Importar Aliclik ══ */}
+      <ImportarProductosAliclik
+        open={aliclikModalOpen}
+        onClose={() => {
+          setAliclikModalOpen(false);
+          setAliclikSearch("");
+          setAliclikProducts([]);
+          setAliclikPage(1);
+        }}
+        search={aliclikSearch}
+        setSearch={setAliclikSearch}
+        onSearch={() => fetchAliclikProducts(1)}
+        loading={aliclikLoading}
+        products={aliclikProducts}
+        page={aliclikPage}
+        onPrevPage={() => fetchAliclikProducts(Math.max(1, aliclikPage - 1))}
+        onNextPage={() => fetchAliclikProducts(aliclikPage + 1)}
+        hasNextPage={aliclikPage * aliclikPageSize < aliclikTotal}
+        onImport={importarAliclik}
       />
     </div>
   );
