@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
 import {
   FaFilePdf,
@@ -57,7 +58,7 @@ const MiPlan = () => {
   const getIdUsuarioFromToken = useCallback(() => {
     if (!token) return null;
     try {
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       return decoded.id_usuario || decoded.id_users || null;
     } catch {
       return null;

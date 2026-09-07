@@ -50,7 +50,7 @@ const DatosUsuarioModerno = ({
   useEffect(() => {
     try {
       if (!token) return setCanAccessCalendar(false);
-      const payload = JSON.parse(atob(token.split(".")[1]));
+      const payload = jwtDecode(token);
       setCanAccessCalendar(puedeAccederCalendario(payload?.id_plan));
     } catch {
       setCanAccessCalendar(false);

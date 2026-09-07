@@ -1,6 +1,7 @@
 // src/pages/planes/CardPlanPersonalizado.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
+import { jwtDecode } from "jwt-decode";
 // ⬇️ Ajusta esta ruta si tu chatApi vive en otro lado:
 import chatApi from "../../api/chatcenter";
 
@@ -41,7 +42,7 @@ export default function CardPlanPersonalizado({
     // util: decodifica el jwt local para obtener id_usuario/id_users
     const getUserIdFromToken = () => {
       try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
+        const payload = jwtDecode(token);
         return payload?.id_usuario ?? payload?.id_users ?? null;
       } catch {
         return null;
@@ -224,7 +225,7 @@ export default function CardPlanPersonalizado({
         );
       }
       const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const baseUrl = window.location.origin;
 
