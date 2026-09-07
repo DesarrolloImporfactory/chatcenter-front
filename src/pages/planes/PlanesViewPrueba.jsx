@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
+import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
 import { useNavigate } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
@@ -397,14 +398,14 @@ const PlanesViewPrueba = () => {
   const getIdUsuario = () => {
     const token = localStorage.getItem("token");
     if (!token) return null;
-    const decoded = JSON.parse(atob(token.split(".")[1]));
+    const decoded = jwtDecode(token);
     return decoded.id_usuario || decoded.id_users;
   };
 
   const refreshPlanActual = async () => {
     const token = localStorage.getItem("token");
     if (!token) return null;
-    const decoded = JSON.parse(atob(token.split(".")[1]));
+    const decoded = jwtDecode(token);
     const id_usuario = decoded.id_usuario || decoded.id_users;
     const { data } = await chatApi.post(
       "stripe_plan/obtenerSuscripcionActiva",
@@ -443,7 +444,7 @@ const PlanesViewPrueba = () => {
   // Subusuarios ACTIVOS elegibles (excluye al admin principal, que nunca se suspende)
   const fetchSubusuariosActivos = async () => {
     const token = localStorage.getItem("token");
-    const decoded = JSON.parse(atob(token.split(".")[1]));
+    const decoded = jwtDecode(token);
     const id_usuario = decoded.id_usuario || decoded.id_users;
     let lista = [];
     try {
@@ -520,7 +521,7 @@ const PlanesViewPrueba = () => {
         );
         return;
       }
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const { data } = await chatApi.post(
         "stripe_plan/activarTrialUsage",
@@ -561,7 +562,7 @@ const PlanesViewPrueba = () => {
         );
         return;
       }
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
 
       if (isTrialUsageActive || isPromoUsageActive) {
@@ -691,7 +692,7 @@ const PlanesViewPrueba = () => {
   // Conexiones ACTIVAS del usuario (suspendido = 0)
   const fetchConexionesActivas = async () => {
     const token = localStorage.getItem("token");
-    const decoded = JSON.parse(atob(token.split(".")[1]));
+    const decoded = jwtDecode(token);
     const id_usuario = decoded.id_usuario || decoded.id_users;
     const res = await chatApi.post(
       "configuraciones/listar_conexiones",
@@ -772,7 +773,7 @@ const PlanesViewPrueba = () => {
     setModalSuspLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const res = await chatApi.post(
         "stripe_plan/cambiarPlan",
@@ -815,7 +816,7 @@ const PlanesViewPrueba = () => {
     if (!confirm.isConfirmed) return;
     try {
       const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const res = await chatApi.post(
         "stripe_plan/cancelarDowngrade",

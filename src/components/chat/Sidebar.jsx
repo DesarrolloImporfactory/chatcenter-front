@@ -1,6 +1,7 @@
 import Select from "react-select";
 import ReactDOM from "react-dom";
 import { useMemo, useState, useRef, useEffect } from "react";
+import { jwtDecode } from "jwt-decode";
 /* === IMPORTS CLAVE PARA PREVIEW AL ESTILO ChatPrincipal.jsx === */
 import CustomAudioPlayer from "./CustomAudioPlayer";
 import ImageWithModal from "./modales/ImageWithModal";
@@ -1562,8 +1563,7 @@ export const Sidebar = ({
     try {
       const token = localStorage.getItem("token");
       if (!token) return null;
-      const base64 = token.split(".")[1];
-      const decoded = JSON.parse(atob(base64));
+      const decoded = jwtDecode(token);
       return decoded?.rol ?? null;
     } catch {
       return null;

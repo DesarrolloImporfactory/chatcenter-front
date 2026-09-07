@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 
 /**
  * Página de ruta no encontrada.
@@ -23,7 +24,7 @@ const RutaNoEncontrada = () => {
     const token = localStorage.getItem("token");
     if (!token) return false;
     try {
-      const d = JSON.parse(atob(token.split(".")[1]));
+      const d = jwtDecode(token);
       return d.exp > Date.now() / 1000;
     } catch {
       return false;

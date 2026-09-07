@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+import { jwtDecode } from "jwt-decode";
 import {
   FaFilePdf,
   FaSyncAlt,
@@ -97,7 +98,7 @@ const MiPlan = () => {
     try {
       setCargandoFacturas(true);
       const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
 
       const res = await chatApi.post(
@@ -118,7 +119,7 @@ const MiPlan = () => {
   const obtenerPlanActivo = async () => {
     try {
       const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
 
       const res = await chatApi.post(
@@ -154,7 +155,7 @@ const MiPlan = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
 
       const res = await chatApi.post(
@@ -184,7 +185,7 @@ const MiPlan = () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
-        const { id_usuario, id_users } = JSON.parse(atob(token.split(".")[1]));
+        const { id_usuario, id_users } = jwtDecode(token);
         const { data } = await chatApi.post(
           "/stripe_plan/trialElegibilidad",
           { id_usuario: id_usuario || id_users },
@@ -264,7 +265,7 @@ const MiPlan = () => {
     setLoadingPlanId(idPlan);
     try {
       const token = localStorage.getItem("token");
-      const decoded = JSON.parse(atob(token.split(".")[1]));
+      const decoded = jwtDecode(token);
       const id_usuario = decoded.id_usuario || decoded.id_users;
       const baseUrl = window.location.origin;
 
@@ -487,9 +488,8 @@ const MiPlan = () => {
                                 setLoadingGestion(true);
                                 try {
                                   const token = localStorage.getItem("token");
-                                  const { id_usuario, id_users } = JSON.parse(
-                                    atob(token.split(".")[1]),
-                                  );
+                                  const { id_usuario, id_users } =
+                                    jwtDecode(token);
                                   const res = await chatApi.post(
                                     "/stripe_plan/portalGestionMetodos",
                                     { id_usuario: id_usuario || id_users },
@@ -531,9 +531,8 @@ const MiPlan = () => {
                                 setLoadingAgregar(true);
                                 try {
                                   const token = localStorage.getItem("token");
-                                  const { id_usuario, id_users } = JSON.parse(
-                                    atob(token.split(".")[1]),
-                                  );
+                                  const { id_usuario, id_users } =
+                                    jwtDecode(token);
                                   const res = await chatApi.post(
                                     "/stripe_plan/portalAddPaymentMethod",
                                     { id_usuario: id_usuario || id_users },

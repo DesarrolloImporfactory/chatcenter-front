@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import TabImporChat from "./TabImporchat";
 
 /* ── Tabla comparativa ──
@@ -49,7 +50,7 @@ const LandingHome = () => {
     const token = localStorage.getItem("token");
     if (token) {
       try {
-        const d = JSON.parse(atob(token.split(".")[1]));
+        const d = jwtDecode(token);
         if (d.exp > Date.now() / 1000) {
           navigate("/conexiones");
           return;
