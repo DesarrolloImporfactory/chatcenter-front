@@ -18,6 +18,7 @@ const RUTAS_SIN_PLAN = new Set([
   "/plan",
   "/tutoriales",
   "/referidos",
+  "/mi-perfil",
 ]);
 
 function MainLayout({ children }) {
@@ -306,6 +307,12 @@ function MainLayout({ children }) {
               label="Tutoriales"
             />
 
+            {/* Mi Perfil: datos del dueño de la cuenta + el WhatsApp
+                personal donde recibe los avisos del sistema */}
+            {!isGestorClientes && (
+              <NavBtn path="/mi-perfil" icon="bx-id-card" label="Mi Perfil" />
+            )}
+
             {/* Panel de Usuarios: super_administrador + gestor_clientes */}
             {puedePanelUsuarios && (
               <NavBtn
@@ -356,6 +363,15 @@ function MainLayout({ children }) {
                 path="/plantillas_globales_admin"
                 icon="bxs-grid-alt"
                 label="Plantillas Kanban Globales"
+              />
+            )}
+
+            {/* Plantillas de avisos por WhatsApp: solo super_administrador */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/administrador-avisos"
+                icon="bx-bell"
+                label="Administrador Avisos"
               />
             )}
 

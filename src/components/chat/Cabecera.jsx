@@ -9,6 +9,7 @@ import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
+import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
 
@@ -155,7 +156,11 @@ const Cabecera = ({
   }, [userData]);
 
   useEffect(() => {
-    if (["/productos", "/productos2", "/categorias"].includes(location.pathname)) {
+    if (
+      ["/productos", "/productos2", "/categorias", "/anuncios"].includes(
+        location.pathname,
+      )
+    ) {
       setOpenMenu("productos");
     } else if (
       location.pathname.startsWith("/pedidos") ||
@@ -1173,7 +1178,8 @@ const Cabecera = ({
                 location.pathname === "/productos" ||
                 location.pathname === "/productos2" ||
                 location.pathname === "/categorias" ||
-                location.pathname === "/catalogos"
+                location.pathname === "/catalogos" ||
+                location.pathname === "/anuncios"
                   ? "bg-gray-200 font-semibold"
                   : ""
               }`}
@@ -1194,9 +1200,29 @@ const Cabecera = ({
 
             <div
               className="overflow-hidden transition-all duration-[600ms] ease-out"
-              style={{ maxHeight: openMenu === "productos" ? "220px" : "0px" }}
+              style={{ maxHeight: openMenu === "productos" ? "280px" : "0px" }}
             >
               <div className="ml-10 flex flex-col py-2">
+                {/* Campañas: centro de campañas Meta (piloto por
+                    id_configuracion — ver CAMPANIAS_PILOTO) */}
+                {(CAMPANIAS_PILOTO.length === 0 ||
+                  CAMPANIAS_PILOTO.includes(
+                    Number(localStorage.getItem("id_configuracion")),
+                  )) && (
+                  <a
+                    href="/anuncios"
+                    onClick={(e) => handleNavClick(e, "/anuncios")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname === "/anuncios"
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bxs-megaphone text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Campañas</span>
+                  </a>
+                )}
+
                 {/* /productos ya es la vista nueva (bot por producto). La
                     vieja vive en /productos-antiguo, sin entrada de menú. */}
                 <a

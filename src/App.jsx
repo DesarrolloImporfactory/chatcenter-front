@@ -25,6 +25,9 @@ import ListaPlanes from "./pages/planes/listaPlanes";
 // Páginas de gestión
 import Productos from "./pages/productos/ProductosView";
 import Productos2 from "./pages/productos2/Productos2View";
+import CampaniasView from "./pages/campanias/CampaniasView";
+import AdminAvisosView from "./pages/adminAvisos/AdminAvisosView";
+import MiPerfilView from "./pages/miPerfil/MiPerfilView";
 import CatalogosView from "./pages/productos/CatalogosView";
 import CatalogoPublicoView from "./pages/productos/CatalogoPublicoView";
 import EncuestaPublica from "./pages/encuestas/EncuestaPublica";
@@ -565,6 +568,27 @@ function App() {
                   }
                 />
 
+                {/* CRUD de plantillas de avisos por WhatsApp (solo super
+                    admin; el backend valida con requireSuperAdmin) */}
+                <Route
+                  path="/administrador-avisos"
+                  element={
+                    <MainLayout_conexiones>
+                      <AdminAvisosView />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                {/* Datos del dueño de la cuenta + WhatsApp de avisos */}
+                <Route
+                  path="/mi-perfil"
+                  element={
+                    <MainLayout_conexiones>
+                      <MiPerfilView />
+                    </MainLayout_conexiones>
+                  }
+                />
+
                 {/* vista de usuarios */}
                 <Route
                   path="/usuarios"
@@ -656,6 +680,17 @@ function App() {
                     <MainLayout_conexiones>
                       <MiPlanPrueba />
                     </MainLayout_conexiones>
+                  }
+                />
+
+                {/* Centro de campañas Meta: lanzador + reglas automáticas
+                    (piloto por id_configuracion, ver CAMPANIAS_PILOTO). */}
+                <Route
+                  path="/anuncios"
+                  element={
+                    <MainLayout>
+                      <CampaniasView />
+                    </MainLayout>
                   }
                 />
 
