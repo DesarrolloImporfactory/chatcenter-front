@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
+import ReglasAutomaticas from "../../../pages/campanias/ReglasAutomaticas";
 
 /**
  * LauncherWizardModal
@@ -92,7 +93,7 @@ const AdPreview = ({ form, paginaNombre, tituloEfectivo }) => {
         </p>
         <div className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
           <div className="px-3 py-2.5 flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 grid place-items-center text-white text-sm font-bold">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 grid place-items-center text-white text-sm font-bold">
               {inicial}
             </div>
             <div className="min-w-0">
@@ -291,8 +292,25 @@ const LauncherWizardModal = ({
         "Hola 👋 vi su anuncio y quiero más información",
       imagenes,
       estado_inicial: plantilla?.estado_inicial || "PAUSED",
+      // Programación: '' = lanzar de inmediato; 'YYYY-MM-DDTHH:mm' = el
+      // conjunto arranca a esa hora (hora local de la cuenta publicitaria).
+      inicio_at: (() => {
+        if (!plantilla?.inicio_at) return "";
+        try {
+          const d = new Date(plantilla.inicio_at);
+          if (Number.isNaN(d.getTime())) return "";
+          const p = (n) => String(n).padStart(2, "0");
+          return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+        } catch {
+          return "";
+        }
+      })(),
     };
   });
+
+  // Reglas de optimización: se aplican/crean en su propio modal (encima del
+  // wizard) para no estirar el paso 4.
+  const [reglasOpen, setReglasOpen] = useState(false);
 
   const set = (campo, valor) => setForm((f) => ({ ...f, [campo]: valor }));
   const setGeo = (parcial) =>
@@ -516,6 +534,7 @@ const LauncherWizardModal = ({
           id_configuracion,
           geo: form.geo,
           paises: form.geo.paises.join(","),
+          inicio_at: form.inicio_at || null,
           titulo: tituloEfectivo,
           imagenes: form.imagenes,
           imagen_hash:
@@ -1127,13 +1146,13 @@ const LauncherWizardModal = ({
                                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border bg-white text-slate-600 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 transition"
                                 >
                                   <i
-                                    className={`bx ${l.type === "region" ? "bx-map-alt text-violet-500" : "bx-map-pin text-indigo-500"}`}
+                                    className={`bx ${l.type === "region" ? "bx-map-alt text-blue-500" : "bx-map-pin text-indigo-500"}`}
                                   />
                                   {l.name}
                                   <span
                                     className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${
                                       l.type === "region"
-                                        ? "bg-violet-50 text-violet-600"
+                                        ? "bg-blue-50 text-blue-600"
                                         : "bg-indigo-50 text-indigo-600"
                                     }`}
                                   >
@@ -1180,6 +1199,40 @@ const LauncherWizardModal = ({
                       )}
                     </div>
                   )}
+
+                  {/* Tips de alcance: llenan la columna con criterio real */}
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {[
+                      [
+                        "bx-globe",
+                        "País completo",
+                        "Máximo volumen para contra entrega: Meta busca al comprador en todo el país.",
+                      ],
+                      [
+                        "bx-map-pin",
+                        "Zonas puntuales",
+                        "Apunta solo donde tu transportadora entrega rápido: menos devoluciones.",
+                      ],
+                      [
+                        "bx-brain",
+                        "Meta optimiza",
+                        "Dentro de la zona elegida, el algoritmo aprende solo quién sí compra.",
+                      ],
+                    ].map(([icon, t, d]) => (
+                      <div
+                        key={t}
+                        className="rounded-xl bg-slate-50 ring-1 ring-slate-100 px-3 py-2.5"
+                      >
+                        <p className="text-[10px] font-bold text-slate-600">
+                          <i className={`bx ${icon} text-indigo-500 mr-1`} />
+                          {t}
+                        </p>
+                        <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">
+                          {d}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
 
                   {/* Recap del alcance — siempre visible al pie de la tarjeta */}
                   <div className="mt-4 rounded-xl bg-indigo-50/70 ring-1 ring-indigo-100 px-3.5 py-3 text-[11px] text-indigo-700 leading-relaxed">
@@ -1420,6 +1473,13 @@ const LauncherWizardModal = ({
                           "Público",
                           `${form.edad_min}-${form.edad_max} años · ${GENERO_LABEL[form.genero]}`,
                         ],
+                        [
+                          "bx-calendar-event",
+                          "Inicio",
+                          form.inicio_at
+                            ? form.inicio_at.replace("T", " · ")
+                            : "De inmediato",
+                        ],
                       ].map(([icon, k, v]) => (
                         <div
                           key={k}
@@ -1488,6 +1548,14 @@ const LauncherWizardModal = ({
                           </div>
                         ))}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setReglasOpen(true)}
+                        className="mt-4 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition"
+                      >
+                        <i className="bx bx-shield-quarter" />
+                        Aplicar reglas de optimización
+                      </button>
                     </Seccion>
 
                     <Seccion
@@ -1531,6 +1599,64 @@ const LauncherWizardModal = ({
                           </button>
                         ))}
                       </div>
+                    </Seccion>
+
+                    <Seccion
+                      icon="bx-calendar-event"
+                      titulo="¿Cuándo arranca?"
+                    >
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => set("inicio_at", "")}
+                          className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition ${
+                            !form.inicio_at
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                          }`}
+                        >
+                          <i className="bx bx-run mr-1" />
+                          De inmediato
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!form.inicio_at) {
+                              const d = new Date(Date.now() + 24 * 3600 * 1000);
+                              d.setHours(9, 0, 0, 0);
+                              const p = (n) => String(n).padStart(2, "0");
+                              set(
+                                "inicio_at",
+                                `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T09:00`,
+                              );
+                            }
+                          }}
+                          className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition ${
+                            form.inicio_at
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                          }`}
+                        >
+                          <i className="bx bx-time-five mr-1" />
+                          Programada
+                        </button>
+                      </div>
+                      {form.inicio_at && (
+                        <>
+                          <input
+                            type="datetime-local"
+                            className={inputCls}
+                            value={form.inicio_at}
+                            onChange={(e) => set("inicio_at", e.target.value)}
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            Hora local de tu cuenta publicitaria. La campaña
+                            se crea ya (y pasa la revisión de Meta), pero el
+                            conjunto empieza a mostrar anuncios a esta hora.
+                          </p>
+                        </>
+                      )}
+
                     </Seccion>
                   </div>
                 </div>
@@ -1608,6 +1734,38 @@ const LauncherWizardModal = ({
           </div>
         </div>
       </div>
+
+      {/* Reglas de optimización — modal sobre el wizard */}
+      {reglasOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3">
+          <div className="w-full max-w-5xl h-[92vh] flex flex-col rounded-2xl bg-slate-50 shadow-2xl overflow-hidden">
+            <div className="bg-[#171931] text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/15 grid place-items-center">
+                  <i className="bx bx-shield-quarter" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold leading-tight">
+                    Reglas automáticas
+                  </h3>
+                  <p className="text-[10px] text-white/60">
+                    Aplica las recomendadas o crea las tuyas
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReglasOpen(false)}
+                className="p-2 rounded-lg hover:bg-white/10 transition"
+              >
+                <i className="bx bx-x text-xl" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+              <ReglasAutomaticas id_configuracion={id_configuracion} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

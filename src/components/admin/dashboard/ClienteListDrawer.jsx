@@ -174,6 +174,25 @@ export default function ClienteListDrawer({
                               Stripe: {c.stripe_subscription_status}
                             </span>
                           )}
+                          {Number(c.pagos_reales) > 0 && (
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                Number(c.pagos_reales) >= 2
+                                  ? "bg-violet-100 text-violet-700"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                              title={
+                                c.ultimo_cobro
+                                  ? `Último cobro: ${fmtDate(c.ultimo_cobro)}`
+                                  : "Cobros reales en Stripe (monto > 0)"
+                              }
+                            >
+                              <i className="bx bx-repeat" />{" "}
+                              {Number(c.pagos_reales)} cobro
+                              {Number(c.pagos_reales) !== 1 ? "s" : ""}
+                              {Number(c.pagos_reales) >= 2 && " · recurrente"}
+                            </span>
+                          )}
                           {c.cancel_at_period_end === 1 && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
                               ⚠ Cancel. programada

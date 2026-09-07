@@ -40,6 +40,40 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
   const [plantillas, setPlantillas] = useState([]);
   const [respuestasRapidas, setRespuestasRapidas] = useState([]);
 
+  // Buscador + paginación de respuestas rápidas. El endpoint devuelve todas
+  // (rara vez pasan de 100), así que filtramos y paginamos en cliente; la
+  // UI imita a la del administrador de plantillas (25 por página por defecto).
+  const [rrSearch, setRrSearch] = useState("");
+  const [rrLimit, setRrLimit] = useState(25);
+  const [rrPage, setRrPage] = useState(1);
+
+  const respuestasFiltradas = useMemo(() => {
+    const lista = Array.isArray(respuestasRapidas) ? respuestasRapidas : [];
+    const q = rrSearch.trim().toLowerCase();
+    if (!q) return lista;
+    return lista.filter((r) => {
+      const atajo = String(r?.atajo ?? "").toLowerCase();
+      const mensaje = String(r?.mensaje ?? "").toLowerCase();
+      const archivo = String(r?.file_name ?? "").toLowerCase();
+      return atajo.includes(q) || mensaje.includes(q) || archivo.includes(q);
+    });
+  }, [respuestasRapidas, rrSearch]);
+
+  const rrTotalPages = Math.max(
+    1,
+    Math.ceil(respuestasFiltradas.length / rrLimit),
+  );
+  const rrPageSafe = Math.min(rrPage, rrTotalPages);
+  const respuestasPagina = useMemo(() => {
+    const start = (rrPageSafe - 1) * rrLimit;
+    return respuestasFiltradas.slice(start, start + rrLimit);
+  }, [respuestasFiltradas, rrPageSafe, rrLimit]);
+
+  // Al cambiar la búsqueda o el tamaño de página se vuelve a la primera.
+  useEffect(() => {
+    setRrPage(1);
+  }, [rrSearch, rrLimit]);
+
   // Session / UI
   const [userData, setUserData] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
@@ -1553,25 +1587,65 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
         title="Respuestas rápidas"
         subtitle="Atajos para responder al instante desde el chat"
         right={
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMostrarModalPlantillaRapida(true)}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700"
-            >
-              + Agregar
-            </button>
-            {/* <button
-              onClick={handleAbrirConfiguraciones}
-              className="bg-amber-500 text-white px-4 py-2 rounded-xl hover:bg-amber-600"
-            >
-              Guía Generada
-            </button> */}
-            <button
-              onClick={handleAbrirConfiguracionesCalendario}
-              className="bg-teal-600 text-white px-4 py-2 rounded-xl hover:bg-teal-700"
-            >
-              Notificación Calendario
-            </button>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            {/* Buscador: filtra por atajo, mensaje o nombre de archivo */}
+            <div className="flex items-center gap-2 border rounded-xl px-3 py-2 bg-white">
+              <i className="bx bx-search text-gray-500"></i>
+              <input
+                value={rrSearch}
+                onChange={(e) => setRrSearch(e.target.value)}
+                placeholder="Buscar respuesta rápida…"
+                title="Busca por atajo, contenido del mensaje o nombre del adjunto"
+                className="outline-none text-sm min-w-[220px]"
+              />
+              {rrSearch && (
+                <button
+                  type="button"
+                  onClick={() => setRrSearch("")}
+                  className="text-gray-400 hover:text-gray-600"
+                  title="Limpiar búsqueda"
+                >
+                  <i className="bx bx-x text-lg" />
+                </button>
+              )}
+            </div>
+
+            {/* Límite */}
+            <div className="flex items-center gap-2 border rounded-xl px-3 py-2 bg-white">
+              <span className="text-sm text-gray-600">Mostrar</span>
+              <select
+                value={rrLimit}
+                onChange={(e) => setRrLimit(parseInt(e.target.value, 10))}
+                className="text-sm outline-none bg-transparent"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-sm text-gray-600">por página</span>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMostrarModalPlantillaRapida(true)}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700"
+              >
+                + Agregar
+              </button>
+              {/* <button
+                onClick={handleAbrirConfiguraciones}
+                className="bg-amber-500 text-white px-4 py-2 rounded-xl hover:bg-amber-600"
+              >
+                Guía Generada
+              </button> */}
+              <button
+                onClick={handleAbrirConfiguracionesCalendario}
+                className="bg-teal-600 text-white px-4 py-2 rounded-xl hover:bg-teal-700"
+              >
+                Notificación Calendario
+              </button>
+            </div>
           </div>
         }
       />
@@ -1591,62 +1665,99 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
           </tr>
         </thead>
         <tbody>
-          {(Array.isArray(respuestasRapidas) ? respuestasRapidas : []).map(
-            (respuesta, index) => (
-              <tr key={index} className="border-t hover:bg-gray-50">
-                <td className="py-2 px-4">{respuesta.atajo}</td>
-                <td className="py-2 px-4 text-sm">
-                  <div className="whitespace-pre-line">{respuesta.mensaje}</div>
-
-                  {/* ✅ Preview si es media */}
-                  <QuickReplyPreview r={respuesta} />
-
-                  {/* etiqueta tipo */}
-                  {String(respuesta.tipo_mensaje || "text").toLowerCase() !==
-                    "text" && (
-                    <div className="mt-1">
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border">
-                        {String(respuesta.tipo_mensaje).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                </td>
-
-                <td className="py-2 px-10">
-                  <input
-                    type="checkbox"
-                    checked={parseInt(respuesta.principal) === 1}
-                    disabled={
-                      parseInt(respuesta.principal) === 1
-                        ? false
-                        : respuestasRapidas.some(
-                            (r) =>
-                              parseInt(r.principal) === 1 &&
-                              r.id_template !== respuesta.id_template,
-                          )
-                    }
-                    onChange={() => cambiarEstadoRespuesta(respuesta)}
-                  />
-                </td>
-                <td className="py-2 px-4 flex gap-2">
-                  <button
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded"
-                    onClick={() => handleAbrirEditarRespuesta(respuesta)}
-                  >
-                    <i className="fa-solid fa-pencil"></i> Editar
-                  </button>
-                  <button
-                    className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
-                    onClick={() => eliminarRespuesta(respuesta.id_template)}
-                  >
-                    <i className="fa-solid fa-trash-can"></i> Borrar
-                  </button>
-                </td>
-              </tr>
-            ),
+          {respuestasPagina.length === 0 && (
+            <tr>
+              <td colSpan={4} className="py-6 px-4 text-center text-gray-500">
+                {rrSearch.trim()
+                  ? `No se encontraron respuestas rápidas para "${rrSearch.trim()}".`
+                  : "Aún no tienes respuestas rápidas. Crea la primera con “+ Agregar”."}
+              </td>
+            </tr>
           )}
+          {respuestasPagina.map((respuesta, index) => (
+            <tr
+              key={respuesta.id_template ?? `${rrPageSafe}-${index}`}
+              className="border-t hover:bg-gray-50"
+            >
+              <td className="py-2 px-4">{respuesta.atajo}</td>
+              <td className="py-2 px-4 text-sm">
+                <div className="whitespace-pre-line">{respuesta.mensaje}</div>
+
+                {/* ✅ Preview si es media */}
+                <QuickReplyPreview r={respuesta} />
+
+                {/* etiqueta tipo */}
+                {String(respuesta.tipo_mensaje || "text").toLowerCase() !==
+                  "text" && (
+                  <div className="mt-1">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border">
+                      {String(respuesta.tipo_mensaje).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+              </td>
+
+              <td className="py-2 px-10">
+                <input
+                  type="checkbox"
+                  checked={parseInt(respuesta.principal) === 1}
+                  disabled={
+                    parseInt(respuesta.principal) === 1
+                      ? false
+                      : respuestasRapidas.some(
+                          (r) =>
+                            parseInt(r.principal) === 1 &&
+                            r.id_template !== respuesta.id_template,
+                        )
+                  }
+                  onChange={() => cambiarEstadoRespuesta(respuesta)}
+                />
+              </td>
+              <td className="py-2 px-4 flex gap-2">
+                <button
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded"
+                  onClick={() => handleAbrirEditarRespuesta(respuesta)}
+                >
+                  <i className="fa-solid fa-pencil"></i> Editar
+                </button>
+                <button
+                  className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
+                  onClick={() => eliminarRespuesta(respuesta.id_template)}
+                >
+                  <i className="fa-solid fa-trash-can"></i> Borrar
+                </button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
+
+      {/* Paginación (misma UI que en plantillas) */}
+      <div className="mt-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="text-sm text-gray-600">
+          {rrSearch.trim()
+            ? `${respuestasFiltradas.length} resultado(s) para "${rrSearch.trim()}" · página ${rrPageSafe} de ${rrTotalPages}`
+            : `Mostrando ${respuestasPagina.length} de ${respuestasFiltradas.length} · página ${rrPageSafe} de ${rrTotalPages}`}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50"
+            onClick={() => setRrPage((p) => Math.max(1, p - 1))}
+            disabled={rrPageSafe <= 1}
+            title="Anterior"
+          >
+            ← Anterior
+          </button>
+          <button
+            className="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50"
+            onClick={() => setRrPage((p) => Math.min(rrTotalPages, p + 1))}
+            disabled={rrPageSafe >= rrTotalPages}
+            title="Siguiente"
+          >
+            Siguiente →
+          </button>
+        </div>
+      </div>
     </div>
   );
 

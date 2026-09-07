@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
 import LauncherWizardModal from "./LauncherWizardModal";
+import ReglasAutomaticas from "../../../pages/campanias/ReglasAutomaticas";
 
 /**
  * AdsLauncherTab
@@ -36,19 +37,21 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
   const [lanzandoId, setLanzandoId] = useState(null);
   const [wizard, setWizard] = useState(null); // null | { plantilla: obj|null }
   const [showHistorial, setShowHistorial] = useState(false);
+  const [reglasOpen, setReglasOpen] = useState(false);
 
   // La moneda real de la cuenta publicitaria manda; el prop es el fallback
   // (accountData puede venir vacío si el período no tiene insights).
   const currency = contexto?.currency || currencyProp;
 
+  // Las listas viven en la BD y cargan al instante; el contexto (páginas,
+  // productos, moneda) pega a Meta y va aparte para no bloquear la vista.
+  const [contextoCargando, setContextoCargando] = useState(true);
+
   const fetchTodo = useCallback(async () => {
     if (!id_configuracion) return;
     setLoading(true);
     try {
-      const [ctxRes, plaRes, lanRes] = await Promise.all([
-        chatApi.get("/meta_ads/launcher/contexto", {
-          params: { id_configuracion },
-        }),
+      const [plaRes, lanRes] = await Promise.all([
         chatApi.get("/meta_ads/launcher/plantillas", {
           params: { id_configuracion },
         }),
@@ -56,7 +59,6 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
           params: { id_configuracion },
         }),
       ]);
-      setContexto(ctxRes.data?.success ? ctxRes.data.data : null);
       setPlantillas(plaRes.data?.success ? plaRes.data.data || [] : []);
       setLanzamientos(lanRes.data?.success ? lanRes.data.data || [] : []);
     } catch (err) {
@@ -66,9 +68,47 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
     }
   }, [id_configuracion]);
 
+  const fetchContexto = useCallback(async () => {
+    if (!id_configuracion) return;
+    setContextoCargando(true);
+    try {
+      const { data } = await chatApi.get("/meta_ads/launcher/contexto", {
+        params: { id_configuracion },
+        silentError: true,
+      });
+      setContexto(data?.success ? data.data : null);
+    } catch (err) {
+      console.error("Launcher contexto error:", err);
+    } finally {
+      setContextoCargando(false);
+    }
+  }, [id_configuracion]);
+
   useEffect(() => {
     fetchTodo();
-  }, [fetchTodo]);
+    fetchContexto();
+  }, [fetchTodo, fetchContexto]);
+
+  // El wizard necesita el contexto (páginas/productos); si aún viene en
+  // camino se avisa en vez de abrir un modal a medias.
+  const abrirWizard = (plantilla) => {
+    if (!contexto) {
+      if (contextoCargando) {
+        Swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "info",
+          title: "Cargando datos de tu cuenta publicitaria...",
+          showConfirmButton: false,
+          timer: 1800,
+        });
+      } else {
+        fetchContexto();
+      }
+      return;
+    }
+    setWizard({ plantilla });
+  };
 
   const handleLanzar = async (p) => {
     if (p.faltantes?.length) {
@@ -81,7 +121,7 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
         cancelButtonText: "Cerrar",
         customClass: { popup: "rounded-2xl" },
       }).then((r) => {
-        if (r.isConfirmed) setWizard({ plantilla: p });
+        if (r.isConfirmed) abrirWizard(p);
       });
       return;
     }
@@ -168,9 +208,7 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
   };
 
   const handleDuplicar = (p) => {
-    setWizard({
-      plantilla: { ...p, id: null, nombre: `${p.nombre} (copia)` },
-    });
+    abrirWizard({ ...p, id: null, nombre: `${p.nombre} (copia)` });
   };
 
   // Activar/pausar la campaña completa de un lanzamiento (el porqué del
@@ -210,7 +248,10 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
   };
 
   // ── Estados de carga / sin conexión ──
-  if (loading) {
+  // Sin plantillas todavía no sabemos si toca el lanzador o el "conecta tu
+  // cuenta" (eso lo dice el contexto, que tarda más): se sostiene el
+  // skeleton para que no parpadee una pantalla y luego la otra.
+  if (loading || (contextoCargando && plantillas.length === 0)) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white px-8 py-16 text-center">
         <div className="flex justify-center gap-1 mb-4">
@@ -232,15 +273,75 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
 
   if (contexto && !contexto.conectado) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white px-8 py-14 text-center">
-        <i className="bx bx-plug text-4xl text-slate-300 mb-3" />
-        <h3 className="text-sm font-bold text-slate-600 mb-1">
-          Conecta tu cuenta publicitaria
-        </h3>
-        <p className="text-xs text-slate-400 max-w-md mx-auto">
-          Para lanzar campañas con un click necesitas conectar Meta Ads en la
-          sección Conexiones.
-        </p>
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        {/* Hero navy con la línea de la marca */}
+        <div className="relative overflow-hidden bg-[#171931] px-8 py-10 text-center">
+          <div
+            className="absolute inset-0 opacity-60"
+            aria-hidden
+            style={{
+              backgroundImage:
+                "radial-gradient(600px circle at 0% 0%, rgba(79,70,229,0.30), transparent 45%), radial-gradient(500px circle at 100% 120%, rgba(99,102,241,0.22), transparent 40%)",
+            }}
+          />
+          <div className="relative">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70 ring-1 ring-white/15">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Campañas · Meta Ads
+            </span>
+            <h3 className="mt-3 text-2xl font-extrabold text-white tracking-tight">
+              Lanza tus campañas{" "}
+              <span className="bg-gradient-to-r from-indigo-300 to-blue-200 bg-clip-text text-transparent">
+                sin salir de aquí
+              </span>
+            </h3>
+            <p className="mt-2 text-sm text-white/60 max-w-lg mx-auto leading-relaxed">
+              Campaña, segmentación, creativos y anuncio directo a tu WhatsApp
+              — todo con un click, con reglas automáticas cuidando cada dólar.
+            </p>
+            <a
+              href="/conexiones"
+              className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-[#171931] bg-white hover:bg-indigo-50 shadow-lg shadow-black/20 hover:-translate-y-0.5 transition-all"
+            >
+              <i className="bx bx-link text-lg text-[#4f46e5]" />
+              Conectar mi cuenta publicitaria
+            </a>
+            <p className="mt-2.5 text-[10px] text-white/40">
+              Se hace una sola vez, desde Conexiones · tarda menos de un minuto
+            </p>
+          </div>
+        </div>
+
+        {/* Qué desbloquea */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+          {[
+            [
+              "bx-rocket",
+              "Lanza en minutos",
+              "Plantillas listas: producto, presupuesto, zonas y hasta 6 creativos por campaña.",
+            ],
+            [
+              "bx-shield-quarter",
+              "Presupuesto protegido",
+              "Reglas que apagan el anuncio que gasta sin vender y escalan el que sí.",
+            ],
+            [
+              "bx-target-lock",
+              "Atribución real",
+              "Cada anuncio queda vinculado a tu producto: el bot sabe qué vendes desde el primer clic.",
+            ],
+          ].map(([icon, t, d]) => (
+            <div key={t} className="px-6 py-5 text-center sm:text-left">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 ring-1 ring-indigo-100 grid place-items-center mx-auto sm:mx-0 mb-2.5">
+                <i className={`bx ${icon} text-indigo-600 text-lg`} />
+              </div>
+              <p className="text-xs font-extrabold text-slate-800">{t}</p>
+              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                {d}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -249,7 +350,7 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
     <div className="space-y-5">
       {/* HEADER DEL TAB */}
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-violet-500" />
+        <div className="h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-blue-500" />
         <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-50 ring-1 ring-indigo-200 grid place-items-center">
@@ -267,6 +368,13 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setReglasOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition"
+            >
+              <i className="bx bx-shield-quarter text-sm" />
+              Reglas automáticas
+            </button>
+            <button
               onClick={() => setShowHistorial((v) => !v)}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
             >
@@ -274,10 +382,12 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
               Historial ({lanzamientos.length})
             </button>
             <button
-              onClick={() => setWizard({ plantilla: null })}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow transition"
+              onClick={() => abrirWizard(null)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow transition"
             >
-              <i className="bx bx-plus text-sm" />
+              <i
+                className={`bx ${contextoCargando ? "bx-loader-alt animate-spin" : "bx-plus"} text-sm`}
+              />
               Nueva plantilla
             </button>
           </div>
@@ -431,8 +541,8 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
             ))}
           </div>
           <button
-            onClick={() => setWizard({ plantilla: null })}
-            className="mt-7 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-lg transition"
+            onClick={() => abrirWizard(null)}
+            className="mt-7 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg transition"
           >
             <i className="bx bx-plus text-lg" />
             Crear mi primera plantilla
@@ -509,7 +619,7 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                       {p.edad_min}-{p.edad_max} · {GENERO_LABEL[p.genero] || "Todos"}
                     </span>
                     {nCreativos > 1 && (
-                      <span className="px-2 py-0.5 rounded-full bg-violet-50 ring-1 ring-violet-200 text-violet-600">
+                      <span className="px-2 py-0.5 rounded-full bg-blue-50 ring-1 ring-blue-200 text-blue-600">
                         {nCreativos} creativos
                       </span>
                     )}
@@ -547,7 +657,7 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                     )}
                   </button>
                   <button
-                    onClick={() => setWizard({ plantilla: p })}
+                    onClick={() => abrirWizard(p)}
                     title="Editar"
                     className="p-2 rounded-xl text-slate-500 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
                   >
@@ -571,6 +681,38 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* REGLAS AUTOMÁTICAS (modal) */}
+      {reglasOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3">
+          <div className="w-full max-w-5xl h-[92vh] flex flex-col rounded-2xl bg-slate-50 shadow-2xl overflow-hidden">
+            <div className="bg-[#171931] text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/15 grid place-items-center">
+                  <i className="bx bx-shield-quarter" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold leading-tight">
+                    Reglas automáticas
+                  </h3>
+                  <p className="text-[10px] text-white/60">
+                    Corta lo que no vende y escala lo que sí — solo
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReglasOpen(false)}
+                className="p-2 rounded-lg hover:bg-white/10 transition"
+              >
+                <i className="bx bx-x text-xl" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+              <ReglasAutomaticas id_configuracion={id_configuracion} />
+            </div>
+          </div>
         </div>
       )}
 

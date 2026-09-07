@@ -50,6 +50,11 @@ export default function Glosario({ open, onToggle }) {
             </code>
             . Stripe cobra automático.
           </GlosarioItem>
+          <GlosarioItem term="Recurrentes (2+ cobros)">
+            Pagando Stripe a los que ya se les cobró de verdad 2 o más veces
+            (monto mayor a $0). La factura en $0 del trial no cuenta como cobro.
+            La tarjeta muestra aparte cuántos van por 3+.
+          </GlosarioItem>
           <GlosarioItem term="Trial Stripe">
             Tarjeta capturada, en periodo prueba. Stripe cobra al terminar.
           </GlosarioItem>

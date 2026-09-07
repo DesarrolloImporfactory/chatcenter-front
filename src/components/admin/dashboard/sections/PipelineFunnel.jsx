@@ -24,6 +24,13 @@ function EtapaCard({ etapa, idx, max, onOpen }) {
       border: "border-emerald-200",
       hover: "hover:border-emerald-400",
     },
+    violet: {
+      bg: "bg-violet-50",
+      bar: "bg-violet-500",
+      text: "text-violet-700",
+      border: "border-violet-200",
+      hover: "hover:border-violet-400",
+    },
   }[etapa.color];
   const widthPct = (etapa.value / max) * 100;
   return (
@@ -119,6 +126,23 @@ export default function PipelineFunnel({ resumen, onOpenDrawer }) {
       stat: `Aportan ${money0(resumen.mrr_stripe)} de MRR`,
       action: "Reducir churn, evitar cancelaciones",
     },
+    {
+      key: "recurrentes",
+      cat: "recurrentes",
+      label: "Recurrentes (2+ cobros)",
+      desc: "Pagando hoy y ya renovaron al menos una vez",
+      detalle:
+        "Clientes con suscripción activa a los que Stripe ya les cobró de verdad 2 o más veces (la factura en $0 del trial no cuenta). Son los que se quedaron después del primer mes: la base real del negocio.",
+      value: resumen.clientes_recurrentes ?? 0,
+      color: "violet",
+      icon: "bx-repeat",
+      stat:
+        resumen.recurrentes_disponible === false
+          ? "Sin datos: transacciones_stripe_chat no tiene la columna monto"
+          : `${num(resumen.clientes_recurrentes_3mas ?? 0)} ya van por 3+ cobros · ${num(resumen.clientes_primer_cobro ?? 0)} recién pagaron el 1.º`,
+      action:
+        "Cuidarlos: son los que menos cuesta retener y los que más refieren",
+    },
   ];
   const max = Math.max(...etapas.map((e) => e.value), 1);
   return (
@@ -128,7 +152,7 @@ export default function PipelineFunnel({ resumen, onOpenDrawer }) {
       subtitle="Cómo se mueven los clientes desde acceso gratuito hacia el pago recurrente"
     >
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           {etapas.map((e, idx) => (
             <EtapaCard
               key={e.key}

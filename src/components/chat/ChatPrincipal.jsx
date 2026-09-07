@@ -3304,7 +3304,13 @@ const ChatPrincipal = ({
 
             {/* Campo para enviar mensajes */}
             {!waNeedsTemplate && (
-              <div className="flex items-center gap-2 p-4 w-full border-t bg-gray-100 shrink-0">
+              <div className="relative flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 sm:p-4 w-full border-t bg-gray-100 shrink-0">
+                {/* `relative` + `flex-wrap`: en móvil el adjunto del atajo
+                    ocupa su propia fila (order-first + w-full) para que el
+                    textarea no quede aplastado; en sm+ vuelve a ir en línea.
+                    Los menús flotantes (emoji, +, /, //) se anclan con
+                    bottom-full a esta barra, así no se solapan aunque la
+                    barra crezca a dos filas. */}
                 <button
                   onClick={() => setEmojiOpen(!emojiOpen)}
                   className="border rounded-full p-2"
@@ -3313,13 +3319,16 @@ const ChatPrincipal = ({
                   😊
                 </button>
                 {emojiOpen && (
-                  <div className="absolute bottom-16" ref={emojiPickerRef}>
+                  <div
+                    className="absolute bottom-full left-2 mb-1 z-50"
+                    ref={emojiPickerRef}
+                  >
                     <EmojiPicker onEmojiClick={handleEmojiClick} />
                   </div>
                 )}
 
                 {isMenuOpen && (
-                  <div className="absolute bottom-[10%] left-[5%] bg-white border rounded shadow-lg p-2 w-32 z-10">
+                  <div className="absolute bottom-full left-4 mb-1 bg-white border rounded shadow-lg p-2 w-32 z-10">
                     <ul className="flex flex-col space-y-2 text-sm">
                       <li
                         className="cursor-pointer hover:bg-gray-200 p-1 rounded"
@@ -3382,7 +3391,7 @@ const ChatPrincipal = ({
                 </label>
 
                 {commandAttachment && (
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl border bg-white shadow-sm max-w-[380px]">
+                  <div className="order-first w-full sm:order-none sm:w-auto sm:max-w-[380px] flex items-center gap-2 px-2 py-1.5 rounded-xl border bg-white shadow-sm">
                     {/* Thumbnail fijo */}
                     <div
                       className="
@@ -3435,7 +3444,7 @@ const ChatPrincipal = ({
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   placeholder="Escribe un mensaje..."
-                  className="flex-1 p-2 border rounded resize-none overflow-y-auto leading-5"
+                  className="flex-1 min-w-0 p-2 border rounded resize-none overflow-y-auto leading-5"
                   ref={inputRef}
                   id="mensaje"
                   disabled={isChatBlocked}
@@ -3448,7 +3457,7 @@ const ChatPrincipal = ({
                 {isMetaCommandActive && selectedChat?.source === "wa" && (
                   <div
                     className="
-                    absolute left-0 right-0 bottom-16
+                    absolute left-0 right-0 bottom-full mb-1
                     z-50
                     w-[96%] sm:w-full sm:max-w-md
                     bg-white
@@ -3636,7 +3645,7 @@ const ChatPrincipal = ({
                 {isCommandActive && (
                   <div
                     className="
-                    absolute left-0 right-0 bottom-16
+                    absolute left-0 right-0 bottom-full mb-1
                     z-50
                     w-[96%] sm:w-full sm:max-w-md
                     bg-white

@@ -9,7 +9,6 @@ import AdsboardCampaignsTable from "./adsboard/AdsboardCampaignsTable";
 import AdsboardTopAdsTable from "./adsboard/AdsboardTopAdsTable";
 import AdsboardAttributionFunnel from "./adsboard/AdsboardAttributionFunnel";
 import AdsboardAttributionAds from "./adsboard/AdsboardAttributionAds";
-import AdsLauncherTab from "./adsboard/AdsLauncherTab";
 import DropiDailyMetricsTable from "../../pages/dropi/dropiboard/proporcional/DropiDailyMetricsTable";
 
 /**
@@ -231,14 +230,6 @@ const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
   ]);
 
   const currency = accountData?.currency || "USD";
-
-  // Piloto del Lanzador de campañas: visible solo para estas conexiones
-  // mientras se completan los permisos de páginas en Meta (verificación de
-  // acceso + pages_manage_ads). Dejar la lista vacía = visible para todos.
-  const LAUNCHER_PILOTO = [610];
-  const launcherVisible =
-    LAUNCHER_PILOTO.length === 0 ||
-    LAUNCHER_PILOTO.includes(Number(selectedConfigId));
 
   const handleChangeConfig = (id) => {
     setSelectedConfigId(id);
@@ -509,15 +500,6 @@ const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
                     icon: "bx-medal",
                     label: "Ads atribuidos",
                   },
-                  ...(launcherVisible
-                    ? [
-                        {
-                          key: "launcher",
-                          icon: "bx-rocket",
-                          label: "Lanzador",
-                        },
-                      ]
-                    : []),
                 ].map((t) => (
                   <button
                     key={t.key}
@@ -577,12 +559,6 @@ const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
                 id_configuracion={selectedConfigId}
                 onRefresh={fetchMarketingControl}
                 onRetry={fetchMarketingControl}
-              />
-            )}
-            {activeTab === "launcher" && launcherVisible && (
-              <AdsLauncherTab
-                id_configuracion={selectedConfigId}
-                currency={currency}
               />
             )}
           </>
