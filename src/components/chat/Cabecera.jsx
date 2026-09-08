@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { Fragment, useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
@@ -49,14 +49,48 @@ const Cabecera = ({
   const [estadoDropdownOpen, setEstadoDropdownOpen] = useState(false);
   const estadoDropdownRef = useRef(null);
 
-  // ─── 2) FETCH DE COLUMNAS KANBAN ─────────────────────────────────────────────
+  // ─── 2) FETCH DE COLUMNAS KANBAN (todos los tableros) ────────────────────────
+  // Tableros secundarios: el contacto puede estar en una columna de cada uno
+  // además de su estado principal. `estadosSecundarios` = { id_tablero: estado_db }.
+  const [tablerosKanban, setTablerosKanban] = useState([]);
+  const [estadosSecundarios, setEstadosSecundarios] = useState({});
   useEffect(() => {
     if (!id_configuracion) return;
     chatApi
-      .post("/kanban_columnas/listar", { id_configuracion })
-      .then(({ data }) => setEstadosKanban(data?.data || data || []))
+      .post("/kanban_columnas/listar", {
+        id_configuracion,
+        id_tablero: "todos",
+      })
+      .then(({ data }) => {
+        setEstadosKanban(data?.data || data || []);
+        setTablerosKanban(data?.tableros || []);
+      })
       .catch(console.error);
   }, [id_configuracion]);
+
+  useEffect(() => {
+    setEstadosSecundarios({});
+    if (!selectedChat?.id || !id_configuracion || !tablerosKanban.length)
+      return;
+    let vivo = true;
+    chatApi
+      .post("/clientes_chat_center/estados_tablero_cliente", {
+        id_cliente: selectedChat.id,
+        id_configuracion,
+      })
+      .then(({ data }) => {
+        if (!vivo) return;
+        const map = {};
+        (data?.data || []).forEach((r) => {
+          map[r.id_tablero] = r.estado_db;
+        });
+        setEstadosSecundarios(map);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [selectedChat?.id, id_configuracion, tablerosKanban.length]);
 
   // ─── 3) CERRAR DROPDOWN AL HACER CLICK FUERA ─────────────────────────────────
   useEffect(() => {
@@ -71,6 +105,29 @@ const Cabecera = ({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Sacar al contacto de un tablero secundario (el principal siempre tiene estado)
+  const handleQuitarDeTablero = async (idTablero) => {
+    if (!selectedChat?.id || idTablero == null) return;
+    setEstadoDropdownOpen(false);
+    setLoadingEstado(true);
+    try {
+      await chatApi.post("/clientes_chat_center/quitar_de_tablero", {
+        id_cliente: selectedChat.id,
+        id_tablero: idTablero,
+        id_configuracion,
+      });
+      setEstadosSecundarios((p) => {
+        const next = { ...p };
+        delete next[idTablero];
+        return next;
+      });
+    } catch (e) {
+      console.error("Error al quitar del tablero:", e);
+    } finally {
+      setLoadingEstado(false);
+    }
+  };
+
   // ─── 4) HANDLER PARA CAMBIAR ESTADO ──────────────────────────────────────────
   const handleChangeEstadoContacto = async (columna) => {
     if (!selectedChat?.id) return;
@@ -82,6 +139,15 @@ const Cabecera = ({
         nuevo_estado: columna.estado_db,
         id_configuracion,
       });
+
+      // Columna de un tablero secundario: no toca el estado principal
+      if (columna.id_tablero != null) {
+        setEstadosSecundarios((p) => ({
+          ...p,
+          [columna.id_tablero]: columna.estado_db,
+        }));
+        return;
+      }
 
       // Actualizar selectedChat local
       setSelectedChat((prev) => ({
@@ -372,8 +438,21 @@ const Cabecera = ({
       const now = new Date();
       const diff = expirationDate - now;
 
+      // Fechas ya formateadas para pintarlas junto al contador: el asesor de
+      // soporte necesita ver desde cuándo está inscrito y hasta cuándo vale.
+      const fmt = (d) =>
+        d.toLocaleDateString("es-EC", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+      const fechas = {
+        inscritoEl: fmt(subscriptionDate),
+        venceEl: fmt(expirationDate),
+      };
+
       if (diff <= 0) {
-        setTimeRemaining({ expired: true });
+        setTimeRemaining({ expired: true, ...fechas });
         return;
       }
 
@@ -384,7 +463,14 @@ const Cabecera = ({
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      setTimeRemaining({ days, hours, minutes, seconds, expired: false });
+      setTimeRemaining({
+        days,
+        hours,
+        minutes,
+        seconds,
+        expired: false,
+        ...fechas,
+      });
     };
 
     calculateTimeRemaining();
@@ -406,9 +492,12 @@ const Cabecera = ({
 
     setReiniciandoIA(true);
     try {
-      const { data } = await chatApi.post("/openai_assistants/eliminar_thread", {
-        id_cliente_chat_center: selectedChat.id,
-      });
+      const { data } = await chatApi.post(
+        "/openai_assistants/eliminar_thread",
+        {
+          id_cliente_chat_center: selectedChat.id,
+        },
+      );
 
       setOpcionesMenuOpen(false);
 
@@ -434,9 +523,7 @@ const Cabecera = ({
         setSelectedChat((prev) => (prev ? { ...prev, ...cambios } : prev));
         setMensajesAcumulados((prev) =>
           prev.map((c) =>
-            String(c.id) === String(selectedChat.id)
-              ? { ...c, ...cambios }
-              : c,
+            String(c.id) === String(selectedChat.id) ? { ...c, ...cambios } : c,
           ),
         );
       }
@@ -960,7 +1047,7 @@ const Cabecera = ({
               type="button"
               onClick={() => toggleMenu("integraciones")}
               className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                ([
+                [
                   "/canal-conexiones",
                   "/dropi",
                   "/aliclik",
@@ -968,7 +1055,7 @@ const Cabecera = ({
                   "/shopify",
                   "/api-metricas",
                 ].some((p) => location.pathname.startsWith(p)) &&
-                  !location.pathname.startsWith("/shopify/abandonados"))
+                !location.pathname.startsWith("/shopify/abandonados")
                   ? "bg-gray-200 font-semibold"
                   : ""
               }`}
@@ -1504,14 +1591,30 @@ const Cabecera = ({
                               ? "Vence hoy"
                               : `${timeRemaining.days}d`}
                         </span>
+
+                        {/* Inscripción y vencimiento de la membresía */}
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] text-slate-500"
+                          title={`Inscrito el ${timeRemaining.inscritoEl} · membresía válida hasta el ${timeRemaining.venceEl}`}
+                        >
+                          <i className="bx bx-calendar text-[12px] text-slate-400" />
+                          Inscrito {timeRemaining.inscritoEl}
+                          <span className="text-slate-300">·</span>
+                          {timeRemaining.expired ? "Venció" : "Vence"}{" "}
+                          {timeRemaining.venceEl}
+                        </span>
                       </>
                     )}
 
                     {/* Separador */}
                     <span className="text-slate-300">·</span>
 
-                    {/* Pill estado contacto */}
-                    <div className="relative" ref={estadoDropdownRef}>
+                    {/* Pill estado contacto (+ un pill por tablero secundario:
+                        quien trabaja con dos embudos ve las dos etapas acá) */}
+                    <div
+                      className="relative inline-flex items-center gap-1.5 flex-wrap"
+                      ref={estadoDropdownRef}
+                    >
                       <button
                         type="button"
                         onClick={() => setEstadoDropdownOpen((p) => !p)}
@@ -1553,6 +1656,55 @@ const Cabecera = ({
                         />
                       </button>
 
+                      {/* Etapa del contacto en cada tablero secundario */}
+                      {tablerosKanban.map((t) => {
+                        const estadoDb = estadosSecundarios[t.id];
+                        const col = estadoDb
+                          ? estadosKanban.find((c) => c.estado_db === estadoDb)
+                          : null;
+                        const color =
+                          col?.color_texto || col?.color || "#94a3b8";
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setEstadoDropdownOpen((p) => !p)}
+                            disabled={loadingEstado}
+                            title={
+                              col
+                                ? `Tablero ${t.nombre}: ${col.nombre} · clic para cambiar`
+                                : `El contacto no está en el tablero ${t.nombre} · clic para agregarlo`
+                            }
+                            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 shadow-sm text-[11px] font-semibold transition disabled:opacity-60 ${
+                              col
+                                ? "border-indigo-200 bg-indigo-50/60 text-slate-700 hover:bg-indigo-50"
+                                : "border-dashed border-slate-300 bg-white text-slate-400 hover:bg-slate-50"
+                            }`}
+                          >
+                            <i className="bx bx-columns text-[11px] text-indigo-400" />
+                            <span className="text-slate-500 font-medium">
+                              {t.nombre}:
+                            </span>
+                            {col ? (
+                              <>
+                                <span
+                                  className="h-1.5 w-1.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: color }}
+                                />
+                                <span
+                                  className="truncate max-w-[110px]"
+                                  style={{ color }}
+                                >
+                                  {col.nombre}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="italic">sin etapa</span>
+                            )}
+                          </button>
+                        );
+                      })}
+
                       {/* Dropdown estados (tu mismo dropdown) */}
                       {estadoDropdownOpen && (
                         <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[180px] max-w-[240px] rounded-2xl border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(2,6,23,0.28)] ring-1 ring-black/5 p-1.5 overflow-hidden">
@@ -1562,43 +1714,86 @@ const Cabecera = ({
                               Sin estados configurados
                             </div>
                           ) : (
-                            estadosKanban.map((col) => {
+                            estadosKanban.map((col, idx) => {
                               const color =
                                 col.color_texto || col.color || "#94a3b8";
+                              const idTab = col.id_tablero ?? null;
                               const isActive =
-                                selectedChat?.estado_contacto === col.estado_db;
+                                idTab === null
+                                  ? selectedChat?.estado_contacto ===
+                                    col.estado_db
+                                  : estadosSecundarios[idTab] === col.estado_db;
+                              // Cabecera de grupo cuando cambia de tablero
+                              const prevTab =
+                                idx > 0
+                                  ? (estadosKanban[idx - 1].id_tablero ?? null)
+                                  : undefined;
+                              const cabecera =
+                                tablerosKanban.length > 0 && prevTab !== idTab
+                                  ? idTab === null
+                                    ? "Principal"
+                                    : tablerosKanban.find(
+                                        (t) => Number(t.id) === Number(idTab),
+                                      )?.nombre || `Tablero ${idTab}`
+                                  : null;
                               return (
-                                <button
-                                  key={col.id || col.estado_db}
-                                  type="button"
-                                  onClick={() =>
-                                    handleChangeEstadoContacto(col)
-                                  }
-                                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] font-medium text-left transition-colors ${
-                                    isActive
-                                      ? "bg-slate-100 text-slate-900"
-                                      : "text-slate-700 hover:bg-slate-50"
-                                  }`}
-                                >
-                                  <span
-                                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                                    style={{ backgroundColor: color }}
-                                  />
-                                  <span
-                                    className="truncate"
-                                    style={{
-                                      color: isActive ? color : undefined,
-                                    }}
-                                  >
-                                    {col.nombre}
-                                  </span>
-                                  {isActive && (
-                                    <i
-                                      className="bx bx-check ml-auto text-[14px]"
-                                      style={{ color }}
-                                    />
+                                <Fragment key={col.id || col.estado_db}>
+                                  {cabecera && (
+                                    <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                                      <i
+                                        className={
+                                          idTab === null
+                                            ? "bx bx-star"
+                                            : "bx bx-columns"
+                                        }
+                                      />
+                                      {cabecera}
+                                      {idTab !== null &&
+                                        estadosSecundarios[idTab] && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleQuitarDeTablero(idTab)
+                                            }
+                                            title={`Quitar al contacto del tablero ${cabecera}`}
+                                            className="ml-auto normal-case tracking-normal font-semibold text-[10px] text-rose-500 hover:text-rose-700"
+                                          >
+                                            quitar
+                                          </button>
+                                        )}
+                                    </div>
                                   )}
-                                </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleChangeEstadoContacto(col)
+                                    }
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] font-medium text-left transition-colors ${
+                                      isActive
+                                        ? "bg-slate-100 text-slate-900"
+                                        : "text-slate-700 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    <span
+                                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                                      style={{ backgroundColor: color }}
+                                    />
+                                    <span
+                                      className="truncate"
+                                      style={{
+                                        color: isActive ? color : undefined,
+                                      }}
+                                    >
+                                      {col.nombre}
+                                    </span>
+                                    {isActive && (
+                                      <i
+                                        className="bx bx-check ml-auto text-[14px]"
+                                        style={{ color }}
+                                      />
+                                    )}
+                                  </button>
+                                </Fragment>
                               );
                             })
                           )}
