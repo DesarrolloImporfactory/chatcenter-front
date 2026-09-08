@@ -491,13 +491,46 @@ const EditorColumnas = ({
       return;
     }
 
+    /* Qué tan grande es el cambio: menor (7.0 → 7.1, una frase o una regla)
+       o salto de versión (7.x → 8.0, flujo nuevo). Los clientes ven el
+       número en su tablero, así que se decide en cada guardado. */
+    const { isConfirmed, isDenied } = await Swal.fire({
+      icon: "question",
+      title: "¿Qué tipo de cambio es?",
+      html: `
+        <div style="text-align:left;font-size:.88rem;line-height:1.6">
+          <p><strong>Cambio menor</strong> (v7.0 → v7.1): una frase, una regla, un ajuste de tono.</p>
+          <p><strong>Salto de versión</strong> (v7.x → v8.0): flujo nuevo o reestructura que cambia cómo vende el asistente.</p>
+        </div>`,
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Cambio menor (+0.1)",
+      denyButtonText: "Salto de versión",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#2563eb",
+      denyButtonColor: "#7c3aed",
+      width: 560,
+      ...Z_INDEX_FIX,
+    });
+    if (!isConfirmed && !isDenied) return;
+    const salto = isDenied ? "mayor" : "menor";
+
     setSaving(true);
     try {
-      await chatApi.post("/kanban_plantillas_admin/actualizar_data", {
-        id: plantillaId,
-        data: { columnas, setup },
+      const { data: resp } = await chatApi.post(
+        "/kanban_plantillas_admin/actualizar_data",
+        {
+          id: plantillaId,
+          data: { columnas, setup },
+          salto,
+        },
+      );
+      Toast.fire({
+        icon: "success",
+        title: resp?.version
+          ? `Plantilla guardada · v${resp.version}`
+          : "Plantilla guardada",
       });
-      Toast.fire({ icon: "success", title: "Plantilla guardada" });
       setDirty(false);
       const nuevosSnaps = {};
       columnas.forEach((c) => {

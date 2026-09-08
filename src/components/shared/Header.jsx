@@ -7,7 +7,7 @@ import AppSwitcher from "./AppSwitcher";
 import { globalLogout } from "../../utils/globalLogout";
 
 const Logo =
-  "https://imp-datas.s3.amazonaws.com/images/2026-01-05T17-03-06-774Z-LOGOS-IMPORSUIT.png";
+  "https://imp-datas.s3.amazonaws.com/images/2026-09-07T21-20-06-459Z-IMPORCHAT-02.png";
 
 const Header = ({ menuButtonRef, onToggleSlider }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -73,8 +73,12 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
         <AppSwitcher />
 
         {/* Logo centrado */}
-        <div className="absolute left-1/2 transform -translate-x-1/2">
-          <img src={Logo} alt="Logo de Imporsuit" className="h-8" />
+        <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
+          <img
+            src={Logo}
+            alt="Logo de Imporchat"
+            className="h-10 md:h-16 w-auto max-w-[180px] object-contain select-none"
+          />
         </div>
 
         {/* Usuario y menú a la derecha */}

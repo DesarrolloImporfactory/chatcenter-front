@@ -177,8 +177,14 @@ export default function Login() {
           return;
         }
 
-        const { estado, trial_end, id_plan, fecha_renovacion, permanente } =
-          userData;
+        const {
+          estado,
+          trial_end,
+          id_plan,
+          fecha_renovacion,
+          permanente,
+          en_gracia_cobro,
+        } = userData;
         const ahora = new Date();
 
         // Permanente → conexiones (con animación de bienvenida)
@@ -217,8 +223,14 @@ export default function Login() {
           return;
         }
 
-        // Plan vencido → planes
-        if (fecha_renovacion && ahora > new Date(fecha_renovacion)) {
+        // Plan vencido → planes. Salvo que el backend diga que está en la
+        // gracia de cobro (suscrito, fecha recién vencida, Stripe aún
+        // cobrando): ahí checkPlanActivo lo deja entrar y el login también.
+        if (
+          fecha_renovacion &&
+          ahora > new Date(fecha_renovacion) &&
+          !en_gracia_cobro
+        ) {
           navigate("/planes");
           return;
         }

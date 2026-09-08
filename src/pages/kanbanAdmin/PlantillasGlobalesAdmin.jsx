@@ -1069,6 +1069,12 @@ const PlantillaCard = ({
             </strong>{" "}
             con IA
           </span>
+          {plantilla.version != null && (
+            <span title="Versión publicada del prompt (menor +0.1, salto +1)">
+              <i className="bx bx-git-commit" style={{ marginRight: 4 }} />
+              <strong style={{ color: "#0f172a" }}>v{plantilla.version}</strong>
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {(plantilla.columnas_preview || []).slice(0, 8).map((c, i) => (
