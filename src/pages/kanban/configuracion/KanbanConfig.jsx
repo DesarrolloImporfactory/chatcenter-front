@@ -119,6 +119,19 @@ const KanbanConfig = () => {
   const [loadingCol, setLoadingCol] = useState(true);
   const [columnaActiva, setColumnaActiva] = useState(null);
   const [tabActiva, setTabActiva] = useState("columna");
+  // Ajustes del tablero a nivel de cuenta (llegan en `config` de /listar).
+  const [configKanban, setConfigKanban] = useState({ volver_al_cerrar: true });
+  const [guardandoConfig, setGuardandoConfig] = useState(false);
+
+  /* Tableros secundarios: el principal (null) es el de siempre y es el único
+     con IA, Dropi, remarketing y columna principal. Los secundarios son
+     embudos manuales donde un contacto puede estar además del principal. */
+  const [tableros, setTableros] = useState([]);
+  const [tableroActivo, setTableroActivo] = useState(null); // null | id
+  const esSecundario = tableroActivo !== null;
+  const nombreTableroActivo =
+    tableros.find((t) => Number(t.id) === Number(tableroActivo))?.nombre ||
+    "Principal";
 
   const [formCol, setFormCol] = useState(null);
 
@@ -182,11 +195,18 @@ const KanbanConfig = () => {
     try {
       const { data } = await chatApi.post("/kanban_columnas/listar", {
         id_configuracion,
+        id_tablero: tableroActivo,
       });
       if (data?.success) {
         const cols = data.data || [];
         setColumnas(cols);
-        if (cols.length && !columnaActiva) setColumnaActiva(cols[0].id);
+        setTableros(data.tableros || []);
+        if (data.config) setConfigKanban(data.config);
+        // Al cambiar de tablero la columna activa ya no está en la lista
+        if (!cols.some((c) => c.id === columnaActiva)) {
+          setColumnaActiva(cols[0]?.id ?? null);
+          setTabActiva("columna");
+        }
       }
     } catch {
       Toast.fire({ icon: "error", title: "Error cargando columnas" });
@@ -194,7 +214,168 @@ const KanbanConfig = () => {
       setLoadingCol(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id_configuracion]);
+  }, [id_configuracion, tableroActivo]);
+
+  // ── Tableros secundarios ─────────────────────────────────
+  const crearTablero = async () => {
+    const r = await Swal.fire({
+      title: "Nuevo tablero",
+      html: `<p style="font-size:.85rem;color:#64748b;margin:0 0 10px">Un embudo aparte del principal. Un contacto puede estar en una columna de cada tablero (ej. "Ecommerce" e "Importaciones").</p>`,
+      input: "text",
+      inputPlaceholder: "Ej: Ecommerce",
+      showCancelButton: true,
+      confirmButtonText: "Crear",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#6366f1",
+      inputValidator: (v) => (!v?.trim() ? "Escribe un nombre" : undefined),
+    });
+    if (!r.isConfirmed) return;
+    try {
+      const { data } = await chatApi.post("/kanban_columnas/tableros_crear", {
+        id_configuracion,
+        nombre: r.value.trim(),
+      });
+      if (data?.success) {
+        setTableros(data.tableros || []);
+        setTableroActivo(Number(data.id));
+        Toast.fire({ icon: "success", title: "Tablero creado" });
+      } else {
+        Toast.fire({ icon: "error", title: data?.message || "Error al crear" });
+      }
+    } catch (err) {
+      Toast.fire({
+        icon: "error",
+        title: err?.response?.data?.message || "Error al crear el tablero",
+      });
+    }
+  };
+
+  const renombrarTablero = async () => {
+    if (!esSecundario) return;
+    const r = await Swal.fire({
+      title: "Renombrar tablero",
+      input: "text",
+      inputValue: nombreTableroActivo,
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#6366f1",
+      inputValidator: (v) => (!v?.trim() ? "Escribe un nombre" : undefined),
+    });
+    if (!r.isConfirmed) return;
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_columnas/tableros_actualizar",
+        { id: tableroActivo, id_configuracion, nombre: r.value.trim() },
+      );
+      if (data?.success) {
+        setTableros(data.tableros || []);
+        Toast.fire({ icon: "success", title: "Tablero renombrado" });
+      }
+    } catch (err) {
+      Toast.fire({
+        icon: "error",
+        title: err?.response?.data?.message || "Error al renombrar",
+      });
+    }
+  };
+
+  const eliminarTablero = async () => {
+    if (!esSecundario) return;
+    if (columnas.length) {
+      Swal.fire({
+        icon: "info",
+        title: "El tablero tiene columnas",
+        text: "Muévelas al principal o elimínalas antes de borrar el tablero.",
+        confirmButtonColor: "#6366f1",
+      });
+      return;
+    }
+    const r = await Swal.fire({
+      title: `¿Eliminar "${nombreTableroActivo}"?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#ef4444",
+    });
+    if (!r.isConfirmed) return;
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_columnas/tableros_eliminar",
+        { id: tableroActivo, id_configuracion },
+      );
+      if (data?.success) {
+        setTableros(data.tableros || []);
+        setTableroActivo(null);
+        Toast.fire({ icon: "success", title: "Tablero eliminado" });
+      }
+    } catch (err) {
+      Toast.fire({
+        icon: "error",
+        title: err?.response?.data?.message || "Error al eliminar",
+      });
+    }
+  };
+
+  /* Cambia la columna seleccionada de tablero llevándose a sus contactos.
+     Al salir del principal, esos contactos vuelven a la columna principal y
+     quedan en la nueva columna del tablero destino. */
+  const moverColumnaATablero = async () => {
+    if (!columnaSeleccionada) return;
+    const opciones = {
+      principal: "Principal",
+      ...Object.fromEntries(tableros.map((t) => [String(t.id), t.nombre])),
+    };
+    delete opciones[esSecundario ? String(tableroActivo) : "principal"];
+    if (!Object.keys(opciones).length) {
+      Swal.fire({
+        icon: "info",
+        title: "No hay otro tablero",
+        text: "Crea un tablero primero con el botón «Nuevo tablero».",
+        confirmButtonColor: "#6366f1",
+      });
+      return;
+    }
+    const r = await Swal.fire({
+      title: `Mover "${columnaSeleccionada.nombre}" a…`,
+      html: `<p style="font-size:.85rem;color:#64748b;margin:0">Los contactos que están en esta columna se van con ella.${
+        !esSecundario
+          ? " En el tablero principal volverán a la columna principal."
+          : ""
+      }</p>`,
+      input: "select",
+      inputOptions: opciones,
+      inputPlaceholder: "Elige el tablero",
+      showCancelButton: true,
+      confirmButtonText: "Mover",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#6366f1",
+      inputValidator: (v) => (!v ? "Elige un tablero" : undefined),
+    });
+    if (!r.isConfirmed) return;
+    try {
+      const { data } = await chatApi.post("/kanban_columnas/mover_a_tablero", {
+        id: columnaSeleccionada.id,
+        id_configuracion,
+        id_tablero: r.value === "principal" ? null : Number(r.value),
+      });
+      if (data?.success) {
+        setColumnas(data.data || []);
+        setTableros(data.tableros || []);
+        setColumnaActiva(data.data?.[0]?.id ?? null);
+        Toast.fire({
+          icon: "success",
+          title: `Columna movida · ${data.contactos_movidos ?? 0} contacto(s)`,
+        });
+      }
+    } catch (err) {
+      Toast.fire({
+        icon: "error",
+        title: err?.response?.data?.message || "No se pudo mover",
+      });
+    }
+  };
 
   useEffect(() => {
     cargarColumnas();
@@ -339,7 +520,9 @@ const KanbanConfig = () => {
 
       await Swal.fire({
         icon: data?.success ? "success" : "warning",
-        title: data?.success ? "¡Tablero actualizado!" : "Actualización parcial",
+        title: data?.success
+          ? "¡Tablero actualizado!"
+          : "Actualización parcial",
         html: `<div style="font-size:.85rem;color:#475569">${data?.message || ""}</div>${extra}${extraMejoras}`,
         confirmButtonColor: "#6366f1",
       });
@@ -803,6 +986,49 @@ const KanbanConfig = () => {
     }
   };
 
+  /* Ajuste por cuenta: ¿cerrar un chat devuelve el contacto a la columna
+     principal? Vive en configuraciones, no en la columna, porque describe el
+     embudo completo (con bot: sí; atención/seguimiento sin bot: no). */
+  const guardarConfigKanban = async (campo, nuevo, titulo) => {
+    setGuardandoConfig(true);
+    try {
+      const { data } = await chatApi.post(
+        "/kanban_columnas/actualizar_config",
+        {
+          id_configuracion,
+          [campo]: nuevo,
+        },
+      );
+      if (data?.success) {
+        setConfigKanban(data.config || { ...configKanban, [campo]: nuevo });
+        Toast.fire({ icon: "success", title: titulo });
+      } else {
+        Toast.fire({
+          icon: "error",
+          title: data?.message || "Error al guardar",
+        });
+      }
+    } catch (err) {
+      Toast.fire({
+        icon: "error",
+        title: err?.response?.data?.message || "Error al guardar",
+      });
+    } finally {
+      setGuardandoConfig(false);
+    }
+  };
+
+  const toggleVolverAlCerrar = () => {
+    const nuevo = !configKanban.volver_al_cerrar;
+    guardarConfigKanban(
+      "volver_al_cerrar",
+      nuevo,
+      nuevo
+        ? "Los chats cerrados volverán a la columna principal"
+        : "Los chats cerrados se quedarán en su columna",
+    );
+  };
+
   const toggleDropiPrincipal = async () => {
     const esDropi = !!columnaSeleccionada?.es_dropi_principal;
     try {
@@ -846,6 +1072,7 @@ const KanbanConfig = () => {
     try {
       const { data } = await chatApi.post("/kanban_columnas/crear", {
         id_configuracion,
+        id_tablero: tableroActivo,
         ...formNueva,
       });
       if (data?.success) {
@@ -955,6 +1182,76 @@ const KanbanConfig = () => {
         }
       />
 
+      {/* ───── Tableros: principal + secundarios ─────
+           Cada tablero es un embudo. El principal es el de siempre; los
+           secundarios permiten que un mismo contacto esté en dos embudos
+           (ej. Ecommerce e Importaciones) sin tocar el estado que lee el bot. */}
+      <div className="mb-4 flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mr-1">
+          <i className="bx bx-layout mr-1" />
+          Tablero
+        </span>
+        {[{ id: null, nombre: "Principal" }, ...tableros].map((t) => {
+          const activo =
+            (t.id === null && tableroActivo === null) ||
+            (t.id !== null && Number(t.id) === Number(tableroActivo));
+          return (
+            <button
+              key={String(t.id)}
+              type="button"
+              onClick={() =>
+                !activo && setTableroActivo(t.id === null ? null : Number(t.id))
+              }
+              className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-full text-xs font-bold border transition ${
+                activo
+                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-indigo-300"
+              }`}
+            >
+              <i className={t.id === null ? "bx bx-star" : "bx bx-columns"} />
+              {t.nombre}
+              {t.id !== null && (
+                <span
+                  className={`text-[10px] rounded-full px-1.5 ${
+                    activo ? "bg-white/20" : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {t.columnas ?? 0}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={crearTablero}
+          className="h-8 inline-flex items-center gap-1 px-3 rounded-full text-xs font-bold border border-dashed border-indigo-300 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition"
+        >
+          <i className="bx bx-plus" /> Nuevo tablero
+        </button>
+        {esSecundario && (
+          <>
+            <span className="mx-1 h-5 w-px bg-slate-200" />
+            <button
+              type="button"
+              onClick={renombrarTablero}
+              title="Renombrar tablero"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 transition"
+            >
+              <i className="bx bx-pencil" />
+            </button>
+            <button
+              type="button"
+              onClick={eliminarTablero}
+              title="Eliminar tablero (debe estar vacío)"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+            >
+              <i className="bx bx-trash" />
+            </button>
+          </>
+        )}
+      </div>
+
       {/* ───── Aviso GLOBAL de actualización del tablero ─────
            Solo si hay tablero que actualizar: sin columnas no hay nada que
            resincronizar y el aviso confundía justo después de borrarlo. */}
@@ -992,7 +1289,26 @@ const KanbanConfig = () => {
         )}
 
       {/* ───── Body: empty hero o grid normal ───── */}
-      {columnas.length === 0 ? (
+      {columnas.length === 0 && esSecundario ? (
+        /* Tablero secundario vacío: acá no aplican las plantillas del
+           principal, solo crear columnas a mano. */
+        <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 p-10 text-center">
+          <i className="bx bx-columns text-4xl text-indigo-400" />
+          <div className="mt-2 font-bold text-slate-800">
+            El tablero «{nombreTableroActivo}» todavía no tiene columnas
+          </div>
+          <div className="mt-1 text-sm text-slate-500">
+            Crea las etapas de este embudo. También puedes mover columnas del
+            principal desde su pestaña «Tablero».
+          </div>
+          <button
+            onClick={() => setShowModalNueva(true)}
+            className="mt-4 h-9 inline-flex items-center gap-1.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition"
+          >
+            <i className="bx bx-plus text-base" /> Nueva columna
+          </button>
+        </div>
+      ) : columnas.length === 0 ? (
         <EmptyHeroKanban
           onCrearColumna={() => setShowModalNueva(true)}
           idConfiguracion={id_configuracion}
@@ -1035,6 +1351,18 @@ const KanbanConfig = () => {
               }}
             >
               Columnas ({columnas.length})
+              {tableros.length > 0 && (
+                <span
+                  style={{
+                    marginLeft: 6,
+                    color: "#6366f1",
+                    textTransform: "none",
+                    letterSpacing: 0,
+                  }}
+                >
+                  · {nombreTableroActivo}
+                </span>
+              )}
             </div>
             {columnas.map((col, index) => (
               <div
@@ -1310,48 +1638,51 @@ const KanbanConfig = () => {
                     icono: "bx bx-zap",
                     badge: acciones.length,
                   },
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setTabActiva(tab.key)}
-                    style={{
-                      padding: "13px 18px",
-                      border: "none",
-                      background: "transparent",
-                      fontSize: "0.87rem",
-                      fontWeight: tabActiva === tab.key ? 700 : 500,
-                      color: tabActiva === tab.key ? "#6366f1" : "#64748b",
-                      borderBottom:
-                        tabActiva === tab.key
-                          ? "2px solid #6366f1"
-                          : "2px solid transparent",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 7,
-                      transition: "all .12s",
-                      marginBottom: -1,
-                    }}
-                  >
-                    <i className={tab.icono} style={{ fontSize: "1rem" }} />
-                    {tab.label}
-                    {tab.badge > 0 && (
-                      <span
-                        style={{
-                          background: "#6366f1",
-                          color: "#fff",
-                          borderRadius: 999,
-                          fontSize: "0.68rem",
-                          padding: "0 5px",
-                          fontWeight: 700,
-                          lineHeight: "1.5",
-                        }}
-                      >
-                        {tab.badge}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                ]
+                  // Los tableros secundarios son embudos manuales: sin IA ni acciones
+                  .filter((tab) => !esSecundario || tab.key === "columna")
+                  .map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setTabActiva(tab.key)}
+                      style={{
+                        padding: "13px 18px",
+                        border: "none",
+                        background: "transparent",
+                        fontSize: "0.87rem",
+                        fontWeight: tabActiva === tab.key ? 700 : 500,
+                        color: tabActiva === tab.key ? "#6366f1" : "#64748b",
+                        borderBottom:
+                          tabActiva === tab.key
+                            ? "2px solid #6366f1"
+                            : "2px solid transparent",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 7,
+                        transition: "all .12s",
+                        marginBottom: -1,
+                      }}
+                    >
+                      <i className={tab.icono} style={{ fontSize: "1rem" }} />
+                      {tab.label}
+                      {tab.badge > 0 && (
+                        <span
+                          style={{
+                            background: "#6366f1",
+                            color: "#fff",
+                            borderRadius: 999,
+                            fontSize: "0.68rem",
+                            padding: "0 5px",
+                            fontWeight: 700,
+                            lineHeight: "1.5",
+                          }}
+                        >
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  ))}
               </div>
 
               {/* ── TAB COLUMNA ──────────────────────────────── */}
@@ -1485,34 +1816,19 @@ const KanbanConfig = () => {
                         desc="Aparece en el tablero"
                       />
                     </div>
-                    <div>
-                      <label style={lbl}>Comportamiento de IA</label>
-                      <SwitchRow
-                        label="Estado final"
-                        checked={!!formCol.es_estado_final}
-                        onChange={(v) =>
-                          setFormCol((p) => ({
-                            ...p,
-                            es_estado_final: v ? 1 : 0,
-                          }))
-                        }
-                        desc="Desactiva IA en esta columna"
-                        colorOn="#ef4444"
-                      />
-                    </div>
+                    {/* ── Tablero al que pertenece la columna ── */}
                     <div style={{ gridColumn: "1 / -1" }}>
-                      <label style={lbl}>Columna principal</label>
+                      <label style={lbl}>Tablero</label>
                       <div
                         style={{
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
+                          gap: 12,
                           padding: "10px 14px",
                           borderRadius: 12,
-                          border: `1px solid ${columnaSeleccionada?.es_principal ? "rgba(234,179,8,.3)" : "rgba(0,0,0,.07)"}`,
-                          background: columnaSeleccionada?.es_principal
-                            ? "rgba(234,179,8,.06)"
-                            : "#fafafa",
+                          border: "1px solid rgba(0,0,0,.07)",
+                          background: "#fafafa",
                           marginTop: 6,
                         }}
                       >
@@ -1528,16 +1844,12 @@ const KanbanConfig = () => {
                             }}
                           >
                             <i
-                              className="bx bx-star"
-                              style={{
-                                color: columnaSeleccionada?.es_principal
-                                  ? "#ca8a04"
-                                  : "#94a3b8",
-                              }}
+                              className={
+                                esSecundario ? "bx bx-columns" : "bx bx-star"
+                              }
+                              style={{ color: "#6366f1" }}
                             />
-                            {columnaSeleccionada?.es_principal
-                              ? "Esta es la columna principal"
-                              : "Marcar como columna principal"}
+                            {nombreTableroActivo}
                           </div>
                           <div
                             style={{
@@ -1546,76 +1858,230 @@ const KanbanConfig = () => {
                               marginTop: 2,
                             }}
                           >
-                            {columnaSeleccionada?.es_principal
-                              ? "Los chats cerrados regresarán a esta columna"
-                              : "Solo una columna puede ser la principal"}
+                            {esSecundario
+                              ? "Embudo manual: sin IA, Dropi ni remarketing. Un contacto puede estar aquí y en el principal a la vez."
+                              : "Es el tablero que leen el bot, el remarketing y las integraciones."}
                           </div>
                         </div>
-                        <ToggleSwitch
-                          checked={!!columnaSeleccionada?.es_principal}
-                          onChange={togglePrincipal}
-                          colorOn="#ca8a04"
-                        />
+                        <button
+                          type="button"
+                          onClick={moverColumnaATablero}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "8px 14px",
+                            borderRadius: 10,
+                            border: "1px solid rgba(99,102,241,.3)",
+                            background: "rgba(99,102,241,.06)",
+                            color: "#4338ca",
+                            fontWeight: 700,
+                            fontSize: "0.8rem",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <i className="bx bx-transfer-alt" />
+                          Mover a otro tablero
+                        </button>
                       </div>
                     </div>
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <label style={lbl}>Conexión principal de Dropi</label>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "10px 14px",
-                          borderRadius: 12,
-                          border: `1px solid ${columnaSeleccionada?.es_dropi_principal ? "rgba(234,88,12,.3)" : "rgba(0,0,0,.07)"}`,
-                          background: columnaSeleccionada?.es_dropi_principal
-                            ? "rgba(234,88,12,.06)"
-                            : "#fafafa",
-                          marginTop: 6,
-                        }}
-                      >
-                        <div>
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: "0.87rem",
-                              color: "#0f172a",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 7,
-                            }}
-                          >
-                            <i
-                              className="bx bx-package"
+
+                    {!esSecundario && (
+                      <div>
+                        <label style={lbl}>Comportamiento de IA</label>
+                        <SwitchRow
+                          label="Estado final"
+                          checked={!!formCol.es_estado_final}
+                          onChange={(v) =>
+                            setFormCol((p) => ({
+                              ...p,
+                              es_estado_final: v ? 1 : 0,
+                            }))
+                          }
+                          desc="Desactiva IA en esta columna"
+                          colorOn="#ef4444"
+                        />
+                      </div>
+                    )}
+                    {!esSecundario && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={lbl}>Columna principal</label>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 14px",
+                            borderRadius: 12,
+                            border: `1px solid ${columnaSeleccionada?.es_principal ? "rgba(234,179,8,.3)" : "rgba(0,0,0,.07)"}`,
+                            background: columnaSeleccionada?.es_principal
+                              ? "rgba(234,179,8,.06)"
+                              : "#fafafa",
+                            marginTop: 6,
+                          }}
+                        >
+                          <div>
+                            <div
                               style={{
-                                color: columnaSeleccionada?.es_dropi_principal
-                                  ? "#ea580c"
-                                  : "#94a3b8",
+                                fontWeight: 600,
+                                fontSize: "0.87rem",
+                                color: "#0f172a",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 7,
                               }}
-                            />
-                            {columnaSeleccionada?.es_dropi_principal
-                              ? "Esta es la conexión principal de Dropi"
-                              : "Marcar como conexión principal de Dropi"}
+                            >
+                              <i
+                                className="bx bx-star"
+                                style={{
+                                  color: columnaSeleccionada?.es_principal
+                                    ? "#ca8a04"
+                                    : "#94a3b8",
+                                }}
+                              />
+                              {columnaSeleccionada?.es_principal
+                                ? "Esta es la columna principal"
+                                : "Marcar como columna principal"}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "#64748b",
+                                marginTop: 2,
+                              }}
+                            >
+                              {columnaSeleccionada?.es_principal
+                                ? configKanban.volver_al_cerrar
+                                  ? "Los chats cerrados regresarán a esta columna"
+                                  : "Aquí entran los contactos nuevos (los chats cerrados se quedan donde están)"
+                                : "Solo una columna puede ser la principal"}
+                            </div>
                           </div>
-                          <div
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "#64748b",
-                              marginTop: 2,
-                            }}
-                          >
-                            {columnaSeleccionada?.es_dropi_principal
-                              ? "Columna de entrada de los clientes que llegan desde una orden de Shopify o landing: caen aquí ya con su pedido creado en Dropi (Pendiente confirmación), listos para que el bot les pida confirmar por WhatsApp antes de despachar."
-                              : "Solo una columna puede recibir los pedidos de Dropi (Shopify / landing)"}
-                          </div>
+                          <ToggleSwitch
+                            checked={!!columnaSeleccionada?.es_principal}
+                            onChange={togglePrincipal}
+                            colorOn="#ca8a04"
+                          />
                         </div>
-                        <ToggleSwitch
-                          checked={!!columnaSeleccionada?.es_dropi_principal}
-                          onChange={toggleDropiPrincipal}
-                          colorOn="#ea580c"
-                        />
+
+                        {/* Ajuste de toda la cuenta: qué pasa al cerrar un chat */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 14px",
+                            borderRadius: 12,
+                            border: "1px solid rgba(0,0,0,.07)",
+                            background: "#fafafa",
+                            marginTop: 8,
+                            opacity: guardandoConfig ? 0.6 : 1,
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                fontSize: "0.87rem",
+                                color: "#0f172a",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 7,
+                              }}
+                            >
+                              <i
+                                className="bx bx-undo"
+                                style={{
+                                  color: configKanban.volver_al_cerrar
+                                    ? "#ca8a04"
+                                    : "#94a3b8",
+                                }}
+                              />
+                              Al cerrar un chat, devolver el contacto a la
+                              columna principal
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "#64748b",
+                                marginTop: 2,
+                              }}
+                            >
+                              {configKanban.volver_al_cerrar
+                                ? "Activado: cerrar desde el chat reinicia el embudo (ideal con bot)."
+                                : "Apagado: el contacto conserva su columna aunque se cierre el chat (embudos de atención o seguimiento)."}
+                            </div>
+                          </div>
+                          <ToggleSwitch
+                            checked={!!configKanban.volver_al_cerrar}
+                            onChange={toggleVolverAlCerrar}
+                            colorOn="#ca8a04"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    {!esSecundario && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={lbl}>Conexión principal de Dropi</label>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 14px",
+                            borderRadius: 12,
+                            border: `1px solid ${columnaSeleccionada?.es_dropi_principal ? "rgba(234,88,12,.3)" : "rgba(0,0,0,.07)"}`,
+                            background: columnaSeleccionada?.es_dropi_principal
+                              ? "rgba(234,88,12,.06)"
+                              : "#fafafa",
+                            marginTop: 6,
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                fontSize: "0.87rem",
+                                color: "#0f172a",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 7,
+                              }}
+                            >
+                              <i
+                                className="bx bx-package"
+                                style={{
+                                  color: columnaSeleccionada?.es_dropi_principal
+                                    ? "#ea580c"
+                                    : "#94a3b8",
+                                }}
+                              />
+                              {columnaSeleccionada?.es_dropi_principal
+                                ? "Esta es la conexión principal de Dropi"
+                                : "Marcar como conexión principal de Dropi"}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "#64748b",
+                                marginTop: 2,
+                              }}
+                            >
+                              {columnaSeleccionada?.es_dropi_principal
+                                ? "Columna de entrada de los clientes que llegan desde una orden de Shopify o landing: caen aquí ya con su pedido creado en Dropi (Pendiente confirmación), listos para que el bot les pida confirmar por WhatsApp antes de despachar."
+                                : "Solo una columna puede recibir los pedidos de Dropi (Shopify / landing)"}
+                            </div>
+                          </div>
+                          <ToggleSwitch
+                            checked={!!columnaSeleccionada?.es_dropi_principal}
+                            onChange={toggleDropiPrincipal}
+                            colorOn="#ea580c"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div
                     style={{
@@ -1629,50 +2095,52 @@ const KanbanConfig = () => {
                     </button>
                   </div>
 
-                  {/* ── Remarketing ── */}
-                  <div
-                    style={{
-                      marginTop: 20,
-                      paddingTop: 20,
-                      borderTop: "1px solid rgba(0,0,0,.06)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 16,
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontSize: "0.9rem",
-                          color: "#0f172a",
-                        }}
-                      >
-                        <i
-                          className="bx bx-radar"
-                          style={{ marginRight: 7, color: "#6366f1" }}
-                        />
-                        Remarketing automático
+                  {/* ── Remarketing (solo tablero principal) ── */}
+                  {!esSecundario && (
+                    <div
+                      style={{
+                        marginTop: 20,
+                        paddingTop: 20,
+                        borderTop: "1px solid rgba(0,0,0,.06)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 16,
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "0.9rem",
+                            color: "#0f172a",
+                          }}
+                        >
+                          <i
+                            className="bx bx-radar"
+                            style={{ marginRight: 7, color: "#6366f1" }}
+                          />
+                          Remarketing automático
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748b",
+                            marginTop: 3,
+                          }}
+                        >
+                          Si el cliente no responde en esta etapa, se le enviará
+                          un mensaje automático.
+                        </div>
                       </div>
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#64748b",
-                          marginTop: 3,
-                        }}
-                      >
-                        Si el cliente no responde en esta etapa, se le enviará
-                        un mensaje automático.
-                      </div>
+                      <RemarketingColumna
+                        id_configuracion={id_configuracion}
+                        estado_db={columnaSeleccionada?.estado_db || ""}
+                        nombreColumna={columnaSeleccionada?.nombre || ""}
+                        columnas={columnas}
+                      />
                     </div>
-                    <RemarketingColumna
-                      id_configuracion={id_configuracion}
-                      estado_db={columnaSeleccionada?.estado_db || ""}
-                      nombreColumna={columnaSeleccionada?.nombre || ""}
-                      columnas={columnas}
-                    />
-                  </div>
+                  )}
 
                   {/* ── Zona peligrosa ── */}
                   <div style={{ marginTop: 32 }}>
@@ -2707,7 +3175,10 @@ const AccionCard = ({
                 <input
                   value={local.estado_solicitud || "por_agendar"}
                   onChange={(e) =>
-                    setLocal((p) => ({ ...p, estado_solicitud: e.target.value }))
+                    setLocal((p) => ({
+                      ...p,
+                      estado_solicitud: e.target.value,
+                    }))
                   }
                   style={{ ...inp, fontFamily: "monospace" }}
                   placeholder="por_agendar"

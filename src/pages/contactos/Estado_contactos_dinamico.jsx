@@ -40,8 +40,25 @@ const ORPHANS_COLUMN = {
   icono: "bx bx-error-circle",
   _esVirtual: true,
 };
-const LS_VISIBLES = (cfg) => `kanban_columnas_visibles_${cfg}`;
+// Las columnas visibles se recuerdan por tablero: cada embudo tiene las suyas.
+const LS_VISIBLES = (cfg, tablero = "principal") =>
+  `kanban_columnas_visibles_${cfg}${
+    tablero && tablero !== "principal" ? `_${tablero}` : ""
+  }`;
 const LS_HUERFANOS = (cfg) => `kanban_mostrar_huerfanos_${cfg}`;
+const LS_TABLERO = (cfg) => `kanban_tablero_activo_${cfg}`;
+
+// "principal" | "todos" | id numérico de un tablero secundario
+const esTableroConHuerfanos = (t) => t === "principal" || t === "todos";
+const idTableroParam = (t) => (t === "principal" ? null : t);
+
+// Fecha corta dd/mm/aaaa a partir de "YYYY-MM-DD" (sin pasar por Date: evita
+// que el huso horario corra un día).
+const fechaCorta = (ymd) => {
+  if (!ymd) return "";
+  const [y, m, d] = String(ymd).slice(0, 10).split("-");
+  return d && m && y ? `${d}/${m}/${y}` : ymd;
+};
 
 // ── Helpers visuales de tarjeta ────────────────────────────────
 const tiempoRelativo = (iso) => {
@@ -87,6 +104,15 @@ const Estado_contactos = () => {
   const [kanbanColumnas, setKanbanColumnas] = useState([]);
   const [loadingColumnas, setLoadingColumnas] = useState(true);
 
+  /* Tableros secundarios (un contacto puede estar en varios embudos). El
+     principal es el de siempre (estado_contacto); "todos" pinta las columnas
+     de todos los tableros juntas, así se ve al mismo cliente en "Imporchat"
+     y en "Primeros pasos" a la vez. */
+  const [tableros, setTableros] = useState([]);
+  const [tableroActivo, setTableroActivo] = useState("principal");
+  // Ajuste por cuenta: tarjetas con la membresía Imporsuit del contacto
+  const [mostrarMembresia, setMostrarMembresia] = useState(false);
+
   const [boardData, setBoardData] = useState({});
   const boardRef = useRef({});
   const [isLoading, setIsLoading] = useState(false);
@@ -126,8 +152,38 @@ const Estado_contactos = () => {
     const visibles = columnasVisibles
       ? kanbanColumnas.filter((c) => columnasVisibles.has(c.estado_db))
       : kanbanColumnas;
-    return mostrarHuerfanos ? [...visibles, ORPHANS_COLUMN] : visibles;
-  }, [kanbanColumnas, columnasVisibles, mostrarHuerfanos]);
+    // "Sin clasificar" solo tiene sentido mirando el tablero principal
+    return mostrarHuerfanos && esTableroConHuerfanos(tableroActivo)
+      ? [...visibles, ORPHANS_COLUMN]
+      : visibles;
+  }, [kanbanColumnas, columnasVisibles, mostrarHuerfanos, tableroActivo]);
+
+  // Nombre del tablero de una columna (para la etiqueta en la vista "Todos")
+  const nombreTablero = useCallback(
+    (idTablero) =>
+      idTablero == null
+        ? "Principal"
+        : tableros.find((t) => Number(t.id) === Number(idTablero))?.nombre ||
+          `Tablero ${idTablero}`,
+    [tableros],
+  );
+  const tableroDeColumna = useCallback(
+    (estadoDb) => {
+      if (estadoDb === ORPHANS_KEY) return null;
+      const c = kanbanColumnas.find((x) => x.estado_db === estadoDb);
+      return c?.id_tablero ?? null;
+    },
+    [kanbanColumnas],
+  );
+
+  const cambiarTablero = (t) => {
+    setTableroActivo(t);
+    setColumnasVisibles(null);
+    setBoardData({});
+    try {
+      localStorage.setItem(LS_TABLERO(id_configuracion), String(t));
+    } catch {}
+  };
 
   // ⭐ El término de búsqueda vive acá; fetchTodo lo aplica junto con los filtros
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
@@ -156,22 +212,46 @@ const Estado_contactos = () => {
     setId_configuracion(idc);
   }, [navigate]);
 
-  // ── 2. Cargar columnas ────────────────────────────────────
+  // Tablero recordado para esta cuenta
+  useEffect(() => {
+    if (!id_configuracion) return;
+    try {
+      const raw = localStorage.getItem(LS_TABLERO(id_configuracion));
+      if (!raw) return;
+      if (raw === "principal" || raw === "todos") setTableroActivo(raw);
+      else if (/^\d+$/.test(raw)) setTableroActivo(Number(raw));
+    } catch {}
+  }, [id_configuracion]);
+
+  // ── 2. Cargar columnas (del tablero activo) ───────────────
   const cargarColumnas = useCallback(async () => {
     if (!id_configuracion) return;
     setLoadingColumnas(true);
     try {
       const { data } = await chatApi.post("/kanban_columnas/listar", {
         id_configuracion,
+        id_tablero: idTableroParam(tableroActivo),
       });
-      if (data?.success)
+      if (data?.success) {
+        const lista = data.tableros || [];
+        setTableros(lista);
+        setMostrarMembresia(!!data.config?.mostrar_membresia);
+        // El tablero recordado ya no existe → volver al principal
+        if (
+          typeof tableroActivo === "number" &&
+          !lista.some((t) => Number(t.id) === tableroActivo)
+        ) {
+          setTableroActivo("principal");
+          return;
+        }
         setKanbanColumnas((data.data || []).filter((c) => c.activo));
+      }
     } catch {
       Toast.fire({ icon: "error", title: "Error al cargar columnas" });
     } finally {
       setLoadingColumnas(false);
     }
-  }, [id_configuracion]);
+  }, [id_configuracion, tableroActivo]);
 
   useEffect(() => {
     cargarColumnas();
@@ -182,7 +262,9 @@ const Estado_contactos = () => {
     if (!id_configuracion || !kanbanColumnas.length) return;
 
     try {
-      const raw = localStorage.getItem(LS_VISIBLES(id_configuracion));
+      const raw = localStorage.getItem(
+        LS_VISIBLES(id_configuracion, tableroActivo),
+      );
       if (raw) {
         const arr = JSON.parse(raw);
         const validas = arr.filter((k) =>
@@ -204,7 +286,7 @@ const Estado_contactos = () => {
       const raw = localStorage.getItem(LS_HUERFANOS(id_configuracion));
       if (raw !== null) setMostrarHuerfanos(raw === "1");
     } catch {}
-  }, [id_configuracion, kanbanColumnas]);
+  }, [id_configuracion, kanbanColumnas, tableroActivo]);
 
   // ── 3. Inicializar boardData al obtener columnas ──────────
   useEffect(() => {
@@ -239,7 +321,9 @@ const Estado_contactos = () => {
       return;
 
     const columnKeys = getColumnKeysVisibles();
-    const todasLasKeys = mostrarHuerfanos
+    const conHuerfanos =
+      mostrarHuerfanos && esTableroConHuerfanos(tableroActivo);
+    const todasLasKeys = conHuerfanos
       ? [...columnKeys, ORPHANS_KEY]
       : columnKeys;
 
@@ -271,12 +355,13 @@ const Estado_contactos = () => {
         "/clientes_chat_center/listar_contactos_estado_dinamico",
         {
           id_configuracion,
+          id_tablero: idTableroParam(tableroActivo),
           columnKeys,
           limit: LIMIT,
           cursors: {},
           search: searchObj,
           filtros,
-          include_orphans: mostrarHuerfanos,
+          include_orphans: conHuerfanos,
         },
       );
       if (!data?.success || !data?.data) {
@@ -295,6 +380,7 @@ const Estado_contactos = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     id_configuracion,
+    tableroActivo,
     kanbanColumnas,
     filtros,
     columnasVisibles,
@@ -357,6 +443,7 @@ const Estado_contactos = () => {
         "/clientes_chat_center/listar_contactos_estado_dinamico",
         {
           id_configuracion,
+          id_tablero: idTableroParam(tableroActivo),
           columnKeys: esHuerfano ? [] : [colKey],
           limit: LIMIT,
           cursors: { [colKey]: col.cursor || null },
@@ -405,22 +492,99 @@ const Estado_contactos = () => {
       setBoardData((p) => ({ ...p, [s]: { ...p[s], items: sList } }));
       return;
     }
-    const [moved] = sList.splice(source.index, 1);
-    eList.splice(destination.index, 0, moved);
-    setBoardData((p) => ({
-      ...p,
-      [s]: { ...p[s], items: sList },
-      [e]: { ...p[e], items: eList },
-    }));
+
+    /* Soltar sobre una columna de OTRO tablero no saca al contacto del
+       tablero de origen: lo agrega/mueve en el destino. Así, en la vista
+       "Todos", arrastrar de "Contacto inicial" a "Imporchat" (tablero
+       Ecommerce) deja al cliente en los dos embudos. Dentro del mismo
+       tablero se comporta como siempre: cambia de columna. */
+    const tS = tableroDeColumna(s);
+    const tE = tableroDeColumna(e);
+    const mismoTablero = tS === tE;
+    const moved = sList[source.index];
+    if (!moved) return;
+
+    if (mismoTablero) {
+      sList.splice(source.index, 1);
+      eList.splice(destination.index, 0, moved);
+      setBoardData((p) => ({
+        ...p,
+        [s]: { ...p[s], items: sList },
+        [e]: { ...p[e], items: eList },
+      }));
+    } else {
+      // Si ya estaba en otra columna del tablero destino, sale de ella
+      const otrasDelDestino = kanbanColumnas
+        .filter((c) => (c.id_tablero ?? null) === tE && c.estado_db !== e)
+        .map((c) => c.estado_db);
+      eList.splice(destination.index, 0, moved);
+      setBoardData((p) => {
+        const next = { ...p, [e]: { ...p[e], items: eList } };
+        otrasDelDestino.forEach((k) => {
+          if (!next[k]?.items?.some((x) => String(x.id) === String(moved.id)))
+            return;
+          next[k] = {
+            ...next[k],
+            items: next[k].items.filter(
+              (x) => String(x.id) !== String(moved.id),
+            ),
+            total: Math.max(0, (Number(next[k].total) || 1) - 1),
+          };
+        });
+        return next;
+      });
+    }
+
     try {
       await chatApi.post("/clientes_chat_center/actualizar_estado_dinamico", {
         id_cliente: moved.id,
         nuevo_estado: e,
         id_configuracion,
       });
-      Toast.fire({ icon: "success", title: "Estado actualizado" });
+      Toast.fire({
+        icon: "success",
+        title: mismoTablero
+          ? "Estado actualizado"
+          : `Agregado al tablero ${nombreTablero(tE)}`,
+      });
     } catch {
       Toast.fire({ icon: "error", title: "Error al actualizar estado" });
+    }
+  };
+
+  // Sacar a un contacto de un tablero secundario (no existe para el principal)
+  const quitarDeTablero = async (contacto, colKey) => {
+    const idTablero = tableroDeColumna(colKey);
+    if (idTablero == null) return;
+    const ok = await Swal.fire({
+      title: "¿Quitar del tablero?",
+      text: `${contacto.nombre_cliente || "El contacto"} dejará de aparecer en "${nombreTablero(idTablero)}". Su estado en el tablero principal no cambia.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, quitar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#ef4444",
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      await chatApi.post("/clientes_chat_center/quitar_de_tablero", {
+        id_cliente: contacto.id,
+        id_tablero: idTablero,
+        id_configuracion,
+      });
+      setBoardData((p) => ({
+        ...p,
+        [colKey]: {
+          ...p[colKey],
+          items: (p[colKey]?.items || []).filter(
+            (x) => String(x.id) !== String(contacto.id),
+          ),
+          total: Math.max(0, (Number(p[colKey]?.total) || 1) - 1),
+        },
+      }));
+      Toast.fire({ icon: "success", title: "Contacto quitado del tablero" });
+    } catch {
+      Toast.fire({ icon: "error", title: "No se pudo quitar" });
     }
   };
 
@@ -471,10 +635,7 @@ const Estado_contactos = () => {
      pantalla: con paginación de 20 el conteo visible mentía. */
   const totalContactos = useMemo(
     () =>
-      Object.values(boardData).reduce(
-        (a, c) => a + (Number(c?.total) || 0),
-        0,
-      ),
+      Object.values(boardData).reduce((a, c) => a + (Number(c?.total) || 0), 0),
     [boardData],
   );
 
@@ -491,12 +652,12 @@ const Estado_contactos = () => {
       setColumnasVisibles(nuevo);
       try {
         localStorage.setItem(
-          LS_VISIBLES(id_configuracion),
+          LS_VISIBLES(id_configuracion, tableroActivo),
           JSON.stringify([...nuevo]),
         );
       } catch {}
     },
-    [id_configuracion],
+    [id_configuracion, tableroActivo],
   );
 
   const handleMostrarHuerfanosChange = useCallback(
@@ -578,7 +739,10 @@ const Estado_contactos = () => {
           whiteSpace: "nowrap",
         }}
       >
-        <i className="bx bx-time-five" style={{ fontSize: 11, flexShrink: 0 }} />
+        <i
+          className="bx bx-time-five"
+          style={{ fontSize: 11, flexShrink: 0 }}
+        />
         {hace === "ahora"
           ? "Última actividad · ahora"
           : `Última actividad · hace ${hace}`}
@@ -589,11 +753,7 @@ const Estado_contactos = () => {
       <button
         onClick={(e) => {
           e.stopPropagation();
-          window.open(
-            `/chat/${contacto.id}`,
-            "_blank",
-            "noopener,noreferrer",
-          );
+          window.open(`/chat/${contacto.id}`, "_blank", "noopener,noreferrer");
         }}
         className="kanban-btn-abrir"
         style={{
@@ -641,6 +801,99 @@ const Estado_contactos = () => {
           ? contacto.estado_contacto
           : "(sin estado)"}
       </div>
+    );
+
+    /* Membresía Imporsuit: solo cuando la cuenta lo activó en /kanban_config
+       y el teléfono resolvió a un usuario. Si no hay cuenta Imporsuit detrás
+       del número, no se pinta nada (ni un campo vacío). */
+    const m = mostrarMembresia ? contacto.membresia : null;
+    const badgeMembresia = m && m.fecha_suscripcion && (
+      <div
+        title={`Inscrito el ${fechaCorta(m.fecha_suscripcion)} · membresía válida hasta el ${fechaCorta(m.vence_el)}${
+          m.plan_actual ? ` · plan ${m.plan_actual}` : ""
+        }`}
+        style={{
+          marginTop: 8,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          flexWrap: "wrap",
+          fontSize: "0.66rem",
+          fontWeight: 600,
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            color: "#475569",
+            background: "rgba(100,116,139,.09)",
+            borderRadius: 6,
+            padding: "2px 7px",
+          }}
+        >
+          <i className="bx bx-calendar" style={{ fontSize: 11 }} />
+          Inscrito {fechaCorta(m.fecha_suscripcion)}
+        </span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            borderRadius: 6,
+            padding: "2px 7px",
+            color: m.vencida
+              ? "#b91c1c"
+              : m.dias_restantes <= 15
+                ? "#b45309"
+                : "#047857",
+            background: m.vencida
+              ? "rgba(239,68,68,.10)"
+              : m.dias_restantes <= 15
+                ? "rgba(245,158,11,.12)"
+                : "rgba(16,185,129,.10)",
+          }}
+        >
+          <i
+            className={`bx ${m.vencida ? "bx-x-circle" : "bx-time-five"}`}
+            style={{ fontSize: 11 }}
+          />
+          {m.vencida
+            ? `Venció ${fechaCorta(m.vence_el)}`
+            : m.dias_restantes === 0
+              ? "Vence hoy"
+              : `Vence en ${m.dias_restantes} d · ${fechaCorta(m.vence_el)}`}
+        </span>
+      </div>
+    );
+
+    // En un tablero secundario el contacto se puede sacar del embudo
+    const enTableroSecundario = tableroDeColumna(colKey) != null;
+    const btnQuitarTablero = enTableroSecundario && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          quitarDeTablero(contacto, colKey);
+        }}
+        title={`Quitar de "${nombreTablero(tableroDeColumna(colKey))}"`}
+        style={{
+          border: "none",
+          background: "transparent",
+          padding: 0,
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 3,
+          fontSize: "0.68rem",
+          fontWeight: 600,
+          color: "#94a3b8",
+        }}
+      >
+        <i className="bx bx-log-out-circle" style={{ fontSize: 12 }} />
+        Quitar del tablero
+      </button>
     );
 
     const chipsRow = (contacto.producto_ad || etiquetas.length > 0) && (
@@ -820,6 +1073,7 @@ const Estado_contactos = () => {
 
         {badgeHuerfano}
         {chipsRow}
+        {badgeMembresia}
 
         {/* Pie: actividad en su propia línea y Abrir a lo ancho — no
             desborda la columna y es cómodo en celular */}
@@ -834,6 +1088,7 @@ const Estado_contactos = () => {
         >
           {tiempoSpan}
           {btnAbrir}
+          {btnQuitarTablero}
         </div>
       </div>
     );
@@ -1212,6 +1467,74 @@ const Estado_contactos = () => {
           </div>
         </div>
 
+        {/* ── Selector de tablero (solo si la cuenta tiene más de uno) ── */}
+        {tableros.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              flexWrap: "wrap",
+              marginBottom: "0.9rem",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                color: "#64748b",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginRight: 4,
+              }}
+            >
+              <i className="bx bx-layout" style={{ marginRight: 4 }} />
+              Tablero
+            </span>
+            {[
+              { key: "principal", nombre: "Principal", icono: "bx bx-star" },
+              ...tableros.map((t) => ({
+                key: Number(t.id),
+                nombre: t.nombre,
+                icono: "bx bx-columns",
+              })),
+              { key: "todos", nombre: "Todos", icono: "bx bx-grid-alt" },
+            ].map((t) => {
+              const activo = tableroActivo === t.key;
+              return (
+                <button
+                  key={String(t.key)}
+                  type="button"
+                  onClick={() => !activo && cambiarTablero(t.key)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border: `1px solid ${activo ? "#6366f1" : "rgba(15,23,42,.12)"}`,
+                    background: activo ? "#6366f1" : "#fff",
+                    color: activo ? "#fff" : "#334155",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    cursor: activo ? "default" : "pointer",
+                    transition: "all .12s",
+                  }}
+                >
+                  <i className={t.icono} style={{ fontSize: 13 }} />
+                  {t.nombre}
+                </button>
+              );
+            })}
+            {tableroActivo === "todos" && (
+              <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                Un contacto puede aparecer en una columna de cada tablero.
+                Arrástralo a otro tablero para agregarlo ahí.
+              </span>
+            )}
+          </div>
+        )}
+
         {/* ── Barra de filtros ──────────────────────────────── */}
         <KanbanFiltros
           id_configuracion={id_configuracion}
@@ -1338,6 +1661,28 @@ const Estado_contactos = () => {
                         >
                           {column.nombre}
                         </span>
+                        {tableroActivo === "todos" && !esHuerfano && (
+                          <span
+                            title={`Tablero: ${nombreTablero(column.id_tablero)}`}
+                            style={{
+                              fontSize: "0.62rem",
+                              fontWeight: 700,
+                              color: column.id_tablero ? "#4338ca" : "#64748b",
+                              background: column.id_tablero
+                                ? "rgba(99,102,241,.10)"
+                                : "rgba(100,116,139,.10)",
+                              borderRadius: 999,
+                              padding: "1px 7px",
+                              flexShrink: 0,
+                              maxWidth: 90,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {nombreTablero(column.id_tablero)}
+                          </span>
+                        )}
                         <span
                           style={{
                             fontSize: "0.7rem",
@@ -1398,52 +1743,50 @@ const Estado_contactos = () => {
                           });
                         }}
                       >
-                        {items.length > 0 ? (
-                          items.map((contacto, index) => (
-                            <Draggable
-                              key={contacto.id}
-                              draggableId={String(contacto.id)}
-                              index={index}
-                            >
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                >
-                                  {renderContactCard(
-                                    contacto,
-                                    colKey,
-                                    snapshot.isDragging,
-                                  )}
-                                </div>
-                              )}
-                            </Draggable>
-                          ))
-                        ) : (
-                          !isColLoading && (
-                            <div
-                              style={{
-                                border: "1.5px dashed rgba(100,116,139,.25)",
-                                borderRadius: 10,
-                                padding: "16px 8px",
-                                textAlign: "center",
-                                fontSize: "0.72rem",
-                                color: "#94a3b8",
-                              }}
-                            >
-                              <i
-                                className="bx bx-inbox"
+                        {items.length > 0
+                          ? items.map((contacto, index) => (
+                              <Draggable
+                                key={contacto.id}
+                                draggableId={String(contacto.id)}
+                                index={index}
+                              >
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                  >
+                                    {renderContactCard(
+                                      contacto,
+                                      colKey,
+                                      snapshot.isDragging,
+                                    )}
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))
+                          : !isColLoading && (
+                              <div
                                 style={{
-                                  fontSize: 18,
-                                  display: "block",
-                                  marginBottom: 2,
+                                  border: "1.5px dashed rgba(100,116,139,.25)",
+                                  borderRadius: 10,
+                                  padding: "16px 8px",
+                                  textAlign: "center",
+                                  fontSize: "0.72rem",
+                                  color: "#94a3b8",
                                 }}
-                              />
-                              Sin contactos
-                            </div>
-                          )
-                        )}
+                              >
+                                <i
+                                  className="bx bx-inbox"
+                                  style={{
+                                    fontSize: 18,
+                                    display: "block",
+                                    marginBottom: 2,
+                                  }}
+                                />
+                                Sin contactos
+                              </div>
+                            )}
                         {isColLoading && (
                           <div
                             style={{
