@@ -51,6 +51,38 @@ function MainLayout({ children }) {
   const [id_plataforma_conf, setId_plataforma_conf] = useState(null);
   const [canAccessCalendar, setCanAccessCalendar] = useState(null);
 
+  // ¿Esta cuenta tiene alguna página de Facebook conectada?
+  //
+  // La bandeja de comentarios no tiene sentido sin Messenger conectado: sin
+  // página no hay publicaciones que leer ni comentarios que responder, y la
+  // opción del menú solo llevaría a una pantalla vacía.
+  //
+  // Se consulta con `light=1`, el modo del endpoint que resuelve con puro SQL
+  // y NO llama a la Graph API. Importa: la cuota de Graph es de toda la app y
+  // se comparte con WhatsApp, así que un chequeo que corre en cada carga del
+  // layout no puede gastarla.
+  const [tieneMessenger, setTieneMessenger] = useState(false);
+
+  useEffect(() => {
+    if (!id_configuracion) return;
+    let vigente = true;
+    (async () => {
+      try {
+        const { data } = await chatApi.get("/messenger/pages/connections", {
+          params: { id_configuracion, light: 1 },
+        });
+        const hay = (data?.data || []).some((p) => p.status === "active");
+        if (vigente) setTieneMessenger(hay);
+      } catch {
+        // Un fallo acá no debe romper el menú: se asume que no hay conexión.
+        if (vigente) setTieneMessenger(false);
+      }
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, [id_configuracion]);
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -477,24 +509,30 @@ function MainLayout({ children }) {
               </span>
             </a>
 
-            {/* Comentarios de Facebook */}
-            {/* <a
-              href="/comentarios"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/comentarios"
-                  ? "bg-gray-200 font-semibold"
-                  : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                goTo("/comentarios");
-              }}
-            >
-              <i className="bx bx-message-rounded-dots text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Comentarios
-              </span>
-            </a> */}
+            {/* Comentarios de Facebook.
+                Dos condiciones: que haya una página conectada (sin eso la
+                pantalla sale vacía) y, por ahora, que sea la cuenta de pruebas
+                cfg=10 — la app nueva de Meta todavía no pasa App Review, así
+                que el resto de cuentas aún no puede responder comentarios. */}
+            {id_configuracion === 10 && tieneMessenger && (
+              <a
+                href="/comentarios"
+                className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                  location.pathname === "/comentarios"
+                    ? "bg-gray-200 font-semibold"
+                    : ""
+                }`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goTo("/comentarios");
+                }}
+              >
+                <i className="bx bx-message-rounded-dots text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                  Comentarios
+                </span>
+              </a>
+            )}
 
             {/* ====== Contactos ====== */}
             <button
