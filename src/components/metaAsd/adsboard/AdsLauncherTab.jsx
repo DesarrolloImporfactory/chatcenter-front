@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
-import LauncherWizardModal from "./LauncherWizardModal";
+import LauncherWizardModal, { AdPreview } from "./LauncherWizardModal";
+import MediaLightbox from "./MediaLightbox";
+import { creativosDePlantilla } from "./adsMedia";
 import ReglasAutomaticas from "../../../pages/campanias/ReglasAutomaticas";
 
 /**
@@ -233,6 +235,12 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
   // Activar/pausar la campaña completa de un lanzamiento (el porqué del
   // "en pausa": revisar en el Ads Manager sin gastar y prenderla desde aquí).
   const [togglingLanzamiento, setTogglingLanzamiento] = useState(null);
+
+  // Vista previa de una plantilla ya creada (sin abrir el editor): el anuncio
+  // como se verá en Facebook + WhatsApp, con todos sus creativos, y un
+  // lightbox para ver la imagen completa o reproducir el video.
+  const [previa, setPrevia] = useState(null); // { plantilla, idx }
+  const [lightbox, setLightbox] = useState(null);
   const handleToggleCampania = async (l, status) => {
     setTogglingLanzamiento(l.id);
     try {
@@ -337,7 +345,7 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
             [
               "bx-rocket",
               "Lanza en minutos",
-              "Plantillas listas: producto, presupuesto, zonas y hasta 6 creativos por campaña.",
+              "Plantillas listas: producto, presupuesto, zonas y hasta 10 creativos por campaña.",
             ],
             [
               "bx-shield-quarter",
@@ -577,6 +585,9 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
               if (g?.modo === "especifico" && g.lugares?.length) {
                 geoLabel = `${g.lugares.length} zona${g.lugares.length > 1 ? "s" : ""} · ${(g.paises || []).join(",")}`;
               }
+              if (Array.isArray(g?.excluir) && g.excluir.length) {
+                geoLabel += ` · −${g.excluir.length} excl.`;
+              }
             } catch {
               /* CSV de países como fallback */
             }
@@ -592,18 +603,34 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                 key={p.id}
                 className="rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col"
               >
-                {/* Imagen */}
-                <div className="h-36 bg-slate-100 relative">
+                {/* Imagen: abre la vista previa completa de la plantilla */}
+                <div
+                  className={`h-36 bg-slate-100 relative group ${nCreativos > 0 ? "cursor-pointer" : ""}`}
+                  onClick={() =>
+                    nCreativos > 0 && setPrevia({ plantilla: p, idx: 0 })
+                  }
+                  title={nCreativos > 0 ? "Ver vista previa del anuncio" : undefined}
+                >
                   {p.imagen_url ? (
                     <img
                       src={p.imagen_url}
                       alt={p.nombre}
                       className="w-full h-full object-cover"
                     />
+                  ) : nCreativos > 0 ? (
+                    <div className="w-full h-full bg-slate-800 grid place-items-center text-white/70">
+                      <i className="bx bx-video text-4xl" />
+                    </div>
                   ) : (
                     <div className="w-full h-full grid place-items-center text-slate-300">
                       <i className="bx bx-image text-4xl" />
                     </div>
+                  )}
+                  {nCreativos > 0 && (
+                    <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-black/60 group-hover:bg-indigo-600 text-white text-[10px] font-bold transition">
+                      <i className="bx bx-show" />
+                      Vista previa
+                    </span>
                   )}
                   <span
                     className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -731,8 +758,110 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
             <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
               <ReglasAutomaticas id_configuracion={id_configuracion} />
             </div>
+            <div className="px-5 py-3 border-t border-slate-200 bg-white flex items-center justify-between gap-3 shrink-0">
+              <p className="text-[11px] text-slate-500 leading-snug">
+                <i className="bx bx-check-shield text-emerald-600 mr-1" />
+                Cada regla que agregas o editas queda guardada al instante y
+                se aplica a todas tus campañas lanzadas desde aquí.
+              </p>
+              <button
+                type="button"
+                onClick={() => setReglasOpen(false)}
+                className="shrink-0 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow transition"
+              >
+                <i className="bx bx-check" />
+                Listo
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* VISTA PREVIA de una plantilla (sin abrir el editor) */}
+      {previa &&
+        (() => {
+          const p = previa.plantilla;
+          const creativos = creativosDePlantilla(p);
+          const formPrevia = {
+            texto_principal: p.texto_principal || "",
+            descripcion: p.descripcion || "",
+            mensaje_bienvenida: p.mensaje_bienvenida || "",
+            imagenes: creativos,
+          };
+          const titulo = p.producto_nombre || p.titulo || "";
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3"
+              onClick={() => setPrevia(null)}
+            >
+              <div
+                className="w-full max-w-md max-h-[94vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="bg-[#171931] text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-extrabold leading-tight truncate">
+                      {p.nombre}
+                    </h3>
+                    <p className="text-[10px] text-white/60">
+                      Vista previa · {creativos.length} creativo
+                      {creativos.length !== 1 ? "s" : ""} · toca la imagen
+                      para verla completa
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setPrevia(null)}
+                    className="p-2 rounded-lg hover:bg-white/10 transition"
+                  >
+                    <i className="bx bx-x text-xl" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 py-4 bg-slate-50">
+                  <AdPreview
+                    form={formPrevia}
+                    paginaNombre={p.page_name || null}
+                    tituloEfectivo={titulo}
+                    creativoIdx={previa.idx}
+                    onCambiarCreativo={(idx) =>
+                      setPrevia((v) => ({ ...v, idx }))
+                    }
+                    onVerMedia={setLightbox}
+                  />
+                </div>
+                <div className="px-4 py-3 border-t border-slate-100 bg-white flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      setPrevia(null);
+                      abrirWizard(p);
+                    }}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+                  >
+                    <i className="bx bx-edit-alt" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPrevia(null);
+                      handleLanzar(p);
+                    }}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 transition"
+                  >
+                    <i className="bx bx-rocket" />
+                    Lanzar
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {lightbox && (
+        <MediaLightbox
+          item={lightbox}
+          id_configuracion={id_configuracion}
+          titulo={previa?.plantilla?.nombre}
+          onClose={() => setLightbox(null)}
+        />
       )}
 
       {/* WIZARD */}
