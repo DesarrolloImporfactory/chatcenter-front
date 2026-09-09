@@ -22,6 +22,7 @@ import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
 import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 import EditarConexionModal from "./Modales/EditarConexionModal";
+import { comprobarPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 
 /* Cuentas a las que no se les muestra "Eliminar conexión" en el menú de la
    tarjeta. Ese botón no borra nada: llama a configuraciones/toggle_suspension y
@@ -1638,6 +1639,36 @@ const Conexiones = () => {
                                         </>,
                                         "Hay un inconveniente con el método de pago de tu cuenta de WhatsApp Business. Se soluciona en la facturación de Meta Business Suite (business.facebook.com). No es tu plan de la plataforma.",
                                       )}
+                                    {/* "Ya lo corregí": comprueba contra Meta
+                                        al instante (health_status) y, si ya
+                                        envía, quita el sello sin recargar.
+                                        stopPropagation: la tarjeta navega. */}
+                                    {!pagoActivo && (
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          const ok = await comprobarPagoMeta(
+                                            config.id,
+                                          );
+                                          if (ok) {
+                                            setConfiguracionAutomatizada(
+                                              (prev) =>
+                                                prev.map((c) =>
+                                                  c.id === config.id
+                                                    ? { ...c, metodo_pago: 1 }
+                                                    : c,
+                                                ),
+                                            );
+                                          }
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition"
+                                        title="Si ya corregiste la facturación en Meta, comprobamos ahora mismo si tu cuenta volvió a enviar."
+                                      >
+                                        <i className="bx bx-refresh text-[13px]" />
+                                        Ya lo corregí
+                                      </button>
+                                    )}
                                   </>
                                 )}
                           </div>
