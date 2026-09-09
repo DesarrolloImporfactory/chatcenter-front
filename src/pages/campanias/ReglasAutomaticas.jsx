@@ -274,8 +274,11 @@ const ReglasAutomaticas = ({ id_configuracion }) => {
         const d = data.data;
         Swal.fire({
           icon: "success",
-          title: "Motor ejecutado",
-          html: `Se evaluaron <strong>${d.evaluadas}</strong> entidades y se dispararon <strong>${d.disparos.length}</strong> acciones.`,
+          title: "Reglas revisadas",
+          html:
+            d.disparos.length > 0
+              ? `Se revisaron <strong>${d.evaluadas}</strong> anuncios/campañas y tus reglas actuaron en <strong>${d.disparos.length}</strong>. El detalle está en la bitácora.`
+              : `Se revisaron <strong>${d.evaluadas}</strong> anuncios/campañas y ninguna regla necesitó actuar por ahora. Se volverán a revisar solas cada 30 minutos.`,
           confirmButtonText: "Ver bitácora",
           customClass: { popup: "rounded-2xl" },
         });
@@ -507,16 +510,23 @@ const ReglasAutomaticas = ({ id_configuracion }) => {
           Nueva regla
         </button>
         {reglas.length > 0 && (
-          <button
-            onClick={ejecutarAhora}
-            disabled={ejecutando}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition disabled:opacity-60 ml-auto"
-          >
-            <i
-              className={`bx ${ejecutando ? "bx-loader-alt animate-spin" : "bx-play-circle"}`}
-            />
-            {ejecutando ? "Evaluando..." : "Ejecutar ahora"}
-          </button>
+          <div className="ml-auto flex items-center gap-2.5">
+            <span className="hidden sm:inline text-[10px] text-slate-400 text-right leading-tight max-w-[220px]">
+              Tus reglas se revisan solas cada 30 min. Esto las revisa ahora
+              mismo, sin esperar.
+            </span>
+            <button
+              onClick={ejecutarAhora}
+              disabled={ejecutando}
+              title="Evalúa tus reglas contra el gasto y los mensajes de hoy en este momento, en vez de esperar el próximo ciclo de 30 minutos"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition disabled:opacity-60"
+            >
+              <i
+                className={`bx ${ejecutando ? "bx-loader-alt animate-spin" : "bx-refresh"}`}
+              />
+              {ejecutando ? "Revisando..." : "Revisar reglas ahora"}
+            </button>
+          </div>
         )}
       </div>
 

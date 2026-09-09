@@ -1,7 +1,15 @@
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import React, {
+  useState,
+  useRef,
+  useMemo,
+  useEffect,
+  useCallback,
+} from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
 import ReglasAutomaticas from "../../../pages/campanias/ReglasAutomaticas";
+import MediaLightbox from "./MediaLightbox";
+import { fetchVideoInfo } from "./adsMedia";
 
 /**
  * LauncherWizardModal
@@ -10,7 +18,7 @@ import ReglasAutomaticas from "../../../pages/campanias/ReglasAutomaticas";
  * 1. Página y producto   2. Presupuesto y alcance
  * 3. Creativos           4. Revisar y lanzar
  *
- * Hasta 5 imágenes = hasta 5 anuncios (variaciones) dentro del mismo
+ * Hasta 10 creativos = hasta 10 anuncios (variaciones) dentro del mismo
  * conjunto: Meta reparte el presupuesto y concentra el gasto en el creativo
  * ganador, la práctica estándar del Ads Manager.
  *
@@ -26,9 +34,10 @@ const PASOS = [
   { n: 4, label: "Lanzar", icon: "bx-rocket" },
 ];
 
-// Meta permite hasta 50 anuncios por conjunto, pero recomienda máximo ~6
-// activos para que la fase de aprendizaje no se fragmente.
-const MAX_IMAGENES = 6;
+// Meta permite hasta 50 anuncios por conjunto. Se admiten 10 creativos por
+// plantilla (mismo tope que MAX_CREATIVOS en el backend); la UI recomienda
+// 3-6 activos para que la fase de aprendizaje no se fragmente.
+const MAX_IMAGENES = 10;
 
 const PAISES_SUGERIDOS = [
   { code: "EC", label: "Ecuador", flag: "🇪🇨" },
@@ -79,11 +88,22 @@ const Seccion = ({ icon, titulo, desc, children, className = "" }) => (
   </div>
 );
 
-/* ── Vista previa: publicación de feed + chat de WhatsApp ── */
-const AdPreview = ({ form, paginaNombre, tituloEfectivo }) => {
+/* ── Vista previa: publicación de feed + chat de WhatsApp ──
+   creativoIdx: qué variación se muestra (con varias, aparece una tira de
+   miniaturas para cambiar). onVerMedia(item): abre el creativo en grande. */
+export const AdPreview = ({
+  form,
+  paginaNombre,
+  tituloEfectivo,
+  creativoIdx = 0,
+  onCambiarCreativo,
+  onVerMedia,
+}) => {
   const inicial = (paginaNombre || "P").trim().charAt(0).toUpperCase();
-  const imagen = form.imagenes?.[0] || null;
   const nImagenes = form.imagenes?.length || 0;
+  const idx = Math.min(Math.max(0, creativoIdx), Math.max(0, nImagenes - 1));
+  const imagen = form.imagenes?.[idx] || null;
+  const clicable = !!(onVerMedia && imagen);
   return (
     <div className="space-y-4">
       <div>
@@ -115,7 +135,11 @@ const AdPreview = ({ form, paginaNombre, tituloEfectivo }) => {
               El texto principal de tu anuncio aparecerá aquí...
             </p>
           )}
-          <div className="relative">
+          <div
+            className={`relative ${clicable ? "cursor-zoom-in" : ""}`}
+            onClick={() => clicable && onVerMedia(imagen)}
+            title={clicable ? "Ver en grande" : undefined}
+          >
             {imagen?.url ? (
               <img
                 src={imagen.url}
@@ -151,10 +175,49 @@ const AdPreview = ({ form, paginaNombre, tituloEfectivo }) => {
             {nImagenes > 1 && (
               <span className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-black/60 text-white text-[10px] font-bold">
                 <i className="bx bx-images mr-1" />
-                {nImagenes} variaciones
+                V{idx + 1} de {nImagenes}
+              </span>
+            )}
+            {clicable && (
+              <span className="absolute bottom-2 right-2 w-7 h-7 rounded-lg bg-black/55 text-white grid place-items-center">
+                <i className="bx bx-expand-alt text-sm" />
               </span>
             )}
           </div>
+          {nImagenes > 1 && (
+            <div className="px-3 py-2 flex gap-1.5 overflow-x-auto border-t border-slate-100">
+              {form.imagenes.map((img, i) => (
+                <button
+                  key={img.hash || img.video_id || i}
+                  type="button"
+                  onClick={() => onCambiarCreativo?.(i)}
+                  className={`relative w-10 h-10 shrink-0 rounded-lg overflow-hidden ring-2 transition ${
+                    i === idx
+                      ? "ring-indigo-500"
+                      : "ring-transparent opacity-70 hover:opacity-100"
+                  }`}
+                  title={`Variación ${i + 1}`}
+                >
+                  {img.url ? (
+                    <img
+                      src={img.url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="w-full h-full bg-slate-800 grid place-items-center text-white/70">
+                      <i className="bx bx-video text-sm" />
+                    </span>
+                  )}
+                  {img.tipo === "video" && (
+                    <span className="absolute inset-0 grid place-items-center text-white text-xs">
+                      <i className="bx bx-play" />
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="px-3 py-2.5 flex items-center justify-between bg-slate-50 border-t border-slate-100">
             <div className="min-w-0">
               <p className="text-[9px] text-slate-400 uppercase">whatsapp</p>
@@ -260,6 +323,9 @@ const LauncherWizardModal = ({
         lugares: [],
       };
     }
+    // Plantillas anteriores al soporte de exclusión no traen la lista.
+    if (!Array.isArray(geo.lugares)) geo.lugares = [];
+    if (!Array.isArray(geo.excluir)) geo.excluir = [];
     let imagenes = [];
     try {
       const arr = plantilla?.imagenes_json
@@ -309,8 +375,30 @@ const LauncherWizardModal = ({
   });
 
   // Reglas de optimización: se aplican/crean en su propio modal (encima del
-  // wizard) para no estirar el paso 4.
+  // wizard) para no estirar el paso 4. El conteo de activas se muestra en el
+  // paso 4 para que el cliente sepa que quedaron guardadas.
   const [reglasOpen, setReglasOpen] = useState(false);
+  const [reglasActivas, setReglasActivas] = useState(null); // null = sin cargar
+  const cargarReglasActivas = useCallback(async () => {
+    try {
+      const { data } = await chatApi.get("/meta_ads/launcher/reglas", {
+        params: { id_configuracion },
+        silentError: true,
+      });
+      const lista = data?.success ? data.data || [] : [];
+      setReglasActivas(lista.filter((r) => Number(r.activa) === 1).length);
+    } catch {
+      setReglasActivas(null);
+    }
+  }, [id_configuracion]);
+  useEffect(() => {
+    if (step === 4 && reglasActivas === null) cargarReglasActivas();
+  }, [step, reglasActivas, cargarReglasActivas]);
+
+  // Creativo ampliado (imagen completa o video reproduciéndose) y cuál
+  // variación se muestra en la vista previa.
+  const [lightbox, setLightbox] = useState(null);
+  const [previewIdx, setPreviewIdx] = useState(0);
 
   const set = (campo, valor) => setForm((f) => ({ ...f, [campo]: valor }));
   const setGeo = (parcial) =>
@@ -380,7 +468,11 @@ const LauncherWizardModal = ({
 
   const agregarLugar = (l) => {
     if (form.geo.lugares.some((x) => x.key === l.key)) return;
-    setGeo({ lugares: [...form.geo.lugares, l] });
+    setGeo({
+      lugares: [...form.geo.lugares, l],
+      // Una zona no puede estar incluida y excluida a la vez.
+      excluir: (form.geo.excluir || []).filter((x) => x.key !== l.key),
+    });
     setGeoQ("");
     setGeoResultados([]);
   };
@@ -388,11 +480,69 @@ const LauncherWizardModal = ({
   const quitarLugar = (key) =>
     setGeo({ lugares: form.geo.lugares.filter((l) => l.key !== key) });
 
+  // Zonas excluidas: mismo buscador que las incluidas, pero para quitar
+  // provincias/ciudades del alcance ("todo el país menos Galápagos").
+  // Con varios países en modo "países completos", se elige en cuál buscar.
+  const [excluirQ, setExcluirQ] = useState("");
+  const [excluirResultados, setExcluirResultados] = useState([]);
+  const [excluirBuscando, setExcluirBuscando] = useState(false);
+  const [excluirPais, setExcluirPais] = useState(paisBase);
+  const paisExcluir = form.geo.paises.includes(excluirPais)
+    ? excluirPais
+    : paisBase;
+
+  useEffect(() => {
+    const q = excluirQ.trim();
+    if (q.length < 2) {
+      setExcluirResultados([]);
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      setExcluirBuscando(true);
+      try {
+        const { data } = await chatApi.get("/meta_ads/launcher/geo/buscar", {
+          params: { id_configuracion, q, pais: paisExcluir },
+          silentError: true,
+        });
+        setExcluirResultados(data?.success ? data.data || [] : []);
+      } catch {
+        setExcluirResultados([]);
+      } finally {
+        setExcluirBuscando(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [excluirQ, paisExcluir, id_configuracion]);
+
+  const agregarExcluir = (l) => {
+    if (form.geo.excluir.some((x) => x.key === l.key)) return;
+    if (form.geo.lugares.some((x) => x.key === l.key)) {
+      swalWarn(
+        `${l.name} ya está en las zonas incluidas. Quítala de ahí primero si quieres excluirla.`,
+      );
+      return;
+    }
+    setGeo({ excluir: [...form.geo.excluir, l] });
+    setExcluirQ("");
+    setExcluirResultados([]);
+  };
+
+  const quitarExcluir = (key) =>
+    setGeo({ excluir: form.geo.excluir.filter((l) => l.key !== key) });
+
   const togglePais = (code) => {
+    const quitando = form.geo.paises.includes(code);
     setGeo({
-      paises: form.geo.paises.includes(code)
+      paises: quitando
         ? form.geo.paises.filter((c) => c !== code)
         : [...form.geo.paises, code],
+      // Al quitar un país se van también sus zonas excluidas: Meta rechaza
+      // exclusiones fuera del alcance incluido.
+      excluir: quitando
+        ? (form.geo.excluir || []).filter(
+            (l) => l.country_code && l.country_code !== code,
+          )
+        : form.geo.excluir || [],
     });
   };
 
@@ -449,9 +599,10 @@ const LauncherWizardModal = ({
     }
     const esVideo = String(file.type).startsWith("video/");
     setSubiendoImg(true);
-    // Preview local inmediato para imágenes; el video usa la miniatura que
-    // genera Meta al procesarlo.
-    const previewLocal = esVideo ? null : URL.createObjectURL(file);
+    // Preview local inmediato: la imagen se muestra tal cual; el video se
+    // guarda como ObjectURL para reproducirlo en la vista previa sin
+    // esperar a que Meta lo procese (la miniatura de Meta llega después).
+    const previewLocal = URL.createObjectURL(file);
     try {
       const fd = new FormData();
       fd.append("archivo", file);
@@ -474,6 +625,7 @@ const LauncherWizardModal = ({
                 video_id: d.video_id,
                 thumb_url: d.thumb_url || null,
                 url: d.url || d.thumb_url || null,
+                local_url: previewLocal,
               }
             : {
                 tipo: "imagen",
@@ -481,6 +633,11 @@ const LauncherWizardModal = ({
                 url: d.url || previewLocal,
               };
         setForm((f) => ({ ...f, imagenes: [...f.imagenes, item] }));
+        // Meta procesa el video en segundo plano: si la miniatura aún no
+        // existía al subirlo, se vuelve a pedir unas veces hasta tenerla.
+        if (item.tipo === "video" && !item.thumb_url) {
+          reintentarMiniatura(item.video_id);
+        }
       } else {
         Swal.fire({
           icon: "error",
@@ -501,11 +658,38 @@ const LauncherWizardModal = ({
     }
   };
 
-  const quitarImagen = (idx) =>
+  const reintentarMiniatura = (video_id, intentos = 6) => {
+    let n = 0;
+    const tick = async () => {
+      n += 1;
+      try {
+        const info = await fetchVideoInfo(id_configuracion, video_id);
+        if (info?.picture) {
+          setForm((f) => ({
+            ...f,
+            imagenes: f.imagenes.map((img) =>
+              img.tipo === "video" && img.video_id === video_id && !img.thumb_url
+                ? { ...img, thumb_url: info.picture, url: info.picture }
+                : img,
+            ),
+          }));
+          return;
+        }
+      } catch {
+        /* se reintenta */
+      }
+      if (n < intentos) setTimeout(tick, 5000);
+    };
+    setTimeout(tick, 5000);
+  };
+
+  const quitarImagen = (idx) => {
     setForm((f) => ({
       ...f,
       imagenes: f.imagenes.filter((_, i) => i !== idx),
     }));
+    setPreviewIdx((i) => (i >= idx && i > 0 ? i - 1 : i));
+  };
 
   const guardar = async ({ lanzarDespues = false } = {}) => {
     if (!validarPaso(1) || !validarPaso(2)) return null;
@@ -624,7 +808,7 @@ const LauncherWizardModal = ({
         : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300"
     }`;
 
-  const resumenAlcance =
+  const resumenIncluidas =
     form.geo.modo === "especifico"
       ? form.geo.lugares.map((l) => l.name).join(", ")
       : form.geo.paises
@@ -632,6 +816,12 @@ const LauncherWizardModal = ({
             (c) => PAISES_SUGERIDOS.find((p) => p.code === c)?.label || c,
           )
           .join(", ");
+  const resumenExcluidas = (form.geo.excluir || [])
+    .map((l) => l.name)
+    .join(", ");
+  const resumenAlcance = resumenExcluidas
+    ? `${resumenIncluidas} (excepto ${resumenExcluidas})`
+    : resumenIncluidas;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3">
@@ -1111,7 +1301,11 @@ const LauncherWizardModal = ({
                           className={`${inputCls} !w-36`}
                           value={paisBase}
                           onChange={(e) =>
-                            setGeo({ paises: [e.target.value], lugares: [] })
+                            setGeo({
+                              paises: [e.target.value],
+                              lugares: [],
+                              excluir: [],
+                            })
                           }
                         >
                           {PAISES_SUGERIDOS.map((p) => (
@@ -1200,6 +1394,112 @@ const LauncherWizardModal = ({
                     </div>
                   )}
 
+                  {/* Zonas excluidas: aplica en los dos modos */}
+                  <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50/40 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] font-bold text-slate-700">
+                        <i className="bx bx-minus-circle text-rose-500 mr-1" />
+                        Excluir zonas
+                        <span className="ml-1.5 text-[9px] font-semibold text-slate-400">
+                          opcional
+                        </span>
+                      </p>
+                      {form.geo.excluir.length > 0 && (
+                        <span className="text-[9px] font-bold text-rose-600">
+                          {form.geo.excluir.length} excluida
+                          {form.geo.excluir.length > 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {form.geo.modo === "paises" &&
+                        form.geo.paises.length > 1 && (
+                          <select
+                            className={`${inputCls} !w-32`}
+                            value={paisExcluir}
+                            onChange={(e) => setExcluirPais(e.target.value)}
+                          >
+                            {form.geo.paises.map((c) => (
+                              <option key={c} value={c}>
+                                {PAISES_SUGERIDOS.find((p) => p.code === c)
+                                  ?.label || c}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      <div className="relative flex-1">
+                        <i
+                          className={`bx ${excluirBuscando ? "bx-loader-alt animate-spin" : "bx-search"} absolute left-3 top-1/2 -translate-y-1/2 text-slate-400`}
+                        />
+                        <input
+                          className={`${inputCls} pl-9`}
+                          value={excluirQ}
+                          onChange={(e) => setExcluirQ(e.target.value)}
+                          placeholder="Provincia o ciudad donde NO mostrar (ej: Galápagos...)"
+                        />
+                      </div>
+                    </div>
+                    {excluirQ.trim().length >= 2 && (
+                      <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2.5">
+                        {excluirResultados.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {excluirResultados.map((l) => (
+                              <button
+                                key={l.key}
+                                type="button"
+                                onClick={() => agregarExcluir(l)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border bg-white text-slate-600 border-slate-200 hover:border-rose-400 hover:bg-rose-50 transition"
+                              >
+                                <i
+                                  className={`bx ${l.type === "region" ? "bx-map-alt" : "bx-map-pin"} text-rose-400`}
+                                />
+                                {l.name}
+                                <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-slate-100 text-slate-500">
+                                  {l.type === "region" ? "Provincia" : "Ciudad"}
+                                </span>
+                                <i className="bx bx-minus text-rose-400" />
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-slate-400 px-1">
+                            {excluirBuscando
+                              ? "Buscando zonas..."
+                              : `Sin resultados para "${excluirQ}".`}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {form.geo.excluir.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {form.geo.excluir.map((l) => (
+                          <span
+                            key={l.key}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-rose-600 text-white text-[11px] font-semibold"
+                          >
+                            <i
+                              className={`bx ${l.type === "region" ? "bx-map-alt" : "bx-map-pin"}`}
+                            />
+                            {l.name}
+                            <button
+                              type="button"
+                              onClick={() => quitarExcluir(l.key)}
+                              className="ml-0.5 hover:text-rose-200"
+                              title="Volver a incluir"
+                            >
+                              <i className="bx bx-x" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 mt-2">
+                        Ej: todo el país menos las zonas donde tu
+                        transportadora no llega o devuelve mucho.
+                      </p>
+                    )}
+                  </div>
+
                   {/* Tips de alcance: llenan la columna con criterio real */}
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {[
@@ -1264,11 +1564,20 @@ const LauncherWizardModal = ({
                       className="hidden"
                       onChange={handleImagen}
                     />
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       {form.imagenes.map((img, idx) => (
                         <div
                           key={img.hash || img.video_id || idx}
-                          className="relative rounded-xl overflow-hidden border border-slate-200 group"
+                          className="relative rounded-xl overflow-hidden border border-slate-200 group cursor-zoom-in"
+                          onClick={() => {
+                            setPreviewIdx(idx);
+                            setLightbox(img);
+                          }}
+                          title={
+                            img.tipo === "video"
+                              ? "Reproducir video"
+                              : "Ver en grande"
+                          }
                         >
                           {img.url ? (
                             <img
@@ -1276,9 +1585,22 @@ const LauncherWizardModal = ({
                               alt={`Variación ${idx + 1}`}
                               className="w-full aspect-square object-cover"
                             />
+                          ) : img.local_url ? (
+                            <video
+                              src={img.local_url}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="w-full aspect-square object-cover bg-slate-800"
+                            />
                           ) : (
                             <div className="w-full aspect-square bg-slate-800 grid place-items-center text-white/70">
-                              <i className="bx bx-video text-3xl" />
+                              <div className="text-center">
+                                <i className="bx bx-loader-alt animate-spin text-2xl" />
+                                <p className="text-[8px] mt-1 font-semibold">
+                                  Meta procesa el video
+                                </p>
+                              </div>
                             </div>
                           )}
                           {img.tipo === "video" && (
@@ -1294,7 +1616,10 @@ const LauncherWizardModal = ({
                           </span>
                           <button
                             type="button"
-                            onClick={() => quitarImagen(idx)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              quitarImagen(idx);
+                            }}
                             className="absolute top-1.5 right-1.5 w-6 h-6 rounded-lg bg-black/60 text-white grid place-items-center hover:bg-rose-600 transition"
                             title="Quitar creativo"
                           >
@@ -1331,23 +1656,11 @@ const LauncherWizardModal = ({
                     </div>
                     <p className="text-[10px] text-slate-400 mt-2">
                       Imágenes 1080×1080 (máx 8 MB) o videos MP4 verticales
-                      (máx 64 MB). Probar 3-5 ángulos distintos del producto
-                      es lo que mejor funciona.
+                      (máx 64 MB). Hasta {MAX_IMAGENES} variaciones; probar
+                      3-6 ángulos distintos del producto es lo que mejor
+                      funciona. Toca un creativo para verlo en grande o
+                      reproducir el video.
                     </p>
-                  </Seccion>
-
-                  <Seccion
-                    icon="bxl-whatsapp"
-                    titulo="Mensaje de entrada a WhatsApp"
-                    desc="Se autocompleta al tocar el anuncio; tu bot lo recibe como primer mensaje."
-                  >
-                    <textarea
-                      className={`${inputCls} min-h-[60px]`}
-                      value={form.mensaje_bienvenida}
-                      onChange={(e) =>
-                        set("mensaje_bienvenida", e.target.value)
-                      }
-                    />
                   </Seccion>
                 </div>
 
@@ -1426,6 +1739,34 @@ const LauncherWizardModal = ({
                           placeholder="Ej: Pago contra entrega"
                           maxLength={255}
                         />
+                      </div>
+
+                      {/* Mensaje de entrada: va junto a los textos (y no en
+                          la columna de creativos) para que no pase
+                          desapercibido: es lo primero que recibe el bot. */}
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                        <div className="flex items-center justify-between">
+                          <label className={`${labelCls} !mb-0 text-emerald-800`}>
+                            <i className="bx bxl-whatsapp text-emerald-600 mr-1" />
+                            Mensaje de entrada a WhatsApp
+                          </label>
+                          <span className="text-[9px] text-emerald-600 font-semibold">
+                            lo escribe el cliente al tocar el anuncio
+                          </span>
+                        </div>
+                        <textarea
+                          className={`${inputCls} min-h-[60px] mt-1.5 border-emerald-200`}
+                          value={form.mensaje_bienvenida}
+                          onChange={(e) =>
+                            set("mensaje_bienvenida", e.target.value)
+                          }
+                          placeholder="Hola, vi su anuncio y quiero más información"
+                        />
+                        <p className="text-[10px] text-emerald-700/80 mt-1 leading-snug">
+                          Se autocompleta en el chat cuando el cliente toca el
+                          botón. Tu bot lo recibe como primer mensaje y
+                          arranca la conversación al instante.
+                        </p>
                       </div>
                     </div>
                   </Seccion>
@@ -1554,8 +1895,28 @@ const LauncherWizardModal = ({
                         className="mt-4 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition"
                       >
                         <i className="bx bx-shield-quarter" />
-                        Aplicar reglas de optimización
+                        {reglasActivas > 0
+                          ? "Revisar reglas de optimización"
+                          : "Aplicar reglas de optimización"}
                       </button>
+                      <p
+                        className={`mt-2 text-[10px] text-center font-semibold ${
+                          reglasActivas > 0 ? "text-emerald-600" : "text-slate-400"
+                        }`}
+                      >
+                        {reglasActivas === null ? (
+                          "Cargando tus reglas..."
+                        ) : reglasActivas > 0 ? (
+                          <>
+                            <i className="bx bx-check-circle mr-1" />
+                            {reglasActivas} regla{reglasActivas > 1 ? "s" : ""}{" "}
+                            activa{reglasActivas > 1 ? "s" : ""} cuidará
+                            {reglasActivas > 1 ? "n" : ""} esta campaña
+                          </>
+                        ) : (
+                          "Sin reglas: la campaña corre libre hasta que la pauses tú"
+                        )}
+                      </p>
                     </Seccion>
 
                     <Seccion
@@ -1567,13 +1928,13 @@ const LauncherWizardModal = ({
                           {
                             v: "PAUSED",
                             label: "En pausa",
-                            desc: "La revisas antes de que gaste",
+                            desc: "Se crea apagada: no gasta hasta que la enciendas tú",
                             icon: "bx-pause-circle",
                           },
                           {
                             v: "ACTIVE",
                             label: "Activa",
-                            desc: "Pasa revisión de Meta y corre",
+                            desc: "Pasa revisión de Meta y arranca sola",
                             icon: "bx-play-circle",
                           },
                         ].map((o) => (
@@ -1657,6 +2018,63 @@ const LauncherWizardModal = ({
                         </>
                       )}
 
+                      {/* Qué va a pasar exactamente con la combinación
+                          elegida: sin esto, "programada + en pausa" se
+                          leía como si fuera a arrancar sola. */}
+                      {(() => {
+                        const fecha = form.inicio_at
+                          ? form.inicio_at.replace("T", " a las ")
+                          : null;
+                        const activa = form.estado_inicial === "ACTIVE";
+                        if (activa && !fecha) {
+                          return (
+                            <div className="mt-3 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 px-3 py-2.5 text-[11px] text-emerald-800 leading-relaxed">
+                              <i className="bx bx-play-circle mr-1" />
+                              <strong>Arranca sola:</strong> en cuanto Meta
+                              apruebe los anuncios (normalmente en minutos u
+                              horas) empieza a mostrarse y a gastar.
+                            </div>
+                          );
+                        }
+                        if (activa && fecha) {
+                          return (
+                            <div className="mt-3 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 px-3 py-2.5 text-[11px] text-emerald-800 leading-relaxed">
+                              <i className="bx bx-time-five mr-1" />
+                              <strong>Arranca sola el {fecha}.</strong> Se crea
+                              y pasa revisión ahora, pero no muestra anuncios
+                              ni gasta antes de esa hora.
+                            </div>
+                          );
+                        }
+                        if (!activa && !fecha) {
+                          return (
+                            <div className="mt-3 rounded-xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2.5 text-[11px] text-slate-600 leading-relaxed">
+                              <i className="bx bx-pause-circle mr-1" />
+                              <strong>Queda en pausa, como borrador:</strong>{" "}
+                              no gasta nada. La enciendes desde el historial
+                              de lanzamientos o el Ads Manager cuando quieras.
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="mt-3 rounded-xl bg-amber-50 ring-1 ring-amber-200 px-3 py-2.5 text-[11px] text-amber-800 leading-relaxed">
+                            <i className="bx bx-error mr-1" />
+                            <strong>Ojo: no arrancará sola el {fecha}.</strong>{" "}
+                            Está en pausa, así que aunque tenga hora programada
+                            se queda apagada hasta que la enciendas tú. Si
+                            quieres que arranque sola a esa hora, elígela
+                            activa.
+                            <button
+                              type="button"
+                              onClick={() => set("estado_inicial", "ACTIVE")}
+                              className="mt-2 block w-full px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-amber-500 hover:bg-amber-600 transition"
+                            >
+                              <i className="bx bx-play-circle mr-1" />
+                              Cambiar a activa y que arranque el {fecha}
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </Seccion>
                   </div>
                 </div>
@@ -1667,6 +2085,9 @@ const LauncherWizardModal = ({
                     form={form}
                     paginaNombre={paginaNombre}
                     tituloEfectivo={tituloEfectivo}
+                    creativoIdx={previewIdx}
+                    onCambiarCreativo={setPreviewIdx}
+                    onVerMedia={setLightbox}
                   />
                 </div>
               </div>
@@ -1679,6 +2100,9 @@ const LauncherWizardModal = ({
               form={form}
               paginaNombre={paginaNombre}
               tituloEfectivo={tituloEfectivo}
+              creativoIdx={previewIdx}
+              onCambiarCreativo={setPreviewIdx}
+              onVerMedia={setLightbox}
             />
           </div>
         </div>
@@ -1754,7 +2178,10 @@ const LauncherWizardModal = ({
                 </div>
               </div>
               <button
-                onClick={() => setReglasOpen(false)}
+                onClick={() => {
+                  setReglasOpen(false);
+                  cargarReglasActivas();
+                }}
                 className="p-2 rounded-lg hover:bg-white/10 transition"
               >
                 <i className="bx bx-x text-xl" />
@@ -1763,8 +2190,38 @@ const LauncherWizardModal = ({
             <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
               <ReglasAutomaticas id_configuracion={id_configuracion} />
             </div>
+            {/* Pie: las reglas se guardan solas al agregarlas; este botón
+                existe para que quede claro que ya están y volver al paso 4. */}
+            <div className="px-5 py-3 border-t border-slate-200 bg-white flex items-center justify-between gap-3 shrink-0">
+              <p className="text-[11px] text-slate-500 leading-snug">
+                <i className="bx bx-check-shield text-emerald-600 mr-1" />
+                Cada regla que agregas o editas queda guardada al instante y
+                se aplica a todas tus campañas lanzadas desde aquí.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setReglasOpen(false);
+                  cargarReglasActivas();
+                }}
+                className="shrink-0 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow transition"
+              >
+                <i className="bx bx-check" />
+                Listo, volver a la campaña
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Creativo en grande / video reproduciéndose */}
+      {lightbox && (
+        <MediaLightbox
+          item={lightbox}
+          id_configuracion={id_configuracion}
+          titulo={tituloEfectivo || form.nombre}
+          onClose={() => setLightbox(null)}
+        />
       )}
     </div>
   );
