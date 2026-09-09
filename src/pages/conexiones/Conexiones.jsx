@@ -22,6 +22,7 @@ import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
 import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 import EditarConexionModal from "./Modales/EditarConexionModal";
+import { comprobarPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 
 /* Cuentas a las que no se les muestra "Eliminar conexión" en el menú de la
    tarjeta. Ese botón no borra nada: llama a configuraciones/toggle_suspension y
@@ -470,22 +471,17 @@ const Conexiones = () => {
 
   const [adsConnectingId, setAdsConnectingId] = useState(null);
 
-  // Conectar Meta Ads
-  const handleConectarMetaAds = useCallback(
-    (config) => {
-      if (!window.FB) {
-        setStatusMessage({
-          type: "error",
-          text: "El SDK de Facebook aún no está listo.",
-        });
-        return;
-      }
-      setAdsConnectingId(config.id);
-      window.FB.login(
-        (response) => {
-          (async () => {
+  /**
+   * Todo lo que pasa DESPUÉS de tener el `code`: intercambio, elección de
+   * cuenta publicitaria y confirmación.
+   *
+   * Se extrajo del callback de FB.login porque ahora hay dos formas de llegar
+   * hasta acá —el popup del SDK y la vuelta de la redirección— y las dos
+   * terminan en el mismo sitio.
+   */
+  const procesarCodeAds = useCallback(
+    async (code, idConfiguracion) => {
             try {
-              const code = response?.authResponse?.code;
               if (!code) {
                 setAdsConnectingId(null);
                 return;
@@ -493,7 +489,7 @@ const Conexiones = () => {
 
               const { data } = await chatApi.post("/meta_ads/conectar", {
                 code,
-                id_configuracion: config.id,
+                id_configuracion: idConfiguracion,
                 id_usuario: userData?.id_usuario,
               });
               if (!data.success && data.step !== "select_account") {
@@ -537,7 +533,7 @@ const Conexiones = () => {
               const { data: confirmData } = await chatApi.post(
                 "/meta_ads/conectar",
                 {
-                  id_configuracion: config.id,
+                  id_configuracion: idConfiguracion,
                   id_usuario: userData?.id_usuario,
                   ad_account_id: selectedId,
                   access_token: data._token,
@@ -562,7 +558,84 @@ const Conexiones = () => {
             } finally {
               setAdsConnectingId(null);
             }
-          })();
+    },
+    // Ojo: fetchConfiguracionAutomatizada NO va en las dependencias. Se declara
+    // con const más abajo en el componente, y el array se evalúa durante el
+    // render: referenciarla acá lanza un ReferenceError de zona muerta temporal
+    // y deja la pantalla en blanco. Dentro del cuerpo sí se puede usar, porque
+    // eso corre después.
+    [userData?.id_usuario],
+  );
+
+  /**
+   * Vuelta de la redirección de anuncios.
+   *
+   * El `state` lo marca el backend con el prefijo `ads_` y lleva dentro el
+   * id de la configuración: al recargar la página no hay otra forma de saber
+   * a qué cuenta pertenece el `code`.
+   */
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state") || "";
+    if (!code || !state.startsWith("ads_")) return;
+
+    const idConfiguracion = Number(state.split("_")[1]);
+
+    // El code es de un solo uso y dura ~10 minutos: se saca de la URL ANTES
+    // de gastarlo. Si se quedara ahí, cada recarga reintentaría con uno ya
+    // quemado y el error taparía a la conexión que sí funcionó.
+    url.searchParams.delete("code");
+    url.searchParams.delete("state");
+    window.history.replaceState({}, "", url.toString());
+
+    if (!Number.isFinite(idConfiguracion)) return;
+    setAdsConnectingId(idConfiguracion);
+    procesarCodeAds(code, idConfiguracion);
+  }, [procesarCodeAds]);
+
+  // Conectar Meta Ads
+  const handleConectarMetaAds = useCallback(
+    async (config) => {
+      setAdsConnectingId(config.id);
+
+      // ¿La app de anuncios ya migró?
+      //
+      // Si el backend devuelve una URL, se va por redirección: el SDK de JS se
+      // inicializa con UNA sola app por página y aquí la comparten WhatsApp,
+      // Messenger e Instagram, así que no se le puede cambiar el appId sin
+      // romper a las otras tres.
+      //
+      // Si devuelve null —producción hoy— seguimos con FB.login igual que
+      // siempre. Un fallo del endpoint también cae por ahí: es preferible el
+      // camino viejo a dejar al cliente sin poder conectar.
+      try {
+        const { data: login } = await chatApi.get("/meta_ads/login-url", {
+          params: {
+            id_configuracion: config.id,
+            redirect_uri: `${window.location.origin}${window.location.pathname}`,
+          },
+        });
+        if (login?.url) {
+          window.location.href = login.url;
+          return;
+        }
+      } catch {
+        /* sin endpoint todavía: se usa FB.login */
+      }
+
+      if (!window.FB) {
+        setAdsConnectingId(null);
+        setStatusMessage({
+          type: "error",
+          text: "El SDK de Facebook aún no está listo.",
+        });
+        return;
+      }
+
+      window.FB.login(
+        (response) => {
+          procesarCodeAds(response?.authResponse?.code, config.id);
         },
         {
           config_id: "4254210594844123",
@@ -586,7 +659,7 @@ const Conexiones = () => {
         },
       );
     },
-    [userData?.id_usuario],
+    [procesarCodeAds],
   );
 
   // Desconectar Meta Ads
@@ -1566,6 +1639,36 @@ const Conexiones = () => {
                                         </>,
                                         "Hay un inconveniente con el método de pago de tu cuenta de WhatsApp Business. Se soluciona en la facturación de Meta Business Suite (business.facebook.com). No es tu plan de la plataforma.",
                                       )}
+                                    {/* "Ya lo corregí": comprueba contra Meta
+                                        al instante (health_status) y, si ya
+                                        envía, quita el sello sin recargar.
+                                        stopPropagation: la tarjeta navega. */}
+                                    {!pagoActivo && (
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          const ok = await comprobarPagoMeta(
+                                            config.id,
+                                          );
+                                          if (ok) {
+                                            setConfiguracionAutomatizada(
+                                              (prev) =>
+                                                prev.map((c) =>
+                                                  c.id === config.id
+                                                    ? { ...c, metodo_pago: 1 }
+                                                    : c,
+                                                ),
+                                            );
+                                          }
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition"
+                                        title="Si ya corregiste la facturación en Meta, comprobamos ahora mismo si tu cuenta volvió a enviar."
+                                      >
+                                        <i className="bx bx-refresh text-[13px]" />
+                                        Ya lo corregí
+                                      </button>
+                                    )}
                                   </>
                                 )}
                           </div>
