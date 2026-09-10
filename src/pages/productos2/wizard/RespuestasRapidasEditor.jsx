@@ -4,6 +4,7 @@
 // la misma función que usa el bot en vivo ("¿qué haría con este mensaje?").
 import React, { useState } from "react";
 import chatApi from "../../../api/chatcenter";
+import { MediaDelPaso } from "./FlujoVentaEditor";
 
 const DECISION_TXT = {
   solo_paquete:
@@ -61,6 +62,9 @@ export default function RespuestasRapidasEditor({
   onChange,
   activas = true,
   onToggleActivas,
+  // Para adjuntar fotos/videos a una respuesta (mismo selector del embudo).
+  mediaDisponible = [],
+  idConfiguracion,
 }) {
   const [probando, setProbando] = useState(false);
   const [mensajePrueba, setMensajePrueba] = useState("");
@@ -73,7 +77,7 @@ export default function RespuestasRapidasEditor({
   const agregar = () =>
     onChange([
       ...value,
-      { pregunta: "", respuesta: "", claves: [], activa: 1 },
+      { pregunta: "", respuesta: "", claves: [], media: [], activa: 1 },
     ]);
 
   const probar = async () => {
@@ -177,6 +181,17 @@ export default function RespuestasRapidasEditor({
               claves={Array.isArray(f.claves) ? f.claves : []}
               onChange={(claves) => actualizar(i, { claves })}
             />
+            {/* Foto o video que acompaña la respuesta ("¿tienen fotos
+                reales?" → sale la foto real y después el texto). Si es la
+                misma foto que ya salió en el paquete, el sistema no la
+                repite: conviene subir una distinta (real, del cliente). */}
+            <MediaDelPaso
+              urls={Array.isArray(f.media) ? f.media : []}
+              onChange={(media) => actualizar(i, { media })}
+              disponibles={(mediaDisponible || []).filter((m) => m?.url)}
+              idConfiguracion={idConfiguracion}
+              titulo="Foto / video que acompaña esta respuesta (opcional, sale antes del texto)"
+            />
           </div>
         ))}
       </div>
@@ -240,6 +255,15 @@ export default function RespuestasRapidasEditor({
             {resultado.respuesta ? (
               <div className="mt-1 rounded-lg bg-white border border-slate-200 px-2.5 py-1.5 whitespace-pre-line">
                 <b>#{(resultado.indice ?? 0) + 1}</b> {resultado.respuesta.respuesta}
+                {Array.isArray(resultado.respuesta.media) &&
+                resultado.respuesta.media.length ? (
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    <i className="bx bx-paperclip" /> Sale con{" "}
+                    {resultado.respuesta.media.length} adjunto
+                    {resultado.respuesta.media.length > 1 ? "s" : ""} antes del
+                    texto.
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
