@@ -17,7 +17,10 @@ import ProductoModal from "../../productos/modales/ProductoModal";
 import WaPreview from "./WaPreview";
 import MediaManager from "./MediaManager";
 import RespuestasRapidasEditor from "./RespuestasRapidasEditor";
-import FlujoVentaEditor from "./FlujoVentaEditor";
+import FlujoVentaEditor, {
+  AjustesBotProducto,
+  esVideoUrl,
+} from "./FlujoVentaEditor";
 
 const PASOS = [
   { n: 1, label: "Producto", icon: "bx-box" },
@@ -496,7 +499,7 @@ export default function WizardProductoModal({
           typeof m === "object" && m?.url
             ? m
             : {
-                tipo: /\.(mp4|mov|3gp)(\?|$)/i.test(String(m)) ? "video" : "image",
+                tipo: esVideoUrl(m) ? "video" : "image",
                 url: String(m),
               },
         );
@@ -1201,8 +1204,48 @@ export default function WizardProductoModal({
                   onToggleActivas={(on) =>
                     set({ usar_respuestas_rapidas: on ? 1 : 0 })
                   }
+                  mediaDisponible={form.media}
+                  idConfiguracion={idc}
                 />
               </Card>
+
+              {/* Ajustes del bot para este producto (qué datos NO pedir). Se
+                  guardan dentro de flujo_pasos como entrada especial, pero
+                  aplican con o sin embudo. */}
+              <AjustesBotProducto
+                value={form.flujo_pasos}
+                onChange={(v) => set({ flujo_pasos: v })}
+              />
+
+              {/* Separador entre las dos formas de vender: arriba lo que el
+                  bot usa SIEMPRE (IA + rápidas + ajustes); abajo el embudo
+                  manual, opcional, para quien ya tiene su guion de copys. */}
+              <div className="relative py-2">
+                <div className="absolute inset-x-0 top-1/2 border-t-2 border-dashed border-slate-300" />
+                <div className="relative mx-auto w-fit rounded-full bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200">
+                  Opcional · otra forma de vender
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 text-[12px] leading-snug">
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-2.5 text-indigo-900">
+                  <div className="font-semibold flex items-center gap-1.5 mb-0.5">
+                    <i className="bx bx-bot" /> Lo de arriba: el bot vende con IA
+                  </div>
+                  El mensaje fijo abre la conversación, las respuestas rápidas
+                  contestan lo frecuente sin gastar tokens y la IA lleva el
+                  resto hasta cerrar el pedido. Siempre está activo.
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 text-emerald-900">
+                  <div className="font-semibold flex items-center gap-1.5 mb-0.5">
+                    <i className="bx bx-git-branch" /> Lo de abajo: tu embudo manual
+                  </div>
+                  Si ya tienes tu guion de copys listo, actívalo y la mayoría de
+                  pasos salen tal cual, sin IA. La IA solo entra cuando el
+                  cliente se desvía y al final para tomar los datos y cerrar.
+                  Los ajustes de “datos que no debe pedir” aplican en los dos
+                  casos.
+                </div>
+              </div>
 
               {/* Apartado propio, con marco notorio: es OTRO modo de vender
                   (embudo por copys), no parte del contenido del bot de arriba. */}

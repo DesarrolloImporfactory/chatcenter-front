@@ -9,7 +9,7 @@ import React, { useEffect, useRef, useState } from "react";
 import chatApi from "../../../api/chatcenter";
 
 const ESPERAS = [
-  { value: "edad", label: "una EDAD", icon: "bx-calendar", hint: "un número dentro del rango" },
+  { value: "edad", label: "un NÚMERO", icon: "bx-hash", hint: "edad, horas, peso… un número dentro del rango" },
   { value: "ciudad", label: "su CIUDAD", icon: "bx-map", hint: "ciudad o provincia" },
   { value: "opcion", label: "una OPCIÓN", icon: "bx-list-check", hint: "promoción, tipo de envío…" },
   { value: "libre", label: "lo que sea", icon: "bx-message-dots", hint: "cualquier respuesta" },
@@ -100,11 +100,59 @@ function SelectorEspera({ value, onChange }) {
   );
 }
 
+/* Un video se reconoce por la extensión o por ser una URL de la Video API
+   (/Videos/stream/<id>, sin extensión). Mismo criterio que el backend. */
+export const esVideoUrl = (u) =>
+  /\.(mp4|mov|3gp)(\?|$)|\/Videos\/stream\//i.test(String(u || ""));
+
+/* Vista completa de un adjunto: el video se reproduce con controles y la
+   imagen se ve entera, para comprobar que se eligió el archivo correcto. */
+function VistaAdjunto({ url, onClose }) {
+  if (!url) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-h-[90vh] max-w-[92vw] rounded-xl bg-black shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          title="Cerrar"
+          className="absolute -top-3 -right-3 z-10 h-8 w-8 rounded-full bg-white text-slate-700 shadow flex items-center justify-center hover:bg-slate-100"
+        >
+          <i className="bx bx-x text-xl" />
+        </button>
+        {esVideoUrl(url) ? (
+          <video
+            src={url}
+            controls
+            autoPlay
+            playsInline
+            className="max-h-[85vh] max-w-[90vw] rounded-xl"
+          />
+        ) : (
+          <img
+            src={url}
+            alt=""
+            className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* Fotos/videos: se SUBEN aquí mismo (mismo endpoint que la multimedia del
-   wizard) o se toca una de las ya subidas. Salen antes del texto. */
+   wizard) o se toca una de las ya subidas. Salen antes del texto. Un clic en
+   la miniatura abre la vista completa (el video se reproduce). */
 function MediaDelPaso({ urls, onChange, disponibles, idConfiguracion, titulo }) {
   const inputRef = useRef(null);
   const [subiendo, setSubiendo] = useState(false);
+  const [vista, setVista] = useState(null);
 
   const agregar = (u) => {
     const v = String(u || "").trim();
@@ -143,25 +191,32 @@ function MediaDelPaso({ urls, onChange, disponibles, idConfiguracion, titulo }) 
           <span
             key={u}
             className="relative h-12 w-12 rounded-lg overflow-hidden ring-1 ring-emerald-300 group"
-            title={u}
+            title="Ver completo"
           >
-            {/\.(mp4|mov|3gp)(\?|$)/i.test(u) ? (
-              <span className="flex h-full w-full items-center justify-center bg-slate-800 text-white">
-                <i className="bx bx-play" />
-              </span>
-            ) : (
-              <img src={u} alt="" className="h-full w-full object-cover" />
-            )}
+            <button
+              type="button"
+              onClick={() => setVista(u)}
+              className="h-full w-full"
+            >
+              {esVideoUrl(u) ? (
+                <span className="flex h-full w-full items-center justify-center bg-slate-800 text-white">
+                  <i className="bx bx-play text-lg" />
+                </span>
+              ) : (
+                <img src={u} alt="" className="h-full w-full object-cover" />
+              )}
+            </button>
             <button
               type="button"
               title="Quitar"
               onClick={() => onChange(urls.filter((_, k) => k !== i))}
-              className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50 text-white"
+              className="absolute top-0 right-0 hidden group-hover:flex h-5 w-5 items-center justify-center rounded-bl-md bg-black/60 text-white hover:bg-rose-600"
             >
-              <i className="bx bx-trash" />
+              <i className="bx bx-x text-sm" />
             </button>
           </span>
         ))}
+        <VistaAdjunto url={vista} onClose={() => setVista(null)} />
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
@@ -209,6 +264,92 @@ function MediaDelPaso({ urls, onChange, disponibles, idConfiguracion, titulo }) 
   );
 }
 
+/* Reutilizable: las respuestas rápidas adjuntan fotos/videos con este mismo
+   selector (mismo endpoint, mismo tope de 4). */
+export { MediaDelPaso };
+
+/* Datos del cierre que el bot NO debe pedir para este producto. Se guarda como
+   entrada especial espera:'ajustes' dentro de flujo_pasos (igual que la venta
+   realizada) y aplica aunque el embudo esté apagado: es una regla del
+   producto, no del flujo. Lista cerrada a propósito — solo lo que el sistema
+   puede completar por su cuenta (el teléfono es el número de WhatsApp). */
+const DATOS_NO_PEDIR = [
+  {
+    value: "telefono",
+    label: "No pedir el teléfono",
+    hint: "Ya lo tenemos: es el número de WhatsApp desde el que escribe el cliente. La orden y la guía salen con ese número, así que preguntarlo solo alarga el cierre.",
+  },
+  {
+    value: "referencia",
+    label: "No pedir referencia de la dirección",
+    hint: "Con la calle, el número o el barrio que dé el cliente la guía sale igual; la referencia es opcional para el courier. El bot pide la dirección una sola vez y no insiste con “dos calles y una referencia”.",
+  },
+  {
+    value: "confirmacion",
+    label: "No pedir que confirme el resumen",
+    hint: "Con todos los datos, el bot cierra directo sin preguntar “¿está todo correcto?”. Menos pasos, pero si el cliente escribió mal un dato ya no tiene ese momento para corregirlo.",
+  },
+];
+
+export function AjustesBotProducto({ value = [], onChange }) {
+  const todos = Array.isArray(value) ? value : [];
+  const ajustes = todos.find((p) => p?.espera === "ajustes") || null;
+  const noPedir = Array.isArray(ajustes?.no_pedir) ? ajustes.no_pedir : [];
+
+  const setNoPedir = (lista) => {
+    const sinAjustes = todos.filter((p) => p?.espera !== "ajustes");
+    onChange(
+      lista.length
+        ? [...sinAjustes, { espera: "ajustes", no_pedir: lista }]
+        : sinAjustes,
+    );
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+      <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+        <i className="bx bx-slider-alt text-slate-500" />
+        Datos que el bot NO debe pedir
+      </div>
+      <p className="text-[12px] text-slate-500 leading-snug">
+        Cada dato que marques el bot deja de preguntarlo en todo el chat de
+        este producto: en el embudo manual, en las respuestas de la IA y al
+        cerrar el pedido. Solo aparecen los que el sistema puede resolver por
+        su cuenta sin frenar la guía ni la orden.
+      </p>
+      {DATOS_NO_PEDIR.map((d) => {
+        const marcado = noPedir.includes(d.value);
+        return (
+          <label
+            key={d.value}
+            className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 text-[12px] cursor-pointer select-none ${
+              marcado
+                ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                : "border-slate-200 bg-slate-50 text-slate-700"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={marcado}
+              onChange={(e) =>
+                setNoPedir(
+                  e.target.checked
+                    ? [...noPedir.filter((x) => x !== d.value), d.value]
+                    : noPedir.filter((x) => x !== d.value),
+                )
+              }
+              className="h-4 w-4 accent-emerald-600 mt-0.5"
+            />
+            <span>
+              <b>{d.label}</b>: {d.hint}
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function FlujoVentaEditor({
   value = [],
   onChange,
@@ -249,12 +390,19 @@ export default function FlujoVentaEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // La entrada de venta realizada se edita aparte; nunca es un "paso".
-  const pasos = todos.filter((p) => p?.espera !== "venta_realizada");
+  // Las entradas especiales (venta realizada, ajustes del bot) se editan
+  // aparte; nunca son un "paso". Los ajustes se conservan tal cual al emitir.
+  const ESPECIALES = ["venta_realizada", "ajustes"];
+  const pasos = todos.filter((p) => !ESPECIALES.includes(p?.espera));
   const finVenta = todos.find((p) => p?.espera === "venta_realizada") || null;
+  const ajustes = todos.find((p) => p?.espera === "ajustes") || null;
 
   const emitir = (nuevosPasos, nuevoFin = finVenta) =>
-    onChange([...nuevosPasos, ...(nuevoFin ? [nuevoFin] : [])]);
+    onChange([
+      ...nuevosPasos,
+      ...(ajustes ? [ajustes] : []),
+      ...(nuevoFin ? [nuevoFin] : []),
+    ]);
 
   const actualizar = (i, patch) =>
     emitir(pasos.map((p, k) => (k === i ? { ...p, ...patch } : p)));
@@ -332,7 +480,8 @@ export default function FlujoVentaEditor({
         {pasos.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-center text-xs text-slate-500">
             Sin pasos todavía. El <b>paso 1</b> espera lo que el cliente
-            responda a la pregunta de tu primer mensaje (ej. la edad); cada
+            responda a la pregunta de tu primer mensaje (ej. la edad o cuántas
+            horas duerme); cada
             paso siguiente espera la respuesta al mensaje anterior.
           </div>
         ) : null}
@@ -397,7 +546,16 @@ export default function FlujoVentaEditor({
 
                 {p.espera === "edad" ? (
                   <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-[12px] text-slate-600">
-                    Cuenta como “responde bien” una edad entre
+                    ¿Qué número es?
+                    <input
+                      value={p.dato || ""}
+                      onChange={(e) => actualizar(i, { dato: e.target.value })}
+                      placeholder="edad, horas de sueño, peso…"
+                      maxLength={40}
+                      className={`${inCls} w-44`}
+                    />
+                    <span className="basis-full" />
+                    Cuenta como “responde bien” {p.dato?.trim() ? `${p.dato.trim()}` : "una edad"} entre
                     <input
                       type="number"
                       value={p.min ?? 10}
@@ -415,7 +573,7 @@ export default function FlujoVentaEditor({
                       }
                       className={`${inCls} w-20`}
                     />
-                    años
+                    {p.dato?.trim() ? "" : "años"}
                   </div>
                 ) : null}
 
@@ -537,7 +695,7 @@ export default function FlujoVentaEditor({
                 {p.espera === "edad" ? (
                   <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-2.5 space-y-2">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-sky-800">
-                      Si la edad está FUERA del rango…
+                      Si {p.dato?.trim() ? p.dato.trim() : "la edad"} está FUERA del rango…
                     </div>
                     <textarea
                       value={p.copy_invalido || ""}
@@ -579,8 +737,8 @@ export default function FlujoVentaEditor({
                         Se envía el mensaje de arriba como presentación + el
                         paquete del otro producto (su foto y su texto). Desde
                         ahí responden SUS respuestas rápidas y SU embudo — y si
-                        su embudo también pide la edad y la que dio el cliente
-                        le sirve, <b>no se la vuelve a preguntar</b>. Solo
+                        su embudo también pide este número y el que dio el
+                        cliente le sirve, <b>no se lo vuelve a preguntar</b>. Solo
                         aparecen productos con el bot ya activado.
                       </p>
                     </div>
