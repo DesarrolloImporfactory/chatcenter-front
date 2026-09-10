@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import toast from "react-hot-toast";
@@ -12,6 +12,9 @@ import {
   Area,
   LineChart,
   Line,
+  BarChart,
+  Bar,
+  Legend,
   XAxis,
   YAxis,
   Tooltip,
@@ -31,6 +34,7 @@ import {
 /* Colores de serie (validados para daltonismo sobre fondo claro) */
 const C_CONVERS = "#6366f1"; // conversaciones IA
 const C_CIERRE = "#0d9488"; // cierres / % de cierre
+const C_ORDENES = "#d97706"; // órdenes creadas en Dropi (validado vs C_CIERRE)
 const META_CIERRE = 20; // % de cierre objetivo (benchmark del mercado)
 
 const num = (v) => Number(v || 0).toLocaleString("es-EC");
@@ -74,6 +78,14 @@ const AYUDA = {
   embudo:
     "El camino completo: cuántas personas atendió el bot, cuántas contestaron, cuántas compraron y cuántos pedidos ya se entregaron. Donde más se achica la barra, ahí está el cuello de botella.",
   modelo: "Modelo de inteligencia artificial configurado en las columnas del kanban de esa cuenta.",
+  cierresVsOrdenes:
+    "Compara, día por día, cuántas ventas dio por cerradas el bot (chats que llegaron a 'Generar guía') contra cuántas órdenes se crearon de verdad en Dropi ese día, sea por auto-orden o digitadas a mano. Si la barra del bot es más alta que la de Dropi, hay ventas confirmadas que nadie convirtió en orden: casi siempre porque la cuenta no tiene el auto-orden activo o porque el intento falló. Ojo: las órdenes de Dropi incluyen también las que no vienen del bot, así que la diferencia real puede ser mayor de lo que se ve.",
+  ordenesDropi:
+    "Órdenes creadas en Dropi por esa cuenta en el período, vengan del auto-orden o digitadas a mano. Entre paréntesis, cuántas las creó el bot solo (auto-orden).",
+  autoOrden:
+    "Auto-orden: el bot crea la orden en Dropi solo, sin que nadie la digite. Cuando una cuenta no lo usa, cada orden la digita el cliente a mano.",
+  detalle:
+    "Abre una ventana con todo lo de esa cuenta: sus indicadores, cuántas ventas confirmó el bot contra cuántas órdenes se crearon en Dropi cada día, el auto-orden y su embudo.",
 };
 
 /* Icono de ayuda con tooltip (hover y focus). */
@@ -208,6 +220,316 @@ const Embudo = ({ pasos }) => {
           </div>
         );
       })}
+    </div>
+  );
+};
+
+/* Serie diaria del backend → filas para los gráficos. Todo en números y
+   con el cálculo de "confirmadas sin orden" (cierres del bot que ese día
+   no se reflejaron en una orden de Dropi). */
+const serieAChart = (serie) =>
+  (serie || []).map((d) => {
+    const cierres = Number(d.cierres_kanban || 0);
+    const ordenes = Number(d.ordenes_total || 0);
+    return {
+      fecha: String(d.fecha).slice(0, 10),
+      convers_ia: Number(d.convers_ia || 0),
+      cierres_kanban: cierres,
+      pct_cierre: pct(d.cierres_kanban, d.convers_ia),
+      ordenes_total: ordenes,
+      auto_creadas: Number(d.auto_creadas || 0),
+      sin_orden: Math.max(cierres - ordenes, 0),
+    };
+  });
+
+/* Gráfico de barras: ventas confirmadas por el bot vs órdenes creadas en
+   Dropi, día por día. Responde "¿cuánto de lo que cierra el bot llega a
+   Dropi?" — la diferencia son cierres que nadie convirtió en orden. */
+const LINEAS_CIERRES_VS_ORDENES = [
+  { key: "cierres_kanban", label: "Ventas confirmadas por el bot", color: C_CIERRE },
+  { key: "ordenes_total", label: "Órdenes creadas en Dropi", color: C_ORDENES },
+  { key: "auto_creadas", label: "De ellas, por auto-orden", color: "#94a3b8" },
+  {
+    key: "sin_orden",
+    label: "Confirmadas sin orden",
+    color: "#0f172a",
+    fmt: (v) => (v > 0 ? num(v) : "ninguna ✓"),
+  },
+];
+
+const CierresVsOrdenes = ({ data, alto = "h-64" }) => (
+  <div className={alto}>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart
+        data={data}
+        margin={{ top: 5, right: 10, left: -15, bottom: 0 }}
+        barCategoryGap="25%"
+        barGap={2}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+        <XAxis
+          dataKey="fecha"
+          tickFormatter={fechaCorta}
+          tick={{ fontSize: 10, fill: "#64748b" }}
+          tickLine={false}
+          axisLine={{ stroke: "#e2e8f0" }}
+          minTickGap={24}
+        />
+        <YAxis
+          tick={{ fontSize: 10, fill: "#64748b" }}
+          tickLine={false}
+          axisLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip
+          cursor={{ fill: "#f1f5f9" }}
+          content={<TooltipBox lineas={LINEAS_CIERRES_VS_ORDENES} />}
+        />
+        <Legend
+          verticalAlign="top"
+          align="right"
+          iconType="circle"
+          iconSize={8}
+          wrapperStyle={{ fontSize: 11, paddingBottom: 8 }}
+        />
+        <Bar
+          dataKey="cierres_kanban"
+          name="Ventas confirmadas por el bot"
+          fill={C_CIERRE}
+          radius={[4, 4, 0, 0]}
+          maxBarSize={22}
+        />
+        <Bar
+          dataKey="ordenes_total"
+          name="Órdenes creadas en Dropi"
+          fill={C_ORDENES}
+          radius={[4, 4, 0, 0]}
+          maxBarSize={22}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+);
+
+/* Veredicto en una frase sobre el flujo hacia Dropi: cuántas ventas
+   confirmó el bot vs cuántas órdenes se crearon, y si el auto-orden
+   explica la diferencia. `quien` = "tus clientes" (global) o "esta cuenta". */
+const VeredictoOrdenes = ({ actual, quien = "esta cuenta" }) => {
+  const cierres = Number(actual?.cierres_kanban || 0);
+  const ordenes = Number(actual?.ordenes_total || 0);
+  const autoC = Number(actual?.auto_creadas || 0);
+  if (!cierres && !ordenes) return null;
+
+  const sinOrden = Math.max(cierres - ordenes, 0);
+  /* Solo lo que suma: cuántas de esas órdenes las creó el bot solo. Los
+     intentos fallidos del auto-orden no se muestran aquí a propósito. */
+  const autoTxt =
+    autoC === 0
+      ? ` ${quien === "esta cuenta" ? "Esta cuenta no usa" : "Buena parte no usa"} el auto-orden: cada orden la digita el cliente a mano.`
+      : ` ${num(autoC)} de esas órdenes las creó el bot solo (auto-orden).`;
+
+  let tono = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  let texto;
+  if (cierres > 0 && ordenes === 0) {
+    tono = "bg-rose-50 text-rose-700 border-rose-200";
+    texto = `El bot dio por cerradas ${num(cierres)} ventas, pero en Dropi no aparece ninguna orden en el período.${autoTxt}`;
+  } else if (sinOrden > 0) {
+    tono = "bg-amber-50 text-amber-800 border-amber-200";
+    texto = `El bot confirmó ${num(cierres)} ventas y en Dropi se crearon ${num(ordenes)} órdenes: ${num(sinOrden)} ventas confirmadas quedaron sin orden.${autoTxt}`;
+  } else {
+    texto = `Las órdenes en Dropi (${num(ordenes)}) cubren las ventas que confirmó el bot (${num(cierres)}): el flujo hacia Dropi está completo.${autoC > 0 ? autoTxt : ""}`;
+  }
+  return (
+    <div className={`mb-3 rounded-lg px-3 py-2 text-xs font-semibold border ${tono}`}>
+      {texto}
+    </div>
+  );
+};
+
+/* Detalle de una cuenta: ventana con sus indicadores, el gráfico de
+   cierres del bot vs órdenes en Dropi, el auto-orden y su embudo. Es lo
+   que abre el botón "Ver detalle" de la tabla — una ventana encima de
+   todo, para que el clic tenga un efecto inconfundible. */
+const DetalleCuentaModal = ({ cuenta, rango, onClose }) => {
+  const [cargando, setCargando] = useState(true);
+  const [resumen, setResumen] = useState(null);
+  const [embudo, setEmbudo] = useState(null);
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      setCargando(true);
+      try {
+        const [r1, r2] = await Promise.all([
+          chatApi.get(
+            `admin_bot_salud/resumen?dias=${rango}&id_configuracion=${cuenta.id_configuracion}`,
+          ),
+          chatApi.get(
+            `admin_bot_salud/embudo?dias=${rango}&id_configuracion=${cuenta.id_configuracion}`,
+          ),
+        ]);
+        if (!vivo) return;
+        setResumen(r1.data.data);
+        setEmbudo(r2.data.data);
+      } catch {
+        if (vivo) toast.error("No se pudo cargar el detalle de la cuenta");
+      } finally {
+        if (vivo) setCargando(false);
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [cuenta.id_configuracion, rango]);
+
+  /* Escape cierra; el fondo no hace scroll mientras la ventana está abierta
+     (en celular, sin esto, el scroll se iba a la página de atrás). */
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  const a = resumen?.actual || {};
+  const p = resumen?.previo || {};
+  const cierreA = pct(a.cierres_kanban, a.convers_ia);
+  const cierreP = pct(p.cierres_kanban, p.convers_ia);
+  const serie = useMemo(() => serieAChart(resumen?.serie), [resumen]);
+  const autoC = Number(a.auto_creadas || 0);
+
+  return (
+    /* En celular es una hoja a pantalla completa; desde md, una ventana
+       centrada. Un solo contenedor con scroll (el cuerpo), nunca dos. */
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/60 md:flex md:items-center md:justify-center md:p-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Detalle de ${cuenta.nombre}`}
+    >
+      <div
+        className="bg-white w-full h-[100dvh] md:h-auto md:max-h-[90vh] md:max-w-5xl md:rounded-2xl md:shadow-2xl flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabecera fija */}
+        <div className="shrink-0 border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-base md:text-lg font-bold text-slate-900 truncate">
+              {cuenta.nombre}
+            </h3>
+            <p className="text-[11px] text-slate-500 truncate">
+              #{cuenta.id_configuracion} · {cuenta.telefono || "sin teléfono"}
+              {cuenta.modelos ? ` · ${cuenta.modelos}` : ""}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-lg leading-none"
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Cuerpo con scroll */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 md:px-6 py-4 space-y-4">
+          <p className="text-[11px] text-slate-400">
+            Últimos {rango} días, sin contar hoy.
+          </p>
+
+          {cargando ? (
+            <div className="flex items-center justify-center py-16 text-slate-500 text-sm">
+              <i className="bx bx-loader-alt bx-spin text-2xl mr-2" />
+              Cargando detalle...
+            </div>
+          ) : (
+            <>
+              <VeredictoOrdenes actual={a} quien="esta cuenta" />
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <Kpi
+                  label="% de cierre"
+                  value={
+                    <span className={toneCierre(cierreA)}>{pctTxt(cierreA)}</span>
+                  }
+                  sub={
+                    cierreP !== null ? `antes: ${pctTxt(cierreP)}` : "sin período previo"
+                  }
+                  delta={
+                    cierreA !== null && cierreP !== null ? cierreA - cierreP : null
+                  }
+                  ayuda={AYUDA.cierre}
+                />
+                <Kpi
+                  label="Conversaciones IA"
+                  value={num(a.convers_ia)}
+                  sub={`${num(Math.round(Number(a.convers_ia || 0) / rango))} por día`}
+                  ayuda={AYUDA.conversaciones}
+                />
+                <Kpi
+                  label="% clientes que responden"
+                  value={pctTxt(pct(a.convers_respondieron, a.convers_ia))}
+                  sub="tras el primer mensaje del bot"
+                  ayuda={AYUDA.respuesta}
+                />
+                <Kpi
+                  label="Ventas confirmadas por el bot"
+                  value={num(a.cierres_kanban)}
+                  sub="chats que llegaron a generar guía"
+                  ayuda={AYUDA.cierres}
+                />
+                <Kpi
+                  label="Órdenes creadas en Dropi"
+                  value={num(a.ordenes_total)}
+                  sub={
+                    autoC > 0
+                      ? `${num(autoC)} las creó el bot solo`
+                      : "no usa auto-orden"
+                  }
+                  ayuda={AYUDA.ordenesDropi}
+                />
+              </div>
+
+              <Card
+                title="Ventas confirmadas por el bot vs órdenes creadas en Dropi"
+                subtitle="Día por día: la diferencia son ventas que nadie convirtió en orden"
+                ayuda={AYUDA.cierresVsOrdenes}
+              >
+                {serie.length ? (
+                  <CierresVsOrdenes data={serie} alto="h-52 sm:h-64 md:h-72" />
+                ) : (
+                  <p className="text-sm text-slate-400 py-8 text-center">
+                    Sin actividad en el período.
+                  </p>
+                )}
+              </Card>
+
+              <Card
+                title="Embudo de conversión"
+                subtitle="Dónde pierde clientes esta cuenta, del primer mensaje a la entrega"
+                ayuda={AYUDA.embudo}
+              >
+                {embudo ? <Embudo pasos={embudo.embudo} /> : null}
+              </Card>
+            </>
+          )}
+        </div>
+
+        {/* Pie fijo: en celular el botón de cerrar queda a mano */}
+        <div className="shrink-0 border-t border-slate-200 px-4 md:px-6 py-3 flex justify-end md:hidden">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -404,6 +726,9 @@ const GuiaModal = ({ onClose }) => (
           ["Cuentas e-commerce", AYUDA.cuentas],
           ["vs período anterior", AYUDA.vsAnterior],
           ["Embudo", AYUDA.embudo],
+          ["Ventas confirmadas por el bot vs órdenes en Dropi", AYUDA.cierresVsOrdenes],
+          ["Órdenes Dropi (tabla)", AYUDA.ordenesDropi],
+          ["Auto-orden", AYUDA.autoOrden],
         ].map(([t, d]) => (
           <div key={t}>
             <dt className="font-semibold text-slate-800">{t}</dt>
@@ -437,6 +762,12 @@ const COLS_CUENTAS = [
     title: AYUDA.respuesta,
   },
   { key: "cierres_kanban", label: "Cierres", sortable: true, title: AYUDA.cierres },
+  {
+    key: "ordenes_total",
+    label: "Órdenes Dropi",
+    sortable: true,
+    title: AYUDA.ordenesDropi,
+  },
   { key: "pct_cierre", label: "% de cierre", sortable: true, title: AYUDA.cierre },
   {
     key: "delta_cierre",
@@ -444,7 +775,7 @@ const COLS_CUENTAS = [
     sortable: true,
     title: AYUDA.vsAnterior,
   },
-  { key: "embudo", label: "", sortable: false },
+  { key: "detalle", label: "", sortable: false },
 ];
 
 function TabSalud() {
@@ -454,13 +785,12 @@ function TabSalud() {
   const [resumen, setResumen] = useState(null);
   const [cuentas, setCuentas] = useState([]);
   const [embudo, setEmbudo] = useState(null);
-  const [cuentaSel, setCuentaSel] = useState(null); // {id, nombre} | null
+  const [detalle, setDetalle] = useState(null); // fila de la tabla | null
   const [busca, setBusca] = useState("");
   const [orden, setOrden] = useState({ key: "convers_ia", dir: "desc" });
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState(10);
   const [guiaOpen, setGuiaOpen] = useState(false);
-  const embudoRef = useRef(null);
 
   const fetchTodo = useCallback(async () => {
     setLoading(true);
@@ -473,7 +803,7 @@ function TabSalud() {
       setResumen(r1.data.data);
       setCuentas(r2.data.data || []);
       setEmbudo(r3.data.data);
-      setCuentaSel(null);
+      setDetalle(null);
       setPagina(1);
     } catch {
       toast.error("Error cargando la salud del bot");
@@ -486,35 +816,7 @@ function TabSalud() {
     fetchTodo();
   }, [fetchTodo]);
 
-  const verEmbudoCuenta = useCallback(
-    async (cta) => {
-      try {
-        const { data } = await chatApi.get(
-          `admin_bot_salud/embudo?dias=${rango}&id_configuracion=${cta.id_configuracion}`,
-        );
-        setEmbudo(data.data);
-        setCuentaSel({ id: cta.id_configuracion, nombre: cta.nombre });
-        // Llevar al usuario hasta el embudo: sin esto el clic "no hace nada"
-        // visible porque el cambio ocurre fuera de la pantalla.
-        embudoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch {
-        toast.error("No se pudo cargar el embudo de la cuenta");
-      }
-    },
-    [rango],
-  );
-
-  const verEmbudoGlobal = useCallback(async () => {
-    try {
-      const { data } = await chatApi.get(
-        `admin_bot_salud/embudo?dias=${rango}`,
-      );
-      setEmbudo(data.data);
-      setCuentaSel(null);
-    } catch {
-      /* el toast global del interceptor ya avisa */
-    }
-  }, [rango]);
+  const cerrarDetalle = useCallback(() => setDetalle(null), []);
 
   const recalcular = useCallback(async () => {
     setRecalculando(true);
@@ -557,15 +859,7 @@ function TabSalud() {
     };
   }, [resumen]);
 
-  const serieChart = useMemo(() => {
-    if (!resumen?.serie) return [];
-    return resumen.serie.map((d) => ({
-      fecha: String(d.fecha).slice(0, 10),
-      convers_ia: Number(d.convers_ia || 0),
-      cierres_kanban: Number(d.cierres_kanban || 0),
-      pct_cierre: pct(d.cierres_kanban, d.convers_ia),
-    }));
-  }, [resumen]);
+  const serieChart = useMemo(() => serieAChart(resumen?.serie), [resumen]);
 
   const cuentasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -612,6 +906,13 @@ function TabSalud() {
   return (
     <div className="space-y-5">
       {guiaOpen ? <GuiaModal onClose={() => setGuiaOpen(false)} /> : null}
+      {detalle ? (
+        <DetalleCuentaModal
+          cuenta={detalle}
+          rango={rango}
+          onClose={cerrarDetalle}
+        />
+      ) : null}
 
       {/* Controles */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -823,6 +1124,16 @@ function TabSalud() {
                           color: C_CIERRE,
                           fmt: (v) => pctTxt(v),
                         },
+                        {
+                          key: "cierres_kanban",
+                          label: "Ventas confirmadas por el bot",
+                          color: C_CIERRE,
+                        },
+                        {
+                          key: "ordenes_total",
+                          label: "Órdenes creadas en Dropi",
+                          color: C_ORDENES,
+                        },
                       ]}
                     />
                   }
@@ -846,26 +1157,25 @@ function TabSalud() {
         </Card>
       </div>
 
+      {/* Ventas confirmadas por el bot vs órdenes creadas en Dropi, por día:
+          cuánto del cierre del bot se convierte en flujo real hacia Dropi. */}
+      <Card
+        title="Ventas confirmadas por el bot vs órdenes creadas en Dropi, por día"
+        subtitle="Si la barra verde supera a la naranja, hubo ventas confirmadas que nadie convirtió en orden"
+        ayuda={AYUDA.cierresVsOrdenes}
+      >
+        {resumen ? (
+          <VeredictoOrdenes actual={resumen.actual} quien="tus clientes" />
+        ) : null}
+        <CierresVsOrdenes data={serieChart} alto="h-56 sm:h-64 md:h-72" />
+      </Card>
+
       {/* Embudo + comparativa de períodos */}
-      <div ref={embudoRef} className="grid grid-cols-1 lg:grid-cols-2 gap-4 scroll-mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card
-          title={
-            cuentaSel
-              ? `Embudo de conversión — ${cuentaSel.nombre}`
-              : "Embudo de conversión (todas las cuentas)"
-          }
-          subtitle="Dónde se pierden los clientes, del primer mensaje a la entrega"
+          title="Embudo de conversión (todas las cuentas)"
+          subtitle="Dónde se pierden los clientes, del primer mensaje a la entrega · el de cada cuenta se abre con 'Ver detalle' en la tabla"
           ayuda={AYUDA.embudo}
-          right={
-            cuentaSel ? (
-              <button
-                onClick={verEmbudoGlobal}
-                className="text-xs text-indigo-600 hover:underline"
-              >
-                ← volver a todas
-              </button>
-            ) : null
-          }
         >
           {embudo ? <Embudo pasos={embudo.embudo} /> : null}
         </Card>
@@ -888,7 +1198,7 @@ function TabSalud() {
       {/* Tabla por cuenta (paginada) */}
       <Card
         title="Rendimiento por cuenta"
-        subtitle="% de cierre: 🔴 menos de 5% · 🟡 entre 5 y 10% · 🟢 más de 10% · El botón 'Ver embudo' muestra dónde pierde clientes esa cuenta"
+        subtitle="% de cierre: 🔴 menos de 5% · 🟡 entre 5 y 10% · 🟢 más de 10% · 'Ver detalle' abre la cuenta: sus indicadores, cierres del bot vs órdenes en Dropi por día y su embudo"
         right={
           <div className="flex items-center gap-2">
             <input
@@ -967,6 +1277,20 @@ function TabSalud() {
                   </td>
                   <td className="py-2.5 px-3">{pctTxt(c.pct_respuesta)}</td>
                   <td className="py-2.5 px-3">{num(c.cierres_kanban)}</td>
+                  <td className="py-2.5 px-3">
+                    <span
+                      className={
+                        c.cierres_kanban > 0 && c.ordenes_total === 0
+                          ? "text-rose-600 font-semibold"
+                          : ""
+                      }
+                    >
+                      {num(c.ordenes_total)}
+                    </span>
+                    <span className="text-[10px] text-slate-400 ml-1">
+                      ({num(c.auto_creadas)} auto)
+                    </span>
+                  </td>
                   <td
                     className={`py-2.5 px-3 font-bold ${toneCierre(c.pct_cierre)}`}
                   >
@@ -990,12 +1314,12 @@ function TabSalud() {
                   </td>
                   <td className="py-2.5 px-3 text-right">
                     <button
-                      onClick={() => verEmbudoCuenta(c)}
+                      onClick={() => setDetalle(c)}
                       className="px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-[11px] font-semibold hover:bg-indigo-100 whitespace-nowrap"
-                      title="Ver el embudo de conversión de esta cuenta (te lleva arriba)"
+                      title={AYUDA.detalle}
                     >
-                      <i className="bx bx-filter mr-0.5" />
-                      Ver embudo
+                      <i className="bx bx-bar-chart-alt-2 mr-0.5" />
+                      Ver detalle
                     </button>
                   </td>
                 </tr>
