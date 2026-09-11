@@ -392,16 +392,30 @@ export default function FlujoVentaEditor({
   }, []);
   // Las entradas especiales (venta realizada, ajustes del bot) se editan
   // aparte; nunca son un "paso". Los ajustes se conservan tal cual al emitir.
-  const ESPECIALES = ["venta_realizada", "ajustes"];
+  const ESPECIALES = ["venta_realizada", "ajustes", "post_venta"];
   const pasos = todos.filter((p) => !ESPECIALES.includes(p?.espera));
   const finVenta = todos.find((p) => p?.espera === "venta_realizada") || null;
   const ajustes = todos.find((p) => p?.espera === "ajustes") || null;
+  // Respuestas para después del cierre: lista propia, no son un paso.
+  const entradaPV = todos.find((p) => p?.espera === "post_venta") || null;
+  const postVenta = Array.isArray(entradaPV?.faqs) ? entradaPV.faqs : [];
 
-  const emitir = (nuevosPasos, nuevoFin = finVenta) =>
+  const emitir = (nuevosPasos, nuevoFin = finVenta, nuevoPV = postVenta) =>
     onChange([
       ...nuevosPasos,
       ...(ajustes ? [ajustes] : []),
       ...(nuevoFin ? [nuevoFin] : []),
+      ...(nuevoPV.length ? [{ espera: "post_venta", faqs: nuevoPV }] : []),
+    ]);
+
+  const emitirPV = (lista) => emitir(pasos, finVenta, lista);
+  const setPostVenta = (i, patch) =>
+    emitirPV(postVenta.map((f, k) => (k === i ? { ...f, ...patch } : f)));
+  const quitarPostVenta = (i) => emitirPV(postVenta.filter((_, k) => k !== i));
+  const agregarPostVenta = () =>
+    emitirPV([
+      ...postVenta,
+      { pregunta: "", respuesta: "", claves: [], media: [], activa: 1 },
     ]);
 
   const actualizar = (i, patch) =>
@@ -950,6 +964,94 @@ export default function FlujoVentaEditor({
               dentro, solo deja de mostrarse en el chat.
             </span>
           </label>
+        </div>
+
+        {/* ── Después del cierre: respuestas para quien YA compró ── */}
+        <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3 space-y-2">
+          <div>
+            <div className="text-[13px] font-bold text-sky-900 flex items-center gap-1.5">
+              <i className="bx bx-conversation" /> Respuestas después del cierre
+              (opcional)
+            </div>
+            <p className="text-[11.5px] text-sky-900/80 leading-snug">
+              Enviado el mensaje final, el pedido queda cerrado y el chat pasa a
+              la etapa de seguimiento (“Generar guía”, “En tránsito”…). Ahí el
+              cliente sigue escribiendo: <i>“¿cómo participo en el sorteo?”</i>,
+              <i> “me equivoqué en la dirección”</i>. Lo que cargues acá sale
+              tal cual, <b>sin invitarlo a comprar de nuevo</b>. Si la pregunta
+              no está en esta lista, no se le responde nada: queda para una
+              persona del equipo.
+            </p>
+            <p className="mt-1.5 rounded-lg bg-white border border-sky-200 px-2.5 py-1.5 text-[11.5px] text-sky-900 leading-snug">
+              <i className="bx bx-info-circle mr-1" />
+              Son <b>otra lista</b>, aparte de las respuestas rápidas del
+              producto: aquellas acompañan la venta y terminan invitando a
+              comprar. Estas contestan a quien ya compró. Y funcionan sin
+              encender la IA en las etapas de seguimiento —{" "}
+              <b>la IA de la etapa donde vendes no se toca</b>.
+            </p>
+          </div>
+
+          {postVenta.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-sky-300 bg-white px-3 py-4 text-center text-[11.5px] text-sky-800">
+              Todavía no hay ninguna. Agrega la primera con el botón de abajo.
+            </div>
+          ) : null}
+
+          <div className="space-y-2">
+            {postVenta.map((f, i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-sky-200 bg-white p-2.5 space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    value={f.pregunta || ""}
+                    onChange={(e) =>
+                      setPostVenta(i, { pregunta: e.target.value })
+                    }
+                    placeholder="¿Cómo participo en el sorteo?"
+                    className="flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-[12.5px] font-semibold"
+                  />
+                  <button
+                    type="button"
+                    title="Quitar"
+                    onClick={() => quitarPostVenta(i)}
+                    className="h-7 w-7 rounded-lg text-rose-500 hover:bg-rose-50 flex items-center justify-center shrink-0"
+                  >
+                    <i className="bx bx-trash" />
+                  </button>
+                </div>
+                <textarea
+                  value={f.respuesta || ""}
+                  onChange={(e) =>
+                    setPostVenta(i, { respuesta: e.target.value })
+                  }
+                  rows={3}
+                  placeholder="🎁 Mándanos la foto con tu frasco al recibir y entras al sorteo…"
+                  className={taCls}
+                />
+                <div>
+                  <div className="text-[11px] text-slate-500 mb-1">
+                    Palabras que la identifican
+                  </div>
+                  <Chips
+                    items={Array.isArray(f.claves) ? f.claves : []}
+                    onChange={(claves) => setPostVenta(i, { claves })}
+                    placeholder='+ ej. "sorteo"'
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={agregarPostVenta}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300 bg-white text-sky-800 px-3 py-1.5 text-xs font-semibold hover:bg-sky-50"
+          >
+            <i className="bx bx-plus" /> Agregar respuesta después del cierre
+          </button>
         </div>
 
         <p className="flex items-start gap-1.5 rounded-lg bg-white border border-slate-200 px-2.5 py-2 text-[11.5px] text-slate-600 leading-snug">

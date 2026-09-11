@@ -488,6 +488,13 @@ export default function WizardProductoModal({
         ]);
         return;
       }
+      if (r.tipo === "silencio") {
+        setSimulacion((s) => [
+          ...s.filter((t) => !t.pensando),
+          { cliente: texto, nota: r.nota },
+        ]);
+        return;
+      }
       if (r.previous_response_id) setSimResponseId(r.previous_response_id);
       if (Number.isInteger(r.flujo_paso)) setSimFlujoPaso(r.flujo_paso);
       const tag =
@@ -540,6 +547,9 @@ export default function WizardProductoModal({
       }
       if (r.cierre_bloqueado) {
         turno.nota = `El asistente intentó cerrar, pero el resumen no traía todos los datos del pedido: como en vivo, no pasa de etapa y pide lo que falta.`;
+      }
+      if (r.post_venta_sin_remate) {
+        turno.nota = `${turno.nota ? `${turno.nota} ` : ""}El pedido ya está cerrado: la respuesta rápida sale tal cual, SIN la pregunta de venta que lleva durante el embudo (“¿te confirmo tu pedido?”).`;
       }
       if (r.faq_omitida) {
         turno.nota = `${turno.nota ? `${turno.nota} ` : ""}Respondió la IA y no la respuesta rápida “${r.faq_omitida}” porque el mensaje traía intención de compra: en ese caso siempre sigue el asistente para avanzar el pedido.`;
