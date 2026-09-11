@@ -491,6 +491,16 @@ const Conexiones = () => {
                 code,
                 id_configuracion: idConfiguracion,
                 id_usuario: userData?.id_usuario,
+                // Meta exige que el redirect_uri del intercambio sea idéntico
+                // al que se usó para pedir el code. Es el mismo que arma
+                // handleConectarMetaAds, y coincide porque la ruta no cambia
+                // al volver. Sin esto el backend cae a su valor por defecto
+                // —el de producción— y Meta rechaza el intercambio.
+                //
+                // Para el camino del popup (FB.login) es inofensivo: ahí el
+                // code no va atado a ninguna URL y el primer intento, que va
+                // sin redirect_uri, ya funciona.
+                redirect_uri: `${window.location.origin}${window.location.pathname}`,
               });
               if (!data.success && data.step !== "select_account") {
                 setAdsConnectingId(null);
