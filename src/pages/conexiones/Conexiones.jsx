@@ -580,6 +580,16 @@ const Conexiones = () => {
     const state = url.searchParams.get("state") || "";
     if (!code || !state.startsWith("ads_")) return;
 
+    // Esperar a `userData`.
+    //
+    // Este efecto corre al montar, pero el usuario se decodifica del token en
+    // otro efecto que termina después: en la primera vuelta id_usuario todavía
+    // es undefined y el backend responde "Faltan campos". Si se consumiera el
+    // code aquí, se perdería la URL y habría que rehacer todo el login para
+    // nada. Se sale sin tocar nada y el efecto vuelve a entrar cuando el
+    // usuario esté listo, porque va en las dependencias.
+    if (!userData?.id_usuario) return;
+
     const idConfiguracion = Number(state.split("_")[1]);
 
     // El code es de un solo uso y dura ~10 minutos: se saca de la URL ANTES
@@ -592,7 +602,7 @@ const Conexiones = () => {
     if (!Number.isFinite(idConfiguracion)) return;
     setAdsConnectingId(idConfiguracion);
     procesarCodeAds(code, idConfiguracion);
-  }, [procesarCodeAds]);
+  }, [procesarCodeAds, userData?.id_usuario]);
 
   // Conectar Meta Ads
   const handleConectarMetaAds = useCallback(
