@@ -885,6 +885,15 @@ const Conexiones = () => {
       const code = params.get("code");
       const error = params.get("error");
       if (!code || error) return;
+
+      // El flujo de Meta Ads redirige a esta misma pantalla y también vuelve
+      // con `?code=`, pero lo procesa su propio efecto y marca el `state` con
+      // el prefijo `ads_`. Sin esta guarda, este manejador —que no mira el
+      // state— se lleva ese code, lo trata como Messenger/Instagram y falla
+      // con "Falta id_configuracion (FB)", porque el suyo lo busca en
+      // localStorage y el de anuncios viaja dentro del state.
+      if ((params.get("state") || "").startsWith("ads_")) return;
+
       const provider = localStorage.getItem("oauth_provider");
       try {
         if (provider === "instagram") {
