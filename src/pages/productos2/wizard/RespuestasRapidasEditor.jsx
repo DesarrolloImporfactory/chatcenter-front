@@ -252,6 +252,13 @@ export default function RespuestasRapidasEditor({
               {resultado.decision}
             </span>
             {DECISION_TXT[resultado.decision] || "No se pudo probar."}
+            {resultado.solo_desde_segundo_turno ? (
+              <div className="mt-1 text-[11.5px] text-slate-500">
+                En el primer mensaje desde el anuncio sale solo el paquete (ya
+                lleva el precio y los combos). Esta respuesta sale de la
+                segunda pregunta en adelante.
+              </div>
+            ) : null}
             {resultado.respuesta ? (
               <div className="mt-1 rounded-lg bg-white border border-slate-200 px-2.5 py-1.5 whitespace-pre-line">
                 <b>#{(resultado.indice ?? 0) + 1}</b> {resultado.respuesta.respuesta}

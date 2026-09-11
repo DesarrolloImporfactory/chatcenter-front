@@ -480,7 +480,7 @@ const Conexiones = () => {
    * terminan en el mismo sitio.
    */
   const procesarCodeAds = useCallback(
-    async (code, idConfiguracion) => {
+    async (code, idConfiguracion, redirectUri) => {
             try {
               if (!code) {
                 setAdsConnectingId(null);
@@ -491,6 +491,17 @@ const Conexiones = () => {
                 code,
                 id_configuracion: idConfiguracion,
                 id_usuario: userData?.id_usuario,
+                // Solo en el camino de la REDIRECCIÓN.
+                //
+                // Meta ata el code a un redirect_uri concreto y exige el mismo
+                // al intercambiarlo. Pero el code del popup (FB.login) no va
+                // atado a ninguna URL y hay que intercambiarlo SIN él: mandarlo
+                // ahí haría fallar el primer intento del backend, que además
+                // decide el orden según si este campo viene o no.
+                //
+                // Producción usa el popup, así que aquí llega undefined y se
+                // comporta exactamente igual que antes de todo esto.
+                ...(redirectUri ? { redirect_uri: redirectUri } : {}),
               });
               if (!data.success && data.step !== "select_account") {
                 setAdsConnectingId(null);
@@ -580,6 +591,16 @@ const Conexiones = () => {
     const state = url.searchParams.get("state") || "";
     if (!code || !state.startsWith("ads_")) return;
 
+    // Esperar a `userData`.
+    //
+    // Este efecto corre al montar, pero el usuario se decodifica del token en
+    // otro efecto que termina después: en la primera vuelta id_usuario todavía
+    // es undefined y el backend responde "Faltan campos". Si se consumiera el
+    // code aquí, se perdería la URL y habría que rehacer todo el login para
+    // nada. Se sale sin tocar nada y el efecto vuelve a entrar cuando el
+    // usuario esté listo, porque va en las dependencias.
+    if (!userData?.id_usuario) return;
+
     const idConfiguracion = Number(state.split("_")[1]);
 
     // El code es de un solo uso y dura ~10 minutos: se saca de la URL ANTES
@@ -591,8 +612,12 @@ const Conexiones = () => {
 
     if (!Number.isFinite(idConfiguracion)) return;
     setAdsConnectingId(idConfiguracion);
-    procesarCodeAds(code, idConfiguracion);
-  }, [procesarCodeAds]);
+    procesarCodeAds(
+      code,
+      idConfiguracion,
+      `${window.location.origin}${window.location.pathname}`,
+    );
+  }, [procesarCodeAds, userData?.id_usuario]);
 
   // Conectar Meta Ads
   const handleConectarMetaAds = useCallback(
@@ -960,6 +985,15 @@ const Conexiones = () => {
       const code = params.get("code");
       const error = params.get("error");
       if (!code || error) return;
+
+      // El flujo de Meta Ads redirige a esta misma pantalla y también vuelve
+      // con `?code=`, pero lo procesa su propio efecto y marca el `state` con
+      // el prefijo `ads_`. Sin esta guarda, este manejador —que no mira el
+      // state— se lleva ese code, lo trata como Messenger/Instagram y falla
+      // con "Falta id_configuracion (FB)", porque el suyo lo busca en
+      // localStorage y el de anuncios viaja dentro del state.
+      if ((params.get("state") || "").startsWith("ads_")) return;
+
       const provider = localStorage.getItem("oauth_provider");
       try {
         if (provider === "instagram") {
