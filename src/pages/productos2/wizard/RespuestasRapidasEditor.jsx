@@ -122,6 +122,19 @@ export default function RespuestasRapidasEditor({
         </label>
       </div>
 
+      {/* El post-venta reusa estas mismas quemadas: conviene que se vea acá,
+          donde el negocio las escribe, y no solo en la documentación. */}
+      <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-[12px] text-indigo-900 leading-snug">
+        <i className="bx bx-package mr-1" />
+        <b>También responden después de la venta.</b> Cuando el pedido ya se
+        cerró y el chat pasa a la columna de seguimiento (generar guía, en
+        tránsito…), el cliente sigue escribiendo: “¿cómo participo en el
+        sorteo?”, “me equivoqué en la dirección”. Si la pregunta está aquí, sale
+        su texto tal cual; si no, queda para una persona.{" "}
+        <b>No hace falta encender la IA en esa columna</b> — de hecho, si la
+        enciendes responde la IA y no estas respuestas.
+      </div>
+
       {value.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-xs text-slate-500">
           Todavía no hay respuestas rápidas. Genéralas con “Completar con IA”
