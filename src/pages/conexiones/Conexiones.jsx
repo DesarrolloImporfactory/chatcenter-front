@@ -480,7 +480,7 @@ const Conexiones = () => {
    * terminan en el mismo sitio.
    */
   const procesarCodeAds = useCallback(
-    async (code, idConfiguracion) => {
+    async (code, idConfiguracion, redirectUri) => {
             try {
               if (!code) {
                 setAdsConnectingId(null);
@@ -491,16 +491,17 @@ const Conexiones = () => {
                 code,
                 id_configuracion: idConfiguracion,
                 id_usuario: userData?.id_usuario,
-                // Meta exige que el redirect_uri del intercambio sea idéntico
-                // al que se usó para pedir el code. Es el mismo que arma
-                // handleConectarMetaAds, y coincide porque la ruta no cambia
-                // al volver. Sin esto el backend cae a su valor por defecto
-                // —el de producción— y Meta rechaza el intercambio.
+                // Solo en el camino de la REDIRECCIÓN.
                 //
-                // Para el camino del popup (FB.login) es inofensivo: ahí el
-                // code no va atado a ninguna URL y el primer intento, que va
-                // sin redirect_uri, ya funciona.
-                redirect_uri: `${window.location.origin}${window.location.pathname}`,
+                // Meta ata el code a un redirect_uri concreto y exige el mismo
+                // al intercambiarlo. Pero el code del popup (FB.login) no va
+                // atado a ninguna URL y hay que intercambiarlo SIN él: mandarlo
+                // ahí haría fallar el primer intento del backend, que además
+                // decide el orden según si este campo viene o no.
+                //
+                // Producción usa el popup, así que aquí llega undefined y se
+                // comporta exactamente igual que antes de todo esto.
+                ...(redirectUri ? { redirect_uri: redirectUri } : {}),
               });
               if (!data.success && data.step !== "select_account") {
                 setAdsConnectingId(null);
@@ -611,7 +612,11 @@ const Conexiones = () => {
 
     if (!Number.isFinite(idConfiguracion)) return;
     setAdsConnectingId(idConfiguracion);
-    procesarCodeAds(code, idConfiguracion);
+    procesarCodeAds(
+      code,
+      idConfiguracion,
+      `${window.location.origin}${window.location.pathname}`,
+    );
   }, [procesarCodeAds, userData?.id_usuario]);
 
   // Conectar Meta Ads
