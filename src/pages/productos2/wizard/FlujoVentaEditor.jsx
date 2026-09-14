@@ -934,6 +934,71 @@ export default function FlujoVentaEditor({
               </button>
             ) : null}
           </div>
+          {/* Cierre a dos tiempos: un mensaje previo al instante y el final
+              después de una pausa, para que el cliente alcance a corregir un
+              dato antes de recibir "PEDIDO CONFIRMADO". */}
+          <div className="rounded-lg bg-white border border-emerald-200 px-3 py-2 space-y-1.5">
+            <div className="text-[12px] text-emerald-900 font-semibold flex items-center gap-1.5">
+              <i className="bx bx-message-rounded-dots text-emerald-600 text-base" />
+              Mensaje previo (opcional): sale al instante al cerrar
+            </div>
+            <textarea
+              value={finVenta?.copy_previo || ""}
+              onChange={(e) => setFin({ copy_previo: e.target.value })}
+              rows={3}
+              placeholder="📦 De inmediato procedo a generar su orden. ✅ A continuación le llegará un mensaje de confirmación…"
+              className={taCls}
+            />
+            <div className="text-[12px] text-slate-600 flex items-center gap-1.5">
+              <i className="bx bx-time-five text-slate-400 text-base" />
+              <b>¿Cuánto espera el bot antes de enviar el mensaje final?</b>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { s: 0, l: "Al instante" },
+                { s: 15, l: "15 seg" },
+                { s: 45, l: "45 seg" },
+                { s: 60, l: "1 min" },
+                { s: 120, l: "2 min" },
+                { s: 180, l: "3 min" },
+              ].map((o) => (
+                <button
+                  key={o.s}
+                  type="button"
+                  onClick={() => setFin({ retraso: o.s })}
+                  className={`rounded-lg px-2.5 py-1 text-[11.5px] font-semibold border transition ${
+                    (finVenta?.retraso ?? 0) === o.s
+                      ? "bg-[#171931] text-white border-[#171931]"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                  }`}
+                >
+                  {o.l}
+                </button>
+              ))}
+              <span className="text-[11px] text-slate-400 ml-1">u otro:</span>
+              <input
+                type="number"
+                min={0}
+                max={180}
+                value={finVenta?.retraso ?? 0}
+                onChange={(e) =>
+                  setFin({
+                    retraso: Math.max(
+                      0,
+                      Math.min(180, Math.round(Number(e.target.value) || 0)),
+                    ),
+                  })
+                }
+                className={`${inCls} w-20`}
+              />
+              <span className="text-[11px] text-slate-500">seg</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Con pausa, el cliente ve primero el mensaje previo y recién
+              después el final de abajo. Máximo 3 minutos. Si escribe algo en
+              la espera, se le responde igual. En la vista previa no se espera.
+            </p>
+          </div>
           <textarea
             value={finVenta?.copy || ""}
             onChange={(e) => setFin({ copy: e.target.value })}

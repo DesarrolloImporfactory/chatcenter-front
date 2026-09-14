@@ -557,26 +557,46 @@ export default function WizardProductoModal({
       const turnos = [];
       const hayPostVenta =
         r.post_venta && (r.post_venta.copy || r.post_venta.media?.length);
+      const retrasoFin = Number(r.post_venta?.retraso) || 0;
       const postVentaTurno = hayPostVenta
         ? {
             bot: r.post_venta.copy || "",
             media: aMedia(r.post_venta.media),
             remitente: "Flujo de venta · venta realizada",
             tag: "sin IA",
+            ...(retrasoFin > 0
+              ? {
+                  nota: `En vivo este mensaje sale ${retrasoFin} segundo(s) después del anterior (pausa configurada); en la vista previa no se espera.`,
+                }
+              : {}),
           }
         : null;
+      // Mensaje PREVIO del cierre a dos tiempos: sale al instante, antes de
+      // la pausa y del mensaje final.
+      const previoTurno =
+        hayPostVenta && r.post_venta.copy_previo
+          ? {
+              bot: r.post_venta.copy_previo,
+              media: [],
+              remitente: "Flujo de venta · mensaje previo",
+              tag: "sin IA",
+            }
+          : null;
       if (r.resumen_oculto && postVentaTurno) {
         // Con la opción "no enviar el resumen", el cliente solo ve el mensaje
         // final; la orden y el cambio de etapa se procesan igual por dentro.
-        turnos.push({
-          ...postVentaTurno,
-          cliente: texto,
-          nota: `${turno.nota ? `${turno.nota} ` : ""}El resumen del pedido NO se le envió al cliente (opción del embudo): la orden a Dropi y el cambio de etapa se procesan igual con esos datos por dentro.`,
-        });
+        const notaOculto = `${turno.nota ? `${turno.nota} ` : ""}El resumen del pedido NO se le envió al cliente (opción del embudo): la orden a Dropi y el cambio de etapa se procesan igual con esos datos por dentro.`;
+        if (previoTurno) {
+          turnos.push({ ...previoTurno, cliente: texto, nota: notaOculto });
+          turnos.push(postVentaTurno);
+        } else {
+          turnos.push({ ...postVentaTurno, cliente: texto, nota: notaOculto });
+        }
       } else {
         turnos.push(turno);
         // Mensaje de VENTA REALIZADA del embudo: en vivo sale justo después
         // del resumen de cierre; acá se muestra como turno extra.
+        if (previoTurno) turnos.push(previoTurno);
         if (postVentaTurno) turnos.push(postVentaTurno);
       }
       setSimulacion((s) => [...s.filter((t) => !t.pensando), ...turnos]);
