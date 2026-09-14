@@ -6,6 +6,7 @@ import useProgramadosChat from "./useProgramadosChat";
 import { ensureProgramados } from "./programadosChatStore";
 import { invalidarResumenProgramados } from "./useProgramadosChats";
 import { formatFechaProgramada } from "../../services/programados.service";
+import { enviarWhatsAppConReintento } from "../../utils/enviarWhatsAppConReintento";
 
 const Modales = ({
   numeroModal,
@@ -626,7 +627,6 @@ const Modales = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     const payload = {
       messaging_product: "whatsapp",
@@ -638,19 +638,12 @@ const Modales = ({
       },
     };
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
-
     try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
+      const result = await enviarWhatsAppConReintento({
+        phoneNumberId: fromPhoneNumberId,
+        token: accessToken,
+        payload,
       });
-
-      const result = await response.json();
 
       if (result.error) {
         console.error("Error al enviar la imagen a WhatsApp:", result.error);
@@ -824,7 +817,6 @@ const Modales = ({
     const fromPhoneNumberId = dataAdmin.id_telefono;
     const accessToken = dataAdmin.token;
     const numeroDestino = selectedChat.celular_cliente;
-    const apiUrl = `https://graph.facebook.com/v25.0/${fromPhoneNumberId}/messages`;
 
     const payload = {
       messaging_product: "whatsapp",
@@ -836,19 +828,12 @@ const Modales = ({
       },
     };
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
-
     try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
+      const result = await enviarWhatsAppConReintento({
+        phoneNumberId: fromPhoneNumberId,
+        token: accessToken,
+        payload,
       });
-
-      const result = await response.json();
 
       if (result.error) {
         console.error("Error al enviar el documento a WhatsApp:", result.error);
@@ -1166,27 +1151,19 @@ const Modales = ({
       const { media_id } = data;
 
       // ── 2. Frontend: enviar mensaje a WhatsApp ────────────────────
-      const response = await fetch(
-        `https://graph.facebook.com/v25.0/${dataAdmin.id_telefono}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${dataAdmin.token}`,
-            "Content-Type": "application/json",
+      const result = await enviarWhatsAppConReintento({
+        phoneNumberId: dataAdmin.id_telefono,
+        token: dataAdmin.token,
+        payload: {
+          messaging_product: "whatsapp",
+          to: selectedChat.celular_cliente,
+          type: "video",
+          video: {
+            id: media_id,
+            caption: caption || "",
           },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: selectedChat.celular_cliente,
-            type: "video",
-            video: {
-              id: media_id,
-              caption: caption || "",
-            },
-          }),
         },
-      );
-
-      const result = await response.json();
+      });
 
       if (result.error) {
         alert(`Error enviando mensaje: ${result.error.message}`);
