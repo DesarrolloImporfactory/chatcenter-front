@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import axios from "axios";
 import chatApi from "../api/chatcenter";
+import { useDropi } from "../context/DropiContext";
 import {
   pickSupplierId,
   pickWarehouseId,
@@ -95,6 +96,12 @@ export default function useCreateOrder({
   const [surname, setSurname] = useState(selectedChat?.apellido_cliente || "");
   const [dir, setDir] = useState("");
   const [notes, setNotes] = useState("");
+  /* México: Dropi MX no cotiza ni crea sin código postal (payload capturado
+     en app.dropi.mx el 2026-09-15). El campo solo existe para cuentas con
+     integración de México; Ecuador y el resto no lo ven. */
+  const { dropiCountry } = useDropi();
+  const esMexico = String(dropiCountry || "").toUpperCase() === "MX";
+  const [zipCode, setZipCode] = useState("");
   // Pistas del resumen del bot (provincia/ciudad/producto/precio) para
   // mostrar "el bot dijo: …" en el panel.
   const [botHints, setBotHints] = useState(null);
@@ -127,6 +134,7 @@ export default function useCreateOrder({
     setShippingQuotesLoading(false);
     setSelectedShipping(null);
     setDir("");
+    setZipCode("");
     setNotes("");
     setBotHints(null);
     setCustomerHistory(null);
@@ -209,6 +217,7 @@ export default function useCreateOrder({
     setShippingQuotesLoading(false);
     setSelectedShipping(null);
     setDir("");
+    setZipCode("");
     setNotes("");
     setBotHints(null);
     setAutoGeo({ provincia: null, ciudad: null });
@@ -349,30 +358,50 @@ export default function useCreateOrder({
     [socketRef, id_configuracion, selectedDepartmentId, rateType],
   );
 
+  // Ciudad de la bodega del primer producto (la usa México para resolver el
+  // remitente cuando la bodega no trae cod_dane).
+  const warehouseCityId = useMemo(
+    () => pickWarehouseCityId(productsCart?.[0]?.__raw || null),
+    [productsCart],
+  );
+
   const emitCotizaTransportadoras = useCallback(() => {
     const s = socketRef?.current;
     if (!s) return;
-    if (!id_configuracion || !selectedCityCodDane || !remitCodDane) return;
+    if (!id_configuracion) return;
+    /* Ecuador/Colombia: cod_dane de destino y de la bodega, como siempre.
+       México: las ciudades no traen cod_dane; basta el id de la ciudad más el
+       código postal, y la bodega se resuelve por su city_id. */
+    if (esMexico) {
+      if (
+        !selectedCityId ||
+        !/^\d{5}$/.test(zipCode || "") ||
+        (!remitCodDane && !warehouseCityId)
+      )
+        return;
+    } else if (!selectedCityCodDane || !remitCodDane) {
+      return;
+    }
 
     setShippingQuotesLoading(true);
     setShippingQuotesError(null);
     setShippingQuotes([]);
     setSelectedShipping(null);
 
-    const raw0 = productsCart[0]?.__raw || null;
-
     const fullCityDestino =
+      cities.find((c) => Number(c.id) === Number(selectedCityId)) ||
       cities.find(
         (c) => String(c.cod_dane || "") === String(selectedCityCodDane),
-      ) || null;
+      ) ||
+      null;
 
     s.emit("GET_DROPI_COTIZA_ENVIO_V2", {
       id_configuracion: Number(id_configuracion),
       EnvioConCobro: rateType === "CON RECAUDO",
-      ciudad_destino_cod_dane: String(selectedCityCodDane),
-      ciudad_remitente_cod_dane: String(remitCodDane),
+      ciudad_destino_cod_dane: String(selectedCityCodDane || ""),
+      ciudad_remitente_cod_dane: String(remitCodDane || ""),
       ciudad_destino_full: fullCityDestino,
-      warehouse_city_id: pickWarehouseCityId(raw0),
+      warehouse_city_id: warehouseCityId,
       products: productsCart.map((p) => ({
         id: Number(p.product_id || p.id),
         quantity: Number(p.quantity) || 1,
@@ -382,15 +411,32 @@ export default function useCreateOrder({
         (acc, p) => acc + (Number(p.price) || 0) * (Number(p.quantity) || 1),
         0,
       ),
+      // México: lo que el front de Dropi manda junto al código postal.
+      ...(esMexico
+        ? {
+            zip_code: zipCode,
+            dir: String(dir || "").trim(),
+            destination_name: `${name || ""} ${surname || ""}`.trim(),
+            destination_phone: String(phoneInput || "").replace(/\D/g, ""),
+          }
+        : {}),
     });
   }, [
     socketRef,
     id_configuracion,
     selectedCityCodDane,
+    selectedCityId,
     remitCodDane,
+    warehouseCityId,
     rateType,
     productsCart,
     cities,
+    esMexico,
+    zipCode,
+    dir,
+    name,
+    surname,
+    phoneInput,
   ]);
 
   // ── handlers de selección ──
@@ -730,7 +776,7 @@ export default function useCreateOrder({
       state: String(selectedDepartmentName || ""),
       city: String(selectedCityName || ""),
       dir: String(dir || "").trim(),
-      zip_code: null,
+      zip_code: esMexico ? zipCode || null : null,
       colonia: "",
       dni: "",
       dni_type: "",
@@ -738,6 +784,18 @@ export default function useCreateOrder({
       shalom_data: null,
       distributionCompany,
       products,
+      /* México: la creación calcada del front de Dropi (payload capturado en
+         app.dropi.mx el 2026-09-15): flete cotizado, insurance en false,
+         bodega elegida y proveedor del producto. Ecuador manda lo de siempre. */
+      ...(esMexico
+        ? {
+            shipping_amount: shipping_amount_real,
+            insurance: false,
+            warehouses_selected_id:
+              pickWarehouseId(productsCart[0]?.__raw || null) || null,
+            supplier_id: pickSupplierId(productsCart[0]?.__raw || null) || null,
+          }
+        : {}),
     });
   }, [
     socketRef,
@@ -754,6 +812,8 @@ export default function useCreateOrder({
     selectedShipping,
     noProrateFlete,
     selectedChat?.id,
+    esMexico,
+    zipCode,
   ]);
 
   // ── recargar cities si cambia rateType ──
@@ -817,6 +877,15 @@ export default function useCreateOrder({
     setSelectedShipping(null);
     setShippingQuotesError(null);
   }, [selectedCityCodDane]);
+
+  // México: cambiar la ciudad (sin cod_dane) o el código postal invalida la
+  // cotización igual que cambiar el cod_dane en Ecuador.
+  useEffect(() => {
+    if (!esMexico) return;
+    setShippingQuotes([]);
+    setSelectedShipping(null);
+    setShippingQuotesError(null);
+  }, [esMexico, selectedCityId, zipCode]);
 
   // ── listeners de socket ──
   useEffect(() => {
@@ -1045,6 +1114,11 @@ export default function useCreateOrder({
     setDir,
     notes,
     setNotes,
+    // México: código postal obligatorio para cotizar y crear
+    esMexico,
+    zipCode,
+    setZipCode,
+    warehouseCityId,
     botHints,
     autoGeo,
     prefillFromBot,

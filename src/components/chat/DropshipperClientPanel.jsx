@@ -159,9 +159,17 @@ function buildCreateOrderPanelProps(createHook) {
     shippingQuotesError: createHook.shippingQuotesError,
     selectedShipping: createHook.selectedShipping,
     setSelectedShipping: createHook.setSelectedShipping,
-    canShowShipping:
-      Boolean(createHook.selectedCityCodDane) &&
-      Boolean(createHook.remitCodDane),
+    // México: código postal obligatorio; la ciudad no trae cod_dane y la
+    // bodega se resuelve por su city_id. Ecuador y el resto, como siempre.
+    esMexico: createHook.esMexico,
+    zipCode: createHook.zipCode,
+    setZipCode: createHook.setZipCode,
+    canShowShipping: createHook.esMexico
+      ? Boolean(createHook.selectedCityId) &&
+        /^\d{5}$/.test(createHook.zipCode || "") &&
+        Boolean(createHook.remitCodDane || createHook.warehouseCityId)
+      : Boolean(createHook.selectedCityCodDane) &&
+        Boolean(createHook.remitCodDane),
     onRecotizar: createHook.emitCotizaTransportadoras,
     keywords: createHook.keywords,
     setKeywords: createHook.setKeywords,
@@ -179,6 +187,7 @@ function buildCreateOrderPanelProps(createHook) {
       Boolean(createHook.dir?.trim()) &&
       Boolean(createHook.selectedDepartmentId) &&
       Boolean(createHook.selectedCityId) &&
+      (!createHook.esMexico || /^\d{5}$/.test(createHook.zipCode || "")) &&
       Array.isArray(createHook.productsCart) &&
       createHook.productsCart.length > 0 &&
       Boolean(

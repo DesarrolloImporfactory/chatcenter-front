@@ -16,7 +16,7 @@ import Header from "../Header/pageHeader";
  * (el ítem del menú usa el mismo gate).
  */
 
-export const CAMPANIAS_PILOTO = [610, 10];
+export const CAMPANIAS_PILOTO = [610, 10, 822];
 
 const CampaniasView = () => {
   const idConfiguracion =
@@ -33,7 +33,7 @@ const CampaniasView = () => {
       >
         <Header
           title="Campañas"
-          subtitle="Crea, lanza y deja que las reglas automáticas cuiden tu presupuesto."
+          subtitle="Lanza plantillas, vigila todas tus campañas de Meta y deja que las reglas automáticas cuiden tu presupuesto."
           icon={<i className="bx bxs-megaphone text-2xl" />}
         />
 
