@@ -46,6 +46,11 @@ export default function ChatRealModal({ open, onClose, columnaNombre }) {
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [esperando, setEsperando] = useState(false);
+  // Aviso del backend cuando nadie va a contestar (bot apagado en Asistentes
+  // o etapa sin IA): se muestra en vez del "está respondiendo…" eterno.
+  const [avisoBot, setAvisoBot] = useState(null);
+  // El spinner venció sin respuesta: se dice, no se deja girando.
+  const [sinRespuesta, setSinRespuesta] = useState(false);
   const [desdeId, setDesdeId] = useState(null);
   const [ultimoId, setUltimoId] = useState(0);
   const [pruebaIniciada, setPruebaIniciada] = useState(false);
@@ -126,6 +131,13 @@ export default function ChatRealModal({ open, onClose, columnaNombre }) {
         if (d.ultimo_error) {
           setEsperando(false);
           clearTimeout(esperaRef.current);
+        }
+        if (typeof d.aviso === "string" && d.aviso) {
+          setAvisoBot(d.aviso);
+          setEsperando(false);
+          clearTimeout(esperaRef.current);
+        } else if (d.bot_activo === true && d.contacto?.columna_ia !== false) {
+          setAvisoBot(null);
         }
         const nuevos = d.mensajes || [];
         if (nuevos.length) {
@@ -216,9 +228,21 @@ export default function ChatRealModal({ open, onClose, columnaNombre }) {
         setDesdeId(d.desde_id);
         setUltimoId(d.desde_id);
       }
-      setEsperando(true);
-      clearTimeout(esperaRef.current);
-      esperaRef.current = setTimeout(() => setEsperando(false), 90000);
+      setSinRespuesta(false);
+      if (d.aviso) {
+        // Nadie va a contestar: se explica en vez de esperar.
+        setAvisoBot(d.aviso);
+        setEsperando(false);
+        clearTimeout(esperaRef.current);
+      } else {
+        setAvisoBot(null);
+        setEsperando(true);
+        clearTimeout(esperaRef.current);
+        esperaRef.current = setTimeout(() => {
+          setEsperando(false);
+          setSinRespuesta(true);
+        }, 60000);
+      }
       if (anuncio) {
         setAnuncio("");
         setTituloAnuncio("");
@@ -474,7 +498,21 @@ export default function ChatRealModal({ open, onClose, columnaNombre }) {
             </div>
           ) : null}
 
-          {esperando && !ultimoError ? (
+          {avisoBot ? (
+            <div className="text-[12.5px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mx-auto max-w-md">
+              <b>Nadie va a contestar:</b> {avisoBot}
+            </div>
+          ) : null}
+
+          {sinRespuesta && !avisoBot && !ultimoError ? (
+            <div className="text-[12.5px] text-slate-700 bg-white/90 border border-slate-200 rounded-lg px-3 py-2 mx-auto max-w-md">
+              Pasó un minuto sin respuesta del bot. Si el número no ha escrito al negocio en
+              las últimas 24 h, WhatsApp no deja enviarle nada; si el bot sigue encendido,
+              revisa el registro del servidor.
+            </div>
+          ) : null}
+
+          {esperando && !ultimoError && !avisoBot ? (
             <div className="flex justify-end">
               <div className="rounded-xl bg-[#dcf8c6] px-3 py-2 text-[12px] text-slate-500 shadow-sm inline-flex items-center gap-2">
                 <i className="bx bx-loader-alt bx-spin" /> El asistente está respondiendo…
