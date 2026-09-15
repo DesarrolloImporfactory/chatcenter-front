@@ -58,6 +58,19 @@ const money = (cent) =>
 
 const money0 = (cent) => `$${Math.round((Number(cent) || 0) / 100)}`;
 
+/* Las cifras de las tiendas vienen en dólares (no en centavos): son las del
+   dashboard de conexiones, que ya las devuelve así. */
+const fmtUsd = (n) =>
+  `$${(Number(n) || 0).toLocaleString("es-EC", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+const fmtNum = (n) => (Number(n) || 0).toLocaleString("es-EC");
+const fmtPct = (v) =>
+  v === null || v === undefined || Number.isNaN(Number(v))
+    ? "—"
+    : `${Number(v).toFixed(1)}%`;
+
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",
   "jul", "ago", "sep", "oct", "nov", "dic",
@@ -548,6 +561,282 @@ const Vacio = ({ icon, titulo, texto }) => (
 );
 
 /* ─────────────────────────────────────────────────────────────
+   Cómo les va a los referidos
+   Las seis cifras del hero de /conexion-dashboard, sumadas por referido y
+   en total. Las calcula el backend con la MISMA función de ese dashboard:
+   lo que el referido ve en su pantalla es lo que el referidor ve aquí.
+   El referidor cobra un % de lo que sus referidos pagan; si a ellos no les
+   va bien se van, y con ellos la comisión. Verlo le permite ayudar antes.
+   ───────────────────────────────────────────────────────────── */
+
+const PERIODOS = [
+  { dias: 7, label: "7 días" },
+  { dias: 30, label: "30 días" },
+  { dias: 90, label: "90 días" },
+];
+
+const Sub = ({ children }) => (
+  <span className="block text-[10px] text-slate-400 font-normal">{children}</span>
+);
+
+/* Correo del referido con botón de copiar. Se copia con un clic y sin
+   seleccionar a mano: el referidor lo pega en WhatsApp o en el login para
+   ayudarle a esa tienda, y un correo truncado en una celda no se puede
+   seleccionar bien. */
+const Correo = ({ email }) => {
+  if (!email) return null;
+  const copiarCorreo = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(email);
+      Swal.fire({
+        icon: "success",
+        title: "Correo copiado",
+        text: email,
+        timer: 1400,
+        showConfirmButton: false,
+      });
+    } catch {
+      Swal.fire("Copia manual", email, "info");
+    }
+  };
+  return (
+    <span className="inline-flex items-center gap-1 max-w-full min-w-0">
+      <span className="text-[11px] text-slate-500 truncate">{email}</span>
+      <button
+        type="button"
+        onClick={copiarCorreo}
+        title="Copiar correo"
+        aria-label={`Copiar ${email}`}
+        className="shrink-0 w-5 h-5 grid place-items-center rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+      >
+        <i className="bx bx-copy text-[13px]" />
+      </button>
+    </span>
+  );
+};
+
+const RendimientoReferidos = ({ rend, cargando, dias, onDias }) => {
+  const t = rend?.total;
+  const filas = rend?.referidos || [];
+  const conTienda = filas.filter((r) => r.tiendas.length > 0);
+  const atenuado = cargando ? "opacity-60 transition-opacity" : "";
+
+  return (
+    <Panel
+      icon="bx-store"
+      title="Cómo les va a tus referidos"
+      /* Las fechas van en el subtítulo y no solo al pie: "30 días" se lee
+         distinto según quién mire, y el referidor compara estos números con
+         la tarjeta de Conexiones de su referido. Con el rango explícito, si
+         no cuadran es porque eligió otro periodo, no porque algo esté mal. */
+      subtitle={
+        rend
+          ? `Del ${fechaCorta(rend.periodo.from)} al ${fechaCorta(rend.periodo.until)} · las mismas cifras y fórmulas del panel de Conexiones de cada referido, sumadas por tienda`
+          : "Las mismas cifras y fórmulas del panel de Conexiones de cada referido, sumadas por tienda"
+      }
+      accion={
+        <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0">
+          {PERIODOS.map((p) => (
+            <button
+              key={p.dias}
+              type="button"
+              onClick={() => onDias(p.dias)}
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition ${
+                dias === p.dias
+                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {cargando && !rend ? (
+        <div className="px-5 pb-5 animate-pulse">
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Bloque key={i} className="h-24" />
+            ))}
+          </div>
+          <Bloque className="h-40 mt-4" />
+        </div>
+      ) : !rend ? (
+        <Vacio
+          icon="bx-store"
+          titulo="No se pudo cargar el rendimiento"
+          texto="Inténtalo de nuevo en unos minutos"
+        />
+      ) : conTienda.length === 0 ? (
+        <Vacio
+          icon="bx-store"
+          titulo="Ninguno de tus referidos tiene una tienda conectada"
+          texto="Aquí verás cómo venden en cuanto la conecten"
+        />
+      ) : (
+        <>
+          <div className={`px-5 pb-5 ${atenuado}`}>
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <Kpi
+                label="Facturado"
+                valor={fmtUsd(t.facturado)}
+                detalle={`${fmtNum(t.pedidos)} pedidos`}
+                color={C.bien}
+                icon="bx-dollar-circle"
+                ayuda="Cuánto vendieron tus referidos en el periodo, sumando todas sus tiendas. Es el total de sus pedidos en Dropi sin contar los cancelados."
+              />
+              <Kpi
+                label="Utilidad"
+                valor={fmtUsd(t.ganancia)}
+                detalle={
+                  t.margen_pct === null
+                    ? "—"
+                    : `${t.margen_pct.toFixed(1)}% del facturado`
+                }
+                icon="bx-wallet"
+                ayuda="Lo que ganarían si se entregaran todos los pedidos del periodo: venta menos costo del proveedor y envío."
+              />
+              <Kpi
+                label="Conversaciones"
+                valor={fmtNum(t.conversaciones)}
+                detalle={`${fmtNum(t.mensajes)} mensajes`}
+                icon="bx-message-dots"
+                ayuda="Personas distintas que les escribieron al chat durante el periodo."
+              />
+              <Kpi
+                label="Pedidos"
+                valor={fmtNum(t.pedidos)}
+                detalle={`${fmtNum(t.canceladas)} cancelados`}
+                icon="bx-package"
+                ayuda="Pedidos del periodo en Dropi, sin contar los cancelados."
+              />
+              <Kpi
+                label="Confirmación"
+                valor={fmtPct(t.pct_confirmacion)}
+                detalle={
+                  t.pct_confirmacion_tope
+                    ? "más pedidos que conversaciones"
+                    : `${fmtNum(t.pedidos_chat)} de ${fmtNum(t.conversaciones)}`
+                }
+                color={C.espera}
+                icon="bx-check-shield"
+                ayuda="De las conversaciones que entraron, qué porcentaje terminó en pedido. Fórmula: pedidos por chat ÷ conversaciones × 100. Es la misma tasa de confirmación que cada referido ve en su dashboard."
+              />
+              <Kpi
+                label="Tasa entrega"
+                valor={fmtPct(t.tasa_entrega)}
+                detalle={`${fmtNum(t.entregadas)} entregados`}
+                icon="bx-check-double"
+                ayuda="De los pedidos sin cancelados, cuántos llegaron al cliente. Fórmula: entregados ÷ pedidos × 100."
+              />
+            </div>
+          </div>
+
+          <div className={`overflow-auto max-h-[30rem] border-t border-slate-100 ${atenuado}`}>
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wider sticky top-0 z-10">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold">Referido</th>
+                  <th className="text-right px-4 py-3 font-semibold">Facturado</th>
+                  <th className="text-right px-4 py-3 font-semibold">Utilidad</th>
+                  <th className="text-right px-4 py-3 font-semibold">Conversaciones</th>
+                  <th className="text-right px-4 py-3 font-semibold">Pedidos</th>
+                  <th className="text-right px-4 py-3 font-semibold">Confirmación</th>
+                  <th className="text-right px-4 py-3 font-semibold">Tasa entrega</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filas.map((r) => {
+                  const m = r.metricas;
+                  const sinTienda = r.tiendas.length === 0;
+                  const celda =
+                    "px-4 py-3 text-right tabular-nums whitespace-nowrap";
+                  return (
+                    <tr
+                      key={r.id_usuario}
+                      className={
+                        sinTienda ? "text-slate-400" : "hover:bg-slate-50/70"
+                      }
+                    >
+                      <td className="px-4 py-3">
+                        <p
+                          className={`font-medium truncate max-w-[16rem] ${
+                            sinTienda ? "text-slate-500" : "text-slate-800"
+                          }`}
+                        >
+                          {r.nombre}
+                        </p>
+                        <div className="max-w-[16rem]">
+                          <Correo email={r.email} />
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate max-w-[16rem]">
+                          {sinTienda
+                            ? "Sin tienda conectada"
+                            : r.tiendas.map((tt) => tt.nombre).join(" · ")}
+                          {r.sin_datos && " · datos incompletos"}
+                        </p>
+                      </td>
+                      {sinTienda ? (
+                        <td colSpan={6} className="px-4 py-3 text-right text-slate-300">
+                          —
+                        </td>
+                      ) : (
+                        <>
+                          <td className={`${celda} font-bold text-slate-800`}>
+                            {fmtUsd(m.facturado)}
+                          </td>
+                          <td className={`${celda} text-slate-700`}>
+                            {fmtUsd(m.ganancia)}
+                            <Sub>
+                              {m.margen_pct === null
+                                ? "—"
+                                : `${m.margen_pct.toFixed(1)}% margen`}
+                            </Sub>
+                          </td>
+                          <td className={`${celda} text-slate-700`}>
+                            {fmtNum(m.conversaciones)}
+                            <Sub>{fmtNum(m.mensajes)} mensajes</Sub>
+                          </td>
+                          <td className={`${celda} text-slate-700`}>
+                            {fmtNum(m.pedidos)}
+                            <Sub>{fmtNum(m.canceladas)} cancelados</Sub>
+                          </td>
+                          <td className={`${celda} font-semibold`} style={{ color: C.espera }}>
+                            {fmtPct(m.pct_confirmacion)}
+                            <Sub>
+                              {m.pct_confirmacion_tope
+                                ? "más pedidos que chats"
+                                : `${fmtNum(m.pedidos_chat)} de ${fmtNum(m.conversaciones)}`}
+                            </Sub>
+                          </td>
+                          <td className={`${celda} text-slate-700`}>
+                            {fmtPct(m.tasa_entrega)}
+                            <Sub>{fmtNum(m.entregadas)} entregados</Sub>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-[11px] text-slate-400 px-5 py-3 border-t border-slate-100 leading-relaxed">
+            Facturado y utilidad salen de los pedidos en Dropi de cada tienda;
+            la confirmación es pedidos por chat ÷ conversaciones y la entrega
+            es entregados ÷ pedidos, igual que en su panel. Para comparar con
+            lo que ve tu referido, elige aquí el mismo periodo que él.
+          </p>
+        </>
+      )}
+    </Panel>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────────
    Vista
    ───────────────────────────────────────────────────────────── */
 
@@ -578,6 +867,33 @@ export default function ReferidosView() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  /* Rendimiento de las tiendas: se pide aparte y DESPUÉS del resumen. Son
+     ~12 consultas por tienda; si viajara dentro de mi-programa, el saldo
+     tardaría lo que tardan todas las tiendas de todos los referidos. */
+  const [dias, setDias] = useState(30);
+  const [rend, setRend] = useState(null);
+  const [rendCargando, setRendCargando] = useState(false);
+  const listo = Boolean(data);
+  useEffect(() => {
+    if (!listo) return undefined;
+    let vivo = true;
+    setRendCargando(true);
+    chatApi
+      .get("referidos/rendimiento", { params: { dias } })
+      .then(({ data: res }) => {
+        if (vivo) setRend(res.data);
+      })
+      .catch(() => {
+        if (vivo) setRend(null);
+      })
+      .finally(() => {
+        if (vivo) setRendCargando(false);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [listo, dias]);
 
   const enlace = useMemo(() => armarEnlace(data?.codigo), [data?.codigo]);
   const serie = useMemo(
@@ -1381,6 +1697,18 @@ export default function ReferidosView() {
               )}
             </Panel>
           </div>
+
+          {/* ═══════════ Cómo les va a los referidos ═══════════
+              Solo si hay referidos: sin ellos no hay tiendas que mirar y el
+              panel vacío solo agregaría ruido a una pantalla ya larga. */}
+          {data.referidos.length > 0 && (
+            <RendimientoReferidos
+              rend={rend}
+              cargando={rendCargando}
+              dias={dias}
+              onDias={setDias}
+            />
+          )}
 
           {/* ═══════════ Tablas ═══════════ */}
           <div className="bg-white rounded-2xl border border-slate-200">
