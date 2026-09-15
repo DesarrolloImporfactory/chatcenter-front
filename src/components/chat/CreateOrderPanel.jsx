@@ -115,6 +115,9 @@ export default function CreateOrderPanel(props) {
     setDir,
     notes,
     setNotes,
+    esMexico = false,
+    zipCode = "",
+    setZipCode = () => {},
     botHints,
     autoGeo,
     rateType,
@@ -350,6 +353,28 @@ export default function CreateOrderPanel(props) {
             placeholder="Calle, referencia, sector..."
           />
         </div>
+
+        {/* México: Dropi MX no cotiza ni crea la orden sin código postal.
+            Solo aparece en cuentas con integración de México. */}
+        {esMexico && (
+          <div className="px-3.5 pb-1.5">
+            <label className={labelCls}>Código postal{requiredMark}</label>
+            <input
+              value={zipCode}
+              onChange={(e) =>
+                setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5))
+              }
+              className={inputCls}
+              inputMode="numeric"
+              placeholder="5 dígitos, ej: 80150"
+            />
+            {zipCode && !/^\d{5}$/.test(zipCode) && (
+              <p className="mt-1 text-[9px] text-amber-300/70">
+                El código postal de México tiene 5 dígitos.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="px-3.5 pb-3">
           <label className={labelCls}>
@@ -956,6 +981,12 @@ export default function CreateOrderPanel(props) {
               done={Boolean(dir?.trim())}
               label="Dirección de entrega"
             />
+            {esMexico && (
+              <CheckItem
+                done={/^\d{5}$/.test(zipCode || "")}
+                label="Código postal (5 dígitos)"
+              />
+            )}
             <CheckItem
               done={Boolean(selectedDepartmentId)}
               label="Provincia seleccionada"
@@ -971,7 +1002,8 @@ export default function CreateOrderPanel(props) {
           </div>
 
           {/* Aviso amigable cuando todo está verde pero hay incompatibilidad interna */}
-          {Boolean(selectedCityId) &&
+          {!esMexico &&
+            Boolean(selectedCityId) &&
             productsCart.length > 0 &&
             (!selectedCityCodDane || !remitCodDane) && (
               <div className="mt-2 flex items-start gap-2 px-2.5 py-2 rounded-[7px] bg-amber-500/[0.06] border border-amber-400/[0.15]">

@@ -17,6 +17,8 @@ export default function DropiProvider({ children }) {
   const [isDropiLinked, setIsDropiLinked] = useState(null);
   const [isAliclikLinked, setIsAliclikLinked] = useState(null);
   const [loadingDropiLinked, setLoadingDropiLinked] = useState(false);
+  // País ISO de la integración Dropi activa (la primera de la lista).
+  const [dropiCountry, setDropiCountry] = useState(null);
 
   const readIdc = () => {
     const raw = localStorage.getItem("id_configuracion");
@@ -59,10 +61,13 @@ export default function DropiProvider({ children }) {
     ]);
 
     // Ante error NO conviene conservar true: podría ser de otra configuración.
-    setIsDropiLinked(
-      dropi.status === "fulfilled"
-        ? (dropi.value?.data?.data ?? []).length > 0
-        : false,
+    const integracionesDropi =
+      dropi.status === "fulfilled" ? (dropi.value?.data?.data ?? []) : [];
+    setIsDropiLinked(integracionesDropi.length > 0);
+    setDropiCountry(
+      integracionesDropi[0]?.country_code
+        ? String(integracionesDropi[0].country_code).toUpperCase()
+        : null,
     );
     setIsAliclikLinked(
       aliclik.status === "fulfilled"
@@ -109,6 +114,7 @@ export default function DropiProvider({ children }) {
       multiplesPlataformas: plataformas.length > 1,
       loadingDropiLinked,
       refreshDropiLinked,
+      dropiCountry,
     }),
     [
       isDropiLinked,
@@ -116,6 +122,7 @@ export default function DropiProvider({ children }) {
       plataformas,
       loadingDropiLinked,
       refreshDropiLinked,
+      dropiCountry,
     ],
   );
 

@@ -20,6 +20,10 @@ export const DropiContext = createContext({
   multiplesPlataformas: false,
   loadingDropiLinked: false,
   refreshDropiLinked: async () => {},
+  // País (ISO) de la integración Dropi activa: "EC", "MX", "CO"… null si no
+  // hay. Decide qué campos pide el panel de pedidos (México exige código
+  // postal para cotizar).
+  dropiCountry: null,
 });
 
 export const useDropi = () => useContext(DropiContext);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import { useDropi } from "../../context/DropiContext";
 
 /* "Esperando desde": fecha + cuánto lleva el pedido sin subirse */
 function formatEspera(fecha) {
@@ -54,15 +55,21 @@ const REASONS = {
   },
   cotizacion: {
     label: "Sin transportadoras para esa ruta",
-    hint: "Revisa la ciudad de destino; puede no tener cobertura.",
+    hint: "Revisa la ciudad de destino; puede no tener cobertura. En México, revisa también el código postal.",
     tone: "amber",
-    fields: ["ciudad", "provincia"],
+    fields: ["ciudad", "provincia", "codigo_postal"],
   },
   create: {
     label: "Error al crear la orden en Dropi",
     hint: "Revisa teléfono, nombre y dirección del cliente.",
     tone: "red",
-    fields: ["telefono", "nombre", "direccion"],
+    fields: ["telefono", "nombre", "direccion", "codigo_postal"],
+  },
+  datos: {
+    label: "Faltan datos del pedido",
+    hint: "Completa lo que falta (en México, el código postal de 5 dígitos).",
+    tone: "amber",
+    fields: ["telefono", "direccion", "codigo_postal"],
   },
 };
 
@@ -98,6 +105,14 @@ const FIELD_DEFS = [
   { key: "provincia", label: "Provincia", icon: "bx-map", col: 1 },
   { key: "ciudad", label: "Ciudad", icon: "bx-map-pin", col: 1 },
   { key: "direccion", label: "Dirección", icon: "bx-home", col: 2 },
+  // Solo cuentas con Dropi de México: allá la paquetería no cotiza sin él.
+  {
+    key: "codigo_postal",
+    label: "Código postal",
+    icon: "bx-mail-send",
+    col: 1,
+    soloMexico: true,
+  },
   { key: "producto", label: "Producto", icon: "bx-package", col: 1 },
   // Aparece sola cuando el producto elegido tiene variedades. Es el motivo de
   // fallo más repetido: la orden no sube porque nadie eligió el color o la talla.
@@ -119,6 +134,7 @@ const formFromItem = (it) => {
     provincia: it.datos?.provincia ?? "",
     ciudad: it.datos?.ciudad ?? "",
     direccion: it.datos?.direccion ?? "",
+    codigo_postal: it.datos?.codigo_postal ?? "",
     producto: p1?.producto ?? it.datos?.producto ?? "",
     producto_id: p1?.producto_id ?? it.datos?.producto_id ?? "",
     variedad: p1?.variedad ?? it.datos?.variedad ?? "",
@@ -457,6 +473,9 @@ export default function AutoOrdenesFallidas({
   const [showDetalleKey, setShowDetalleKey] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [filtroOrigen, setFiltroOrigen] = useState("todos");
+  // México: el campo de código postal solo se muestra ahí.
+  const { dropiCountry } = useDropi();
+  const esMexico = String(dropiCountry || "").toUpperCase() === "MX";
 
   const itemsFiltrados = items.filter((it) => {
     if (filtroOrigen !== "todos" && (it.origen || "whatsapp") !== filtroOrigen)
@@ -933,6 +952,7 @@ export default function AutoOrdenesFallidas({
                         <div className="px-4 pb-4 pt-1 border-t border-gray-100 bg-gray-50/50">
                           <div className="grid grid-cols-2 gap-3 mt-3">
                             {FIELD_DEFS.map((fd) => {
+                              if (fd.soloMexico && !esMexico) return null;
                               const highlight = r.fields.includes(fd.key);
 
                               // Producto = picker con imagen del catálogo Dropi
