@@ -166,8 +166,7 @@ function buildCreateOrderPanelProps(createHook) {
     setZipCode: createHook.setZipCode,
     canShowShipping: createHook.esMexico
       ? Boolean(createHook.selectedCityId) &&
-        /^\d{5}$/.test(createHook.zipCode || "") &&
-        Boolean(createHook.remitCodDane || createHook.warehouseCityId)
+        /^\d{5}$/.test(createHook.zipCode || "")
       : Boolean(createHook.selectedCityCodDane) &&
         Boolean(createHook.remitCodDane),
     onRecotizar: createHook.emitCotizaTransportadoras,
