@@ -10,6 +10,12 @@ const MENSAJES = {
     title: "Cuenta suspendida",
     text: "Tu cuenta de WhatsApp Business fue suspendida o desconectada por Meta. Debes reconectar tu número en la sección de Conexiones.",
   },
+  // Meta 100/33: el número o la WABA ya no existen o nos quitaron el acceso.
+  // Antes el back lo reportaba como SUSPENDED; mismo aviso.
+  SIN_ACCESO: {
+    title: "Cuenta suspendida",
+    text: "Tu cuenta de WhatsApp Business fue suspendida o desconectada por Meta. Debes reconectar tu número en la sección de Conexiones.",
+  },
   TOKEN_EXPIRED: {
     title: "Token de acceso vencido",
     text: "El token de acceso de WhatsApp expiró. Debes reconectar tu número en la sección de Conexiones.",
@@ -60,24 +66,20 @@ export async function checkWhatsappStatus() {
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ status, date: today }));
 
+    /* Ya no se limpian las credenciales en el back: /conexiones recibe
+       status_whatsapp (wa_status) y con cualquier valor distinto de CONNECTED
+       muestra "Pendiente" + botón de conectar, y embeddedSignupComplete
+       actualiza la misma fila. Limpiar borraba wa_status y los ids, con lo
+       que la conexión volvía a ser editable y el historial podía partirse
+       entre el número viejo y el nuevo. */
     const shouldClearCredentials =
-      status === "TOKEN_EXPIRED" || status === "SUSPENDED";
+      status === "TOKEN_EXPIRED" ||
+      status === "SUSPENDED" ||
+      status === "SIN_ACCESO";
 
     const confirmButtonText = shouldClearCredentials
       ? "Ir a Conexiones"
       : "Ir al Meta Business";
-
-    // Limpiar backend SIEMPRE si aplica, sin importar lo que elija el usuario
-    if (shouldClearCredentials) {
-      try {
-        await chatApi.post(
-          "/whatsapp_managment/limpiar_credenciales_whatsapp",
-          { id_configuracion },
-        );
-      } catch (e) {
-        console.error("Error al limpiar credenciales:", e);
-      }
-    }
 
     const result = await Swal.fire({
       icon: "warning",
