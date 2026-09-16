@@ -373,12 +373,9 @@ export default function useCreateOrder({
        México: las ciudades no traen cod_dane; basta el id de la ciudad más el
        código postal, y la bodega se resuelve por su city_id. */
     if (esMexico) {
-      if (
-        !selectedCityId ||
-        !/^\d{5}$/.test(zipCode || "") ||
-        (!remitCodDane && !warehouseCityId)
-      )
-        return;
+      // Dropi MX resuelve el origen por el producto (probado en producción
+      // el 2026-09-16): no hace falta cod_dane ni ciudad de la bodega.
+      if (!selectedCityId || !/^\d{5}$/.test(zipCode || "")) return;
     } else if (!selectedCityCodDane || !remitCodDane) {
       return;
     }
@@ -605,6 +602,9 @@ export default function useCreateOrder({
     if (digits.startsWith("593") && digits.length >= 12) return digits.slice(3);
     if (digits.startsWith("502") && digits.length >= 11) return digits.slice(3);
     if (digits.startsWith("57") && digits.length >= 12) return digits.slice(2);
+    // México: WhatsApp entrega 52 + 1 + 10 dígitos; ese "1" sobra y Dropi
+    // rechaza los 11 dígitos ("teléfono no válido o incompleto").
+    if (digits.startsWith("521") && digits.length === 13) return digits.slice(3);
     if (digits.startsWith("52") && digits.length >= 12) return digits.slice(2);
     return digits;
   }
