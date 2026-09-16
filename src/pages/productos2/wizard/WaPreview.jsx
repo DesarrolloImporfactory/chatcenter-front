@@ -50,6 +50,32 @@ function Burbuja({ lado = "out", children, className = "", tag = null, remitente
 }
 
 function MediaBurbuja({ item }) {
+  // Brochure en PDF: WhatsApp lo muestra como tarjeta de documento con su
+  // nombre, no como imagen.
+  if (item.tipo === "document") {
+    const nombre =
+      item.etiqueta ||
+      decodeURIComponent(String(item.url || "").split("/").pop() || "PDF");
+    return (
+      <Burbuja lado="out" className="!p-1.5">
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2 w-44 rounded-md bg-white/70 px-2 py-1.5"
+          title={nombre}
+        >
+          <i className="bx bxs-file-pdf text-2xl text-red-500 shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-[11px] font-medium text-slate-800 truncate">
+              {nombre}
+            </span>
+            <span className="block text-[9.5px] text-slate-500">PDF</span>
+          </span>
+        </a>
+      </Burbuja>
+    );
+  }
   return (
     <Burbuja lado="out" className="!p-1.5">
       {item.tipo === "video" ? (
@@ -83,6 +109,8 @@ export default function WaPreview({
 }) {
   const imagenes = media.filter((m) => m.tipo === "image").slice(0, 3);
   const videos = media.filter((m) => m.tipo === "video").slice(0, 1);
+  // El brochure sale al final del paquete, después del video.
+  const documentos = media.filter((m) => m.tipo === "document").slice(0, 1);
   const iniciales = String(nombreNegocio || "TN")
     .split(/\s+/)
     .map((w) => w[0])
@@ -155,6 +183,9 @@ export default function WaPreview({
             ))}
             {videos.map((m, i) => (
               <MediaBurbuja key={`vid-${i}-${m.url}`} item={m} />
+            ))}
+            {documentos.map((m, i) => (
+              <MediaBurbuja key={`doc-${i}-${m.url}`} item={m} />
             ))}
 
             {mensaje ? (
