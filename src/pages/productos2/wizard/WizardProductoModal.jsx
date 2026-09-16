@@ -42,6 +42,12 @@ const PRESETS_ENVIO = {
   ],
 };
 
+// Apartado "Opcional · otra forma de vender" (embudo manual por pasos) del paso
+// 2, junto con la tarjeta "Datos que el bot NO debe pedir". Apagado el
+// 2026-09-16: confundía a los clientes. Solo se oculta en la UI; el motor del
+// backend y los flujos ya guardados siguen intactos.
+const MOSTRAR_EMBUDO_MANUAL = false;
+
 const WIZARD_VACIO = {
   tipo_venta: "fisico",
   problema_resuelve: "",
@@ -1239,6 +1245,16 @@ export default function WizardProductoModal({
                 />
               </Card>
 
+              {/* Embudo manual (flujo de venta por pasos) y sus ajustes
+                  ("datos que el bot NO debe pedir") OCULTOS desde el
+                  2026-09-16: confundían a los clientes y solo los usaba una
+                  cuenta que ya está suspendida. El motor sigue en el backend y
+                  los wizards que ya lo tenían guardado (flujo_pasos /
+                  usar_flujo_pasos, incluida la entrada 'ajustes') no se
+                  tocan: el formulario los conserva y los vuelve a guardar tal
+                  cual. Para reabrirlo, poner la bandera en true. */}
+              {MOSTRAR_EMBUDO_MANUAL ? (
+              <>
               {/* Ajustes del bot para este producto (qué datos NO pedir). Se
                   guardan dentro de flujo_pasos como entrada especial, pero
                   aplican con o sin embudo. */}
@@ -1246,7 +1262,6 @@ export default function WizardProductoModal({
                 value={form.flujo_pasos}
                 onChange={(v) => set({ flujo_pasos: v })}
               />
-
               {/* Separador entre las dos formas de vender: arriba lo que el
                   bot usa SIEMPRE (IA + rápidas + ajustes); abajo el embudo
                   manual, opcional, para quien ya tiene su guion de copys. */}
@@ -1288,6 +1303,8 @@ export default function WizardProductoModal({
                 idConfiguracion={idc}
                 idProducto={idProducto}
               />
+              </>
+              ) : null}
             </div>
           ) : null}
 
