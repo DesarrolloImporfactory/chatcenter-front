@@ -373,6 +373,34 @@ export default function MediaManager({
           </div>
         ))}
 
+        {/* Brochure en PDF del catálogo: pieza fija, va al final del paquete
+            (después del video). Se carga y se quita en el paso Producto. */}
+        {fijos
+          .filter((m) => m.tipo === "document")
+          .map((m, i) => (
+            <a
+              key={`fijo-doc-${m.url}-${i}`}
+              href={m.url}
+              target="_blank"
+              rel="noreferrer"
+              className="relative rounded-xl overflow-hidden border-2 border-indigo-200 bg-slate-50 flex flex-col"
+              title="Brochure del producto: se cambia en el paso Producto"
+            >
+              <div className="h-28 w-full flex items-center justify-center bg-red-50">
+                <i className="bx bxs-file-pdf text-5xl text-red-500" />
+              </div>
+              <div className="absolute top-1 left-1 flex items-center gap-1">
+                <span className="rounded bg-indigo-600 text-white text-[10px] px-1.5 py-0.5">
+                  Brochure PDF · al final
+                </span>
+              </div>
+              <div className="px-2 py-1 text-[11px] text-slate-600 truncate flex items-center gap-1">
+                <i className="bx bx-lock-alt text-slate-400" />
+                {m.etiqueta || "Brochure"}
+              </div>
+            </a>
+          ))}
+
         {media.map((m, i) => (
           <div
             key={`${m.url}-${i}`}

@@ -18,6 +18,9 @@ const EMPTY_FORM = {
   id_categoria: "",
   imagen: null,
   video: null,
+  /* Brochure / ficha en PDF. El bot lo adjunta la primera vez que habla del
+     ítem, en cualquier columna, y cuando piden brochure/planos/más info. */
+  documento: null,
   nombre_upsell: "",
   descripcion_upsell: "",
   precio_upsell: "",
@@ -1075,6 +1078,11 @@ const ProductoModal = ({
 
   const [videoRemoved, setVideoRemoved] = useState(false);
   const [upsellRemoved, setUpsellRemoved] = useState(false);
+  /* Brochure en PDF: se muestra por nombre (no hay preview), y quitarlo viaja
+     como orden explícita igual que la imagen y el video. */
+  const [previewDoc, setPreviewDoc] = useState(null); // { nombre, url }
+  const [documentoRemoved, setDocumentoRemoved] = useState(false);
+  const dropDocRef = useRef(null);
   // Quitar la imagen principal tiene que viajar como una orden explícita: el
   // backend solo toca imagen_url si le llega un archivo nuevo, así que sin esta
   // marca la imagen se veía borrada en pantalla pero seguía guardada.
@@ -1269,6 +1277,7 @@ const ProductoModal = ({
   useEffect(() => {
     setUpsellRemoved(false);
     setVideoRemoved(false);
+    setDocumentoRemoved(false);
     // El "deshacer" de la IA es de la sesión de este producto: si no se limpia,
     // al abrir otro aparece ofreciendo restaurar la descripción del anterior.
     setDescripcionPrevia(null);
@@ -1302,6 +1311,7 @@ const ProductoModal = ({
         id_categoria: p.id_categoria ?? "",
         imagen: null,
         video: null,
+        documento: null,
         nombre_upsell: p.nombre_upsell ?? "",
         descripcion_upsell: p.descripcion_upsell ?? "",
         precio_upsell: p.precio_upsell ?? "",
@@ -1333,6 +1343,16 @@ const ProductoModal = ({
 
       setPreviewUrl(p.imagen_url || null);
       setPreviewVideo(p.video_url || null);
+      setPreviewDoc(
+        p.documento_url
+          ? {
+              url: p.documento_url,
+              nombre:
+                p.documento_nombre ||
+                decodeURIComponent(String(p.documento_url).split("/").pop()),
+            }
+          : null,
+      );
       setPreviewUpsell(p.imagen_upsell_url || null);
       // Abrir otro producto no puede arrastrar el "quitar imagen" del anterior.
       setImagenRemoved(false);
@@ -1399,6 +1419,7 @@ const ProductoModal = ({
          entra como URL y no como archivo: no hay nada que volver a subir. */
       setPreviewUrl(b?.imagen_url || null);
       setPreviewVideo(null);
+      setPreviewDoc(null);
       setPreviewUpsell(null);
       setImagenRemoved(false);
       setDuracionLibre(
@@ -1473,6 +1494,40 @@ const ProductoModal = ({
       "border-indigo-400",
       "bg-indigo-50/40",
     );
+  };
+
+  /* Brochure en PDF. Solo PDF: es lo que WhatsApp abre en cualquier teléfono.
+     Mismo tope de 16 MB que el video (límite del uploader del backend). */
+  const pickDocumento = (file) => {
+    if (!file) return;
+    const esPdf =
+      file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+    if (!esPdf) {
+      Swal.fire({
+        icon: "warning",
+        title: "Solo PDF",
+        text: "El brochure debe ser un archivo PDF.",
+      });
+      return;
+    }
+    if (file.size > 16 * 1024 * 1024) {
+      Swal.fire({
+        icon: "warning",
+        title: "PDF demasiado grande",
+        text: "Máx 16 MB. Comprímelo antes de subirlo.",
+      });
+      return;
+    }
+    setPreviewDoc({ url: null, nombre: file.name });
+    setDocumentoRemoved(false);
+    setF("documento", file);
+  };
+
+  const dropDocumento = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pickDocumento(e.dataTransfer.files?.[0]);
+    dropDocRef.current?.classList.remove("border-indigo-400", "bg-indigo-50/40");
   };
 
   const pickUpsell = (file) => {
@@ -1607,6 +1662,10 @@ const ProductoModal = ({
         data.append("remove_video", "1");
       }
 
+      if (documentoRemoved && !form.documento) {
+        data.append("remove_documento", "1");
+      }
+
       if (upsellRemoved && !form.imagen_upsell) {
         data.append("remove_imagen_upsell", "1");
       }
@@ -1658,6 +1717,7 @@ const ProductoModal = ({
 
   const imgHandlers = makeDragHandlers(dropRef);
   const videoHandlers = makeDragHandlers(dropVideoRef);
+  const docHandlers = makeDragHandlers(dropDocRef);
   const upsellHandlers = makeDragHandlers(dropUpsellRef);
 
   const wordCount = form.descripcion.trim().split(/\s+/).filter(Boolean).length;
@@ -2867,6 +2927,60 @@ const ProductoModal = ({
                     setPreviewVideo(null);
                     setF("video", null);
                     setVideoRemoved(true); // ← NUEVO: marcar que el usuario quitó el video
+                  }}
+                />
+              </div>
+
+              {/* Brochure / ficha en PDF. Lo pidió una inmobiliaria: cuando
+                  alguien pregunta por la casa, el asesor mandaba el PDF a
+                  mano. Con esto lo adjunta el bot la primera vez que habla del
+                  ítem, en la columna que sea, y cuando piden brochure/planos. */}
+              <div>
+                <SecHead icon="bx-file" title="Brochure / ficha en PDF" />
+                <p className="text-[12px] text-slate-500 -mt-1 mb-2.5">
+                  El asistente lo envía como documento de WhatsApp la primera
+                  vez que habla de este ítem y cuando el cliente pide el
+                  brochure, los planos o más información. Se manda una sola
+                  vez por conversación.
+                </p>
+                <DropZone
+                  dropRef={dropDocRef}
+                  onDrop={dropDocumento}
+                  {...docHandlers}
+                  onPick={pickDocumento}
+                  accept="application/pdf,.pdf"
+                  icon="bx-file"
+                  hint="PDF — máx. 16 MB (opcional)"
+                  preview={
+                    previewDoc ? (
+                      <div className="flex items-center gap-3 p-3 rounded-xl ring-1 ring-slate-200 bg-slate-50">
+                        <i className="bx bxs-file-pdf text-3xl text-red-500" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-slate-700 truncate">
+                            {previewDoc.nombre}
+                          </div>
+                          {previewDoc.url ? (
+                            <a
+                              href={previewDoc.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[12px] text-indigo-600 hover:underline"
+                            >
+                              Abrir PDF
+                            </a>
+                          ) : (
+                            <div className="text-[12px] text-slate-500">
+                              Se sube al guardar
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null
+                  }
+                  onRemove={() => {
+                    setPreviewDoc(null);
+                    setF("documento", null);
+                    setDocumentoRemoved(true);
                   }}
                 />
               </div>

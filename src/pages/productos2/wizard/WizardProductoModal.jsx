@@ -512,7 +512,11 @@ export default function WizardProductoModal({
           typeof m === "object" && m?.url
             ? m
             : {
-                tipo: esVideoUrl(m) ? "video" : "image",
+                tipo: esVideoUrl(m)
+                  ? "video"
+                  : /\.pdf(\?|#|$)/i.test(String(m))
+                    ? "document"
+                    : "image",
                 url: String(m),
               },
         );
@@ -628,6 +632,7 @@ export default function WizardProductoModal({
   const paqueteTotal = [...mediaFija, ...form.media];
   const nImg = paqueteTotal.filter((m) => m.tipo === "image").length;
   const nVid = paqueteTotal.filter((m) => m.tipo === "video").length;
+  const nDoc = paqueteTotal.filter((m) => m.tipo === "document").length;
   const len = (s) => String(s || "").trim().length;
   // ¿La IA (o alguien) ya llenó el contenido del bot? Si no, el paso 2 abre
   // con el botón de completar automáticamente a partir del paso 1.
@@ -1403,7 +1408,7 @@ export default function WizardProductoModal({
                     {[
                       {
                         ok: paqueteTotal.length > 0,
-                        t: `Paquete de media: ${nImg} imagen(es), ${nVid} video`,
+                        t: `Paquete de media: ${nImg} imagen(es), ${nVid} video${nDoc ? `, ${nDoc} PDF` : ""}`,
                       },
                       {
                         ok: Boolean(mensajeFinal),
