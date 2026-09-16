@@ -1,17 +1,52 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import chatApi from "../../api/chatcenter";
+import { MetricasRespuesta } from "./asistenteMetricas";
 
 /**
- * FloatingSupportChat — Botón flotante de soporte con IA
+ * FloatingSupportChat — Asistente de la cuenta (botón flotante)
  *
- * Cambios v2:
- *   - Renderizado Markdown (negrillas, links, listas)
- *   - "Hablar con asesor" → abre WhatsApp con contexto
- *   - Routing inteligente de KB: dropi vs plataforma
- *   - Chat libre auto-detecta qué KB usar
+ * Responde preguntas con datos reales de la cuenta seleccionada: guías Dropi
+ * por estado, transportadoras, ciudades, productos más vendidos y pedidos
+ * Aliclik. Backend: POST asistente_cuenta/preguntar (valida que la
+ * configuración pertenezca a la sesión).
+ *
+ * Diseño "Lienzo" con las métricas del "Tablero": pide formato "tablero", así
+ * las cifras llegan en `datos` y se dibujan como tarjetas (asistenteMetricas)
+ * y el texto del modelo queda como una conclusión corta.
  */
 
 const WA_SUPPORT_NUMBER = "593998979214";
+
+const SUGERENCIAS = [
+  { icon: "bx-bar-chart-alt-2", texto: "¿Cuántas guías tengo por estado este mes?" },
+  { icon: "bx-package", texto: "¿Cuáles son mis 5 productos más vendidos?" },
+  { icon: "bxs-truck", texto: "¿Qué transportadora me entrega mejor?" },
+  { icon: "bx-undo", texto: "¿Cuántas devoluciones tuve la semana pasada?" },
+];
+
+// Orbe de marca (marino → cian) del avatar y del botón flotante.
+const ORBE = {
+  background:
+    "conic-gradient(from 200deg, #0e7490, #22d3ee, #0a1628, #0e7490)",
+};
+
+function IconoChispa({ className = "w-4 h-4" }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+    </svg>
+  );
+}
 
 /* ─── Markdown simple renderer ─── */
 function renderMarkdown(text) {
@@ -27,12 +62,17 @@ function renderMarkdown(text) {
       const Tag = listType === "ol" ? "ol" : "ul";
       const cls =
         listType === "ol"
-          ? "list-decimal pl-5 my-1 space-y-0.5"
-          : "list-disc pl-5 my-1 space-y-0.5";
+          ? "list-decimal pl-4 my-1 space-y-0.5 marker:text-cyan-700"
+          : "list-disc pl-4 my-1 space-y-0.5 marker:text-cyan-700";
       elements.push(
         <Tag key={`list-${elements.length}`} className={cls}>
           {listItems.map((item, i) => (
-            <li key={i}>{renderInline(item)}</li>
+            <li
+              key={i}
+              className={item.anidado ? "ml-4 list-[circle]" : undefined}
+            >
+              {renderInline(item.texto)}
+            </li>
           ))}
         </Tag>,
       );
@@ -44,19 +84,17 @@ function renderMarkdown(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    const ulMatch = line.match(/^[\s]*[-*]\s+(.+)/);
-    if (ulMatch) {
-      if (listType === "ol") flushList();
-      listType = "ul";
-      listItems.push(ulMatch[1]);
-      continue;
-    }
-
-    const olMatch = line.match(/^[\s]*(\d+)[.)]\s+(.+)/);
-    if (olMatch) {
-      if (listType === "ul") flushList();
-      listType = "ol";
-      listItems.push(olMatch[2]);
+    // Un ítem indentado es sublista del ítem anterior: se queda en la lista
+    // abierta aunque cambie el tipo de viñeta.
+    const itemMatch = line.match(/^(\s*)(?:([-*])|(\d+)[.)])\s+(.+)/);
+    if (itemMatch) {
+      const anidado = itemMatch[1].length >= 2 && listItems.length > 0;
+      const tipo = itemMatch[2] ? "ul" : "ol";
+      if (!anidado) {
+        if (listType && listType !== tipo) flushList();
+        listType = tipo;
+      }
+      listItems.push({ texto: itemMatch[4], anidado });
       continue;
     }
 
@@ -67,9 +105,10 @@ function renderMarkdown(text) {
       continue;
     }
 
+    const heading = line.match(/^#{1,6}\s+(.+)/);
     elements.push(
-      <p key={`p-${i}`} className="my-0">
-        {renderInline(line)}
+      <p key={`p-${i}`} className={heading ? "my-0 font-semibold" : "my-0"}>
+        {renderInline(heading ? heading[1] : line)}
       </p>,
     );
   }
@@ -165,72 +204,11 @@ function renderInline(text) {
   return <>{parts}</>;
 }
 
-/* ─── Temas predefinidos ─── */
-const TEMAS_DROPI = [
-  {
-    id: "novedades",
-    icon: "bx-error-circle",
-    label: "Novedades de mi pedido",
-    kbType: "dropi",
-    prompt:
-      "El usuario necesita ayuda con una novedad de transportadora en su pedido. Pregúntale cuál es la novedad exacta que aparece en Dropi y de qué transportadora.",
-  },
-  {
-    id: "estado_pedido",
-    icon: "bx-package",
-    label: "Estado de mi pedido",
-    kbType: "dropi",
-    prompt:
-      "El usuario quiere saber qué significa un estado de pedido en Dropi. Pregúntale qué estado ve actualmente.",
-  },
-  {
-    id: "cobertura",
-    icon: "bx-map",
-    label: "Cobertura y tiempos de entrega",
-    kbType: "dropi",
-    prompt:
-      "El usuario quiere saber si una ciudad tiene cobertura de transportadoras o cuánto tarda la entrega. Pregúntale la ciudad y provincia.",
-  },
-  {
-    id: "empaque",
-    icon: "bx-box",
-    label: "Políticas de empaque",
-    kbType: "dropi",
-    prompt:
-      "El usuario tiene dudas sobre cómo empacar sus productos para envío. Explica las políticas generales de empaque.",
-  },
-  {
-    id: "reclamos",
-    icon: "bx-shield-quarter",
-    label: "Reclamos y garantías",
-    kbType: "dropi",
-    prompt:
-      "El usuario necesita hacer un reclamo o activar garantía. Explica el proceso de reclamos según la documentación.",
-  },
-];
-
-const TEMAS_PLATAFORMA = [
-  {
-    id: "asesor",
-    icon: "bx-support",
-    label: "Hablar con un asesor",
-    isAsesor: true,
-  },
-  {
-    id: "free_chat",
-    icon: "bx-message-dots",
-    label: "Consultar al asistente IA",
-    isFreeChat: true,
-  },
-];
-
-/* ─── Build WA link with context ─── */
 function buildWhatsAppLink(context) {
   const baseMsg = context
     ? `Hola, necesito ayuda con: ${context}`
     : "Hola, necesito ayuda con la plataforma ImporChat";
-  const encoded = encodeURIComponent(baseMsg);
-  return `https://wa.me/${WA_SUPPORT_NUMBER}?text=${encoded}`;
+  return `https://wa.me/${WA_SUPPORT_NUMBER}?text=${encodeURIComponent(baseMsg)}`;
 }
 
 /* ─── Componente ─── */
@@ -240,16 +218,11 @@ export default function FloatingSupportChat({
   position = "right",
 }) {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState("menu");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [hasDropi, setHasDropi] = useState(false);
-  const [checkingDropi, setCheckingDropi] = useState(true);
-  const [selectedTema, setSelectedTema] = useState(null);
-  const [chatContext, setChatContext] = useState("");
 
-  const messagesEndRef = useRef(null);
+  const bodyRef = useRef(null);
   const inputRef = useRef(null);
   const chatRef = useRef(null);
 
@@ -257,46 +230,28 @@ export default function FloatingSupportChat({
     propIdConf ||
     parseInt(localStorage.getItem("id_configuracion"), 10) ||
     null;
+  const nombreCuenta = localStorage.getItem("nombre_configuracion") || "";
 
   const isLeft = position === "left";
   const sideClass = isLeft ? "left-6" : "right-6";
   const originClass = isLeft ? "origin-bottom-left" : "origin-bottom-right";
   const fabBottom = bottomClass || "bottom-6";
-  const panelBottom = isLeft
-    ? "bottom-24"
-    : bottomClass
-      ? "bottom-40"
-      : "bottom-24";
+  const panelBottom = bottomClass ? "bottom-40" : "bottom-24";
 
+  // La conversación es de una cuenta: al cambiar de configuración se reinicia.
   useEffect(() => {
-    const checkDropi = async () => {
-      if (!idConf) {
-        setCheckingDropi(false);
-        return;
-      }
-      try {
-        const res = await chatApi.get(
-          `soporte_chat/check_dropi?id_configuracion=${idConf}`,
-        );
-        setHasDropi(res.data?.hasDropi || false);
-      } catch {
-        setHasDropi(false);
-      } finally {
-        setCheckingDropi(false);
-      }
-    };
-    checkDropi();
+    setMessages([]);
+    setInput("");
   }, [idConf]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const el = bodyRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages, loading]);
 
   useEffect(() => {
-    if (view === "chat") {
-      setTimeout(() => inputRef.current?.focus(), 200);
-    }
-  }, [view]);
+    if (open) setTimeout(() => inputRef.current?.focus(), 200);
+  }, [open]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -310,367 +265,261 @@ export default function FloatingSupportChat({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const handleFreeChat = () => {
-    setSelectedTema(null);
-    setChatContext("");
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          "¡Hola! 👋 Escríbeme tu consulta y haré lo posible por ayudarte.",
-      },
-    ]);
-    setView("chat");
-  };
+  const enviar = useCallback(
+    async (texto) => {
+      const text = (texto ?? input).trim();
+      if (!text || loading || !idConf) return;
 
-  const handleSelectTema = (tema) => {
-    if (tema.isFreeChat) {
-      handleFreeChat();
-      return;
-    }
+      const newMessages = [...messages, { role: "user", content: text }];
+      setMessages(newMessages);
+      setInput("");
+      setLoading(true);
 
-    if (tema.isAsesor) {
-      const contextSummary =
-        chatContext ||
-        messages
-          .filter((m) => m.role === "user")
-          .map((m) => m.content)
-          .join(". ") ||
-        "";
-
-      const waLink = buildWhatsAppLink(contextSummary);
-
-      setMessages([
-        {
-          role: "assistant",
-          content: `¡Te conecto con un asesor! 🙏\n\nHaz clic en el botón de abajo para abrir WhatsApp y hablar directamente con nuestro equipo de soporte.`,
-          waLink,
-          waContext: contextSummary,
-        },
-      ]);
-      setView("chat");
-      return;
-    }
-
-    setSelectedTema(tema);
-    setChatContext(tema.label);
-    setMessages([
-      {
-        role: "assistant",
-        content: `¡Hola! 👋 Estoy aquí para ayudarte con **${tema.label}**.\n\n¿Cuál es tu consulta específica?`,
-      },
-    ]);
-    setView("chat");
-  };
-
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading) return;
-
-    const newMessages = [...messages, { role: "user", content: text }];
-    setMessages(newMessages);
-    setInput("");
-    setLoading(true);
-
-    if (!chatContext) setChatContext(text);
-
-    try {
-      const res = await chatApi.post("soporte_chat/ask", {
-        id_configuracion: idConf,
-        messages: newMessages
-          .filter((m) => !m.waLink)
-          .map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        tema_context: selectedTema?.prompt || null,
-        has_dropi: hasDropi,
-        kb_type: selectedTema?.kbType || "auto",
-      });
-
-      const respuesta = res.data?.respuesta || "No pude procesar tu consulta.";
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: respuesta },
-      ]);
-    } catch (err) {
-      const errMsg =
-        err.response?.data?.message ||
-        "Error al consultar. Intenta nuevamente.";
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `⚠️ ${errMsg}` },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [input, messages, loading, idConf, selectedTema, hasDropi, chatContext]);
-
-  const handleBack = () => {
-    setView("menu");
-    setMessages([]);
-    setSelectedTema(null);
-    setInput("");
-    setChatContext("");
-  };
-
-  const handleGoToAsesor = () => {
-    const contextSummary =
-      chatContext ||
-      messages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join(". ") ||
-      "";
-
-    const waLink = buildWhatsAppLink(contextSummary);
-    window.open(waLink, "_blank");
-  };
-
-  const temas = useMemo(
-    () => [...(hasDropi ? TEMAS_DROPI : []), ...TEMAS_PLATAFORMA],
-    [hasDropi],
+      try {
+        const res = await chatApi.post("asistente_cuenta/preguntar", {
+          id_configuracion: idConf,
+          formato: "tablero",
+          messages: newMessages
+            .filter((m) => !m.error)
+            .map((m) => ({ role: m.role, content: m.content })),
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: res.data?.respuesta || "",
+            datos: Array.isArray(res.data?.datos) ? res.data.datos : [],
+          },
+        ]);
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            error: true,
+            content:
+              err.response?.data?.message ||
+              "Error al consultar. Intenta nuevamente.",
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [input, messages, loading, idConf],
   );
+
+  const reiniciar = () => {
+    setMessages([]);
+    setInput("");
+    inputRef.current?.focus();
+  };
+
+  const irAsesor = () => {
+    const contexto = messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join(". ");
+    window.open(buildWhatsAppLink(contexto), "_blank");
+  };
+
+  // Sin cuenta seleccionada no hay datos que consultar.
+  if (!idConf) return null;
+
+  const preguntadas = new Set(
+    messages.filter((m) => m.role === "user").map((m) => m.content),
+  );
+  const sugerencias = SUGERENCIAS.filter((s) => !preguntadas.has(s.texto));
 
   return (
     <>
       <button
         id="support-fab"
         onClick={() => setOpen((v) => !v)}
-        className={`fixed ${fabBottom} ${sideClass} z-50 w-14 h-14 rounded-full shadow-lg
-             flex items-center justify-center transition-all duration-300
-             hover:scale-110 active:scale-95`}
-        style={{
-          background: "linear-gradient(135deg, #0A1628 0%, #0e7490 100%)",
-        }}
-        title="Soporte"
+        className={`fixed ${fabBottom} ${sideClass} z-50 flex items-center gap-2
+             rounded-full bg-white py-1.5 pl-1.5 pr-1.5 sm:pr-3.5 text-[13px] font-semibold text-[#0a1628]
+             shadow-[0_12px_28px_rgba(10,22,40,0.16)] ring-1 ring-[#e3e8ee]
+             transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(10,22,40,0.2)]
+             focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600`}
+        aria-label={open ? "Cerrar asistente" : "Abrir asistente de tu cuenta"}
+        aria-expanded={open}
       >
-        <i
-          className={`bx ${open ? "bx-x" : "bx-support"} text-white text-2xl transition-transform duration-300`}
-        />
-        {!open && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full animate-ping opacity-75" />
-        )}
+        <span
+          className="grid h-7 w-7 place-items-center rounded-full text-white"
+          style={ORBE}
+        >
+          {open ? <i className="bx bx-x text-lg" /> : <IconoChispa className="h-3.5 w-3.5" />}
+        </span>
+        <span className="hidden sm:inline">
+          {open ? "Cerrar" : "Pregúntale a tu cuenta"}
+        </span>
       </button>
 
       <div
         ref={chatRef}
-        className={`fixed ${panelBottom} ${sideClass} z-50 w-[370px] max-w-[calc(100vw-2rem)]
-               rounded-2xl shadow-2xl overflow-hidden
+        role="dialog"
+        aria-label="Asistente de tu cuenta"
+        className={`fixed ${panelBottom} ${sideClass} z-50 flex w-[360px] max-w-[calc(100vw-2rem)] flex-col
+               overflow-hidden rounded-2xl bg-white text-[#102033]
+               shadow-[0_30px_70px_-24px_rgba(10,22,40,0.35)] ring-1 ring-[#e3e8ee]
                transition-all duration-300 ${originClass}
-               ${open ? "scale-100 opacity-100 pointer-events-auto" : "scale-75 opacity-0 pointer-events-none"}`}
-        style={{
-          maxHeight: "min(600px, calc(100vh - 8rem))",
-          border: "1px solid rgba(14,116,144,0.2)",
-        }}
+               ${open ? "scale-100 opacity-100 pointer-events-auto" : "scale-90 opacity-0 pointer-events-none"}`}
+        style={{ height: "min(540px, calc(100vh - 7rem))" }}
       >
-        <div
-          className="px-5 py-4 flex items-center gap-3"
-          style={{
-            background: "linear-gradient(135deg, #0A1628 0%, #0c4a6e 100%)",
-          }}
-        >
-          {view === "chat" && (
+        {/* Cabecera */}
+        <div className="relative flex-shrink-0 bg-gradient-to-b from-cyan-50 to-white px-4 pb-2.5 pt-3.5">
+          <div className="absolute right-2 top-2 flex">
+            {messages.length > 0 && (
+              <button
+                onClick={reiniciar}
+                disabled={loading}
+                className="grid h-7 w-7 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40"
+                title="Nueva conversación"
+              >
+                <i className="bx bx-refresh text-base" />
+              </button>
+            )}
             <button
-              onClick={handleBack}
-              className="text-white/70 hover:text-white transition-colors mr-1"
+              onClick={() => setOpen(false)}
+              className="grid h-7 w-7 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100"
+              title="Cerrar"
             >
-              <i className="bx bx-arrow-back text-xl" />
+              <i className="bx bx-x text-base" />
             </button>
-          )}
-          <div className="w-9 h-9 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
-            <i className="bx bx-bot text-cyan-400 text-xl" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-white font-semibold text-sm leading-tight">
-              Asistente de Soporte
-            </p>
-            <p className="text-cyan-300/70 text-xs">
-              {hasDropi ? "Dropi + Plataforma" : "Plataforma"}
-            </p>
-          </div>
-          <button
-            onClick={() => setOpen(false)}
-            className="text-white/50 hover:text-white transition-colors"
-          >
-            <i className="bx bx-x text-2xl" />
-          </button>
+          <div
+            className="mb-2 h-8 w-8 rounded-full shadow-[0_0_0_3px_#fff,0_0_0_4px_#cdeff5]"
+            style={ORBE}
+          />
+          <h3 className="m-0 truncate pr-14 text-[15px] font-bold leading-tight tracking-tight">
+            {nombreCuenta ? `Hola, ${nombreCuenta}` : "Hola 👋"}
+          </h3>
+          <p className="mt-0.5 text-[11.5px] text-slate-500">
+            Pregúntame por tus guías, pedidos y ventas.
+          </p>
         </div>
 
-        <div className="bg-white" style={{ maxHeight: "480px" }}>
-          {view === "menu" ? (
-            <div className="p-4 overflow-y-auto" style={{ maxHeight: "480px" }}>
-              <p className="text-gray-600 text-sm mb-4">
-                ¿En qué puedo ayudarte hoy?
-              </p>
-
-              {checkingDropi ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {hasDropi && (
-                    <p className="text-xs font-semibold text-cyan-700 uppercase tracking-wider mb-2 mt-1">
-                      Transportadoras & Pedidos en Dropi
-                    </p>
-                  )}
-
-                  {temas.map((tema) => (
-                    <div key={tema.id}>
-                      {tema.id === "asesor" && hasDropi && (
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">
-                          Plataforma
-                        </p>
-                      )}
-                      {tema.id === "asesor" && !hasDropi && (
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-1">
-                          Soporte de Plataforma
-                        </p>
-                      )}
-                      <button
-                        onClick={() => handleSelectTema(tema)}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl
-                                   text-left text-sm text-gray-700
-                                   bg-gray-50 hover:bg-cyan-50 hover:text-cyan-800
-                                   border border-transparent hover:border-cyan-200
-                                   transition-all duration-200 group"
-                      >
-                        <i
-                          className={`bx ${tema.icon} text-lg text-gray-400 group-hover:text-cyan-600 transition-colors`}
-                        />
-                        <span className="flex-1">{tema.label}</span>
-                        {tema.isAsesor ? (
-                          <i className="bx bxl-whatsapp text-green-500 text-lg" />
-                        ) : (
-                          <i className="bx bx-chevron-right text-gray-300 group-hover:text-cyan-400 transition-colors" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-col" style={{ height: "440px" }}>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {messages.map((msg, i) => (
-                  <div key={i}>
-                    <div
-                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed
-                          ${
-                            msg.role === "user"
-                              ? "bg-cyan-600 text-white rounded-br-md"
-                              : "bg-gray-100 text-gray-700 rounded-bl-md"
-                          }`}
-                      >
-                        {msg.role === "user" ? (
-                          msg.content
-                        ) : (
-                          <div className="prose-sm prose-gray">
-                            {renderMarkdown(msg.content)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {msg.waLink && (
-                      <div className="flex justify-start mt-2 ml-1">
-                        <a
-                          href={msg.waLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl
-                                     bg-green-500 hover:bg-green-600 text-white text-sm font-medium
-                                     transition-all duration-200 shadow-sm hover:shadow-md"
-                        >
-                          <i className="bx bxl-whatsapp text-lg" />
-                          Abrir WhatsApp con Soporte
-                        </a>
+        {/* Conversación */}
+        <div
+          ref={bodyRef}
+          className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-3 pt-1.5"
+        >
+          {messages.map((msg, i) =>
+            msg.role === "user" ? (
+              <div
+                key={i}
+                className="max-w-[80%] self-end break-words rounded-2xl bg-[#0a1628] px-3 py-1.5 text-[12.5px] leading-relaxed text-white"
+              >
+                {msg.content}
+              </div>
+            ) : (
+              <div
+                key={i}
+                className="grid grid-cols-[20px_1fr] items-start gap-2"
+              >
+                <span
+                  className="mt-0.5 h-5 w-5 rounded-full"
+                  style={ORBE}
+                />
+                {msg.error ? (
+                  <div className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-[12px] leading-relaxed text-amber-800">
+                    {msg.content}
+                  </div>
+                ) : (
+                  <div className="grid min-w-0 gap-2">
+                    <MetricasRespuesta datos={msg.datos} />
+                    {msg.content && (
+                      <div className="break-words text-[12.5px] leading-relaxed text-[#243446]">
+                        {renderMarkdown(msg.content)}
                       </div>
                     )}
                   </div>
-                ))}
-
-                {loading && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-md">
-                      <div className="flex gap-1.5">
-                        <span
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0ms" }}
-                        />
-                        <span
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "150ms" }}
-                        />
-                        <span
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "300ms" }}
-                        />
-                      </div>
-                    </div>
-                  </div>
                 )}
-
-                <div ref={messagesEndRef} />
               </div>
+            ),
+          )}
 
-              <div className="p-3 border-t border-gray-100">
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                    placeholder="Escribe tu consulta..."
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200
-                               text-sm text-gray-700 placeholder-gray-400
-                               focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:border-transparent
-                               transition-all"
-                    disabled={loading}
+          {loading && (
+            <div className="grid grid-cols-[20px_1fr] items-center gap-2">
+              <span
+                className="h-5 w-5 animate-pulse rounded-full"
+                style={ORBE}
+              />
+              <div className="flex gap-1.5">
+                {[0, 150, 300].map((d) => (
+                  <span
+                    key={d}
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-cyan-700/60"
+                    style={{ animationDelay: `${d}ms` }}
                   />
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim() || loading}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center
-                               transition-all duration-200 flex-shrink-0
-                               disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{
-                      background:
-                        input.trim() && !loading
-                          ? "linear-gradient(135deg, #0A1628, #0e7490)"
-                          : "#e5e7eb",
-                    }}
-                  >
-                    <i
-                      className={`bx bx-send text-lg ${input.trim() && !loading ? "text-white" : "text-gray-400"}`}
-                    />
-                  </button>
-                </div>
-
-                <button
-                  onClick={handleGoToAsesor}
-                  className="w-full mt-2 flex items-center justify-center gap-2
-                             py-2 rounded-lg text-xs text-gray-500
-                             hover:text-green-600 hover:bg-green-50
-                             transition-all duration-200"
-                >
-                  <i className="bx bxl-whatsapp text-sm" />
-                  ¿No resolvió tu duda? Habla con un asesor
-                </button>
+                ))}
               </div>
             </div>
           )}
+
+          {!loading && sugerencias.length > 0 && (
+            <div className="grid grid-cols-2 gap-1.5">
+              {sugerencias.map((s) => (
+                <button
+                  key={s.texto}
+                  onClick={() => enviar(s.texto)}
+                  className="grid content-start gap-1.5 rounded-xl border border-[#e3e8ee] p-2.5 text-left text-[12px] leading-snug text-[#102033]
+                             transition-colors hover:border-cyan-300 hover:bg-cyan-50/50
+                             focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
+                >
+                  <span className="grid h-6 w-6 place-items-center rounded-md bg-cyan-50 text-cyan-700">
+                    <i className={`bx ${s.icon} text-sm`} />
+                  </span>
+                  {s.texto}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Entrada */}
+        <div className="flex-shrink-0 px-3 pb-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              enviar();
+            }}
+            className="flex items-center gap-2 rounded-full border border-[#e3e8ee] bg-slate-50 py-1 pl-3.5 pr-1
+                       transition-colors focus-within:border-cyan-700 focus-within:bg-white"
+          >
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              maxLength={1500}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Escribe tu pregunta…"
+              aria-label="Pregunta para el asistente"
+              className="min-w-0 flex-1 border-0 bg-transparent text-[12.5px] text-[#102033] placeholder-slate-400 outline-none focus:ring-0"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || loading}
+              className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-cyan-700 text-white
+                         transition-all hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+              aria-label="Enviar"
+            >
+              <i className="bx bx-up-arrow-alt text-lg" />
+            </button>
+          </form>
+
+          <div className="mt-1 flex items-center justify-between gap-2 px-1 text-[10.5px] text-slate-400">
+            <span>Datos sincronizados de Dropi y Aliclik</span>
+            <button
+              type="button"
+              onClick={irAsesor}
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-slate-500 transition-colors hover:bg-green-50 hover:text-green-700"
+            >
+              <i className="bx bxl-whatsapp text-xs" />
+              Asesor
+            </button>
+          </div>
         </div>
       </div>
     </>

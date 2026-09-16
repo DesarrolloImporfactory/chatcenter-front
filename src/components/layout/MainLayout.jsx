@@ -10,6 +10,7 @@ import io from "socket.io-client";
 import Swal from "sweetalert2";
 import usePresenceRegister from "../../hooks/usePresenceRegister";
 import { usePresence } from "../../context/PresenceProvider";
+// Asistente de la cuenta: diseño "Lienzo" con métricas del "Tablero". La variante Tablero pura está en ./AsistenteCuentaTablero
 import FloatingSupportChat from "./FloatingSupportChat";
 import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
@@ -1063,7 +1064,7 @@ function MainLayout({ children }) {
         </div>
       </div>
 
-      {/* <FloatingSupportChat /> */}
+      <FloatingSupportChat />
       {/* <Footer /> */}
     </div>
   );

@@ -2,6 +2,7 @@ import { Fragment, useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom"; // al inicio
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
+// Asistente de la cuenta: diseño "Lienzo" con métricas del "Tablero". La variante Tablero pura está en ../layout/AsistenteCuentaTablero
 import FloatingSupportChat from "../layout/FloatingSupportChat";
 import CarteraHeaderBadges from "../imporsuit/CarteraHeaderBadges";
 import { globalLogout } from "../../utils/globalLogout";
@@ -2165,7 +2166,7 @@ const Cabecera = ({
         </div>
       )}
 
-      {/* <FloatingSupportChat position={selectedChat ? "left" : "right"} /> */}
+      <FloatingSupportChat position={selectedChat ? "left" : "right"} />
 
       <ReiniciarIAModal
         abierto={confirmarReinicio}

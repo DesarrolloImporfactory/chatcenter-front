@@ -1,5 +1,6 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
+import chatApi from "../../../api/chatcenter";
 
 const fmt = (n, dec = 0) => {
   if (n == null || isNaN(n)) return "—";
@@ -216,12 +217,103 @@ const StatusCard = ({ icon, label, value, total, color, tooltip }) => {
   );
 };
 
+/* Editor inline del % de impuesto que Meta agrega sobre el gasto. El spend
+   de la API viene antes de impuestos; según cómo facture Meta a cada cuenta
+   (dirección en Ecuador → 15% IVA; tarjeta extranjera → nada) el cliente lo
+   configura aquí. Se guarda en la conexión y se recarga el cruce. */
+const ImpuestoAdsEditor = ({ pct, id_configuracion, onSaved }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(pct ?? 0));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    if (!editing) setValue(String(pct ?? 0));
+  }, [pct, editing]);
+
+  const guardar = async () => {
+    const n = Number(String(value).replace(",", "."));
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      setErr("Ingresa un porcentaje entre 0 y 100");
+      return;
+    }
+    try {
+      setSaving(true);
+      setErr(null);
+      await chatApi.post("/marketing-control/impuesto-ads", {
+        id_configuracion,
+        pct: n,
+      });
+      setEditing(false);
+      onSaved?.(n);
+    } catch (e) {
+      setErr(
+        e?.response?.data?.message || e?.message || "No se pudo guardar",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800"
+        title="Cambiar el % de impuesto sobre publicidad"
+      >
+        <i className="bx bx-edit-alt" /> {fmt(pct, 2)}%
+      </button>
+    );
+  }
+
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      <span className="inline-flex items-center gap-1">
+        <input
+          type="number"
+          min="0"
+          max="100"
+          step="0.01"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") guardar();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="w-16 rounded border border-slate-300 px-1.5 py-0.5 text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          autoFocus
+        />
+        <span className="text-[10px] text-slate-500">%</span>
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={saving}
+          className="rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+        >
+          {saving ? "..." : "Guardar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="text-[10px] text-slate-500 hover:text-slate-700"
+        >
+          Cancelar
+        </button>
+      </span>
+      {err && <span className="text-[10px] text-rose-600">{err}</span>}
+    </span>
+  );
+};
+
 export default function AdsboardAttributionFunnel({
   data,
   loading,
   error,
   currency = "USD",
   onRetry,
+  id_configuracion,
 }) {
   if (loading) {
     return (
@@ -285,7 +377,18 @@ export default function AdsboardAttributionFunnel({
   );
   const gastoAds = Number(m.gasto_ads || 0);
   const roi = Number(m.roi_real ?? (gastoAds > 0 ? utilidad / gastoAds : 0));
-  const gananciaNeta = utilidad - gastoAds;
+  // Impuesto sobre ads (configurable por cuenta, 0 = no aplica) y flete de
+  // las devoluciones. El back ya manda ganancia_neta con ambos descontados;
+  // el fallback reproduce la fórmula vieja si el back es anterior.
+  const impuestoPct = Number(m.impuesto_ads_pct || 0);
+  const impuestoAds = Number(m.impuesto_ads ?? (gastoAds * impuestoPct) / 100);
+  const gastoAdsTotal = Number(m.gasto_ads_total ?? gastoAds + impuestoAds);
+  const fleteDevoluciones = Number(m.flete_devoluciones || 0);
+  const fleteEnCamino = Number(m.flete_en_camino || 0);
+  const gananciaNeta = Number(
+    m.ganancia_neta ??
+      utilidad - fleteDevoluciones - fleteEnCamino - gastoAdsTotal,
+  );
 
   const totalEstados =
     (e.entregadas || 0) +
@@ -320,8 +423,13 @@ export default function AdsboardAttributionFunnel({
           label="Gasto Meta Ads"
           value={fmtCurrency(gastoAds, currency)}
           accentColor="#ef4444"
+          sub={
+            impuestoPct > 0
+              ? `+ ${fmt(impuestoPct, 2)}% impuesto = ${fmtCurrency(gastoAdsTotal, currency)}`
+              : "Antes de impuestos"
+          }
           hint={`${fmt(e.clicks)} clics · CPM ${fmtCurrency((gastoAds * 1000) / Math.max(e.impresiones, 1), currency)}`}
-          tooltip="Total invertido en anuncios de Meta (Facebook + Instagram) durante el período seleccionado."
+          tooltip="Total invertido en anuncios de Meta (Facebook + Instagram) durante el período, tal como lo reporta Meta: ANTES de impuestos. Si Meta te factura con IVA, configura el % en 'Costos reales' para ver el gasto total."
         />
         <HeroStat
           icon="bx-package"
@@ -462,7 +570,7 @@ export default function AdsboardAttributionFunnel({
               value={e.en_camino}
               total={totalEstados}
               color="#3b82f6"
-              tooltip="Órdenes en proceso logístico: pendientes de confirmación, guías generadas, en tránsito, en reparto, con novedades, o esperando retiro en agencia."
+              tooltip="Órdenes en proceso logístico: pendientes de confirmación, guías generadas, en tránsito, en reparto, con novedades, o esperando retiro en agencia. Las pendientes y con guía generada siguen en bodega: aún no tienen flete gastado."
             />
             <StatusCard
               icon="bx-undo"
@@ -593,10 +701,82 @@ export default function AdsboardAttributionFunnel({
                 </span>
               </div>
             ))}
+            {/* Desglose de la ganancia neta: utilidad − fletes devol. − ads con impuesto */}
+            <div className="pt-2 mt-2 border-t border-slate-200 space-y-1.5">
+              {[
+                {
+                  key: "utilidad",
+                  lbl: "Utilidad entregada",
+                  v: utilidad,
+                  sign: "+",
+                  tip: "Suma de lo que Dropi te deja por cada orden ENTREGADA: precio de venta − costo del producto − flete de esa orden.",
+                },
+                {
+                  key: "flete_dev",
+                  lbl: `Fletes de devoluciones (${fmt(e.devueltas)})`,
+                  v: fleteDevoluciones,
+                  sign: "−",
+                  tip: "Flete de las órdenes que el cliente rechazó o no recibió. Dropi te lo cobra aunque no haya venta, y NO está descontado en la utilidad entregada. Es el flete de cada orden devuelta según Dropi; no incluye cargos extra de retorno que Dropi no reporta por API.",
+                },
+                {
+                  key: "flete_camino",
+                  lbl: `Fletes de órdenes en camino (${fmt(e.en_camino_courier ?? 0)} ya con courier)`,
+                  v: fleteEnCamino,
+                  sign: "−",
+                  tip: "Flete de las órdenes que el courier YA tomó y todavía no se entregan ni se devuelven: el flete ya se gastó y la venta aún no se cobra. Las pendientes o con guía generada siguen en bodega y no generan flete todavía, por eso pueden aparecer en 'En camino' y no aquí. Cuando se entreguen pasan a utilidad entregada; si se devuelven, a fletes de devoluciones. Mismo criterio que la rentabilidad del Dropiboard.",
+                },
+                {
+                  key: "ads",
+                  lbl: "Gasto ads (antes de impuestos)",
+                  v: gastoAds,
+                  sign: "−",
+                  tip: "El gasto tal como lo reporta la API de Meta, sin IVA.",
+                },
+                {
+                  key: "impuesto",
+                  lbl: "Impuesto sobre ads",
+                  v: impuestoAds,
+                  sign: "−",
+                  editor: true,
+                  tip: "IVA que Meta agrega en la factura de publicidad. Depende de cómo te factura Meta: cuenta con dirección en Ecuador → 15%; Colombia 19%; México 16%; Perú 18%. Si pagas con tarjeta extranjera (Ugly Cash, Payoneer, dirección en USA) Meta no cobra IVA: déjalo en 0.",
+                },
+              ].map((r) => (
+                <div
+                  key={r.key}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <span className="text-slate-600 inline-flex items-center gap-1.5">
+                    <span className="w-3 text-center text-slate-400 font-bold">
+                      {r.sign}
+                    </span>
+                    {r.lbl}
+                    <Tip text={r.tip} width={300}>
+                      <TipIcon />
+                    </Tip>
+                    {r.editor && id_configuracion && (
+                      <ImpuestoAdsEditor
+                        pct={impuestoPct}
+                        id_configuracion={id_configuracion}
+                        onSaved={() => onRetry?.()}
+                      />
+                    )}
+                  </span>
+                  <span
+                    className={`font-semibold tabular-nums ${r.sign === "−" ? "text-rose-600" : "text-slate-800"}`}
+                  >
+                    {r.sign === "−" ? "−" : ""}
+                    {fmtCurrency(r.v, currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
             <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-800 inline-flex items-center gap-1">
-                Ganancia neta (utilidad − gasto ads)
-                <Tip text="Lo que te queda LIMPIO después de pagar publicidad. Si es positivo, ganas; si es negativo, pierdes dinero.">
+                Ganancia neta
+                <Tip
+                  text="Utilidad entregada − fletes de devoluciones − fletes en camino − gasto en ads (con el impuesto que configures). Es la misma fórmula que la rentabilidad del Dropiboard. Si es positivo, ganas; si es negativo, pierdes dinero."
+                  width={300}
+                >
                   <TipIcon />
                 </Tip>
               </span>
