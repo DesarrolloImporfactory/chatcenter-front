@@ -501,6 +501,9 @@ export default function Login() {
                   placeholder="nombre@empresa.com"
                   {...register("usuario", {
                     required: "El usuario o email es obligatorio",
+                    // Al pegar el correo suele quedar un espacio al inicio o
+                    // al final y el login fallaba con "credenciales inválidas".
+                    setValueAs: (v) => (typeof v === "string" ? v.trim() : v),
                   })}
                   className={`w-full pl-10 pr-4 py-3 rounded-xl text-sm bg-white text-[#0B1426] placeholder-slate-400 outline-none border-2 transition-all focus:border-[#0B1426] focus:shadow-[0_0_0_3px_rgba(11,20,38,0.06)] ${errors.usuario ? "border-rose-400" : "border-slate-200/80"}`}
                   autoComplete="username"

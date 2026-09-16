@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Select from "react-select";
+import RepartoDepartamento from "./RepartoDepartamento";
 import "./departamentos.css";
 
 const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
@@ -330,6 +331,7 @@ const DepartamentosView = () => {
   };
 
   const openModal = async (u = null) => {
+    setActiveTab("departamento");
     if (u) {
       setForm({
         nombre_departamento: u.nombre_departamento || "",
@@ -981,7 +983,7 @@ const DepartamentosView = () => {
             variants={panelV}
             initial="hidden"
             animate={isClosing ? "exit" : "visible"}
-            className={`bg-white rounded-2xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5 transition-[max-width] duration-300 ${
+            className={`bg-white rounded-2xl shadow-2xl w-full max-h-[92vh] overflow-y-auto overflow-x-hidden ring-1 ring-black/5 transition-[max-width] duration-300 ${
               showUpgradeOptions ? "max-w-md" : "max-w-3xl"
             }`}
           >
@@ -1142,9 +1144,24 @@ const DepartamentosView = () => {
                       >
                         Asignar usuarios
                       </button>
+                      {editingId && (
+                        <button
+                          type="button"
+                          className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                            activeTab === "reparto"
+                              ? "border-b-2 border-[#1d4ed8] text-[#1d4ed8]"
+                              : "text-slate-500 hover:text-slate-700"
+                          }`}
+                          onClick={() => setActiveTab("reparto")}
+                        >
+                          Reparto de chats
+                        </button>
+                      )}
                     </div>
 
-                    {activeTab === "departamento" ? (
+                    {activeTab === "reparto" && editingId ? (
+                      <RepartoDepartamento id_departamento={editingId} />
+                    ) : activeTab === "departamento" ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
                           <div>
@@ -1381,6 +1398,7 @@ const DepartamentosView = () => {
                       >
                         Cancelar
                       </button>
+                      {activeTab !== "reparto" && (
                       <button
                         type="submit"
                         disabled={savingDep}
@@ -1397,6 +1415,7 @@ const DepartamentosView = () => {
                             ? "Actualizar"
                             : "Agregar"}
                       </button>
+                      )}
                     </div>
                   </form>
                 </motion.div>

@@ -313,8 +313,7 @@ export function AjustesBotProducto({ value = [], onChange }) {
       </div>
       <p className="text-[12px] text-slate-500 leading-snug">
         Cada dato que marques el bot deja de preguntarlo en todo el chat de
-        este producto: en el embudo manual, en las respuestas de la IA y al
-        cerrar el pedido. Solo aparecen los que el sistema puede resolver por
+        este producto: en las respuestas de la IA y al cerrar el pedido. Solo aparecen los que el sistema puede resolver por
         su cuenta sin frenar la guía ni la orden.
       </p>
       {DATOS_NO_PEDIR.map((d) => {
