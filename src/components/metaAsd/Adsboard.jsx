@@ -537,6 +537,7 @@ const Adsboard = ({ lockedConfigId = null, autoFetch = false }) => {
                 error={mcError}
                 currency={currency}
                 onRetry={fetchMarketingControl}
+                id_configuracion={selectedConfigId}
               />
             )}
             {activeTab === "campaigns" && (
