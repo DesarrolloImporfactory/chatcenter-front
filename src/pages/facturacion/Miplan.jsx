@@ -679,23 +679,43 @@ const MiPlan = () => {
                 </div>
               </div>
             )}
-            {Number(plan?.conexiones_adicionales || 0) > 0 && (
+            {(Number(plan?.conexiones_adicionales || 0) > 0 ||
+              Number(plan?.subusuarios_adicionales || 0) > 0) && (
               <div className="rounded-xl border border-indigo-300/20 bg-indigo-500/10 text-indigo-100 px-4 py-3 text-sm flex items-start gap-2">
                 <FaCheckCircle className="mt-0.5 shrink-0" />
                 <div className="min-w-0">
                   <p className="font-semibold">Complementos activos</p>
-                  <p className="text-indigo-100/80">
-                    Tu plan incluye{" "}
-                    <span className="font-semibold">
-                      +{plan.conexiones_adicionales} conexión
-                      {Number(plan.conexiones_adicionales) === 1
-                        ? ""
-                        : "es"}{" "}
-                      adicional
-                      {Number(plan.conexiones_adicionales) === 1 ? "" : "es"}
-                    </span>{" "}
-                    (+${Number(plan.conexiones_adicionales) * 10}/mes).
-                  </p>
+                  {Number(plan?.conexiones_adicionales || 0) > 0 && (
+                    <p className="text-indigo-100/80">
+                      Tu plan incluye{" "}
+                      <span className="font-semibold">
+                        +{plan.conexiones_adicionales} conexión
+                        {Number(plan.conexiones_adicionales) === 1
+                          ? ""
+                          : "es"}{" "}
+                        adicional
+                        {Number(plan.conexiones_adicionales) === 1 ? "" : "es"}
+                      </span>{" "}
+                      (+${Number(plan.conexiones_adicionales) * 10}/mes).
+                    </p>
+                  )}
+                  {/* Mismo addon que conexiones, $5/mes por subusuario
+                      (addons_chat_center.subusuario_adicional). Antes se
+                      cobraba pero no se mostraba en ningún lado. */}
+                  {Number(plan?.subusuarios_adicionales || 0) > 0 && (
+                    <p className="text-indigo-100/80">
+                      Tu plan incluye{" "}
+                      <span className="font-semibold">
+                        +{plan.subusuarios_adicionales} subusuario
+                        {Number(plan.subusuarios_adicionales) === 1
+                          ? ""
+                          : "s"}{" "}
+                        adicional
+                        {Number(plan.subusuarios_adicionales) === 1 ? "" : "es"}
+                      </span>{" "}
+                      (+${Number(plan.subusuarios_adicionales) * 5}/mes).
+                    </p>
+                  )}
                 </div>
               </div>
             )}

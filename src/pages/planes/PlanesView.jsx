@@ -1356,6 +1356,20 @@ const PlanesView = () => {
                           {addonConexiones === 1 ? "" : "es"}
                         </span>
                       )}
+                      {isCurrent && addonSubusuarios > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold"
+                          style={{
+                            color: "#4F46E5",
+                            background: "rgba(99,102,241,0.08)",
+                            border: "1px solid rgba(99,102,241,0.15)",
+                          }}
+                        >
+                          + {addonSubusuarios} subusuario
+                          {addonSubusuarios === 1 ? "" : "s"} adicional
+                          {addonSubusuarios === 1 ? "" : "es"}
+                        </span>
+                      )}
                       <span className="text-[9px] text-slate-400 text-center leading-relaxed">
                         {isCurrentFreeUsage && showPromo ? (
                           <>
