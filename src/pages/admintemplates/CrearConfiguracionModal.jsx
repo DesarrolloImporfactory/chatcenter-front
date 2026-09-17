@@ -69,9 +69,15 @@ const CrearConfiguracionModal = ({
 
   const cleanPhoneNumber = (phone) => {
     const cleanPhone = phone.replace(/[^0-9]/g, "");
-    const phoneWithoutLeadingZero = cleanPhone.startsWith("0")
+    let phoneWithoutLeadingZero = cleanPhone.startsWith("0")
       ? cleanPhone.slice(1)
       : cleanPhone;
+
+    // México: WhatsApp exige el "1" entre el 52 y el número (+52 1 …).
+    // Si el cliente no lo escribió, se agrega solo.
+    if (countryCode === "MX" && !phoneWithoutLeadingZero.startsWith("1")) {
+      phoneWithoutLeadingZero = `1${phoneWithoutLeadingZero}`;
+    }
 
     return countryCode === "EC"
       ? "593" + phoneWithoutLeadingZero
@@ -534,6 +540,13 @@ const CrearConfiguracionModal = ({
                       />
                     </div>
                   </div>
+                  {countryCode === "MX" && (
+                    <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      En México, WhatsApp requiere el <b>1</b> después del
+                      código de país: <b>+52 1</b> y luego tu número. Si no lo
+                      escribes, se agrega automáticamente.
+                    </p>
+                  )}
                 </div>
               </div>
 

@@ -133,6 +133,101 @@ const DepartamentosView = () => {
     usuariosAsignados.find((x) => Number(x.id_sub_usuario) === Number(id)) ||
     null;
 
+  // ── Canales por usuario ────────────────────────────────────────────────
+  // Cada usuario asignado recibe solo los canales marcados (wa/ms/ig). Solo
+  // se ofrecen los canales que la conexión del departamento tiene vinculados
+  // (flags de /configuraciones/listar_conexiones). Por defecto: WhatsApp.
+  const CANALES_DEF = [
+    { key: "wa", label: "WhatsApp", icon: "bx bxl-whatsapp" },
+    { key: "ms", label: "Messenger", icon: "bx bxl-messenger" },
+    { key: "ig", label: "Instagram", icon: "bx bxl-instagram" },
+  ];
+  const canalesDeConexion = (c) => {
+    if (!c) return [];
+    const out = [];
+    const waOk =
+      Number(c.conectado) === 1 ||
+      String(c.status_whatsapp || "").toUpperCase() === "CONNECTED" ||
+      (String(c.id_telefono || "").trim() && String(c.id_whatsapp || "").trim());
+    if (waOk) out.push("wa");
+    if (Number(c.messenger_conectado) === 1) out.push("ms");
+    if (Number(c.instagram_conectado) === 1) out.push("ig");
+    return out;
+  };
+  const conexionForm =
+    (conexiones || []).find(
+      (c) => String(c.id) === String(form.id_configuracion),
+    ) || null;
+  const canalesDisponibles = canalesDeConexion(conexionForm);
+  // Sin canal detectado (conexión aún sin vincular) se ofrece WhatsApp.
+  const canalesMostrar = canalesDisponibles.length ? canalesDisponibles : ["wa"];
+  const canalDefault = canalesMostrar.includes("wa") ? ["wa"] : [canalesMostrar[0]];
+  const getCanales = (asig) =>
+    Array.isArray(asig?.canales) && asig.canales.length ? asig.canales : ["wa"];
+  const toastCanal = Swal.mixin({
+    toast: true,
+    position: "top-end",
+    showConfirmButton: false,
+    timer: 2200,
+    timerProgressBar: true,
+  });
+  const toggleCanal = (id, canal) => {
+    const asig = getAsignacion(id);
+    const cur = getCanales(asig);
+    const quitar = cur.includes(canal);
+    const next = quitar ? cur.filter((c) => c !== canal) : [...cur, canal];
+    const nombreUsuario =
+      (usuarios || []).find(
+        (u) => Number(u.id_sub_usuario) === Number(id),
+      )?.usuario || "el usuario";
+    const etiqueta =
+      CANALES_DEF.find((c) => c.key === canal)?.label || canal;
+
+    // Siempre queda al menos un canal: si no, el usuario no recibiría nada.
+    if (!next.length) {
+      toastCanal.fire({
+        icon: "warning",
+        title: `${nombreUsuario} debe conservar al menos un canal`,
+      });
+      return;
+    }
+
+    setUsuariosAsignados((prev) =>
+      prev.map((x) =>
+        Number(x.id_sub_usuario) === Number(id) ? { ...x, canales: next } : x,
+      ),
+    );
+    toastCanal.fire({
+      icon: "success",
+      title: quitar
+        ? `${etiqueta} quitado a ${nombreUsuario}`
+        : `${etiqueta} habilitado para ${nombreUsuario}`,
+      text: "Se aplica al pulsar Guardar.",
+    });
+  };
+  // Si cambia la conexión del departamento, los canales marcados que esa
+  // conexión no tiene se quitan (y si no queda ninguno, vuelve al default).
+  // Solo cuando la conexión ya está cargada: antes de eso no se toca nada.
+  useEffect(() => {
+    if (!conexionForm) return;
+    const permitidos = canalesMostrar;
+    setUsuariosAsignados((prev) => {
+      let cambio = false;
+      const next = prev.map((x) => {
+        const cur = getCanales(x);
+        const filtrados = cur.filter((c) => permitidos.includes(c));
+        const nuevo = filtrados.length ? filtrados : canalDefault;
+        if (nuevo.length !== cur.length || nuevo.some((c) => !cur.includes(c))) {
+          cambio = true;
+          return { ...x, canales: nuevo };
+        }
+        return x;
+      });
+      return cambio ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.id_configuracion, conexiones]);
+
   const fetchDepartamentos = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -1247,7 +1342,10 @@ const DepartamentosView = () => {
                             <b className="text-slate-800">Auto</b> hace que los
                             chats nuevos se le asignen solos (solo mientras esté
                             conectado y la autoasignación del departamento esté
-                            activa); si no, los chats quedan en "En espera".
+                            activa); si no, los chats quedan en "En espera".{" "}
+                            <b className="text-slate-800">Canales</b> define de
+                            qué redes recibe cada usuario: solo aparecen las que
+                            esta conexión tiene vinculadas.
                           </p>
                         </div>
                         <div className="max-h-[400px] overflow-y-auto border border-gray-200 rounded-lg">
@@ -1281,13 +1379,22 @@ const DepartamentosView = () => {
                                     <i className="bx bx-info-circle text-sm text-slate-400" />
                                   </span>
                                 </th>
+                                <th className="p-3 text-center font-semibold">
+                                  <span
+                                    className="inline-flex items-center gap-1 cursor-help"
+                                    title="Redes de las que recibe chats en este departamento. Solo se muestran los canales vinculados a la conexión."
+                                  >
+                                    Canales
+                                    <i className="bx bx-info-circle text-sm text-slate-400" />
+                                  </span>
+                                </th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                               {usuarios.length === 0 && (
                                 <tr>
                                   <td
-                                    colSpan={5}
+                                    colSpan={6}
                                     className="p-6 text-center text-sm text-slate-500"
                                   >
                                     Aún no tienes usuarios en tu equipo.{" "}
@@ -1349,6 +1456,9 @@ const DepartamentosView = () => {
                                               {
                                                 id_sub_usuario: id,
                                                 asignacion_auto: 0,
+                                                // Por defecto WhatsApp (o el
+                                                // primer canal disponible)
+                                                canales: canalDefault,
                                               },
                                             ];
                                           });
@@ -1378,6 +1488,51 @@ const DepartamentosView = () => {
                                           );
                                         }}
                                       />
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                        {CANALES_DEF.filter((c) =>
+                                          canalesMostrar.includes(c.key),
+                                        ).map((c) => {
+                                          const on =
+                                            isChecked &&
+                                            getCanales(asignacion).includes(
+                                              c.key,
+                                            );
+                                          return (
+                                            <button
+                                              key={c.key}
+                                              type="button"
+                                              disabled={!isChecked}
+                                              onClick={() =>
+                                                toggleCanal(
+                                                  usuario.id_sub_usuario,
+                                                  c.key,
+                                                )
+                                              }
+                                              title={
+                                                !isChecked
+                                                  ? "Primero asigna el usuario al departamento"
+                                                  : on
+                                                    ? `Recibe ${c.label}`
+                                                    : `No recibe ${c.label}`
+                                              }
+                                              className={[
+                                                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition",
+                                                on
+                                                  ? "border-[#1d4ed8] bg-[#eff6ff] text-[#1d4ed8]"
+                                                  : "border-slate-200 bg-white text-slate-400 hover:border-slate-300",
+                                                !isChecked
+                                                  ? "opacity-50 cursor-not-allowed"
+                                                  : "cursor-pointer",
+                                              ].join(" ")}
+                                            >
+                                              <i className={`${c.icon} text-sm`} />
+                                              {c.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
                                     </td>
                                   </tr>
                                 );

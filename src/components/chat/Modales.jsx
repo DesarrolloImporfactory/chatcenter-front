@@ -11,10 +11,10 @@ import { enviarWhatsAppConReintento } from "../../utils/enviarWhatsAppConReinten
 const Modales = ({
   numeroModal,
   handleNumeroModal,
-  handleSubmit,
-  handleNumeroModalForm,
+  buscandoNumeroCliente = false,
   register,
   handleInputChange_numeroCliente,
+  menuSearchTermNumeroCliente = "",
   searchResultsNumeroCliente,
   handleOptionSelectNumeroTelefono,
   inputRefNumeroTelefono,
@@ -87,6 +87,64 @@ const Modales = ({
   const [modalTab, setModalTab] = useState("nuevo");
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
+  // Código de país OBLIGATORIO al agregar: el número se guarda en formato
+  // internacional (593999…), que es lo que Meta necesita para enviar la
+  // plantilla y lo que hace que el buscador y el dedupe por últimos 9
+  // dígitos encuentren al contacto cuando escribe por WhatsApp.
+  const PAISES_CODIGO = [
+    { code: "593", label: "🇪🇨 Ecuador (+593)" },
+    { code: "57", label: "🇨🇴 Colombia (+57)" },
+    { code: "52", label: "🇲🇽 México (+52)" },
+    { code: "51", label: "🇵🇪 Perú (+51)" },
+    { code: "502", label: "🇬🇹 Guatemala (+502)" },
+    { code: "56", label: "🇨🇱 Chile (+56)" },
+    { code: "54", label: "🇦🇷 Argentina (+54)" },
+    { code: "591", label: "🇧🇴 Bolivia (+591)" },
+    { code: "58", label: "🇻🇪 Venezuela (+58)" },
+    { code: "507", label: "🇵🇦 Panamá (+507)" },
+    { code: "506", label: "🇨🇷 Costa Rica (+506)" },
+    { code: "504", label: "🇭🇳 Honduras (+504)" },
+    { code: "503", label: "🇸🇻 El Salvador (+503)" },
+    { code: "505", label: "🇳🇮 Nicaragua (+505)" },
+    { code: "595", label: "🇵🇾 Paraguay (+595)" },
+    { code: "598", label: "🇺🇾 Uruguay (+598)" },
+    { code: "1", label: "🇺🇸 Estados Unidos / 🇩🇴 Rep. Dominicana (+1)" },
+    { code: "34", label: "🇪🇸 España (+34)" },
+    { code: "otro", label: "Otro país (escribir código)" },
+  ];
+  // Por defecto, el país del número de WhatsApp de la cuenta (dataAdmin.telefono)
+  const paisPorDefecto = (() => {
+    const tel = String(dataAdmin?.telefono || "").replace(/\D/g, "");
+    const match = PAISES_CODIGO.filter((p) => p.code !== "otro")
+      .sort((a, b) => b.code.length - a.code.length)
+      .find((p) => tel.startsWith(p.code));
+    return match?.code || "593";
+  })();
+  const [newContactCountry, setNewContactCountry] = useState(paisPorDefecto);
+  const [newContactCountryOther, setNewContactCountryOther] = useState("");
+
+  /** Arma el teléfono final (solo dígitos, con código de país). null si falta algo. */
+  const armarTelefonoInternacional = () => {
+    const code =
+      newContactCountry === "otro"
+        ? newContactCountryOther.replace(/\D/g, "")
+        : newContactCountry;
+    if (!code) return { error: "Ingresa el código de país." };
+    // Sin el 0 inicial (0999… → 999…): con código de país no va.
+    let local = newContactPhone.replace(/\D/g, "").replace(/^0+/, "");
+    if (local.length < 6) return { error: "El número es demasiado corto." };
+    // Si ya lo escribió con el código incluido (593999…), no se duplica.
+    const yaIncluyeCodigo =
+      local.startsWith(code) && local.length >= code.length + 8;
+    if (yaIncluyeCodigo) local = local.slice(code.length);
+
+    // México: WhatsApp exige el "1" entre el 52 y el número (+52 1 …).
+    // Si el usuario no lo pone, se agrega solo.
+    if (code === "52" && !local.startsWith("1")) local = `1${local}`;
+
+    return { telefono: `${code}${local}` };
+  };
+  const esMexico = newContactCountry === "52";
   // 🔎 query controlada para la pestaña "Buscar contacto"
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -135,6 +193,8 @@ const Modales = ({
     setModalTab("nuevo");
     setNewContactName("");
     setNewContactPhone("");
+    setNewContactCountry(paisPorDefecto);
+    setNewContactCountryOther("");
 
     setSelectedPhoneNumber("");
     setSelectedPhoneNumberNombre("");
@@ -323,24 +383,25 @@ const Modales = ({
     (bodyPlaceholders.length === 0 || allBodyFilled) &&
     (urlButtons.length === 0 || allUrlFilled);
 
-  // 🔎 filtra por nombre o teléfono en cliente (fallback si el server solo busca por número)
-  const filteredResults =
-    (searchResultsNumeroCliente || []).filter((r) => {
-      console.log("r:" + JSON.stringify(r));
-      const q = searchQuery.trim().toLowerCase();
-      if (!q) return true;
-      return (
-        String(r.nombre_cliente || "")
-          .toLowerCase()
-          .includes(q) ||
-        String(r.celular_cliente || "")
-          .toLowerCase()
-          .includes(q) ||
-        String(r.id_encargado || "")
-          .toLowerCase()
-          .includes(q)
-      );
-    }) || [];
+  // El servidor ya filtra (misma cláusula que /contactos: teléfono por sufijo,
+  // texto por FULLTEXT) y limita a 30 filas. No se vuelve a filtrar aquí: un
+  // includes() sobre nombre/celular descartaba coincidencias legítimas (por
+  // email, o teléfono guardado en otro formato) y el console.log por fila
+  // colgaba la pestaña cuando llegaban miles de resultados.
+  const filteredResults = Array.isArray(searchResultsNumeroCliente)
+    ? searchResultsNumeroCliente
+    : [];
+  const LIMITE_RESULTADOS_BUSQUEDA = 30;
+
+  // Enter o lupa: recién aquí se consulta al servidor con lo escrito.
+  const ejecutarBusquedaNumero = () => {
+    const texto = String(searchQuery || "").trim();
+    if (!texto) {
+      Toast.fire({ icon: "info", title: "Escribe un nombre o teléfono." });
+      return;
+    }
+    handleInputChange_numeroCliente?.({ target: { value: texto } });
+  };
 
   /** Estilos “glass/premium” + foco accesible */
   const customSelectStyles = {
@@ -1241,8 +1302,13 @@ const Modales = ({
       return;
     }
 
-    // Limpiar teléfono: quitar caracteres especiales y espacios
-    const telefonoLimpio = newContactPhone.replace(/[^0-9]/g, "");
+    // Teléfono final con código de país obligatorio (solo dígitos)
+    const armado = armarTelefonoInternacional();
+    if (armado.error) {
+      Toast.fire({ icon: "warning", title: armado.error });
+      return;
+    }
+    const telefonoLimpio = armado.telefono;
 
     try {
       const { data } = await chatApi.post(
@@ -1262,13 +1328,21 @@ const Modales = ({
 
       Toast.fire({ icon: "success", title: "Contacto añadido" });
 
-      handleSelectPhoneNumber(telefonoLimpio, newContactName, null);
+      // El back crea el contacto por el mismo camino que el webhook (dedupe
+      // por últimos 9 dígitos + round robin). Si ya existía con otro formato
+      // (593… vs 0…), seguimos con el teléfono/encargado que devolvió, no con
+      // el tecleado: si no, buscar_id_recibe y la plantilla van a otro número.
+      const telefonoFinal = String(data?.celular_cliente || telefonoLimpio);
+      const nombreFinal = data?.nombre_cliente || newContactName;
+      const encargadoFinal = data?.id_encargado ?? null;
+
+      handleSelectPhoneNumber(telefonoFinal, nombreFinal, encargadoFinal);
 
       setModalTab("buscar");
 
-      setSearchQuery(telefonoLimpio);
+      setSearchQuery(telefonoFinal);
       if (inputRefNumeroTelefono?.current) {
-        inputRefNumeroTelefono.current.value = telefonoLimpio;
+        inputRefNumeroTelefono.current.value = telefonoFinal;
         const ev = new Event("input", { bubbles: true });
         inputRefNumeroTelefono.current.dispatchEvent(ev);
       }
@@ -1880,6 +1954,30 @@ const Modales = ({
           "Meta OK, pero falló guardar en BD:",
           dbErr?.message || dbErr,
         );
+      }
+
+      // Plantilla confirmada por Meta. Si quien la envió no atiende WhatsApp
+      // en este departamento (p. ej. asesora solo de Instagram/Messenger que
+      // consiguió el número del lead), el chat pasa a los asesores de
+      // WhatsApp por round robin; si nadie está conectado queda "En espera".
+      try {
+        if (buscarIdRecibe) {
+          const { data: tr } = await chatApi.post(
+            "/clientes_chat_center/traspasar_tras_plantilla",
+            { id_configuracion, id_cliente_chat_center: buscarIdRecibe },
+          );
+          if (tr?.traspasado) {
+            Toast.fire({
+              icon: "success",
+              title: tr.id_encargado
+                ? "Plantilla enviada. El chat pasó a un asesor de WhatsApp."
+                : "Plantilla enviada. El chat quedó en espera para WhatsApp.",
+              timer: 3500,
+            });
+          }
+        }
+      } catch (trErr) {
+        console.warn("traspasar_tras_plantilla:", trErr?.message || trErr);
       }
 
       resetNumeroModalState();
@@ -2566,20 +2664,82 @@ const Modales = ({
                       htmlFor="numeroAdd"
                       className="block text-sm font-medium text-slate-700 mb-1"
                     >
-                      Teléfono
+                      Teléfono{" "}
+                      <span className="text-xs font-normal text-slate-500">
+                        (código de país obligatorio)
+                      </span>
                     </label>
-                    <div className="relative">
-                      <i className="bx bx-phone absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                      <input
-                        type="text"
-                        id="numeroAdd"
-                        placeholder="Ej: 5939XXXXXXXX"
-                        className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
+                    <div className="flex gap-2">
+                      <select
+                        id="paisAdd"
+                        aria-label="Código de país"
+                        value={newContactCountry}
+                        onChange={(e) => setNewContactCountry(e.target.value)}
+                        className="w-[46%] min-w-0 rounded-xl border border-slate-300 bg-white px-2 py-2.5 text-sm
                               focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
-                        value={newContactPhone}
-                        onChange={(e) => setNewContactPhone(e.target.value)}
-                      />
+                      >
+                        {PAISES_CODIGO.map((p) => (
+                          <option key={p.code} value={p.code}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="relative flex-1 min-w-0">
+                        <i className="bx bx-phone absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input
+                          type="tel"
+                          id="numeroAdd"
+                          inputMode="numeric"
+                          placeholder="Ej: 991234567"
+                          className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
+                                focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                          value={newContactPhone}
+                          onChange={(e) => setNewContactPhone(e.target.value)}
+                        />
+                      </div>
                     </div>
+                    {newContactCountry === "otro" && (
+                      <div className="mt-2">
+                        <label
+                          htmlFor="paisOtroAdd"
+                          className="block text-xs font-medium text-slate-600 mb-1"
+                        >
+                          Código de país (solo números, sin +)
+                        </label>
+                        <input
+                          type="tel"
+                          id="paisOtroAdd"
+                          inputMode="numeric"
+                          placeholder="Ej: 39 (Italia), 49 (Alemania)"
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm
+                                focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                          value={newContactCountryOther}
+                          onChange={(e) =>
+                            setNewContactCountryOther(
+                              e.target.value.replace(/\D/g, "").slice(0, 4),
+                            )
+                          }
+                        />
+                      </div>
+                    )}
+                    {esMexico && (
+                      <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        En México, WhatsApp requiere el <b>1</b> después del
+                        código de país: <b>+52 1</b> y luego el número. Si no
+                        lo escribes, se agrega automáticamente.
+                      </p>
+                    )}
+                    {(() => {
+                      const a = armarTelefonoInternacional();
+                      return a.telefono ? (
+                        <p className="mt-1.5 text-xs text-slate-500">
+                          Se guardará como{" "}
+                          <span className="font-semibold text-slate-700">
+                            +{a.telefono}
+                          </span>
+                        </p>
+                      ) : null;
+                    })()}
                   </div>
                 </form>
               )}
@@ -2588,7 +2748,10 @@ const Modales = ({
               {modalTab === "buscar" && (
                 <form
                   className="space-y-3"
-                  onSubmit={handleSubmit(handleNumeroModalForm)}
+                  // Enter en el buscador NO envía nada: antes disparaba
+                  // handleNumeroModalForm → POST /numbers (ruta inexistente)
+                  // y cerraba el modal a mitad de la búsqueda.
+                  onSubmit={(e) => e.preventDefault()}
                 >
                   {/* Tarjeta de destino (SE MANTIENE SIEMPRE) */}
                   <div className="rounded-xl border p-3 bg-gray-50 mb-2">
@@ -2613,40 +2776,66 @@ const Modales = ({
                         Buscar por nombre o teléfono
                       </label>
 
-                      <div className="relative">
-                        <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input
-                          type="text"
-                          id="numeroBuscar"
-                          placeholder="Escribe para buscar…"
-                          value={searchQuery}
-                          name={registeredNumero.name}
-                          onBlur={registeredNumero.onBlur}
-                          ref={(el) => {
-                            registeredNumero.ref(el);
-                            if (inputRefNumeroTelefono)
-                              inputRefNumeroTelefono.current = el;
-                          }}
-                          onChange={(e) => {
-                            setSearchQuery(e.target.value);
-                            handleInputChange_numeroCliente(e);
-                            registeredNumero.onChange(e);
-                          }}
-                          className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
+                      {/* La búsqueda NO se dispara al teclear: solo con Enter
+                          o con la lupa, para no consultar la BD por cada
+                          letra. */}
+                      <div className="flex items-stretch gap-2">
+                        <div className="relative flex-1">
+                          <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                          <input
+                            type="text"
+                            id="numeroBuscar"
+                            placeholder="Buscar por nombre o teléfono"
+                            value={searchQuery}
+                            name={registeredNumero.name}
+                            onBlur={registeredNumero.onBlur}
+                            ref={(el) => {
+                              registeredNumero.ref(el);
+                              if (inputRefNumeroTelefono)
+                                inputRefNumeroTelefono.current = el;
+                            }}
+                            onChange={(e) => {
+                              setSearchQuery(e.target.value);
+                              registeredNumero.onChange(e);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter") return;
+                              e.preventDefault();
+                              ejecutarBusquedaNumero();
+                            }}
+                            className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm
                         focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
-                        />
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={ejecutarBusquedaNumero}
+                          disabled={buscandoNumeroCliente}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait"
+                          title="Buscar"
+                          aria-label="Buscar"
+                        >
+                          <i
+                            className={`bx ${buscandoNumeroCliente ? "bx-loader-alt animate-spin" : "bx-search"} text-lg`}
+                          />
+                        </button>
                       </div>
 
                       <div className="rounded-xl border border-slate-200 overflow-hidden">
                         <ul className="max-h-64 overflow-y-auto divide-y divide-slate-100">
                           {filteredResults.length > 0 ? (
-                            filteredResults.map((result, index) => {
+                            filteredResults.map((result) => {
                               const active =
                                 selectedPhoneNumber === result.celular_cliente;
-                              console.log("result:" + JSON.stringify(result));
+                              const nombreCompleto = [
+                                result.nombre_cliente,
+                                result.apellido_cliente,
+                              ]
+                                .filter((s) => String(s || "").trim())
+                                .join(" ");
                               return (
                                 <li
-                                  key={index}
+                                  key={result.id ?? result.celular_cliente}
                                   onClick={() =>
                                     handleSelectPhoneNumber(
                                       result.celular_cliente,
@@ -2665,10 +2854,12 @@ const Modales = ({
                                       Nombre:&nbsp;
                                     </span>
                                     <span className="text-slate-700">
-                                      {highlightMatch(
-                                        result.nombre_cliente,
-                                        searchQuery,
-                                      )}
+                                      {nombreCompleto
+                                        ? highlightMatch(
+                                            nombreCompleto,
+                                            searchQuery,
+                                          )
+                                        : "(sin nombre)"}
                                     </span>
                                   </div>
                                   <div className="text-sm">
@@ -2687,10 +2878,20 @@ const Modales = ({
                             })
                           ) : (
                             <li className="px-3 py-3 text-sm text-slate-500">
-                              No hay resultados
+                              {buscandoNumeroCliente
+                                ? "Buscando…"
+                                : menuSearchTermNumeroCliente?.trim()
+                                  ? "Sin resultados"
+                                  : "Sin búsquedas todavía"}
                             </li>
                           )}
                         </ul>
+                        {filteredResults.length >= LIMITE_RESULTADOS_BUSQUEDA && (
+                          <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-500">
+                            Se muestran los primeros {LIMITE_RESULTADOS_BUSQUEDA}{" "}
+                            resultados.
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
