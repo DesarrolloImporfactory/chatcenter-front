@@ -17,6 +17,14 @@ import { MetricasRespuesta } from "./asistenteMetricas";
 
 const WA_SUPPORT_NUMBER = "593998979214";
 
+// Sin conexión elegida: arranque del negocio (módulo 1 y 2 del curso).
+const SUGERENCIAS_GENERAL = [
+  { icon: "bxl-whatsapp", texto: "¿Cómo conecto mi número a WhatsApp Business?" },
+  { icon: "bx-buildings", texto: "¿Cómo creo mi portafolio comercial en Meta?" },
+  { icon: "bx-package", texto: "¿Cómo creo mi cuenta en Dropi?" },
+  { icon: "bx-rocket", texto: "¿Qué necesito para empezar a vender?" },
+];
+
 const SUGERENCIAS = [
   { icon: "bx-bar-chart-alt-2", texto: "¿Cuántas guías tengo por estado este mes?" },
   { icon: "bx-package", texto: "¿Cuáles son mis 5 productos más vendidos?" },
@@ -214,6 +222,7 @@ function buildWhatsAppLink(context) {
 /* ─── Componente ─── */
 export default function FloatingSupportChat({
   idConfiguracion: propIdConf,
+  general: forzarGeneral = false,
   bottomClass,
   position = "right",
 }) {
@@ -231,6 +240,9 @@ export default function FloatingSupportChat({
     parseInt(localStorage.getItem("id_configuracion"), 10) ||
     null;
   const nombreCuenta = localStorage.getItem("nombre_configuracion") || "";
+  // Modo general: sin conexión elegida (o forzado desde la pantalla de
+  // conexiones, donde localStorage puede tener un id viejo).
+  const general = forzarGeneral || !idConf;
 
   const isLeft = position === "left";
   const sideClass = isLeft ? "left-6" : "right-6";
@@ -268,7 +280,7 @@ export default function FloatingSupportChat({
   const enviar = useCallback(
     async (texto) => {
       const text = (texto ?? input).trim();
-      if (!text || loading || !idConf) return;
+      if (!text || loading) return;
 
       const newMessages = [...messages, { role: "user", content: text }];
       setMessages(newMessages);
@@ -277,7 +289,7 @@ export default function FloatingSupportChat({
 
       try {
         const res = await chatApi.post("asistente_cuenta/preguntar", {
-          id_configuracion: idConf,
+          ...(general ? {} : { id_configuracion: idConf }),
           formato: "tablero",
           messages: newMessages
             .filter((m) => !m.error)
@@ -306,7 +318,7 @@ export default function FloatingSupportChat({
         setLoading(false);
       }
     },
-    [input, messages, loading, idConf],
+    [input, messages, loading, idConf, general],
   );
 
   const reiniciar = () => {
@@ -323,13 +335,12 @@ export default function FloatingSupportChat({
     window.open(buildWhatsAppLink(contexto), "_blank");
   };
 
-  // Sin cuenta seleccionada no hay datos que consultar.
-  if (!idConf) return null;
-
   const preguntadas = new Set(
     messages.filter((m) => m.role === "user").map((m) => m.content),
   );
-  const sugerencias = SUGERENCIAS.filter((s) => !preguntadas.has(s.texto));
+  const sugerencias = (general ? SUGERENCIAS_GENERAL : SUGERENCIAS).filter(
+    (s) => !preguntadas.has(s.texto),
+  );
 
   return (
     <>
@@ -341,7 +352,13 @@ export default function FloatingSupportChat({
              shadow-[0_12px_28px_rgba(10,22,40,0.16)] ring-1 ring-[#e3e8ee]
              transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(10,22,40,0.2)]
              focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600`}
-        aria-label={open ? "Cerrar asistente" : "Abrir asistente de tu cuenta"}
+        aria-label={
+          open
+            ? "Cerrar asistente"
+            : general
+              ? "Abrir asistente de ImporChat"
+              : "Abrir asistente de tu cuenta"
+        }
         aria-expanded={open}
       >
         <span
@@ -351,7 +368,7 @@ export default function FloatingSupportChat({
           {open ? <i className="bx bx-x text-lg" /> : <IconoChispa className="h-3.5 w-3.5" />}
         </span>
         <span className="hidden sm:inline">
-          {open ? "Cerrar" : "Pregúntale a tu cuenta"}
+          {open ? "Cerrar" : general ? "¿Cómo empiezo?" : "Pregúntale a tu cuenta"}
         </span>
       </button>
 
@@ -392,10 +409,16 @@ export default function FloatingSupportChat({
             style={ORBE}
           />
           <h3 className="m-0 truncate pr-14 text-[15px] font-bold leading-tight tracking-tight">
-            {nombreCuenta ? `Hola, ${nombreCuenta}` : "Hola 👋"}
+            {general
+              ? "Hola 👋"
+              : nombreCuenta
+                ? `Hola, ${nombreCuenta}`
+                : "Hola 👋"}
           </h3>
           <p className="mt-0.5 text-[11.5px] text-slate-500">
-            Pregúntame por tus guías, pedidos y ventas.
+            {general
+              ? "Te guío para crear tus cuentas y configurar ImporChat."
+              : "Pregúntame por tus guías, pedidos y ventas."}
           </p>
         </div>
 
@@ -493,7 +516,7 @@ export default function FloatingSupportChat({
               value={input}
               maxLength={1500}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Escribe tu pregunta…"
+              placeholder={general ? "¿Qué quieres configurar?" : "Escribe tu pregunta…"}
               aria-label="Pregunta para el asistente"
               className="min-w-0 flex-1 border-0 bg-transparent text-[12.5px] text-[#102033] placeholder-slate-400 outline-none focus:ring-0"
               disabled={loading}
@@ -510,7 +533,11 @@ export default function FloatingSupportChat({
           </form>
 
           <div className="mt-1 flex items-center justify-between gap-2 px-1 text-[10.5px] text-slate-400">
-            <span>Datos sincronizados de Dropi y Aliclik</span>
+            <span>
+              {general
+                ? "Videos y guías oficiales de Imporfactory"
+                : "Datos sincronizados de Dropi y Aliclik"}
+            </span>
             <button
               type="button"
               onClick={irAsesor}
