@@ -115,6 +115,8 @@ const DepartamentosView = () => {
   const [usuariosAsignados, setUsuariosAsignados] = useState([]);
   const [conexiones, setConexiones] = useState([]);
   const [activeTab, setActiveTab] = useState("departamento");
+  // Buscador de la pestaña de usuarios (usuario, responsable o correo)
+  const [busquedaUsuario, setBusquedaUsuario] = useState("");
 
   // Guía "¿cómo funciona?" — recordamos si el usuario la cerró
   const [helpOpen, setHelpOpen] = useState(
@@ -132,6 +134,18 @@ const DepartamentosView = () => {
   const getAsignacion = (id) =>
     usuariosAsignados.find((x) => Number(x.id_sub_usuario) === Number(id)) ||
     null;
+
+  // Filtro del buscador de usuarios (usuario, responsable o correo). No se
+  // reordena al asignar para que la fila no salte bajo el cursor.
+  const usuariosFiltrados = (() => {
+    const q = busquedaUsuario.trim().toLowerCase();
+    if (!q) return usuarios || [];
+    return (usuarios || []).filter((u) =>
+      [u.usuario, u.nombre_encargado, u.email]
+        .map((s) => String(s || "").toLowerCase())
+        .some((s) => s.includes(q)),
+    );
+  })();
 
   // ── Canales por usuario ────────────────────────────────────────────────
   // Cada usuario asignado recibe solo los canales marcados (wa/ms/ig). Solo
@@ -468,6 +482,7 @@ const DepartamentosView = () => {
     }
 
     setUsuariosAsignados(u?.usuarios_asignados || []);
+    setBusquedaUsuario("");
     setActiveTab("departamento");
     setShowUpgradeOptions(false);
     setLimitMessage("");
@@ -1315,7 +1330,7 @@ const DepartamentosView = () => {
                                   id_configuracion: opt ? opt.value : "",
                                 })
                               }
-                              placeholder="Seleccione una conexión..."
+                              placeholder="Escribe para buscar una conexión…"
                               isSearchable
                               isClearable
                               noOptionsMessage={() => "No hay conexiones"}
@@ -1347,6 +1362,34 @@ const DepartamentosView = () => {
                             qué redes recibe cada usuario: solo aparecen las que
                             esta conexión tiene vinculadas.
                           </p>
+                        </div>
+                        <div className="mb-3 flex items-center gap-3">
+                          <div className="relative flex-1">
+                            <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                              type="text"
+                              value={busquedaUsuario}
+                              onChange={(e) => setBusquedaUsuario(e.target.value)}
+                              placeholder="Buscar usuario, responsable o correo…"
+                              className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 pl-9 pr-9 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/25 focus:border-[#1d4ed8] focus:bg-white transition"
+                            />
+                            {busquedaUsuario && (
+                              <button
+                                type="button"
+                                onClick={() => setBusquedaUsuario("")}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                title="Limpiar"
+                                aria-label="Limpiar búsqueda"
+                              >
+                                <i className="bx bx-x text-lg" />
+                              </button>
+                            )}
+                          </div>
+                          <span className="shrink-0 text-xs text-slate-500">
+                            {usuariosAsignados.length} asignado
+                            {usuariosAsignados.length === 1 ? "" : "s"} ·{" "}
+                            {usuariosFiltrados.length} de {usuarios.length}
+                          </span>
                         </div>
                         <div className="max-h-[58vh] overflow-y-auto border border-gray-200 rounded-lg">
                           <table className="w-full text-sm">
@@ -1408,7 +1451,19 @@ const DepartamentosView = () => {
                                   </td>
                                 </tr>
                               )}
-                              {usuarios.map((usuario) => {
+                              {usuarios.length > 0 &&
+                                usuariosFiltrados.length === 0 && (
+                                  <tr>
+                                    <td
+                                      colSpan={6}
+                                      className="p-6 text-center text-sm text-slate-500"
+                                    >
+                                      Ningún usuario coincide con “
+                                      {busquedaUsuario.trim()}”.
+                                    </td>
+                                  </tr>
+                                )}
+                              {usuariosFiltrados.map((usuario) => {
                                 const asignacion = getAsignacion(
                                   usuario.id_sub_usuario,
                                 );
