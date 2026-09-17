@@ -1079,7 +1079,7 @@ const DepartamentosView = () => {
             initial="hidden"
             animate={isClosing ? "exit" : "visible"}
             className={`bg-white rounded-2xl shadow-2xl w-full max-h-[92vh] overflow-y-auto overflow-x-hidden ring-1 ring-black/5 transition-[max-width] duration-300 ${
-              showUpgradeOptions ? "max-w-md" : "max-w-3xl"
+              showUpgradeOptions ? "max-w-md" : "max-w-6xl"
             }`}
           >
             <AnimatePresence mode="wait">
@@ -1348,7 +1348,7 @@ const DepartamentosView = () => {
                             esta conexión tiene vinculadas.
                           </p>
                         </div>
-                        <div className="max-h-[400px] overflow-y-auto border border-gray-200 rounded-lg">
+                        <div className="max-h-[58vh] overflow-y-auto border border-gray-200 rounded-lg">
                           <table className="w-full text-sm">
                             <thead className="bg-slate-50 sticky top-0 z-10">
                               <tr className="text-slate-600">
