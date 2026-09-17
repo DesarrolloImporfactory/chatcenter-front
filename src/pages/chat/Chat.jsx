@@ -143,6 +143,7 @@ const Chat = () => {
   const [searchResultsNumeroCliente, setSearchResultsNumeroCliente] = useState(
     [],
   ); // Estado para almacenar los resultados de la búsqueda numero Cliente
+  const [buscandoNumeroCliente, setBuscandoNumeroCliente] = useState(false);
 
   const inputRefNumeroTelefono = useRef(null); // Referencia al input de mensaje numero telefono
 
@@ -866,9 +867,14 @@ const Chat = () => {
     setMenuSearchTerm(e.target.value);
   };
 
+  // Se llama al pulsar Enter / la lupa en el modal (no al teclear) y al
+  // seleccionar o crear un contacto. El nonce fuerza la búsqueda aunque el
+  // texto sea el mismo de la vez anterior.
+  const [busquedaNumeroNonce, setBusquedaNumeroNonce] = useState(0);
   const handleInputChange_numeroCliente = (e) => {
     setSeleccionado(false);
     setMenuSearchTermNumeroCliente(e.target.value);
+    setBusquedaNumeroNonce((n) => n + 1);
   };
 
   // Manejar la selección del número de teléfono y activar la sección de templates
@@ -2898,30 +2904,46 @@ const Chat = () => {
     setIsChatBlocked(false);
   }, [mensaje, selectedChat?.source]);
 
-  // useEffect para ejecutar la búsqueda cuando cambia el término de búsqueda telefono
+  // Búsqueda de destinatario del modal "+" (nuevo chat / plantilla).
+  // Antes emitía GET_CELLPHONES por socket en CADA tecla y el servidor
+  // respondía con todos los contactos que contuvieran el texto, sin límite:
+  // con una letra llegaban miles de filas y la pestaña se quedaba en blanco.
+  // Ahora la búsqueda se dispara solo con Enter o la lupa (el modal llama a
+  // handleInputChange_numeroCliente en ese momento, no al teclear), va por
+  // HTTP con la misma cláusula que /contactos (LIMIT 30) y descarta las
+  // respuestas que llegan fuera de orden. El nonce permite repetir la misma
+  // búsqueda pulsando Enter otra vez.
+  const busquedaNumeroSeq = useRef(0);
   useEffect(() => {
-    if (menuSearchTermNumeroCliente.length > 0) {
-      // Emitir el evento al servidor
-      socketRef.current.emit("GET_CELLPHONES", {
-        id_configuracion: id_configuracion,
-        texto: menuSearchTermNumeroCliente,
-      });
-
-      // Escuchar los resultados de la búsqueda del socket
-      const handleDataResponse = (data) => {
-        setSearchResultsNumeroCliente(data);
-      };
-
-      socketRef.current.on("DATA_CELLPHONE_RESPONSE", handleDataResponse);
-
-      // Limpieza para eliminar el listener
-      return () => {
-        socketRef.current.off("DATA_CELLPHONE_RESPONSE", handleDataResponse);
-      };
-    } else {
+    const texto = String(menuSearchTermNumeroCliente || "").trim();
+    if (!texto) {
       setSearchResultsNumeroCliente([]);
+      setBuscandoNumeroCliente(false);
+      return;
     }
-  }, [menuSearchTermNumeroCliente]);
+
+    const seq = ++busquedaNumeroSeq.current;
+    setBuscandoNumeroCliente(true);
+
+    (async () => {
+      try {
+        const { data } = await chatApi.post(
+          "/clientes_chat_center/buscar_contactos_chat",
+          { id_configuracion, texto, limit: 30 },
+        );
+        if (seq !== busquedaNumeroSeq.current) return; // llegó tarde
+        setSearchResultsNumeroCliente(
+          Array.isArray(data?.data) ? data.data : [],
+        );
+      } catch (err) {
+        if (seq !== busquedaNumeroSeq.current) return;
+        console.error("buscar_contactos_chat:", err?.message || err);
+        setSearchResultsNumeroCliente([]);
+      } finally {
+        if (seq === busquedaNumeroSeq.current) setBuscandoNumeroCliente(false);
+      }
+    })();
+  }, [menuSearchTermNumeroCliente, busquedaNumeroNonce, id_configuracion]);
 
   const normalizeMsg = (m = {}, fallbackSource) => {
     const created =
@@ -3567,6 +3589,7 @@ const Chat = () => {
         seleccionado={seleccionado}
         menuSearchTermNumeroCliente={menuSearchTermNumeroCliente}
         searchResultsNumeroCliente={searchResultsNumeroCliente}
+        buscandoNumeroCliente={buscandoNumeroCliente}
         handleInputChange_numeroCliente={handleInputChange_numeroCliente}
         handleNumeroModalForm={handleNumeroModalForm}
         handleOptionSelectNumeroTelefono={handleOptionSelectNumeroTelefono}

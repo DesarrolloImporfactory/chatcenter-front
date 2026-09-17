@@ -1576,6 +1576,10 @@ const Conexiones = () => {
                     Number(config?.sincronizo_coexistencia) === 1;
                   const adsConectado = Number(config.meta_ads_conectado) === 1;
                   const adsAccountName = config.meta_ads_account_name || null;
+                  // El chat es omnicanal: basta con que haya al menos un
+                  // canal de mensajería (WhatsApp, Messenger o Instagram)
+                  // conectado para poder entrar a la bandeja.
+                  const chatDisponible = conectado || msgConectado || igConectado;
 
                   const topBarBg = conectado
                     ? "rgb(16, 185, 129)"
@@ -1915,14 +1919,15 @@ const Conexiones = () => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!conectado) {
+                            if (!chatDisponible) {
                               Swal.fire({
                                 toast: true,
                                 position: "top-end",
                                 icon: "info",
-                                title: "Conecta WhatsApp primero",
+                                title:
+                                  "Conecta WhatsApp, Messenger o Instagram primero",
                                 showConfirmButton: false,
-                                timer: 1800,
+                                timer: 2200,
                               });
                               return;
                             }
@@ -1931,14 +1936,14 @@ const Conexiones = () => {
                           }}
                           className={[
                             "inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition shrink-0 whitespace-nowrap",
-                            conectado
+                            chatDisponible
                               ? "text-white bg-[#0e0958] hover:bg-[#01011d] shadow-sm"
                               : "text-slate-400 bg-slate-100 cursor-not-allowed",
                           ].join(" ")}
                           title={
-                            conectado
+                            chatDisponible
                               ? "Ir al chat"
-                              : "Disponible al conectar WhatsApp"
+                              : "Disponible al conectar WhatsApp, Messenger o Instagram"
                           }
                         >
                           <i className="bx bx-message-rounded-dots text-base" />
