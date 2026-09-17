@@ -1847,9 +1847,13 @@ const Chat = () => {
     setSelectedChat(chat);
 
     const src = chat?.source || "wa";
-    setActiveChannel(
-      src === "ms" ? "messenger" : src === "ig" ? "instagram" : "whatsapp",
-    );
+    // OJO: aquí NO se toca activeChannel. Ese estado es el filtro de canal
+    // de la LISTA (selector "Todos los canales" del sidebar). Antes, abrir
+    // un chat de WhatsApp lo cambiaba a "whatsapp" sin que el selector se
+    // enterara, y en la siguiente recarga de la lista (cambiar de pestaña,
+    // Mis chats/En espera, paginar, o llegar un mensaje) desaparecían los
+    // chats de Instagram y Messenger aunque el selector dijera "Todos".
+    // El canal por el que se envía sale de selectedChat.source, no de aquí.
 
     // pedir facturas/guías apenas seleccionas un chat de WhatsApp
     if (
@@ -2245,6 +2249,10 @@ const Chat = () => {
   }, [id_configuracion]);
   /* fin cosumir api de etiquetas */
 
+  // Ref con el filtro de canal vigente, para leerlo desde listeners de
+  // socket registrados una sola vez (su closure no ve el estado nuevo).
+  const sourceForListRef = useRef("all");
+
   // Fuente real para backend según activeChannel
   const sourceForList = useMemo(() => {
     if (activeChannel === "instagram") return "ig";
@@ -2252,6 +2260,9 @@ const Chat = () => {
     if (activeChannel === "whatsapp") return "wa";
     return "all"; // si su backend NO soporta "all", cambie a null
   }, [activeChannel]);
+  useEffect(() => {
+    sourceForListRef.current = sourceForList;
+  }, [sourceForList]);
 
   // ===================== EMIT CENTRALIZADO GET_CHATS (PADRE) =====================
   const emitGetChats = useCallback(
@@ -2517,6 +2528,18 @@ const Chat = () => {
 
               const [moved] = actualizado.splice(index, 1);
               actualizado.unshift(moved);
+              return actualizado;
+            }
+
+            /* Chat nuevo: si el selector de canal del sidebar está en un
+               canal concreto y este mensaje es de otro, no se inserta (la
+               recarga que dispara cargar_socket ya respeta el filtro; esto
+               evita que un chat de WhatsApp aparezca un segundo bajo
+               "Instagram"). */
+            const filtroCanal = sourceForListRef.current;
+            const canalMsg =
+              msg.source === "ig" || msg.source === "ms" ? msg.source : "wa";
+            if (filtroCanal !== "all" && canalMsg !== filtroCanal) {
               return actualizado;
             }
 
