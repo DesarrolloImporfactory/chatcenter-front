@@ -7,6 +7,8 @@
  * y AsistenteCuentaTablero).
  */
 
+import { useState } from "react";
+
 // Color por estado: Dropi usa la clave de classified_status; Aliclik su
 // estado canónico en mayúsculas.
 const COLOR_ESTADO = {
@@ -419,7 +421,99 @@ function TarjetaVentasProducto({ r }) {
   );
 }
 
+// Solo embeds de Bunny Stream (mismo reproductor que imporsuit-pro). Cualquier
+// otra URL no se mete en un iframe.
+const RE_EMBED_BUNNY =
+  /^https:\/\/(?:player|iframe)\.mediadelivery\.net\/embed\/(\d+)\/([0-9a-f-]{36})$/i;
+
+function srcBunny(url) {
+  const m = RE_EMBED_BUNNY.exec(String(url || "").trim());
+  if (!m) return null;
+  return `https://player.mediadelivery.net/embed/${m[1]}/${m[2]}?autoplay=true&preload=true&loop=false&muted=false&responsive=true`;
+}
+
+function duracion(segundos) {
+  const s = Number(segundos) || 0;
+  if (!s) return null;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+function VideoTutorial({ video }) {
+  const [reproduciendo, setReproduciendo] = useState(false);
+  const src = srcBunny(video.embed_url);
+  if (!src) return null;
+  const tiempo = duracion(video.duracion_segundos);
+
+  return (
+    <div className="grid gap-1.5">
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-[#0a1628]">
+        {reproduciendo ? (
+          <iframe
+            src={src}
+            title={video.titulo}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full border-0"
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+            allowFullScreen
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setReproduciendo(true)}
+            className="group absolute inset-0 grid place-items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            aria-label={`Reproducir: ${video.titulo}`}
+          >
+            {video.thumbnail && (
+              <img
+                src={video.thumbnail}
+                alt=""
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover opacity-90 transition-opacity group-hover:opacity-100"
+              />
+            )}
+            <span className="relative grid h-10 w-10 place-items-center rounded-full bg-white/95 text-cyan-700 shadow-lg transition-transform group-hover:scale-105">
+              <i className="bx bx-play text-2xl" />
+            </span>
+            {tiempo && (
+              <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-px text-[10px] font-medium tabular-nums text-white">
+                {tiempo}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
+      <p className="m-0 text-[12px] font-semibold leading-snug text-[#0a1628]">
+        {video.titulo}
+      </p>
+      {video.descripcion && video.descripcion !== video.titulo && (
+        <p className="m-0 line-clamp-2 text-[11px] leading-snug text-slate-500">
+          {video.descripcion}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TarjetaVideos({ r }) {
+  const videos = (r.videos || []).filter((v) => srcBunny(v.embed_url));
+  return (
+    <Tarjeta titulo={videos.length > 1 ? "Videos tutoriales" : "Video tutorial"}>
+      <div className="grid gap-3">
+        {videos.map((v) => (
+          <VideoTutorial key={v.id} video={v} />
+        ))}
+      </div>
+    </Tarjeta>
+  );
+}
+
 function datoVacio({ herramienta, resultado: r = {} }) {
+  if (herramienta === "buscar_videos_tutoriales") {
+    return !(r.videos || []).some((v) => srcBunny(v.embed_url));
+  }
   if (herramienta === "guias_dropi_resumen") return !Number(r.total_ordenes);
   if (herramienta === "pedidos_aliclik_resumen") return !Number(r.total_pedidos);
   if (herramienta === "productos_mas_vendidos") return !(r.productos || []).length;
@@ -432,6 +526,7 @@ const TARJETAS = {
   productos_mas_vendidos: TarjetaProductos,
   pedidos_aliclik_resumen: TarjetaAliclik,
   ventas_producto: TarjetaVentasProducto,
+  buscar_videos_tutoriales: TarjetaVideos,
   buscar_pedido: TarjetaPedido,
 };
 
