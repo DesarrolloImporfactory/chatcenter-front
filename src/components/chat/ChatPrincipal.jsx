@@ -1074,12 +1074,30 @@ const ChatPrincipal = ({
       ? selectedChat.last_incoming_at || selectedChat.mensaje_created_at
       : ultimoMensaje?.created_at;
 
+  /* En WA, que no haya mensaje del cliente NO significa "0 horas": significa
+     que la ventana nunca se abrió, y WhatsApp exige plantilla desde el primer
+     mensaje. Antes caía al 0 por defecto y dejaba escribir libre en chats que
+     solo tienen salientes (típico de un masivo que nadie respondió); el envío
+     salía igual y Meta lo rechazaba con 131047.
+
+     Solo se concluye "sin ventana" cuando los mensajes ya están cargados, o
+     cuando la vista dice que el chat no tiene ninguno. Mientras carga se deja
+     como estaba, para no mostrar el banner en falso al abrir cada chat. */
+  const mensajesCargados =
+    Array.isArray(mensajesOrdenados) && mensajesOrdenados.length > 0;
+  const chatSinMensajes = !selectedChat?.mensaje_created_at;
+  const waSinVentana =
+    selectedChat?.source === "wa" &&
+    !refDateISO &&
+    (mensajesCargados || chatSinMensajes);
+
   const diffHrs = refDateISO
     ? (Date.now() - new Date(refDateISO).getTime()) / (1000 * 60 * 60)
-    : 0;
+    : waSinVentana
+      ? Infinity
+      : 0;
 
-  // ✅ SOLO WhatsApp + >24h + banner visible
-  // ✅ SOLO WhatsApp + >24h + banner visible
+  // ✅ SOLO WhatsApp + >24h (o sin ventana abierta) + banner visible
   const waNeedsTemplate =
     !!selectedChat &&
     selectedChat?.source === "wa" &&
@@ -3229,19 +3247,9 @@ const ChatPrincipal = ({
             {selectedChat &&
               !hide24hBanner &&
               (() => {
-                const isMetaDMLocal =
-                  selectedChat.source === "ms" || selectedChat.source === "ig";
-                const refDateISO = isMetaDMLocal
-                  ? selectedChat.last_incoming_at ||
-                    selectedChat.mensaje_created_at
-                  : ultimoMensaje?.created_at;
-
-                if (!refDateISO) return null;
-
-                const diffHrs =
-                  (Date.now() - new Date(refDateISO).getTime()) /
-                  (1000 * 60 * 60);
-
+                /* Reusa el mismo cálculo que waNeedsTemplate (definido arriba)
+                   en vez de repetirlo acá: si se recalcula, el banner y el
+                   compositor pueden contradecirse. */
                 if (diffHrs <= 24) return null;
 
                 // WhatsApp
@@ -3250,10 +3258,12 @@ const ChatPrincipal = ({
                     <div className="bg-yellow-100 border-t border-yellow-500 shadow-lg p-4 w-full z-10 shrink-0">
                       <div className="flex items-start gap-3">
                         <p className="text-sm text-yellow-700 flex-1">
-                          <strong>Atención:</strong> Pasaron más de 24 horas
-                          desde el último mensaje. Por una regla de WhatsApp,
-                          ahora solo podemos responder con una{" "}
-                          <b>plantilla aprobada</b>. <br />
+                          <strong>Atención:</strong>{" "}
+                          {waSinVentana
+                            ? "Este contacto todavía no te ha escrito, así que la ventana de 24 horas nunca se abrió."
+                            : "Pasaron más de 24 horas desde el último mensaje del cliente."}{" "}
+                          Por una regla de WhatsApp, solo podemos escribirle con
+                          una <b>plantilla aprobada</b>. <br />
                           Para continuar, haz clic en{" "}
                           <b>“Responder con plantilla”</b> y elige una de la
                           lista.
