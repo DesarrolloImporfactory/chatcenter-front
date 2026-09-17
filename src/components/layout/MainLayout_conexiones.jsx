@@ -454,7 +454,8 @@ function MainLayout({ children }) {
         }}
       />
 
-      {/* <FloatingSupportChat /> */}
+      {/* Sin conexión elegida: modo general (tutoriales e integraciones) */}
+      <FloatingSupportChat general />
     </div>
   );
 }
