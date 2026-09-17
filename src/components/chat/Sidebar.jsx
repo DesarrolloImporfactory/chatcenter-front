@@ -992,13 +992,16 @@ function MessageItem({
       className={[
         "group relative cursor-pointer px-2.5 py-1.5 sm:px-3 sm:py-2",
         "transition-all duration-150 ease-out",
+        // Chat abierto: borde azul a la izquierda + fondo claro, para que
+        // se distinga de un vistazo en cuál se está.
         seleccionado
-          ? "bg-slate-50 cursor-default"
+          ? "bg-blue-100 border-l-[5px] border-[#1d4ed8] cursor-default shadow-[inset_0_0_0_2px_rgba(29,78,216,0.45)] z-[1]"
           : esNotificacion
             ? "bg-amber-100/70 hover:bg-amber-50 border-l-4 border-amber-300"
             : fondoEspera || fondoCliente || "hover:bg-slate-50 hover:shadow-xs",
         // El borde va aparte para que sobreviva al fondo ámbar
-        !esNotificacion ? bordeCliente : "",
+        // Si es el chat abierto manda el borde azul, no el de cliente
+        !esNotificacion && !seleccionado ? bordeCliente : "",
       ].join(" ")}
       onClick={() => {
         if (!seleccionado && typeof onClick === "function") onClick();

@@ -2634,9 +2634,27 @@ const ChatPrincipal = ({
 
                               // Detecta header. Si el envío no guardó ninguno,
                               // se cae al de la plantilla (Meta manda el suyo).
-                              const header =
+                              let header =
                                 valoresRaw?.header ||
                                 (def?.header?.format ? def.header : null);
+                              // Envíos viejos guardaban el literal
+                              // "TEXT_FIXED" (o vacío) en los headers de
+                              // texto fijo: se muestra el texto de la
+                              // definición de la plantilla en su lugar.
+                              if (
+                                header &&
+                                String(header.format).toUpperCase() ===
+                                  "TEXT" &&
+                                ["", "TEXT_FIXED"].includes(
+                                  String(header.value ?? header.text ?? "")
+                                    .trim()
+                                    .toUpperCase(),
+                                )
+                              ) {
+                                header = def?.header?.text
+                                  ? { format: "TEXT", text: def.header.text }
+                                  : null;
+                              }
 
                               //si hay header, lo muestra arriba
                               const headerNode = renderTemplateHeader(header);

@@ -216,7 +216,8 @@ const DepartamentosView = () => {
       title: quitar
         ? `${etiqueta} quitado a ${nombreUsuario}`
         : `${etiqueta} habilitado para ${nombreUsuario}`,
-      text: "Se aplica al pulsar Guardar.",
+      // Mismo nombre que el botón del pie: "Actualizar" al editar, "Agregar" al crear
+      text: `Se aplica al pulsar ${editingId ? "Actualizar" : "Agregar"}.`,
     });
   };
   // Si cambia la conexión del departamento, los canales marcados que esa

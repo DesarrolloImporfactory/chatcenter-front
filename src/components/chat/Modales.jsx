@@ -1412,16 +1412,20 @@ const Modales = ({
                 format: "TEXT",
                 key,
                 n,
+                text: headerText,
               });
 
               headerNeedsInit = { key, n };
             } else {
-              // header text fijo (sin placeholders)
+              // header text fijo (sin placeholders). Se guarda el texto real:
+              // antes se registraba el literal "TEXT_FIXED" y eso era lo que
+              // se pintaba como título del mensaje en el chat.
               setHeaderInfo({
                 exists: true,
                 format: "TEXT",
                 key: "",
                 n: "",
+                text: headerText,
               });
             }
           }
@@ -1909,9 +1913,18 @@ const Modales = ({
             ? headerInfo.format === "TEXT"
               ? {
                   format: "TEXT",
-                  value: headerInfo.key
-                    ? (placeholderValues?.[headerInfo.key] || "").trim()
-                    : "TEXT_FIXED",
+                  // Texto real del header, con el {{n}} ya reemplazado, que
+                  // es lo que el chat pinta como título del mensaje.
+                  value: headerInfo.text
+                    ? headerInfo.text.replace(/\{\{(.*?)\}\}/g, (m, k) =>
+                        String(
+                          placeholderValues?.[`header_${String(k).trim()}`] ??
+                            m,
+                        ).trim(),
+                      )
+                    : headerInfo.key
+                      ? (placeholderValues?.[headerInfo.key] || "").trim()
+                      : "",
                 }
               : {
                   format: headerInfo.format, // IMAGE|VIDEO|DOCUMENT
