@@ -1513,8 +1513,20 @@ const DepartamentosView = () => {
                                                 id_sub_usuario: id,
                                                 asignacion_auto: 0,
                                                 // Por defecto WhatsApp (o el
-                                                // primer canal disponible)
-                                                canales: canalDefault,
+                                                // primer canal disponible).
+                                                // Los administradores ven
+                                                // todo, así que arrancan con
+                                                // todos los canales de la
+                                                // conexión ya marcados.
+                                                canales: [
+                                                  "administrador",
+                                                  "super_administrador",
+                                                  "admin_limitado",
+                                                ].includes(
+                                                  String(usuario.rol || ""),
+                                                )
+                                                  ? [...canalesMostrar]
+                                                  : canalDefault,
                                               },
                                             ];
                                           });

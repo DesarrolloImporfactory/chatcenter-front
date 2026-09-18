@@ -985,10 +985,7 @@ const Chat = () => {
 
   const endOfMessagesRef = useRef(null);
 
-  // Función para desplazarse al final de los mensajes
-  const scrollToBottom = () => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  // (La bajada al final ahora es directa: ver irAlFinalAhora más abajo.)
 
   const handleOpciones = () => {
     if (opciones) {
@@ -1738,10 +1735,92 @@ const Chat = () => {
   // Obtener los mensajes actuales basados en la cantidad a mostrar
   const mensajesActuales = mensajesOrdenados.slice(-mensajesMostrados);
 
+  /* ¿El usuario está leyendo el final del chat? Se actualiza SOLO con su
+     propio scroll (el crecimiento del contenido no dispara el evento), así
+     que cuando llega un mensaje todavía refleja dónde estaba ANTES de que
+     la lista creciera. Si está arriba leyendo historial, nada debe bajarle
+     el scroll ni recortarle los mensajes cargados. */
+  const pegadoAbajoRef = useRef(true);
+  const estaCercaDelFinal = (el) =>
+    !!el && el.scrollHeight - el.scrollTop - el.clientHeight <= 120;
+
+  /* Cuando el front decide "seguir abajo" (abrir chat, enviar, o llega un
+     mensaje estando al final) la lista se reemplaza y el contenedor cambia
+     de alto: eso dispara eventos de scroll que NO son del usuario. Durante
+     esta ventana esos eventos se ignoran, para que no apaguen pegadoAbajoRef
+     ni disparen "cargar más" antes de que termine el desplazamiento. */
+  const seguirAbajoHastaRef = useRef(0);
+  const marcarSeguirAbajo = () => {
+    pegadoAbajoRef.current = true;
+    seguirAbajoHastaRef.current = Date.now() + 1500;
+  };
+  const irAlFinalAhora = () => {
+    const el = chatContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
+
+  // Copia síncrona de chatMessages para los listeners de socket.
+  const chatMessagesRef = useRef([]);
+
+  /**
+   * Aplica la respuesta de GET_CHATS_BOX (la pide el front cada vez que
+   * llega o se envía un mensaje en el chat abierto).
+   *  - Usuario al final  → devuelve false: el llamador reemplaza la lista y
+   *    baja el scroll, como siempre.
+   *  - Usuario leyendo historial → devuelve true: NO se reemplaza la lista
+   *    (la respuesta trae solo la última página y borraría lo cargado hacia
+   *    atrás) ni se recorta a 20. Solo se agregan al final los mensajes que
+   *    faltan y la ventana visible crece en la misma cantidad, para que nada
+   *    se mueva bajo su lectura.
+   */
+  const fusionarSiLeeHistorial = (data) => {
+    // false = el llamador va a reemplazar la lista y seguir abajo: se abre la
+    // ventana que ignora los scrolls automáticos que eso provoca.
+    if (pegadoAbajoRef.current) {
+      marcarSeguirAbajo();
+      return false;
+    }
+    const listaActual = chatMessagesRef.current?.[0]?.mensajes;
+    if (!Array.isArray(listaActual) || !listaActual.length) {
+      marcarSeguirAbajo();
+      return false;
+    }
+
+    const entrantes = Array.isArray(data?.[0]?.mensajes)
+      ? data[0].mensajes
+      : [];
+    const idsActuales = new Set(listaActual.map((m) => String(m.id)));
+    const nuevos = entrantes.filter((m) => !idsActuales.has(String(m.id)));
+    if (!nuevos.length) return true;
+
+    // La misma respuesta la reciben dos listeners (el permanente del chat y
+    // el de UPDATE_CHAT). La ref se actualiza YA para que el segundo no
+    // vuelva a contar estos mensajes y la ventana no crezca el doble.
+    chatMessagesRef.current = [
+      { ...chatMessagesRef.current[0], mensajes: [...listaActual, ...nuevos] },
+    ];
+
+    setChatMessages((prev) => {
+      const lista = prev?.[0]?.mensajes || [];
+      const ids = new Set(lista.map((m) => String(m.id)));
+      const faltan = nuevos.filter((m) => !ids.has(String(m.id)));
+      if (!faltan.length) return prev;
+      return [{ ...prev[0], mensajes: [...lista, ...faltan] }];
+    });
+    setMensajesMostrados((n) => n + nuevos.length);
+    return true;
+  };
+
   // Listener para detectar scroll hacia arriba
   const handleScroll = async () => {
     const chatContainer = chatContainerRef.current;
     if (!chatContainer) return;
+
+    // Scroll provocado por el propio front (lista reemplazada / bajada
+    // automática): no es el usuario, no se interpreta.
+    if (Date.now() < seguirAbajoHastaRef.current) return;
+
+    pegadoAbajoRef.current = estaCercaDelFinal(chatContainer);
 
     if (chatContainer.scrollTop === 0) {
       // 1) aún hay mensajes en memoria por mostrar
@@ -1801,6 +1880,8 @@ const Chat = () => {
   };
 
   const scrollToBottomNow = () => {
+    // Acción del propio usuario (envió un mensaje): vuelve a quedar abajo.
+    marcarSeguirAbajo();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const el = chatContainerRef.current;
@@ -1819,9 +1900,15 @@ const Chat = () => {
     }
   }, [mensajesMostrados, scrollOffset]);
 
-  // Desplázate al final al cargar mensajes por primera vez o cambiar de chat
+  // Desplázate al final al cargar mensajes por primera vez o cambiar de chat.
+  // Si el usuario subió a leer historial, NO se le baja aunque lleguen
+  // mensajes (antes bastaba con tener 20 visibles para que saltara).
   useEffect(() => {
-    if (chatContainerRef.current && mensajesMostrados === 20) {
+    if (
+      chatContainerRef.current &&
+      mensajesMostrados === 20 &&
+      pegadoAbajoRef.current
+    ) {
       chatContainerRef.current.scrollTop =
         chatContainerRef.current.scrollHeight;
     }
@@ -1868,6 +1955,8 @@ const Chat = () => {
       });
     }
 
+    // Chat recién abierto: siempre arranca en el último mensaje.
+    marcarSeguirAbajo();
     setTimeout(() => {
       if (chatContainerRef.current) {
         chatContainerRef.current.scrollTop =
@@ -2750,6 +2839,13 @@ const Chat = () => {
             "Mensajes actualizados tras recibir un nuevo mensaje:",
             data,
           );
+          /* El usuario está arriba leyendo historial: NO se reemplaza la
+             lista (la respuesta trae solo la última página y borraría lo
+             que cargó hacia atrás) ni se recorta a 20. Se agregan al final
+             solo los mensajes que aún no están, y la ventana visible crece
+             en la misma cantidad para que nada se mueva bajo su lectura. */
+          if (fusionarSiLeeHistorial(data)) return;
+
           setChatMessages(data);
 
           const orderedMessages = getOrderedChats();
@@ -2757,14 +2853,8 @@ const Chat = () => {
           setMensajesMostrados(20);
 
           if (chatContainerRef.current) {
-            const chatContainer = chatContainerRef.current;
-            const isAtBottom =
-              chatContainer.scrollHeight - chatContainer.scrollTop <=
-              chatContainer.clientHeight + 5;
-
-            if (isAtBottom) {
-              chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
+            chatContainerRef.current.scrollTop =
+              chatContainerRef.current.scrollHeight;
           }
         };
 
@@ -2802,14 +2892,23 @@ const Chat = () => {
 
     setDataPlanes([]);
 
+    /* Este listener es PERMANENTE mientras el chat esté abierto: recibe la
+       carga inicial y también cada refresco que se pide cuando llega o se
+       envía un mensaje. Solo la carga inicial reemplaza siempre la lista;
+       en los refrescos, si el usuario está leyendo historial, se fusiona
+       (antes reemplazaba y recortaba a 20 siempre, y era lo que colapsaba
+       el historial cargado y movía el scroll). */
+    let esCargaInicial = true;
     const handleChatBoxResponse = (data) => {
-      console.log("Mensajes recibidos:", data);
+      setDataPlanes(data?.[0]?.paquetes || []);
+      if (!esCargaInicial && fusionarSiLeeHistorial(data)) return;
+      if (esCargaInicial) marcarSeguirAbajo(); // chat recién abierto
+      esCargaInicial = false;
+
       setChatMessages(data);
       const orderedMessages = getOrderedChats();
       setMensajesOrdenados(orderedMessages.slice(-20));
       setMensajesMostrados(20);
-      setDataPlanes(data[0].paquetes || []);
-      console.log("Paquetes recibidos:", data.paquetes);
     };
 
     socketRef.current.on("CHATS_BOX_RESPONSE", handleChatBoxResponse);
@@ -2825,12 +2924,27 @@ const Chat = () => {
     };
   }, [selectedChat, userData, isSocketConnected]);
 
+  // Mantiene al día la copia síncrona (la ref se declara junto a pegadoAbajoRef)
+  useEffect(() => {
+    chatMessagesRef.current = chatMessages;
+  }, [chatMessages]);
+
   useEffect(() => {
     if (chatMessages.length > 0) {
       const orderedMessages = getOrderedChats();
       setMensajesOrdenados(orderedMessages);
+      /* Solo se baja al final si el usuario ya estaba ahí (o acaba de abrir
+         el chat / enviar). Este efecto corre con CADA cambio de la lista:
+         al llegar un mensaje y también al cargar historial hacia atrás, y
+         antes bajaba siempre, sacando al usuario de lo que estaba leyendo. */
+      if (!pegadoAbajoRef.current) return;
+      // Bajada directa (no animada): la animación genera decenas de eventos
+      // de scroll intermedios que se confundían con el usuario subiendo.
+      marcarSeguirAbajo();
       setTimeout(() => {
-        scrollToBottom();
+        if (!pegadoAbajoRef.current) return;
+        marcarSeguirAbajo();
+        irAlFinalAhora();
       }, 200);
     } else {
       setMensajesOrdenados([]); // Asegúrate de limpiar mensajesOrdenados si chatMessages está vacío
@@ -3162,8 +3276,6 @@ const Chat = () => {
         });
 
         socketRef.current.once("CHATS_BOX_RESPONSE", (boxData) => {
-          setChatMessages(boxData);
-
           setMensajesAcumulados((prev) =>
             prev.map((c) =>
               String(c.id) === String(selectedChat.id)
@@ -3171,6 +3283,12 @@ const Chat = () => {
                 : c,
             ),
           );
+
+          // Leyendo historial: se agrega lo nuevo al final y no se toca ni
+          // la lista cargada ni el scroll (ver fusionarSiLeeHistorial).
+          if (fusionarSiLeeHistorial(boxData)) return;
+
+          setChatMessages(boxData);
 
           const orderedMessages = getOrderedChats();
           setMensajesOrdenados(orderedMessages.slice(-20));
