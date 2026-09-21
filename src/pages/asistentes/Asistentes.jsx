@@ -126,6 +126,25 @@ const Asistentes = () => {
   // input) — controla la visibilidad del botón "Eliminar API Key" del modal.
   const [apiKeyGuardada, setApiKeyGuardada] = useState(false);
 
+  // A qué cuenta de OpenAI pertenece la key GUARDADA (nombre, correo,
+  // organización). El saldo es por organización: sin esto el cliente recarga
+  // una cuenta mientras el bot consume de otra. null = sin key o no se pudo
+  // averiguar, y entonces simplemente no se muestra.
+  const [cuentaOpenAI, setCuentaOpenAI] = useState(null);
+
+  const fetchCuentaOpenAI = async () => {
+    if (!id_configuracion) return;
+    try {
+      const { data } = await chatApi.get("openai_assistants/openai_cuenta", {
+        params: { id_configuracion },
+      });
+      setCuentaOpenAI(data?.cuenta || null);
+    } catch (error) {
+      console.error("No se pudo identificar la cuenta de OpenAI.", error);
+      setCuentaOpenAI(null);
+    }
+  };
+
   const fetchAsistenteAutomatizado = async () => {
     if (!id_configuracion) return;
     try {
@@ -133,14 +152,19 @@ const Asistentes = () => {
         id_configuracion: id_configuracion,
       });
       const data = response.data?.data || {};
+      const hayKey = Boolean(String(data.api_key_openai || "").trim());
       setExisteAsistente(data.api_key_openai || null);
-      setApiKeyGuardada(Boolean(String(data.api_key_openai || "").trim()));
+      setApiKeyGuardada(hayKey);
       setAsistenteVentas(data.ventas || null);
+      // Aparte y sin await: consulta a OpenAI, no debe demorar la vista.
+      if (hayKey) fetchCuentaOpenAI();
+      else setCuentaOpenAI(null);
     } catch (error) {
       console.error("Error al cargar los asistentes.", error);
       setExisteAsistente(null);
       setApiKeyGuardada(false);
       setAsistenteVentas(null);
+      setCuentaOpenAI(null);
     }
   };
 
@@ -313,7 +337,9 @@ const Asistentes = () => {
         await fetchAsistenteAutomatizado();
         Toast.fire({
           icon: "success",
-          title: "API Key validada y guardada",
+          title: data.cuenta?.email
+            ? `API Key validada · cuenta ${data.cuenta.email}`
+            : "API Key validada y guardada",
         });
       } else {
         Toast.fire({
@@ -835,6 +861,20 @@ const Asistentes = () => {
                       "Sin configurar"
                     )}
                   </div>
+                  {apiKeyGuardada && cuentaOpenAI?.email && (
+                    <div
+                      className="mt-0.5 text-[11.5px] text-gray-500 truncate"
+                      title={`${cuentaOpenAI.email} · ${cuentaOpenAI.organizacion || ""}`}
+                    >
+                      <i className="bx bx-user-circle align-middle text-sm text-indigo-500" />{" "}
+                      <span className="font-semibold text-gray-700">
+                        {cuentaOpenAI.email}
+                      </span>
+                      {cuentaOpenAI.organizacion && (
+                        <> · {cuentaOpenAI.organizacion}</>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <span
                   className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${existeAsistente ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
@@ -981,6 +1021,40 @@ const Asistentes = () => {
                   </a>
                 </p>
               </div>
+
+              {/* De qué cuenta de OpenAI es la key GUARDADA: el saldo es por
+                  organización, así el cliente sabe dónde recargar. */}
+              {apiKeyGuardada && cuentaOpenAI?.email && (
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <i className="bx bx-user-circle text-lg text-indigo-600 mt-0.5" />
+                    <div className="min-w-0 text-[12px] leading-5 text-indigo-950">
+                      <div className="font-bold">
+                        Su llave guardada pertenece a esta cuenta de OpenAI
+                      </div>
+                      <div className="truncate">
+                        {cuentaOpenAI.nombre && <>{cuentaOpenAI.nombre} · </>}
+                        <span className="font-semibold">
+                          {cuentaOpenAI.email}
+                        </span>
+                      </div>
+                      <div className="truncate text-indigo-900/80">
+                        Organización:{" "}
+                        <span className="font-semibold">
+                          {cuentaOpenAI.organizacion || "—"}
+                        </span>
+                        {cuentaOpenAI.proyecto && (
+                          <> · Proyecto: {cuentaOpenAI.proyecto}</>
+                        )}
+                      </div>
+                      <div className="mt-1 text-[11px] text-indigo-900/70">
+                        El saldo se recarga iniciando sesión con ese correo y
+                        en esa organización.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
                 <div className="flex items-start gap-2.5">
