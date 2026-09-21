@@ -81,6 +81,9 @@ const Modales = ({
   // Si la plantilla pertenece a una encuesta, el back devuelve los valores ya
   // resueltos (nombre, y el link con el ?cid= del destinatario) para prellenar.
   const [encuestaTpl, setEncuestaTpl] = useState(null);
+  // Plantilla de cobro de Imporsuit: valores que resuelve el backend (nombre,
+  // saldo vencido y botón de pago). null = la plantilla no es de cobro.
+  const [cobroTpl, setCobroTpl] = useState(null);
 
   // Estado para el modal "Añadir número"
   const [isAddNumberModalOpen, setIsAddNumberModalOpen] = useState(false);
@@ -381,7 +384,9 @@ const Modales = ({
     Boolean(selectedPhoneNumber) &&
     headerReady &&
     (bodyPlaceholders.length === 0 || allBodyFilled) &&
-    (urlButtons.length === 0 || allUrlFilled);
+    (urlButtons.length === 0 || allUrlFilled) &&
+    // plantilla de cobro: sin saldo vencido no hay nada que enviar
+    !cobroTpl?.bloqueo;
 
   // El servidor ya filtra (misma cláusula que /contactos: teléfono por sufijo,
   // texto por FULLTEXT) y limita a 30 filas. No se vuelve a filtrar aquí: un
@@ -1605,6 +1610,85 @@ const Modales = ({
     });
     return keys;
   }, [encuestaTpl]);
+
+  /**
+   * Autocompletar cuando la plantilla es de cobro de Imporsuit. Nombre, saldo
+   * y botón de pago salen de la cartera del destinatario y quedan bloqueados:
+   * si el asesor los tipeara podría salir un monto en el texto y cobrarse otro
+   * en el botón. El backend igual los recalcula al enviar.
+   */
+  useEffect(() => {
+    if (!numeroModal || !templateName || !id_configuracion) {
+      setCobroTpl(null);
+      return;
+    }
+    if (!selectedPhoneNumber && !selectedChat?.id) return;
+
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const { data } = await chatApi.get(
+          "whatsapp_managment/enlace_pago_params",
+          {
+            params: {
+              id_configuracion,
+              nombre_template: templateName,
+              telefono: selectedPhoneNumber || "",
+              id_cliente_chat_center: selectedChat?.id || "",
+            },
+          },
+        );
+
+        if (cancelado) return;
+
+        const info = data?.data || null;
+        setCobroTpl(info);
+        if (!info?.automatico) return;
+
+        setPlaceholderValues((prev) => {
+          const next = { ...prev };
+          (info.body || []).forEach((p) => {
+            next[`body_${p.posicion}`] = p.valor ?? "";
+          });
+          (info.botones || []).forEach((b) => {
+            urlButtons
+              .filter((u) => String(u.index) === String(b.index))
+              .forEach((u) => {
+                next[u.key] = b.valor ?? "";
+              });
+          });
+          return next;
+        });
+      } catch (err) {
+        if (!cancelado) setCobroTpl(null);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    numeroModal,
+    templateName,
+    selectedPhoneNumber,
+    selectedChat?.id,
+    id_configuracion,
+    urlButtons,
+  ]);
+
+  // Campos que llena el backend en una plantilla de cobro (no editables)
+  const cobroKeys = useMemo(() => {
+    const keys = new Set();
+    if (!cobroTpl?.automatico) return keys;
+    (cobroTpl.body || []).forEach((p) => keys.add(`body_${p.posicion}`));
+    (cobroTpl.botones || []).forEach((b) => {
+      urlButtons
+        .filter((u) => String(u.index) === String(b.index))
+        .forEach((u) => keys.add(u.key));
+    });
+    return keys;
+  }, [cobroTpl, urlButtons]);
 
   // Función para manejar cambios en el textarea
   const handleTextareaChange = (event) => {
@@ -3211,23 +3295,53 @@ const Modales = ({
                         </div>
                       )}
 
+                      {cobroTpl?.automatico &&
+                        (cobroTpl.bloqueo ? (
+                          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-2.5">
+                            <i className="fas fa-ban mt-0.5 text-rose-600" />
+                            <p className="text-[11px] leading-4 text-rose-900">
+                              <b>No se puede enviar esta plantilla de cobro.</b>{" "}
+                              {cobroTpl.bloqueo.message}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5">
+                            <i className="fas fa-lock mt-0.5 text-emerald-600" />
+                            <p className="text-[11px] leading-4 text-emerald-900">
+                              Plantilla de cobro: el nombre, el saldo vencido (
+                              <b>${cobroTpl.monto}</b>
+                              {cobroTpl.cuotas
+                                ? ` · ${cobroTpl.cuotas} cuota(s)`
+                                : ""}
+                              ) y el botón de pago se completan solos desde la
+                              cartera de <b>{cobroTpl.email}</b>. El botón
+                              cobra exactamente ese saldo.
+                            </p>
+                          </div>
+                        ))}
+
                       {bodyPlaceholders.map((p) => {
-                        const esLink = encuestaLinkKeys.has(p.key);
+                        const esLink =
+                          encuestaLinkKeys.has(p.key) || cobroKeys.has(p.key);
 
                         return (
                           <div key={p.key}>
                             <label className="block text-sm font-medium text-slate-700 mb-1">
-                              {esLink
-                                ? `Enlace de la encuesta {{${p.n}}}`
-                                : `Valor para {{${p.n}}}`}
+                              {cobroKeys.has(p.key)
+                                ? `Valor para {{${p.n}}} (automático)`
+                                : esLink
+                                  ? `Enlace de la encuesta {{${p.n}}}`
+                                  : `Valor para {{${p.n}}}`}
                             </label>
                             <input
                               type="text"
                               readOnly={esLink}
                               title={
-                                esLink
-                                  ? "Se completa automáticamente con el enlace único de este cliente"
-                                  : undefined
+                                cobroKeys.has(p.key)
+                                  ? "Se completa automáticamente desde la cartera del cliente"
+                                  : esLink
+                                    ? "Se completa automáticamente con el enlace único de este cliente"
+                                    : undefined
                               }
                               className={`w-full rounded-xl border p-2.5 text-sm outline-none
                   focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ${
@@ -3258,22 +3372,43 @@ const Modales = ({
                         Información del URL (botón)
                       </p>
 
-                      {urlButtons.map((b) => (
-                        <div key={b.key}>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">
-                            {`Valor para URL {{${b.ph}}} (Botón: ${b.label} / index ${b.index})`}
-                          </label>
-                          <input
-                            type="text"
-                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm text-slate-800 outline-none
-                  focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                            value={placeholderValues[b.key] || ""}
-                            onChange={(e) =>
-                              handlePlaceholderChange(b.key, e.target.value)
-                            }
-                          />
-                        </div>
-                      ))}
+                      {urlButtons.map((b) => {
+                        const esCobro = cobroKeys.has(b.key);
+
+                        return (
+                          <div key={b.key}>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                              {esCobro
+                                ? `Enlace de pago del cliente (Botón: ${b.label})`
+                                : `Valor para URL {{${b.ph}}} (Botón: ${b.label} / index ${b.index})`}
+                            </label>
+                            <input
+                              type="text"
+                              readOnly={esCobro}
+                              title={
+                                esCobro
+                                  ? "Identificador de la cartera del cliente: el botón cobra su saldo vencido"
+                                  : undefined
+                              }
+                              className={`w-full rounded-xl border p-2.5 text-sm outline-none
+                  focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ${
+                    esCobro
+                      ? "border-blue-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                      : "border-slate-300 bg-white text-slate-800"
+                  }`}
+                              value={placeholderValues[b.key] || ""}
+                              onChange={(e) =>
+                                esCobro
+                                  ? undefined
+                                  : handlePlaceholderChange(
+                                      b.key,
+                                      e.target.value,
+                                    )
+                              }
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 

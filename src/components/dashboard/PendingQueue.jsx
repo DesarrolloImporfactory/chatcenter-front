@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { classNames, formatDuration } from "../../utils/parseEventDef";
 
 const CHAT_ROUTE = "/chat";
@@ -52,7 +52,42 @@ function ChannelBadge({ value }) {
   );
 }
 
+const CHANNEL_FILTERS = [
+  { key: "all", label: "Todos" },
+  { key: "wa", label: "WhatsApp" },
+  { key: "ms", label: "Messenger" },
+  { key: "ig", label: "Instagram" },
+];
+
+// El backend puede mandar el canal como código ("wa") o como nombre completo
+const channelKey = (value) => {
+  const v = (value ?? "").toString().toLowerCase();
+  if (v === "wa" || v === "whatsapp") return "wa";
+  if (v === "ms" || v === "messenger") return "ms";
+  if (v === "ig" || v === "instagram") return "ig";
+  return v;
+};
+
 export default function PendingQueue({ rows = [] }) {
+  const [channelFilter, setChannelFilter] = useState("all");
+
+  const counts = useMemo(() => {
+    const acc = { all: rows.length, wa: 0, ms: 0, ig: 0 };
+    rows.forEach((r) => {
+      const k = channelKey(r.channel);
+      if (acc[k] !== undefined) acc[k] += 1;
+    });
+    return acc;
+  }, [rows]);
+
+  const visibleRows = useMemo(
+    () =>
+      channelFilter === "all"
+        ? rows
+        : rows.filter((r) => channelKey(r.channel) === channelFilter),
+    [rows, channelFilter],
+  );
+
   const openChatById = (row) => {
     const chatId =
       typeof row === "object" ? (row?.id_cliente_chat_center ?? row?.id) : row;
@@ -74,8 +109,29 @@ export default function PendingQueue({ rows = [] }) {
       <div className="mb-4 flex items-center justify-between">
         <div className="text-sm font-semibold tracking-wide text-slate-700">
           • COLA DE CHATS PENDIENTES
+          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+            {rows.length}
+          </span>
         </div>
         <div className="text-xs text-slate-400">Actualizado: ahora</div>
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-2">
+        {CHANNEL_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setChannelFilter(f.key)}
+            className={classNames(
+              "rounded-full border px-3 py-1 text-xs font-medium transition",
+              channelFilter === f.key
+                ? "border-slate-800 bg-slate-800 text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+            )}
+          >
+            {f.label} ({counts[f.key]})
+          </button>
+        ))}
       </div>
 
       <div className="max-h-[420px] overflow-auto rounded-xl border border-slate-200">
@@ -94,7 +150,7 @@ export default function PendingQueue({ rows = [] }) {
           </thead>
 
           <tbody>
-            {rows.map((r) => (
+            {visibleRows.map((r) => (
               <tr
                 key={r.id_cliente_chat_center ?? r.id}
                 className="border-t border-slate-100 text-sm hover:bg-slate-50 transition"

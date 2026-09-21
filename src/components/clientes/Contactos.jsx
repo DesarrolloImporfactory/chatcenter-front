@@ -825,6 +825,11 @@ export default function Contactos() {
   const [idsCicloFiltro, setIdsCicloFiltro] = useState([]);
   const [filtroFecha, setFiltroFecha] = useState(null);
 
+  // Plantilla de cobro de Imporsuit: nombre, saldo vencido y botón de pago los
+  // resuelve el backend POR CONTACTO al enviar. null = no es de cobro.
+  const [cobroTpl, setCobroTpl] = useState(null);
+  const VALOR_AUTOMATICO = "(automático por contacto)";
+
   const allPlaceholdersFilled = placeholders.every(
     (ph) => (placeholderValues[ph] || "").trim().length > 0,
   );
@@ -860,7 +865,9 @@ export default function Contactos() {
     (placeholders.length === 0 || allBodyPlaceholdersFilled) &&
     allUrlButtonsFilled &&
     headerTextReady &&
-    headerMediaReady;
+    headerMediaReady &&
+    // plantilla de cobro con un único destinatario sin saldo vencido
+    !cobroTpl?.bloqueo;
 
   const abrirModalTemplates = async () => {
     const cfgId = Number(localStorage.getItem("id_configuracion"));
@@ -1518,6 +1525,22 @@ export default function Contactos() {
             );
           });
 
+          // Plantilla de cobro: en la burbuja va lo que REALMENTE salió (el
+          // backend calcula nombre, saldo y enlace por contacto), no lo del campo.
+          const cobroEnviado = dataResp?.enlace_pago || null;
+          if (cobroEnviado) {
+            (cobroEnviado.body || []).forEach((valor, i) => {
+              placeholdersObj[String(i + 1)] = String(valor ?? "");
+            });
+            (cobroEnviado.botones || []).forEach((btn) => {
+              (urlButtons || [])
+                .filter((u) => String(u.index) === String(btn.index))
+                .forEach((u) => {
+                  urlButtonsObj[u.key] = String(btn.valor ?? "");
+                });
+            });
+          }
+
           const metaMediaId = dataResp?.meta_media_id || null;
           const fileUrl = dataResp?.fileUrl || null;
 
@@ -1644,6 +1667,69 @@ export default function Contactos() {
   const [modalCrearEtiquetaOpen, setModalCrearEtiquetaOpen] = useState(false);
   const [isModalOpenMasivo, setIsModalOpenMasivo] = useState(false);
   const [isModalOpenNuevoContact, setIsModalOpenNuevoContact] = useState(false);
+
+  // Plantilla de cobro: prellenar (y bloquear) los campos del modal masivo.
+  // Va acá abajo porque depende de `selected` e `items`.
+  useEffect(() => {
+    const cfgId = Number(localStorage.getItem("id_configuracion"));
+    if (!isModalOpenMasivo || !templateName || !cfgId) {
+      setCobroTpl(null);
+      return;
+    }
+
+    // Con un solo seleccionado se muestran sus valores reales; con varios se
+    // resuelven uno por uno al enviar.
+    const unico =
+      selected.length === 1
+        ? items.find((item) => item.id === selected[0])
+        : null;
+
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const { data } = await chatApi.get(
+          "whatsapp_managment/enlace_pago_params",
+          {
+            params: {
+              id_configuracion: cfgId,
+              nombre_template: templateName,
+              telefono: unico?.celular_cliente || "",
+              id_cliente_chat_center: unico?.id || "",
+            },
+          },
+        );
+
+        if (cancelado) return;
+
+        const info = data?.data || null;
+        setCobroTpl(info);
+        if (!info?.automatico) return;
+
+        setPlaceholderValues((prev) => {
+          const next = { ...prev };
+          (info.body || []).forEach((p) => {
+            next[`body_${p.posicion}`] = p.valor ?? VALOR_AUTOMATICO;
+          });
+          (info.botones || []).forEach((b) => {
+            urlButtons
+              .filter((u) => String(u.index) === String(b.index))
+              .forEach((u) => {
+                next[u.key] = b.valor ?? VALOR_AUTOMATICO;
+              });
+          });
+          return next;
+        });
+      } catch (err) {
+        if (!cancelado) setCobroTpl(null);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isModalOpenMasivo, templateName, selected, urlButtons]);
 
   const openModalMasivos = () => {
     setTimezoneProgramada(
@@ -3149,6 +3235,8 @@ export default function Contactos() {
         handlePlaceholderChange={handlePlaceholderChange}
         placeholders={placeholders}
         placeholderValues={placeholderValues}
+        urlButtons={urlButtons}
+        cobroTpl={cobroTpl}
         templateReady={templateReady}
         enviarTemplateMasivo={enviarTemplateMasivo}
         programarTemplateMasivo={programarTemplateMasivo}
