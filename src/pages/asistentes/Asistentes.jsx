@@ -86,8 +86,17 @@ const Asistentes = () => {
   const [id_configuracion, setId_configuracion] = useState(null);
   const [idPlataformaConf, setIdPlataformaConf] = useState(null);
 
+  // Key guardada, ENMASCARADA ("sk-proj-••••UVYA"): el backend ya no devuelve
+  // la real. Sirve como bandera de "hay key" y como referencia visual.
   const [existeAsistente, setExisteAsistente] = useState(null);
   const [showModalApiKey, setShowModalApiKey] = useState(false);
+  // Lo que se tipea en el modal. Va aparte y arranca vacío: si se precargara
+  // con la máscara, "Guardar" mandaría la máscara como si fuera una key.
+  const [apiKeyInput, setApiKeyInput] = useState("");
+
+  useEffect(() => {
+    setApiKeyInput("");
+  }, [showModalApiKey]);
 
   const [asistenteVentas, setAsistenteVentas] = useState(null);
   const [nombreBotVenta, setNombreBotVenta] = useState("");
@@ -817,9 +826,14 @@ const Asistentes = () => {
                     API Key
                   </div>
                   <div className="text-[11.5px] text-gray-400 truncate">
-                    {existeAsistente
-                      ? "Configurada · oculta por seguridad"
-                      : "Sin configurar"}
+                    {existeAsistente ? (
+                      <>
+                        Configurada ·{" "}
+                        <span className="font-mono">{existeAsistente}</span>
+                      </>
+                    ) : (
+                      "Sin configurar"
+                    )}
                   </div>
                 </div>
                 <span
@@ -936,12 +950,25 @@ const Asistentes = () => {
                     autoComplete="off"
                     spellCheck={false}
                     disabled={savingApiKey}
-                    value={existeAsistente || ""}
-                    onChange={(e) => setExisteAsistente(e.target.value)}
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm font-mono text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 focus:bg-white transition-all duration-200 disabled:opacity-60"
-                    placeholder="sk-..."
+                    placeholder={
+                      apiKeyGuardada
+                        ? "Pegue una llave nueva para reemplazarla"
+                        : "sk-..."
+                    }
                   />
                 </div>
+                {apiKeyGuardada && existeAsistente && (
+                  <p className="mt-1.5 text-[11.5px] text-slate-500">
+                    Llave actual:{" "}
+                    <span className="font-mono font-semibold text-slate-700">
+                      {existeAsistente}
+                    </span>{" "}
+                    · guardada cifrada, no se puede volver a ver completa.
+                  </p>
+                )}
                 <p className="mt-1.5 text-[11px] text-slate-400">
                   ¿Aún no tiene una?{" "}
                   <a
@@ -1011,7 +1038,7 @@ const Asistentes = () => {
                   Cancelar
                 </button>
                 <button
-                  onClick={() => guardarApiKey(existeAsistente)}
+                  onClick={() => guardarApiKey(apiKeyInput)}
                   disabled={savingApiKey || deletingApiKey}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white font-semibold hover:bg-indigo-700 shadow-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
