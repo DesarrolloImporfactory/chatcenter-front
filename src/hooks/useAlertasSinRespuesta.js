@@ -5,10 +5,65 @@ import {
   INTERVALO_REFRESCO_MS,
   MINUTOS_CRITICO,
   NIVEL_CRITICO,
+  PAUSA_ENTRE_AVISOS_MS,
+  RECUERDO_AVISADOS_MS,
   alertasSinRespuestaActivas,
   minutosSinRespuesta,
   nivelSinRespuesta,
+  parseFechaMensaje,
 } from "../config/alertasSinRespuesta";
+
+/* ── Memoria del aviso ──
+ * Vive en localStorage y no en memoria: si no, cada recarga de la página
+ * volvía a mostrar todos los chats críticos. Al ser compartida entre
+ * pestañas, la pausa entre avisos también lo es.
+ *
+ * Todo acceso va con try/catch: en modo privado o con el almacenamiento
+ * bloqueado, el aviso sigue funcionando, solo que sin recordar. */
+const claveMemoria = (id_configuracion) =>
+  `alertasSinRespuesta:${id_configuracion}`;
+
+const leerMemoria = (id_configuracion) => {
+  try {
+    const crudo = localStorage.getItem(claveMemoria(id_configuracion));
+    const datos = crudo ? JSON.parse(crudo) : null;
+    return {
+      ultimoAviso: Number(datos?.ultimoAviso) || 0,
+      avisados:
+        datos?.avisados && typeof datos.avisados === "object"
+          ? datos.avisados
+          : {},
+    };
+  } catch {
+    return { ultimoAviso: 0, avisados: {} };
+  }
+};
+
+const guardarMemoria = (id_configuracion, memoria) => {
+  try {
+    const limite = Date.now() - RECUERDO_AVISADOS_MS;
+    const avisados = {};
+    for (const [clave, cuando] of Object.entries(memoria.avisados)) {
+      if (cuando >= limite) avisados[clave] = cuando;
+    }
+    localStorage.setItem(
+      claveMemoria(id_configuracion),
+      JSON.stringify({ ultimoAviso: memoria.ultimoAviso, avisados }),
+    );
+  } catch {
+    // Sin almacenamiento: se pierde la memoria al recargar, nada más.
+  }
+};
+
+/* Un chat se identifica por su id MÁS la fecha del mensaje que quedó sin
+   responder. Así, mientras siga esperando por el mismo mensaje cuenta como
+   ya avisado aunque salga un rato de la lista; y si le responden y el
+   cliente vuelve a escribir, es otra espera y se puede avisar de nuevo. */
+const claveEspera = (chat) => {
+  const fecha = parseFechaMensaje(chat?.mensaje_created_at);
+  const segundos = fecha ? Math.floor(fecha.getTime() / 1000) : "";
+  return `${chat?.id}:${segundos}`;
+};
 
 /**
  * Alerta de chats sin respuesta.
@@ -146,33 +201,40 @@ export const useAlertasSinRespuesta = (chats, id_configuracion) => {
     return [...criticos, ...extra].sort((a, b) => b.minutos - a.minutos);
   }, [activo, criticos, chats, niveles]);
 
-  /* ── Aviso: una sola vez por chat ──
-   * El chat que sale de la lista (lo respondieron o lo cerraron) se saca de
-   * los notificados, así vuelve a avisar si más adelante queda otra vez sin
-   * respuesta. */
-  const notificadosRef = useRef(new Set());
+  /* ── Aviso emergente ──
+   * Una sola vez por espera (ver claveEspera) y como mucho uno cada
+   * PAUSA_ENTRE_AVISOS_MS. Los chats que cruzan los 30 min durante la pausa
+   * no se pierden: se juntan y salen todos en el siguiente aviso. */
   const [aviso, setAviso] = useState([]);
+  const avisoAbiertoRef = useRef(false);
 
   useEffect(() => {
-    if (!activo) return;
+    if (!activo || avisoAbiertoRef.current) return;
 
-    const vigentes = new Set(criticosCompletos.map((c) => String(c.id)));
-    notificadosRef.current.forEach((id) => {
-      if (!vigentes.has(id)) notificadosRef.current.delete(id);
-    });
+    const memoria = leerMemoria(id_configuracion);
+    if (Date.now() - memoria.ultimoAviso < PAUSA_ENTRE_AVISOS_MS) return;
 
     const nuevos = criticosCompletos.filter(
-      (c) => !notificadosRef.current.has(String(c.id)),
+      (c) => !memoria.avisados[claveEspera(c)],
     );
-    if (nuevos.length) setAviso(nuevos);
-  }, [activo, criticosCompletos]);
+    if (!nuevos.length) return;
+
+    avisoAbiertoRef.current = true;
+    guardarMemoria(id_configuracion, { ...memoria, ultimoAviso: Date.now() });
+    setAviso(nuevos);
+  }, [activo, id_configuracion, criticosCompletos]);
 
   const cerrarAviso = useCallback(() => {
-    setAviso((actuales) => {
-      actuales.forEach((c) => notificadosRef.current.add(String(c.id)));
-      return [];
+    const memoria = leerMemoria(id_configuracion);
+    const ahoraMs = Date.now();
+    aviso.forEach((c) => {
+      memoria.avisados[claveEspera(c)] = ahoraMs;
     });
-  }, []);
+    guardarMemoria(id_configuracion, memoria);
+
+    avisoAbiertoRef.current = false;
+    setAviso([]);
+  }, [aviso, id_configuracion]);
 
   return {
     activo,

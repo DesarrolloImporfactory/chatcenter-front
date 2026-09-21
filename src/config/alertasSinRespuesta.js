@@ -24,6 +24,12 @@ export const INTERVALO_REFRESCO_MS = 30_000;
 /** Cada cuánto se le pregunta al backend por toda la configuración. */
 export const INTERVALO_CONSULTA_MS = 60_000;
 
+/** Tiempo mínimo entre un aviso emergente y el siguiente. */
+export const PAUSA_ENTRE_AVISOS_MS = 30 * 60_000;
+
+/** Cuánto se recuerda que un chat ya fue avisado (para no crecer sin fin). */
+export const RECUERDO_AVISADOS_MS = 7 * 24 * 60 * 60_000;
+
 export const alertasSinRespuestaActivas = (id_configuracion) => {
   const id = Number(id_configuracion);
   return Number.isFinite(id) && CONFIGURACIONES_HABILITADAS.includes(id);

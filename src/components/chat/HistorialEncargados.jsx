@@ -83,6 +83,33 @@ export default function HistorialEncargados({ clienteId }) {
     return "otro";
   };
 
+  /* Quién hizo la acción (id_sub_usuario_accion). Solo se muestra cuando
+     aporta algo: si quien transfiere es el mismo que tenía el chat, el «De»
+     ya lo dice. Las filas viejas y las del round robin no lo traen. */
+  const autorDistinto = (item) => {
+    if (!item.id_sub_usuario_accion) return null;
+    const yaVisible =
+      getTipo(item) === "asignacion"
+        ? item.id_encargado_nuevo
+        : item.id_encargado_anterior;
+    if (String(item.id_sub_usuario_accion) === String(yaVisible)) return null;
+    return item.nombre_accion || `#${item.id_sub_usuario_accion}`;
+  };
+
+  const renderAutor = (item) => {
+    const autor = autorDistinto(item);
+    if (!autor) return null;
+    return (
+      <div className="mb-2 flex items-center gap-1 rounded-md bg-sky-500/[0.08] border border-sky-500/15 px-2 py-1">
+        <i className="bx bx-pointer text-[11px] text-sky-300" />
+        <span className="text-[10px] text-white/55">
+          Hecho por{" "}
+          <span className="font-semibold text-sky-200">{autor}</span>
+        </span>
+      </div>
+    );
+  };
+
   const ultimo = historial.length > 0 ? historial[historial.length - 1] : null;
   const encargadoActual =
     ultimo?.nombre_nuevo ||
@@ -128,6 +155,7 @@ export default function HistorialEncargados({ clienteId }) {
 
           {/* Flujo visual: DE → A */}
           <div className="px-2.5 py-2 bg-white/[0.02]">
+            {renderAutor(item)}
             <div className="flex items-stretch gap-0">
               {/* DE */}
               <div className="flex-1 min-w-0">
@@ -225,6 +253,7 @@ export default function HistorialEncargados({ clienteId }) {
           </div>
 
           <div className="px-2.5 py-2 bg-white/[0.02]">
+            {renderAutor(item)}
             <div className="flex items-center gap-2">
               <div className="h-7 w-7 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
                 <i className="bx bx-user-check text-[13px] text-emerald-400" />
@@ -290,6 +319,7 @@ export default function HistorialEncargados({ clienteId }) {
           </div>
 
           <div className="px-2.5 py-2 bg-white/[0.02]">
+            {renderAutor(item)}
             <div className="flex items-center gap-2">
               <div className="h-7 w-7 rounded-full bg-rose-500/15 border border-rose-500/20 flex items-center justify-center shrink-0">
                 <i className="bx bx-user-x text-[13px] text-rose-400" />
