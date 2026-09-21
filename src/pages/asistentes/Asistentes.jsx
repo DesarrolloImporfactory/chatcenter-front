@@ -86,8 +86,17 @@ const Asistentes = () => {
   const [id_configuracion, setId_configuracion] = useState(null);
   const [idPlataformaConf, setIdPlataformaConf] = useState(null);
 
+  // Key guardada, ENMASCARADA ("sk-proj-••••UVYA"): el backend ya no devuelve
+  // la real. Sirve como bandera de "hay key" y como referencia visual.
   const [existeAsistente, setExisteAsistente] = useState(null);
   const [showModalApiKey, setShowModalApiKey] = useState(false);
+  // Lo que se tipea en el modal. Va aparte y arranca vacío: si se precargara
+  // con la máscara, "Guardar" mandaría la máscara como si fuera una key.
+  const [apiKeyInput, setApiKeyInput] = useState("");
+
+  useEffect(() => {
+    setApiKeyInput("");
+  }, [showModalApiKey]);
 
   const [asistenteVentas, setAsistenteVentas] = useState(null);
   const [nombreBotVenta, setNombreBotVenta] = useState("");
@@ -117,6 +126,25 @@ const Asistentes = () => {
   // input) — controla la visibilidad del botón "Eliminar API Key" del modal.
   const [apiKeyGuardada, setApiKeyGuardada] = useState(false);
 
+  // A qué cuenta de OpenAI pertenece la key GUARDADA (nombre, correo,
+  // organización). El saldo es por organización: sin esto el cliente recarga
+  // una cuenta mientras el bot consume de otra. null = sin key o no se pudo
+  // averiguar, y entonces simplemente no se muestra.
+  const [cuentaOpenAI, setCuentaOpenAI] = useState(null);
+
+  const fetchCuentaOpenAI = async () => {
+    if (!id_configuracion) return;
+    try {
+      const { data } = await chatApi.get("openai_assistants/openai_cuenta", {
+        params: { id_configuracion },
+      });
+      setCuentaOpenAI(data?.cuenta || null);
+    } catch (error) {
+      console.error("No se pudo identificar la cuenta de OpenAI.", error);
+      setCuentaOpenAI(null);
+    }
+  };
+
   const fetchAsistenteAutomatizado = async () => {
     if (!id_configuracion) return;
     try {
@@ -124,14 +152,19 @@ const Asistentes = () => {
         id_configuracion: id_configuracion,
       });
       const data = response.data?.data || {};
+      const hayKey = Boolean(String(data.api_key_openai || "").trim());
       setExisteAsistente(data.api_key_openai || null);
-      setApiKeyGuardada(Boolean(String(data.api_key_openai || "").trim()));
+      setApiKeyGuardada(hayKey);
       setAsistenteVentas(data.ventas || null);
+      // Aparte y sin await: consulta a OpenAI, no debe demorar la vista.
+      if (hayKey) fetchCuentaOpenAI();
+      else setCuentaOpenAI(null);
     } catch (error) {
       console.error("Error al cargar los asistentes.", error);
       setExisteAsistente(null);
       setApiKeyGuardada(false);
       setAsistenteVentas(null);
+      setCuentaOpenAI(null);
     }
   };
 
@@ -304,7 +337,9 @@ const Asistentes = () => {
         await fetchAsistenteAutomatizado();
         Toast.fire({
           icon: "success",
-          title: "API Key validada y guardada",
+          title: data.cuenta?.email
+            ? `API Key validada · cuenta ${data.cuenta.email}`
+            : "API Key validada y guardada",
         });
       } else {
         Toast.fire({
@@ -817,10 +852,29 @@ const Asistentes = () => {
                     API Key
                   </div>
                   <div className="text-[11.5px] text-gray-400 truncate">
-                    {existeAsistente
-                      ? "Configurada · oculta por seguridad"
-                      : "Sin configurar"}
+                    {existeAsistente ? (
+                      <>
+                        Configurada ·{" "}
+                        <span className="font-mono">{existeAsistente}</span>
+                      </>
+                    ) : (
+                      "Sin configurar"
+                    )}
                   </div>
+                  {apiKeyGuardada && cuentaOpenAI?.email && (
+                    <div
+                      className="mt-0.5 text-[11.5px] text-gray-500 truncate"
+                      title={`${cuentaOpenAI.email} · ${cuentaOpenAI.organizacion || ""}`}
+                    >
+                      <i className="bx bx-user-circle align-middle text-sm text-indigo-500" />{" "}
+                      <span className="font-semibold text-gray-700">
+                        {cuentaOpenAI.email}
+                      </span>
+                      {cuentaOpenAI.organizacion && (
+                        <> · {cuentaOpenAI.organizacion}</>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <span
                   className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${existeAsistente ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
@@ -936,12 +990,25 @@ const Asistentes = () => {
                     autoComplete="off"
                     spellCheck={false}
                     disabled={savingApiKey}
-                    value={existeAsistente || ""}
-                    onChange={(e) => setExisteAsistente(e.target.value)}
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm font-mono text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 focus:bg-white transition-all duration-200 disabled:opacity-60"
-                    placeholder="sk-..."
+                    placeholder={
+                      apiKeyGuardada
+                        ? "Pegue una llave nueva para reemplazarla"
+                        : "sk-..."
+                    }
                   />
                 </div>
+                {apiKeyGuardada && existeAsistente && (
+                  <p className="mt-1.5 text-[11.5px] text-slate-500">
+                    Llave actual:{" "}
+                    <span className="font-mono font-semibold text-slate-700">
+                      {existeAsistente}
+                    </span>{" "}
+                    · guardada cifrada, no se puede volver a ver completa.
+                  </p>
+                )}
                 <p className="mt-1.5 text-[11px] text-slate-400">
                   ¿Aún no tiene una?{" "}
                   <a
@@ -954,6 +1021,40 @@ const Asistentes = () => {
                   </a>
                 </p>
               </div>
+
+              {/* De qué cuenta de OpenAI es la key GUARDADA: el saldo es por
+                  organización, así el cliente sabe dónde recargar. */}
+              {apiKeyGuardada && cuentaOpenAI?.email && (
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <i className="bx bx-user-circle text-lg text-indigo-600 mt-0.5" />
+                    <div className="min-w-0 text-[12px] leading-5 text-indigo-950">
+                      <div className="font-bold">
+                        Su llave guardada pertenece a esta cuenta de OpenAI
+                      </div>
+                      <div className="truncate">
+                        {cuentaOpenAI.nombre && <>{cuentaOpenAI.nombre} · </>}
+                        <span className="font-semibold">
+                          {cuentaOpenAI.email}
+                        </span>
+                      </div>
+                      <div className="truncate text-indigo-900/80">
+                        Organización:{" "}
+                        <span className="font-semibold">
+                          {cuentaOpenAI.organizacion || "—"}
+                        </span>
+                        {cuentaOpenAI.proyecto && (
+                          <> · Proyecto: {cuentaOpenAI.proyecto}</>
+                        )}
+                      </div>
+                      <div className="mt-1 text-[11px] text-indigo-900/70">
+                        El saldo se recarga iniciando sesión con ese correo y
+                        en esa organización.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
                 <div className="flex items-start gap-2.5">
@@ -1011,7 +1112,7 @@ const Asistentes = () => {
                   Cancelar
                 </button>
                 <button
-                  onClick={() => guardarApiKey(existeAsistente)}
+                  onClick={() => guardarApiKey(apiKeyInput)}
                   disabled={savingApiKey || deletingApiKey}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white font-semibold hover:bg-indigo-700 shadow-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >

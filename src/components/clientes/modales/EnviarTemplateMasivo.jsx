@@ -29,6 +29,8 @@ const EnviarTemplateMasivo = ({
   handlePlaceholderChange,
   placeholders,
   placeholderValues,
+  urlButtons = [],
+  cobroTpl = null,
   templateReady,
   enviarTemplateMasivo,
   programarTemplateMasivo,
@@ -346,23 +348,96 @@ const EnviarTemplateMasivo = ({
               />
             </div>
 
+            {/* Plantilla de cobro: nombre, saldo y botón de pago los pone el
+                backend por contacto; acá solo se informa y se bloquean. */}
+            {cobroTpl?.automatico &&
+              (cobroTpl.bloqueo ? (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-2.5">
+                  <i className="bx bx-block mt-0.5 text-rose-600" />
+                  <p className="text-[11px] leading-4 text-rose-900">
+                    <b>No se puede enviar esta plantilla de cobro.</b>{" "}
+                    {cobroTpl.bloqueo.message}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5">
+                  <i className="bx bx-lock-alt mt-0.5 text-emerald-600" />
+                  <p className="text-[11px] leading-4 text-emerald-900">
+                    Plantilla de cobro: el nombre, el saldo vencido y el botón
+                    de pago se completan solos desde la cartera de cada
+                    contacto
+                    {cobroTpl.monto ? (
+                      <>
+                        {" "}
+                        (<b>${cobroTpl.monto}</b> · {cobroTpl.email})
+                      </>
+                    ) : null}
+                    . A quien no tenga saldo vencido no se le envía.
+                  </p>
+                </div>
+              ))}
+
             {!!placeholders.length && (
               <div className="grid gap-3 md:grid-cols-2">
                 {placeholders.map((ph) => {
                   const key = `body_${ph}`;
+                  const esCobro = !!cobroTpl?.automatico;
                   return (
                     <div key={ph}>
                       <label className="block text-xs font-medium text-slate-700 mb-1">
                         Valor para {"{{" + ph + "}}"}
+                        {esCobro ? " (automático)" : ""}
                       </label>
 
                       <input
                         type="text"
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        readOnly={esCobro}
+                        className={`w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ${
+                          esCobro
+                            ? "border-blue-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                            : "border-slate-300 bg-white text-slate-800"
+                        }`}
                         placeholder="Ej: {nombre}, {direccion}, {productos} o texto fijo…"
                         value={placeholderValues[key] || ""}
                         onChange={(e) =>
-                          handlePlaceholderChange(key, e.target.value)
+                          esCobro
+                            ? undefined
+                            : handlePlaceholderChange(key, e.target.value)
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Botones URL dinámicos: sin estos campos una plantilla con
+                botón nunca quedaba "lista" desde /contactos. */}
+            {!!urlButtons.length && (
+              <div className="grid gap-3 md:grid-cols-2">
+                {urlButtons.map((b) => {
+                  const esCobro = !!cobroTpl?.automatico;
+                  return (
+                    <div key={b.key}>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        {esCobro
+                          ? `Enlace de pago del cliente (Botón: ${b.label})`
+                          : `Valor para URL {{${b.ph}}} (Botón: ${b.label})`}
+                      </label>
+
+                      <input
+                        type="text"
+                        readOnly={esCobro}
+                        className={`w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ${
+                          esCobro
+                            ? "border-blue-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                            : "border-slate-300 bg-white text-slate-800"
+                        }`}
+                        value={placeholderValues[b.key] || ""}
+                        onChange={(e) =>
+                          esCobro
+                            ? undefined
+                            : handlePlaceholderChange(b.key, e.target.value)
                         }
                       />
                     </div>
