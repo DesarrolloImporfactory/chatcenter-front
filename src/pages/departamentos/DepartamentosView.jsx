@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
+import { esAdministrador } from "../../utils/rolActual";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Select from "react-select";
 import RepartoDepartamento from "./RepartoDepartamento";
@@ -87,6 +88,13 @@ const Switch = ({ checked, onClick, disabled = false, title }) => (
 );
 
 const DepartamentosView = () => {
+  const navigate = useNavigate();
+  // Solo el administrador gestiona departamentos; el resto de roles llega
+  // aquí únicamente por URL directa (el menú no lo muestra).
+  useEffect(() => {
+    if (!esAdministrador()) navigate("/conexiones", { replace: true });
+  }, [navigate]);
+
   const [departamentos, setDepartamentos] = useState([]);
   const [loading, setLoading] = useState(true);
 

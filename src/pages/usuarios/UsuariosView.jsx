@@ -1,9 +1,10 @@
 // src/views/UsuariosView.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
+import { esAdministrador } from "../../utils/rolActual";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 // Toast flotante (esquina superior derecha) — no lo tapa el blur del modal
@@ -109,6 +110,13 @@ const rolBadge = (rol) => {
 };
 
 const UsuariosView = () => {
+  const navigate = useNavigate();
+  // Solo el administrador gestiona subusuarios; el resto de roles llega aquí
+  // únicamente por URL directa (el menú no lo muestra).
+  useEffect(() => {
+    if (!esAdministrador()) navigate("/conexiones", { replace: true });
+  }, [navigate]);
+
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
 
