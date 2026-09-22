@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 import { useNavigate, useLocation } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
+import { esRolVentas, esAdministrador } from "../../utils/rolActual";
 import botImage from "../../assets/bot.png";
 import RankingTiendas from "./RankingTiendas";
 import ResumenConexionHeader from "./ResumenConexionHeader";
@@ -726,7 +727,11 @@ const Conexiones = () => {
     } catch (err) {
       Swal.fire("Error", "No se pudo desconectar.", "error");
     }
-  }, [fetchConfiguracionAutomatizada]);
+    /* Deps vacías a propósito: fetchConfiguracionAutomatizada se declara más
+       abajo (ponerla aquí como dependencia rompe el render por TDZ). La copia
+       que queda atrapada es la del primer render, y por eso el fetch lee
+       id_sub_usuario del token y no solo de userData. */
+  }, []);
 
   const isConectado = (c) => {
     if (typeof c?.status_whatsapp === "string")
@@ -791,9 +796,15 @@ const Conexiones = () => {
   /* Ver CUENTAS_SIN_ELIMINAR_CONEXION arriba. Number(undefined) es NaN y el
      Set no lo contiene, así que mientras carga userData el menú se comporta
      como siempre. */
-  const puedeEliminarConexion = !CUENTAS_SIN_ELIMINAR_CONEXION.has(
-    Number(userData?.id_usuario),
-  );
+  /* Rol del subusuario logueado. El asesor de ventas no ve facturado,
+     utilidad ni pedidos de la cuenta (cabecera de métricas y dashboard); crear
+     y eliminar conexiones es solo del administrador. El back niega ambas
+     cosas por rol; aquí solo se evita mostrar botones que darían 403. */
+  const rolVentas = esRolVentas();
+  const rolAdministrador = esAdministrador();
+  const puedeEliminarConexion =
+    rolAdministrador &&
+    !CUENTAS_SIN_ELIMINAR_CONEXION.has(Number(userData?.id_usuario));
 
   const confirmarEliminar = async (config) => {
     if (!userData) return;
@@ -1423,25 +1434,30 @@ const Conexiones = () => {
                 </p>
               </div>
 
-              <button
-                onClick={handleAbrirConfiguracionAutomatizada}
-                className="group shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-white text-[#171931] rounded-xl font-semibold text-sm shadow-lg shadow-black/20 ring-1 ring-white/40 hover:shadow-xl hover:shadow-indigo-900/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
-              >
-                <i className="bx bx-plus text-xl text-[#4f46e5] transition-transform duration-200 group-hover:rotate-90" />
-                Nuevo negocio
-              </button>
+              {rolAdministrador && (
+                <button
+                  onClick={handleAbrirConfiguracionAutomatizada}
+                  className="group shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-white text-[#171931] rounded-xl font-semibold text-sm shadow-lg shadow-black/20 ring-1 ring-white/40 hover:shadow-xl hover:shadow-indigo-900/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                >
+                  <i className="bx bx-plus text-xl text-[#4f46e5] transition-transform duration-200 group-hover:rotate-90" />
+                  Nuevo negocio
+                </button>
+              )}
             </div>
 
             {/* Header fusionado con el dashboard: elige una conexión, mira sus
                 métricas del periodo y abre el dashboard completo si quiere el
-                detalle. Reemplaza los stats genéricos. */}
-            <ResumenConexionHeader
-              conexiones={configuracionAutomatizada}
-              onVerDashboard={(config) => {
-                setActiveConfig(config);
-                navigate("/conexion-dashboard");
-              }}
-            />
+                detalle. Reemplaza los stats genéricos. No aplica al asesor de
+                ventas: facturado, utilidad y pedidos son de la cuenta. */}
+            {!rolVentas && (
+              <ResumenConexionHeader
+                conexiones={configuracionAutomatizada}
+                onVerDashboard={(config) => {
+                  setActiveConfig(config);
+                  navigate("/conexion-dashboard");
+                }}
+              />
+            )}
           </div>
         </header>
 
@@ -1635,11 +1651,16 @@ const Conexiones = () => {
                   return (
                     <div
                       key={config.id}
-                      className="relative bg-white rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200 hover:ring-slate-300 p-4 transition hover:-translate-y-0.5 animate-card-in overflow-hidden flex flex-col cursor-pointer"
+                      className={`relative bg-white rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200 hover:ring-slate-300 p-4 transition hover:-translate-y-0.5 animate-card-in overflow-hidden flex flex-col ${
+                        rolVentas ? "" : "cursor-pointer"
+                      }`}
                       style={{
                         animationDelay: `${Math.min(idx, 8) * 50}ms`,
                       }}
                       onClick={() => {
+                        // La tarjeta abre el dashboard de la conexión; el
+                        // asesor de ventas no lo tiene.
+                        if (rolVentas) return;
                         setActiveConfig(config);
                         navigate("/conexion-dashboard");
                       }}

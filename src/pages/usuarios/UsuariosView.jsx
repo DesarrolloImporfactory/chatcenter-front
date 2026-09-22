@@ -77,22 +77,57 @@ const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
   </div>
 );
 
-// Qué puede hacer cada rol — se muestra al elegirlo en el formulario
+// Qué puede hacer cada rol — se muestra al elegirlo en el formulario.
+// `puede` / `noPuede` reflejan lo que el back permite hoy por rol
+// (restrictToRoles / excluirRoles): si cambia un permiso allá, se cambia aquí.
 const ROL_INFO = {
   administrador: {
     icon: "bx-crown",
     color: "text-[#1d4ed8] bg-[#eff6ff] ring-[#1d4ed8]/20",
-    desc: "Control total de la cuenta: gestiona usuarios, departamentos, conexiones y planes. Ve todos los chats de sus conexiones.",
+    desc: "Control total de la cuenta. Es el rol del dueño.",
+    puede: [
+      "Todos los chats de todas las conexiones",
+      "Crear, editar y eliminar usuarios y departamentos",
+      "Crear, reconectar y eliminar conexiones",
+      "Dashboards y métricas: ventas, pedidos, inversión y ROAS",
+      "Conectar Meta Ads y lanzar campañas",
+      "Planes, facturación y métodos de pago",
+    ],
+    noPuede: [],
   },
   admin_limitado: {
     icon: "bx-shield-quarter",
     color: "text-violet-700 bg-violet-50 ring-violet-200",
-    desc: "Supervisa la operación: ve y atiende TODOS los chats de la conexión del departamento donde fue asignado, pero no puede crear, editar ni eliminar usuarios ni conexiones.",
+    desc: "Supervisa la operación de su departamento sin tocar la configuración de la cuenta.",
+    puede: [
+      "Ver y atender TODOS los chats de la conexión de su departamento",
+      "Transferir chats y asignar encargado",
+      "Dashboards y métricas de la cuenta",
+      "Conectar Meta Ads y lanzar campañas",
+    ],
+    noPuede: [
+      "Crear, editar ni eliminar usuarios o departamentos",
+      "Crear ni eliminar conexiones",
+      "Planes, facturación ni métodos de pago",
+    ],
   },
   ventas: {
     icon: "bx-headphone",
     color: "text-emerald-700 bg-emerald-50 ring-emerald-200",
-    desc: "Asesor: solo ve los chats que se le asignan (automáticamente o a mano) y los que tome de 'En espera'.",
+    desc: "Asesor: atiende solo lo suyo y no ve números de la cuenta.",
+    puede: [
+      "Los chats que se le asignan (automático o a mano) y los que tome de 'En espera'",
+      "Transferir chats a otro departamento",
+      "Su propio dashboard de agente (solo sus chats)",
+      "Ver las conexiones de sus departamentos",
+      "Conectar Meta Ads y lanzar campañas",
+    ],
+    noPuede: [
+      "Métricas de la cuenta: facturado, utilidad, pedidos, inversión ni ROAS",
+      "Usuarios, departamentos ni sus ajustes",
+      "Crear ni eliminar conexiones",
+      "Planes, facturación ni métodos de pago",
+    ],
   },
 };
 
@@ -897,8 +932,8 @@ const UsuariosView = () => {
             variants={panelV}
             initial="hidden"
             animate={isClosing ? "exit" : "visible"}
-            className={`bg-white rounded-2xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5 transition-[max-width] duration-300 ${
-              showUpgradeOptions ? "max-w-md" : "max-w-2xl"
+            className={`bg-white rounded-2xl shadow-2xl w-full max-h-[calc(100vh-2rem)] overflow-y-auto ring-1 ring-black/5 transition-[max-width] duration-300 ${
+              showUpgradeOptions ? "max-w-md" : "max-w-3xl"
             }`}
           >
             <AnimatePresence mode="wait">
@@ -1217,7 +1252,7 @@ const UsuariosView = () => {
                       <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
                         Rol del usuario
                       </label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                         {Object.keys(ROL_INFO).map((key) => {
                           const info = ROL_INFO[key];
                           const selected = form.rol === key;
@@ -1229,7 +1264,7 @@ const UsuariosView = () => {
                               key={key}
                               disabled={locked}
                               onClick={() => setForm({ ...form, rol: key })}
-                              className={`relative flex flex-col gap-1.5 rounded-xl border-2 p-3 pr-7 text-left transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
+                              className={`relative flex flex-col gap-1 rounded-xl border-2 p-3 pr-7 text-left transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
                                 selected
                                   ? "border-[#1d4ed8] bg-[#eff6ff]/70 shadow-sm"
                                   : "border-gray-200 bg-white hover:border-[#1d4ed8]/40"
@@ -1253,6 +1288,64 @@ const UsuariosView = () => {
                           );
                         })}
                       </div>
+
+                      {/* Permisos del rol elegido, en dos columnas (puede / no
+                          puede). Van fuera de las tarjetas para que estas
+                          sigan siendo compactas: con las listas adentro el
+                          modal crecía hacia abajo y no cabía en pantalla. */}
+                      {(() => {
+                        const info = ROL_INFO[form.rol];
+                        if (!info) {
+                          return (
+                            <p className="mt-2 text-[11.5px] text-slate-400">
+                              Elige un rol para ver exactamente qué puede y qué
+                              no puede hacer.
+                            </p>
+                          );
+                        }
+                        const col = (items, titulo, icono, colorIcono) => (
+                          <div className="min-w-0">
+                            <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">
+                              {titulo}
+                            </div>
+                            {items.length === 0 ? (
+                              <p className="text-[11.5px] text-slate-400">
+                                Sin restricciones.
+                              </p>
+                            ) : (
+                              <ul className="space-y-0.5">
+                                {items.map((p) => (
+                                  <li
+                                    key={p}
+                                    className="flex items-start gap-1 text-[11.5px] leading-snug text-slate-600"
+                                  >
+                                    <i
+                                      className={`bx ${icono} mt-[1px] shrink-0 text-[13px] ${colorIcono}`}
+                                    />
+                                    <span>{p}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                        return (
+                          <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2 rounded-xl bg-slate-50 ring-1 ring-slate-200 px-3.5 py-3">
+                            {col(
+                              info.puede,
+                              "Puede",
+                              "bx-check",
+                              "text-emerald-600",
+                            )}
+                            {col(
+                              info.noPuede,
+                              "No puede",
+                              "bx-x",
+                              "text-rose-500",
+                            )}
+                          </div>
+                        );
+                      })()}
                       {Number(editingId) === myId && (
                         <p className="mt-1.5 text-xs text-slate-500">
                           No puedes cambiar tu propio rol.
