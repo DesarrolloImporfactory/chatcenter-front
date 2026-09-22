@@ -187,6 +187,11 @@ const HoverPopover = ({
  */
 const WaHero = ({
   conectado,
+  // Estuvo vinculada y Meta ya no la reporta CONNECTED (número migrado a
+  // otra WABA, acceso revocado, baneo…): mismo flujo de conexión, pero el
+  // texto deja claro que hay que volver a vincular, no vincular por primera
+  // vez.
+  reconectar,
   yaSincronizo,
   telefono,
   onConectarApi,
@@ -215,6 +220,12 @@ const WaHero = ({
               <div className="text-[14px] font-semibold text-emerald-800 leading-tight mt-1 truncate">
                 {tieneTelefono ? telefono : "Conecta tu WhatsApp"}
               </div>
+              {reconectar && (
+                <div className="text-[11px] text-rose-700 flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                  Se perdió la conexión con Meta. Vuelve a vincular tu número.
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -277,7 +288,7 @@ const WaHero = ({
               className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold transition shadow-sm whitespace-nowrap"
             >
               <i className="bx bx-rocket text-sm" />
-              Conectar
+              {reconectar ? "Reconectar" : "Conectar"}
             </button>
             <button
               type="button"
@@ -1559,6 +1570,10 @@ const Conexiones = () => {
                   // de Meta. Fallback por si la respuesta aún no lo trae.
                   const yaVinculado =
                     Number(config?.ya_vinculado) === 1 || conectado;
+                  // Vinculada alguna vez pero hoy Meta no la da por
+                  // CONNECTED: la tarjeta pide reconectar en vez de
+                  // "Pendiente", que sugiere que nunca se conectó.
+                  const desconectada = yaVinculado && !conectado;
                   const pagoActivo = Number(config.metodo_pago) === 1;
                   /* openai_activo=0: el motor detectó falta de saldo en la
                      cuenta de OpenAI del cliente y el asistente está en
@@ -1631,16 +1646,30 @@ const Conexiones = () => {
                             {pill(
                               conectado
                                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                : "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+                                : desconectada
+                                  ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                                  : "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
                               <>
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full ${conectado ? "bg-emerald-500" : "bg-slate-400"}`}
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    conectado
+                                      ? "bg-emerald-500"
+                                      : desconectada
+                                        ? "bg-rose-500"
+                                        : "bg-slate-400"
+                                  }`}
                                 />
-                                {conectado ? "Conectado" : "Pendiente"}
+                                {conectado
+                                  ? "Conectado"
+                                  : desconectada
+                                    ? "Desconectado"
+                                    : "Pendiente"}
                               </>,
                               conectado
                                 ? "WhatsApp vinculado y funcionando"
-                                : "Aún falta vincular WhatsApp en esta conexión",
+                                : desconectada
+                                  ? "Meta ya no reporta este número como conectado a Imporchat. Vuelve a vincularlo con el botón Reconectar."
+                                  : "Aún falta vincular WhatsApp en esta conexión",
                             )}
                             {/* Estado real de los servicios de ESTA conexión:
                                 un solo sello verde cuando todo funciona; si
@@ -1797,6 +1826,7 @@ const Conexiones = () => {
                       <div onClick={(e) => e.stopPropagation()}>
                       <WaHero
                         conectado={conectado}
+                        reconectar={desconectada}
                         yaSincronizo={yaSincronizo}
                         telefono={config.telefono}
                         onConectarApi={() =>

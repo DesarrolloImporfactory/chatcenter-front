@@ -38,6 +38,19 @@ const PASOS = [
 // plantilla (mismo tope que MAX_CREATIVOS en el backend); la UI recomienda
 // 3-6 activos para que la fase de aprendizaje no se fragmente.
 const MAX_IMAGENES = 10;
+// Subidas simultáneas al seleccionar varios archivos: más rápido que una por
+// una sin saturar la conexión del cliente.
+const SUBIDAS_PARALELAS = 2;
+// Límites del backend (multer en meta_ads.routes.js): se validan aquí antes
+// de subir para avisar al instante y con el nombre del archivo.
+const MAX_VIDEO_MB = 300;
+const MAX_IMAGEN_MB = 8;
+// A partir de este peso se sugiere comprimir (no bloquea): sube más lento y
+// Meta lo recomprime igual.
+const AVISO_VIDEO_MB = 60;
+// Zonas incluidas/excluidas por plantilla (mismo tope que MAX_ZONAS del back;
+// Meta admite 200 regiones / 250 ciudades por conjunto).
+const MAX_ZONAS = 200;
 
 const PAISES_SUGERIDOS = [
   { code: "EC", label: "Ecuador", flag: "🇪🇨" },
@@ -58,6 +71,49 @@ const PRESETS_EDAD = [
 ];
 
 const GENERO_LABEL = { all: "Todos", male: "Hombres", female: "Mujeres" };
+
+const paisLabel = (code) =>
+  PAISES_SUGERIDOS.find((p) => p.code === code)?.label || code;
+
+const normalizarTexto = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+/* Botón pequeño de herramienta (fila de carga rápida de zonas). */
+const toolBtnCls = (activo) =>
+  `inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold ring-1 transition ${
+    activo
+      ? "bg-rose-600 text-white ring-rose-600"
+      : "bg-white text-slate-600 ring-slate-200 hover:ring-rose-300 hover:text-rose-700"
+  }`;
+
+/* Nombres de zonas a partir de lo que el cliente escribe, pega (Excel,
+   WhatsApp, un documento) o sube (.txt/.csv). La regla visible es "una por
+   renglón"; por debajo también se aceptan separadores de coma/punto y coma
+   cuando todo viene en un solo renglón o la línea trae varias comas (CSV).
+   Una línea con UNA sola coma se respeta entera ("Monterrey, Nuevo León"). */
+const nombresDesdeTexto = (texto) => {
+  const lineas = String(texto || "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const out = [];
+  for (const l of lineas) {
+    const comas = (l.match(/[;,\t]/g) || []).length;
+    const partes = comas >= 2 || (lineas.length === 1 && comas >= 1)
+      ? l.split(/[;,\t]/)
+      : [l];
+    for (const p of partes) {
+      const s = p.replace(/^["']+|["']+$/g, "").trim();
+      if (s) out.push(s);
+    }
+  }
+  return [...new Set(out)];
+};
 
 const swalWarn = (text) =>
   Swal.fire({
@@ -140,11 +196,24 @@ export const AdPreview = ({
             onClick={() => clicable && onVerMedia(imagen)}
             title={clicable ? "Ver en grande" : undefined}
           >
-            {imagen?.url ? (
+            {imagen?.tipo === "video" && imagen?.local_url ? (
+              // Video recién cargado: se muestra el archivo del cliente, no la
+              // miniatura provisional (gris) que Meta da mientras lo procesa.
+              <video
+                src={imagen.local_url}
+                muted
+                playsInline
+                preload="metadata"
+                className="w-full aspect-square object-cover bg-slate-800"
+              />
+            ) : imagen?.url ? (
               <img
                 src={imagen.url}
                 alt="Creativo"
-                className="w-full aspect-square object-cover"
+                className="w-full aspect-square object-cover bg-slate-800"
+                onError={(e) => {
+                  e.currentTarget.style.visibility = "hidden";
+                }}
               />
             ) : imagen?.tipo === "video" ? (
               <div className="w-full aspect-square bg-slate-800 grid place-items-center text-white/70">
@@ -198,11 +267,22 @@ export const AdPreview = ({
                   }`}
                   title={`Variación ${i + 1}`}
                 >
-                  {img.url ? (
+                  {img.tipo === "video" && img.local_url ? (
+                    <video
+                      src={img.local_url}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-cover bg-slate-800"
+                    />
+                  ) : img.url ? (
                     <img
                       src={img.url}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover bg-slate-800"
+                      onError={(e) => {
+                        e.currentTarget.style.visibility = "hidden";
+                      }}
                     />
                   ) : (
                     <span className="w-full h-full bg-slate-800 grid place-items-center text-white/70">
@@ -296,6 +376,7 @@ const LauncherWizardModal = ({
   contexto,
   currency = "USD",
   plantilla = null,
+  plantillas = [],
   onClose,
 }) => {
   const paginas = contexto?.paginas || [];
@@ -303,8 +384,12 @@ const LauncherWizardModal = ({
 
   const [step, setStep] = useState(1);
   const [guardando, setGuardando] = useState(false);
-  const [subiendoImg, setSubiendoImg] = useState(false);
+  // Subidas en curso: se pueden elegir varios archivos a la vez; cada uno
+  // muestra su progreso en la cuadrícula y al terminar pasa a form.imagenes.
+  const [subidas, setSubidas] = useState([]); // [{uid,nombre,tipo,pct,local_url,error,file}]
+  const subiendoImg = subidas.some((s) => !s.error);
   const fileRef = useRef(null);
+  const listaFileRef = useRef(null);
   const bodyRef = useRef(null);
 
   const [form, setForm] = useState(() => {
@@ -357,7 +442,9 @@ const LauncherWizardModal = ({
         plantilla?.mensaje_bienvenida ||
         "Hola 👋 vi su anuncio y quiero más información",
       imagenes,
-      estado_inicial: plantilla?.estado_inicial || "PAUSED",
+      // Por defecto la campaña nace ACTIVA: el cliente llega aquí para
+      // lanzar, no para revisar en el Ads Manager; puede cambiarlo aquí.
+      estado_inicial: plantilla?.estado_inicial || "ACTIVE",
       // Programación: '' = lanzar de inmediato; 'YYYY-MM-DDTHH:mm' = el
       // conjunto arranca a esa hora (hora local de la cuenta publicitaria).
       inicio_at: (() => {
@@ -530,6 +617,288 @@ const LauncherWizardModal = ({
   const quitarExcluir = (key) =>
     setGeo({ excluir: form.geo.excluir.filter((l) => l.key !== key) });
 
+  /* Agrega varias zonas excluidas de golpe (lista pegada, archivo, lista
+     guardada o copia de otra plantilla). Salta las ya incluidas/excluidas.
+     Devuelve cuántas entraron de verdad. */
+  const agregarExcluirVarias = (lista) => {
+    const incluidas = new Set(form.geo.lugares.map((x) => x.key));
+    const yaEstan = new Set(form.geo.excluir.map((x) => x.key));
+    const nuevas = [];
+    for (const l of lista || []) {
+      if (!l?.key || incluidas.has(l.key) || yaEstan.has(l.key)) continue;
+      yaEstan.add(l.key);
+      nuevas.push({
+        key: String(l.key),
+        name: l.name,
+        type: l.type,
+        country_code: l.country_code || null,
+      });
+    }
+    if (!nuevas.length) return 0;
+    setGeo({ excluir: [...form.geo.excluir, ...nuevas].slice(0, MAX_ZONAS) });
+    return nuevas.length;
+  };
+
+  // ── Carga rápida de exclusiones ──
+  // México excluye decenas de zonas sin cobertura: buscarlas una por una en
+  // cada plantilla nueva era lo que más demoraba. Tres atajos: pegar una
+  // lista (o subir .txt/.csv) que el backend resuelve contra Meta en lote,
+  // listas guardadas reutilizables, y copiar las de la última plantilla.
+  const [excluirMasivoOpen, setExcluirMasivoOpen] = useState(false);
+  const [excluirTexto, setExcluirTexto] = useState("");
+  const [excluirResolviendo, setExcluirResolviendo] = useState(false);
+  // Resultado de la búsqueda en lote, para que el cliente REVISE qué se va
+  // a excluir antes de aplicarlo:
+  // { encontrados: [{...zona, consulta, marcada, repetida}],
+  //   ambiguas: [{consulta, opciones[], elegida}], noEncontradas: [consulta] }
+  const [excluirRevision, setExcluirRevision] = useState(null);
+  const [geoListas, setGeoListas] = useState([]);
+  const zonasDetectadas = useMemo(
+    () => nombresDesdeTexto(excluirTexto),
+    [excluirTexto],
+  );
+
+  const cerrarMasivo = () => {
+    setExcluirMasivoOpen(false);
+    setExcluirRevision(null);
+  };
+
+  const toastZonas = (title) =>
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: "success",
+      title,
+      showConfirmButton: false,
+      timer: 2500,
+    });
+
+  /* Busca la lista en Meta y deja el resultado en revisión (no excluye
+     todavía): el cliente ve qué se encontró, elige entre homónimas y
+     corrige lo que no apareció. */
+  const resolverZonas = async (nombres) => {
+    if (!nombres.length) {
+      swalWarn("Escribe al menos una zona (un estado, provincia o ciudad).");
+      return;
+    }
+    if (nombres.length > 250) {
+      swalWarn("Máximo 250 zonas por lista.");
+      return;
+    }
+    setExcluirResolviendo(true);
+    try {
+      const { data } = await chatApi.post(
+        "/meta_ads/launcher/geo/resolver",
+        { id_configuracion, pais: paisExcluir, nombres },
+        { silentError: true, timeout: 120000 },
+      );
+      if (!data?.success) {
+        throw new Error(data?.message || "No se pudo buscar la lista.");
+      }
+      const yaKeys = new Set(
+        [...form.geo.excluir, ...form.geo.lugares].map((x) => String(x.key)),
+      );
+      const encontrados = (data.data.encontrados || []).map((z) => {
+        const repetida = yaKeys.has(String(z.key));
+        return { ...z, marcada: !repetida, repetida };
+      });
+      const ambiguas = [];
+      const noEncontradas = [];
+      for (const n of data.data.no_encontrados || []) {
+        if (n.sugerencias?.length) {
+          ambiguas.push({
+            consulta: n.consulta,
+            opciones: n.sugerencias,
+            elegida: null,
+          });
+        } else {
+          noEncontradas.push(n.consulta);
+        }
+      }
+      setExcluirRevision({ encontrados, ambiguas, noEncontradas });
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo buscar la lista",
+        text: err?.response?.data?.message || err?.message || "Inténtalo de nuevo.",
+        customClass: { popup: "rounded-2xl" },
+      });
+    } finally {
+      setExcluirResolviendo(false);
+    }
+  };
+
+  const totalAplicar = excluirRevision
+    ? excluirRevision.encontrados.filter((z) => z.marcada).length +
+      excluirRevision.ambiguas.filter((a) => a.elegida).length
+    : 0;
+
+  const aplicarRevision = () => {
+    if (!excluirRevision) return;
+    const zonas = [
+      ...excluirRevision.encontrados.filter((z) => z.marcada),
+      ...excluirRevision.ambiguas.map((a) => a.elegida).filter(Boolean),
+    ];
+    const n = agregarExcluirVarias(zonas);
+    cerrarMasivo();
+    setExcluirTexto("");
+    toastZonas(`${n} zona${n === 1 ? "" : "s"} excluida${n === 1 ? "" : "s"}`);
+  };
+
+  const marcarEncontrada = (key, marcada) =>
+    setExcluirRevision((r) => ({
+      ...r,
+      encontrados: r.encontrados.map((z) =>
+        z.key === key ? { ...z, marcada } : z,
+      ),
+    }));
+
+  const elegirAmbigua = (consulta, opcion) =>
+    setExcluirRevision((r) => ({
+      ...r,
+      ambiguas: r.ambiguas.map((a) =>
+        a.consulta === consulta ? { ...a, elegida: opcion } : a,
+      ),
+    }));
+
+  // "Corregir": vuelve al editor solo con los nombres que no aparecieron.
+  const corregirNoEncontradas = () => {
+    setExcluirTexto((excluirRevision?.noEncontradas || []).join("\n"));
+    setExcluirRevision(null);
+  };
+
+  const handleArchivoZonas = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const nombres = nombresDesdeTexto(String(reader.result || ""));
+      setExcluirTexto(nombres.join("\n"));
+      setExcluirRevision(null);
+      setExcluirMasivoOpen(true);
+      if (nombres.length) resolverZonas(nombres);
+    };
+    reader.readAsText(file);
+  };
+
+  const cargarGeoListas = useCallback(async () => {
+    try {
+      const { data } = await chatApi.get("/meta_ads/launcher/geo/listas", {
+        params: { id_configuracion, pais: paisExcluir },
+        silentError: true,
+      });
+      setGeoListas(data?.success ? data.data || [] : []);
+    } catch {
+      setGeoListas([]);
+    }
+  }, [id_configuracion, paisExcluir]);
+
+  useEffect(() => {
+    if (step === 2) cargarGeoListas();
+  }, [step, cargarGeoListas]);
+
+  const aplicarGeoLista = (id) => {
+    const lista = geoListas.find((l) => String(l.id) === String(id));
+    if (!lista) return;
+    const n = agregarExcluirVarias(lista.lugares);
+    toastZonas(
+      n
+        ? `${n} zona${n === 1 ? "" : "s"} de «${lista.nombre}» excluida${n === 1 ? "" : "s"}`
+        : `Las zonas de «${lista.nombre}» ya estaban excluidas`,
+    );
+  };
+
+  const guardarComoLista = async () => {
+    if (!form.geo.excluir.length) return;
+    const { value: nombre } = await Swal.fire({
+      title: "Guardar zonas como lista",
+      text: `Se guardarán ${form.geo.excluir.length} zonas de ${paisLabel(paisExcluir)} para reutilizarlas en otras plantillas.`,
+      input: "text",
+      inputPlaceholder: "Ej: Zonas sin cobertura",
+      inputValidator: (v) => (!String(v || "").trim() ? "Escribe un nombre" : null),
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+      customClass: { popup: "rounded-2xl" },
+    });
+    if (!nombre) return;
+    try {
+      const { data } = await chatApi.post(
+        "/meta_ads/launcher/geo/listas/guardar",
+        {
+          id_configuracion,
+          nombre: String(nombre).trim(),
+          pais: paisExcluir,
+          lugares: form.geo.excluir,
+        },
+        { silentError: true },
+      );
+      if (!data?.success) throw new Error(data?.message);
+      await cargarGeoListas();
+      toastZonas(`Lista «${String(nombre).trim()}» guardada`);
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo guardar la lista",
+        text: err?.response?.data?.message || err?.message || "Inténtalo de nuevo.",
+        customClass: { popup: "rounded-2xl" },
+      });
+    }
+  };
+
+  const eliminarGeoLista = async () => {
+    const propias = geoListas.filter((l) => !l.global);
+    if (!propias.length) return;
+    const { value: id } = await Swal.fire({
+      title: "Eliminar una lista guardada",
+      input: "select",
+      inputOptions: Object.fromEntries(
+        propias.map((l) => [l.id, `${l.nombre} (${l.lugares.length})`]),
+      ),
+      inputPlaceholder: "Elige la lista",
+      showCancelButton: true,
+      confirmButtonText: "Eliminar",
+      confirmButtonColor: "#e11d48",
+      cancelButtonText: "Cancelar",
+      customClass: { popup: "rounded-2xl" },
+    });
+    if (!id) return;
+    try {
+      await chatApi.post(
+        "/meta_ads/launcher/geo/listas/eliminar",
+        { id: Number(id), id_configuracion },
+        { silentError: true },
+      );
+      await cargarGeoListas();
+    } catch {
+      /* la lista sigue visible; el usuario puede reintentar */
+    }
+  };
+
+  // Última plantilla del mismo país con zonas excluidas: se ofrece copiarlas
+  // con un click cuando esta plantilla aún no tiene ninguna.
+  const sugerenciaExcluir = useMemo(() => {
+    if (form.geo.excluir.length) return null;
+    for (const p of plantillas || []) {
+      if (p.id === form.id) continue;
+      let g = null;
+      try {
+        g = p.geo_json ? JSON.parse(p.geo_json) : null;
+      } catch {
+        g = null;
+      }
+      const ex = Array.isArray(g?.excluir) ? g.excluir : [];
+      if (!ex.length) continue;
+      const paisesP = Array.isArray(g?.paises)
+        ? g.paises
+        : String(p.paises || "").split(",");
+      if (!paisesP.includes(paisExcluir)) continue;
+      return { nombre: p.nombre, excluir: ex };
+    }
+    return null;
+  }, [plantillas, form.id, form.geo.excluir.length, paisExcluir]);
+
   const togglePais = (code) => {
     const quitando = form.geo.paises.includes(code);
     setGeo({
@@ -589,82 +958,235 @@ const LauncherWizardModal = ({
     irA(step + 1);
   };
 
-  const handleImagen = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-    if (form.imagenes.length >= MAX_IMAGENES) {
-      swalWarn(`Máximo ${MAX_IMAGENES} creativos por plantilla.`);
-      return;
-    }
-    const esVideo = String(file.type).startsWith("video/");
-    setSubiendoImg(true);
-    // Preview local inmediato: la imagen se muestra tal cual; el video se
-    // guarda como ObjectURL para reproducirlo en la vista previa sin
-    // esperar a que Meta lo procese (la miniatura de Meta llega después).
-    const previewLocal = URL.createObjectURL(file);
+  /* Sube UN archivo a la cuenta publicitaria y, al terminar, lo pasa de la
+     cola `subidas` a form.imagenes. El progreso se pinta en su tarjeta. */
+  const subirUno = async (s) => {
+    const fd = new FormData();
+    fd.append("archivo", s.file);
+    fd.append("id_configuracion", id_configuracion);
     try {
-      const fd = new FormData();
-      fd.append("archivo", file);
-      fd.append("id_configuracion", id_configuracion);
       const { data } = await chatApi.post(
         "/meta_ads/launcher/subir-media",
         fd,
         {
           headers: { "Content-Type": "multipart/form-data" },
           silentError: true,
-          timeout: 180000,
+          // Hasta 300 MB por video en conexiones lentas: 30 min de margen.
+          timeout: 1800000,
+          onUploadProgress: (ev) => {
+            const pct = ev.total
+              ? Math.min(99, Math.round((ev.loaded * 100) / ev.total))
+              : 0;
+            setSubidas((arr) =>
+              arr.map((x) => (x.uid === s.uid ? { ...x, pct } : x)),
+            );
+          },
         },
       );
-      if (data?.success) {
-        const d = data.data;
-        const item =
-          d.tipo === "video"
-            ? {
-                tipo: "video",
-                video_id: d.video_id,
-                thumb_url: d.thumb_url || null,
-                url: d.url || d.thumb_url || null,
-                local_url: previewLocal,
-              }
-            : {
-                tipo: "imagen",
-                hash: d.hash,
-                url: d.url || previewLocal,
-              };
-        setForm((f) => ({ ...f, imagenes: [...f.imagenes, item] }));
-        // Meta procesa el video en segundo plano: si la miniatura aún no
-        // existía al subirlo, se vuelve a pedir unas veces hasta tenerla.
-        if (item.tipo === "video" && !item.thumb_url) {
-          reintentarMiniatura(item.video_id);
-        }
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Meta rechazó el archivo",
-          text: data?.message || "Inténtalo con otro archivo (JPG/PNG/MP4).",
-          customClass: { popup: "rounded-2xl" },
-        });
+      if (!data?.success) {
+        throw new Error(
+          data?.message || "Meta rechazó el archivo (JPG/PNG/MP4).",
+        );
+      }
+      const d = data.data;
+      // Preview local inmediato: la imagen se muestra tal cual; el video se
+      // reproduce desde el ObjectURL sin esperar a que Meta lo procese (la
+      // miniatura de Meta llega después).
+      const item =
+        d.tipo === "video"
+          ? {
+              tipo: "video",
+              video_id: d.video_id,
+              thumb_url: d.thumb_url || null,
+              url: d.url || d.thumb_url || null,
+              local_url: s.local_url,
+            }
+          : {
+              tipo: "imagen",
+              hash: d.hash,
+              url: d.url || s.local_url,
+            };
+      setForm((f) =>
+        f.imagenes.length >= MAX_IMAGENES
+          ? f
+          : { ...f, imagenes: [...f.imagenes, item] },
+      );
+      setSubidas((arr) => arr.filter((x) => x.uid !== s.uid));
+      // Meta procesa el video en segundo plano: si la miniatura aún no
+      // existía al subirlo, se vuelve a pedir unas veces hasta tenerla.
+      if (item.tipo === "video" && !item.thumb_url) {
+        reintentarMiniatura(item.video_id);
       }
     } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "No se pudo subir el archivo",
-        text: err?.response?.data?.message || "Inténtalo de nuevo.",
-        customClass: { popup: "rounded-2xl" },
-      });
-    } finally {
-      setSubiendoImg(false);
+      // 413/504 llegan del proxy (nginx) con HTML, no con nuestro JSON: se
+      // traducen a algo que el cliente entienda.
+      const status = err?.response?.status;
+      const msg =
+        err?.response?.data?.message ||
+        (status === 413
+          ? "El servidor rechazó el archivo por su tamaño. Prueba con un video más liviano (exporta en 1080p con menos calidad) o avísanos para revisarlo."
+          : status === 504 || status === 502
+            ? "El servidor tardó demasiado en confirmar la subida. Espera un momento y vuelve a intentar; si el video ya aparece en tu cuenta de Meta, no lo vuelvas a subir."
+            : err?.code === "ECONNABORTED"
+              ? "Se agotó el tiempo de subida. Reintenta o usa un archivo más liviano."
+              : err?.message) ||
+        "No se pudo subir.";
+      setSubidas((arr) =>
+        arr.map((x) => (x.uid === s.uid ? { ...x, error: msg, pct: 0 } : x)),
+      );
     }
   };
 
-  const reintentarMiniatura = (video_id, intentos = 6) => {
+  /* Selección múltiple: encola todos los archivos y los sube de a
+     SUBIDAS_PARALELAS. Respeta el tope de creativos de la plantilla. */
+  const handleArchivos = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    const enCola = subidas.filter((s) => !s.error).length;
+    const libres = MAX_IMAGENES - form.imagenes.length - enCola;
+    if (libres <= 0) {
+      swalWarn(`Máximo ${MAX_IMAGENES} creativos por plantilla.`);
+      return;
+    }
+    const aceptados = files.slice(0, libres);
+    if (files.length > libres) {
+      swalWarn(
+        `Solo caben ${libres} creativo${libres > 1 ? "s" : ""} más (máximo ${MAX_IMAGENES}); se tomaron los primeros ${libres}.`,
+      );
+    }
+    const nuevas = aceptados.map((file) => {
+      const esVideo = String(file.type).startsWith("video/");
+      const mb = file.size / (1024 * 1024);
+      const maxMb = esVideo ? MAX_VIDEO_MB : MAX_IMAGEN_MB;
+      // El peso se valida ANTES de subir: el aviso sale al instante y con el
+      // nombre del archivo, en vez de esperar a que el servidor lo rechace.
+      const error =
+        mb > maxMb
+          ? `Pesa ${mb.toFixed(0)} MB y el máximo es ${maxMb} MB. ${
+              esVideo
+                ? "Exporta el video en 1080p con menos calidad o recórtalo: un anuncio de 15-30 s debería pesar 10-20 MB."
+                : "Guarda la imagen en JPG con menos calidad."
+            }`
+          : null;
+      return {
+        uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        nombre: file.name,
+        tipo: esVideo ? "video" : "imagen",
+        pct: 0,
+        local_url: URL.createObjectURL(file),
+        error,
+        pesado: esVideo && !error && mb > AVISO_VIDEO_MB,
+        mb,
+        file,
+      };
+    });
+    setSubidas((arr) => [...arr, ...nuevas]);
+    // Videos pesados: se suben igual, solo se avisa una vez que tardarán.
+    const pesados = nuevas.filter((s) => s.pesado);
+    if (pesados.length) {
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "info",
+        title: `${pesados.length} video${pesados.length > 1 ? "s" : ""} de más de ${AVISO_VIDEO_MB} MB`,
+        text: "Se subirán completos, pero tardarán más. Si puedes, exporta en 1080p con menos calidad.",
+        showConfirmButton: false,
+        timer: 6000,
+      });
+    }
+    const pendientes = nuevas.filter((s) => !s.error);
+    let i = 0;
+    const worker = async () => {
+      while (i < pendientes.length) {
+        const s = pendientes[i++];
+        await subirUno(s);
+      }
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(SUBIDAS_PARALELAS, pendientes.length) },
+        worker,
+      ),
+    );
+  };
+
+  // "Lanzar al terminar la subida": con 8 videos el cliente no tiene que
+  // quedarse mirando la barra; deja el clic dado y el lanzamiento se
+  // dispara solo cuando el último archivo termina (la pestaña debe seguir
+  // abierta: los archivos viven en el navegador hasta que suben).
+  const [lanzarAlTerminar, setLanzarAlTerminar] = useState(false);
+  useEffect(() => {
+    if (!lanzarAlTerminar || subiendoImg || guardando) return;
+    setLanzarAlTerminar(false);
+    if (subidas.some((s) => s.error)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Algunos archivos no se cargaron",
+        text: "La campaña no se lanzó. Revisa los archivos marcados en rojo en el paso 3 (reintentar o quitar) y vuelve a pulsar Guardar y lanzar.",
+        confirmButtonText: "Entendido",
+        customClass: { popup: "rounded-2xl" },
+      });
+      return;
+    }
+    guardar({ lanzarDespues: true });
+  }, [lanzarAlTerminar, subiendoImg, guardando, subidas]);
+
+  // Al dejar el lanzamiento en espera se guarda la plantilla de inmediato
+  // (con los creativos que ya subieron) para que, si cierra la pestaña, no
+  // pierda el trabajo: solo le faltarán los archivos que no alcanzaron.
+  const programarLanzamiento = async () => {
+    if (!validarPaso(1) || !validarPaso(2)) return;
+    const { isConfirmed } = await Swal.fire({
+      icon: "info",
+      title: "La campaña se lanzará al finalizar la carga",
+      html: `Faltan <strong>${subidas.filter((s) => !s.error).length}</strong> archivo(s) por cargar. Cuando termine el último, la campaña se creará automáticamente en tu cuenta.<br/><br/>
+        <span style="color:#b91c1c;font-weight:700;">Mantén esta pestaña abierta.</span> Si la cierras, los archivos pendientes no se cargan y la campaña no se lanza; la plantilla queda guardada con lo que ya subió.`,
+      showCancelButton: true,
+      confirmButtonText: "Entendido, dejar en espera",
+      cancelButtonText: "Volver",
+      customClass: { popup: "rounded-2xl" },
+    });
+    if (!isConfirmed) return;
+    setLanzarAlTerminar(true);
+    guardar({ silencioso: true });
+  };
+
+  // Aviso nativo del navegador al intentar cerrar o recargar con cargas en
+  // curso o un lanzamiento en espera.
+  useEffect(() => {
+    if (!subiendoImg && !lanzarAlTerminar) return undefined;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [subiendoImg, lanzarAlTerminar]);
+
+  const reintentarSubida = (uid) => {
+    const s = subidas.find((x) => x.uid === uid);
+    if (!s) return;
+    setSubidas((arr) =>
+      arr.map((x) => (x.uid === uid ? { ...x, error: null, pct: 0 } : x)),
+    );
+    subirUno({ ...s, error: null, pct: 0 });
+  };
+
+  const quitarSubida = (uid) =>
+    setSubidas((arr) => arr.filter((x) => x.uid !== uid));
+
+  // La miniatura real solo existe cuando Meta terminó de procesar el video
+  // (status "ready"); antes devuelve un cuadro gris de relleno que hacía
+  // creer que el video se había dañado. Se pide cada 8 s hasta 3 minutos;
+  // mientras tanto la tarjeta muestra el propio video del cliente.
+  const reintentarMiniatura = (video_id, intentos = 22) => {
     let n = 0;
     const tick = async () => {
       n += 1;
       try {
         const info = await fetchVideoInfo(id_configuracion, video_id);
-        if (info?.picture) {
+        if (info?.picture && info?.status === "ready") {
           setForm((f) => ({
             ...f,
             imagenes: f.imagenes.map((img) =>
@@ -678,9 +1200,9 @@ const LauncherWizardModal = ({
       } catch {
         /* se reintenta */
       }
-      if (n < intentos) setTimeout(tick, 5000);
+      if (n < intentos) setTimeout(tick, 8000);
     };
-    setTimeout(tick, 5000);
+    setTimeout(tick, 8000);
   };
 
   const quitarImagen = (idx) => {
@@ -691,7 +1213,10 @@ const LauncherWizardModal = ({
     setPreviewIdx((i) => (i >= idx && i > 0 ? i - 1 : i));
   };
 
-  const guardar = async ({ lanzarDespues = false } = {}) => {
+  // silencioso: guarda sin toast ni cerrar el modal (respaldo mientras las
+  // cargas siguen); deja el id en el form para que el guardado final
+  // actualice la misma plantilla en vez de crear otra.
+  const guardar = async ({ lanzarDespues = false, silencioso = false } = {}) => {
     if (!validarPaso(1) || !validarPaso(2)) return null;
     if (lanzarDespues && !form.imagenes.length) {
       swalWarn(
@@ -738,6 +1263,11 @@ const LauncherWizardModal = ({
         return null;
       }
       const idGuardado = data.id || form.id;
+      if (idGuardado && !form.id) {
+        setForm((f) => ({ ...f, id: idGuardado }));
+      }
+
+      if (silencioso) return idGuardado;
 
       if (!lanzarDespues) {
         await Swal.fire({
@@ -752,21 +1282,53 @@ const LauncherWizardModal = ({
         return idGuardado;
       }
 
-      // Guardar y lanzar de una vez
-      const lanzo = await chatApi.post("/meta_ads/launcher/lanzar", {
-        id_configuracion,
-        id_plantilla: idGuardado,
-        estado: form.estado_inicial,
-      });
+      // Guardar y lanzar de una vez. El lanzamiento crea 1 anuncio por
+      // creativo y con 7-10 videos supera los 30 s del timeout global del
+      // axios: va con timeout propio y su propio manejo de error — la
+      // plantilla YA quedó guardada y no debe reportarse como "no se pudo
+      // guardar" (eso confundía: el error salía y la campaña sí se creaba).
+      let lanzo;
+      try {
+        lanzo = await chatApi.post(
+          "/meta_ads/launcher/lanzar",
+          {
+            id_configuracion,
+            id_plantilla: idGuardado,
+            estado: form.estado_inicial,
+          },
+          { timeout: 300000, silentError: true },
+        );
+      } catch (err) {
+        const seAgoto = err?.code === "ECONNABORTED";
+        await Swal.fire({
+          icon: seAgoto ? "info" : "error",
+          title: seAgoto
+            ? "La plantilla se guardó; Meta sigue procesando el lanzamiento"
+            : "La plantilla se guardó, pero el lanzamiento falló",
+          text: seAgoto
+            ? "En un minuto revisa el centro de campañas o la bitácora: ahí aparecerá la campaña creada o el error de Meta. No vuelvas a lanzar todavía para no duplicarla."
+            : err?.response?.data?.message ||
+              "Inténtalo de nuevo desde el botón Lanzar de la plantilla.",
+          confirmButtonText: "Entendido",
+          customClass: { popup: "rounded-2xl" },
+        });
+        onClose?.(true);
+        return idGuardado;
+      }
       if (lanzo.data?.success) {
         const nAds = lanzo.data.data.ads?.length || 1;
+        const wa = lanzo.data.data.whatsapp_numero;
         await Swal.fire({
           icon: "success",
           title:
             form.estado_inicial === "ACTIVE"
               ? "¡Campaña lanzada!"
               : "Campaña creada en pausa",
-          html: `Se ${nAds > 1 ? `crearon ${nAds} anuncios` : "creó 1 anuncio"} en tu cuenta.<br/>
+          html: `Se ${nAds > 1 ? `crearon ${nAds} anuncios` : "creó 1 anuncio"} en tu cuenta.${
+            wa
+              ? `<br/><span style="font-size:12px;color:#475569;">Los mensajes del anuncio llegarán a tu WhatsApp <strong>${wa}</strong>.</span>`
+              : ""
+          }<br/>
             <a href="${lanzo.data.data.ads_manager_url}" target="_blank" rel="noreferrer"
                style="color:#4f46e5;font-weight:600;">Verla en el Ads Manager →</a>`,
           confirmButtonText: "Listo",
@@ -825,7 +1387,7 @@ const LauncherWizardModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3">
-      <div className="w-full max-w-6xl h-[94vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
+      <div className="w-full max-w-7xl h-[94vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
         {/* HEADER */}
         <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1426] via-[#1a1040] to-[#4f46e5] text-white px-5 py-4 flex items-center justify-between">
           <div className="absolute -top-16 -right-16 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
@@ -1263,7 +1825,7 @@ const LauncherWizardModal = ({
                   </div>
 
                   {form.geo.modo === "paises" ? (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {PAISES_SUGERIDOS.map((p) => {
                         const activo = form.geo.paises.includes(p.code);
                         return (
@@ -1271,16 +1833,16 @@ const LauncherWizardModal = ({
                             key={p.code}
                             type="button"
                             onClick={() => togglePais(p.code)}
-                            className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition ${
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition ${
                               activo
                                 ? "bg-indigo-600 text-white border-indigo-600 shadow"
                                 : "bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300"
                             }`}
                           >
-                            <span className="text-xl leading-none">
+                            <span className="text-lg leading-none">
                               {p.flag}
                             </span>
-                            <span className="flex-1 text-xs font-bold">
+                            <span className="flex-1 text-[11px] font-bold truncate">
                               {p.label}
                             </span>
                             <i
@@ -1396,22 +1958,29 @@ const LauncherWizardModal = ({
 
                   {/* Zonas excluidas: aplica en los dos modos */}
                   <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50/40 p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[11px] font-bold text-slate-700">
-                        <i className="bx bx-minus-circle text-rose-500 mr-1" />
-                        Excluir zonas
-                        <span className="ml-1.5 text-[9px] font-semibold text-slate-400">
-                          opcional
-                        </span>
-                      </p>
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-700">
+                          <i className="bx bx-minus-circle text-rose-500 mr-1" />
+                          Zonas donde NO mostrar el anuncio
+                          <span className="ml-1.5 text-[9px] font-semibold text-slate-400">
+                            opcional
+                          </span>
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Donde tu transportadora no llega o devuelve mucho.
+                          Búscalas una por una o agrega tu lista completa de
+                          una vez.
+                        </p>
+                      </div>
                       {form.geo.excluir.length > 0 && (
-                        <span className="text-[9px] font-bold text-rose-600">
+                        <span className="shrink-0 px-2 py-1 rounded-full bg-rose-600 text-white text-[9px] font-bold">
                           {form.geo.excluir.length} excluida
                           {form.geo.excluir.length > 1 ? "s" : ""}
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {form.geo.modo === "paises" &&
                         form.geo.paises.length > 1 && (
                           <select
@@ -1427,7 +1996,7 @@ const LauncherWizardModal = ({
                             ))}
                           </select>
                         )}
-                      <div className="relative flex-1">
+                      <div className="relative flex-1 min-w-[200px]">
                         <i
                           className={`bx ${excluirBuscando ? "bx-loader-alt animate-spin" : "bx-search"} absolute left-3 top-1/2 -translate-y-1/2 text-slate-400`}
                         />
@@ -1435,10 +2004,79 @@ const LauncherWizardModal = ({
                           className={`${inputCls} pl-9`}
                           value={excluirQ}
                           onChange={(e) => setExcluirQ(e.target.value)}
-                          placeholder="Provincia o ciudad donde NO mostrar (ej: Galápagos...)"
+                          placeholder="Busca una zona (ej: Galápagos)"
                         />
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExcluirRevision(null);
+                          setExcluirMasivoOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-sm transition shrink-0"
+                        title="Escribe o pega tu lista completa de zonas"
+                      >
+                        <i className="bx bx-list-plus text-base" />
+                        Agregar varias de una vez
+                      </button>
                     </div>
+
+                    {/* Atajos: listas guardadas, copiar de otra plantilla,
+                        guardar las actuales */}
+                    {(geoListas.length > 0 ||
+                      sugerenciaExcluir ||
+                      form.geo.excluir.length > 0) && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                      {geoListas.length > 0 && (
+                        <select
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value === "__eliminar") eliminarGeoLista();
+                            else if (e.target.value) aplicarGeoLista(e.target.value);
+                          }}
+                        >
+                          <option value="">Usar lista guardada…</option>
+                          {geoListas.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.nombre} ({l.lugares.length})
+                              {l.global ? " · sugerida" : ""}
+                            </option>
+                          ))}
+                          {geoListas.some((l) => !l.global) && (
+                            <option value="__eliminar">Eliminar una lista…</option>
+                          )}
+                        </select>
+                      )}
+                      {form.geo.excluir.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={guardarComoLista}
+                          className={toolBtnCls(false)}
+                          title="Guarda estas zonas para reutilizarlas en otras plantillas"
+                        >
+                          <i className="bx bx-bookmark-plus" />
+                          Guardar como lista
+                        </button>
+                      )}
+                      {sugerenciaExcluir && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const n = agregarExcluirVarias(sugerenciaExcluir.excluir);
+                            toastZonas(`${n} zona${n === 1 ? "" : "s"} copiada${n === 1 ? "" : "s"}`);
+                          }}
+                          className={toolBtnCls(false)}
+                          title={`Copiar las zonas excluidas de "${sugerenciaExcluir.nombre}"`}
+                        >
+                          <i className="bx bx-copy" />
+                          Copiar de «{sugerenciaExcluir.nombre.slice(0, 26)}
+                          {sugerenciaExcluir.nombre.length > 26 ? "…" : ""}» (
+                          {sugerenciaExcluir.excluir.length})
+                        </button>
+                      )}
+                    </div>
+                    )}
                     {excluirQ.trim().length >= 2 && (
                       <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2.5">
                         {excluirResultados.length > 0 ? (
@@ -1471,7 +2109,16 @@ const LauncherWizardModal = ({
                       </div>
                     )}
                     {form.geo.excluir.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
+                      <div className="mt-2 flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+                        <button
+                          type="button"
+                          onClick={() => setGeo({ excluir: [] })}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white ring-1 ring-rose-200 text-rose-600 text-[11px] font-semibold hover:bg-rose-50"
+                          title="Volver a incluir todas las zonas"
+                        >
+                          <i className="bx bx-eraser" />
+                          Quitar todas ({form.geo.excluir.length})
+                        </button>
                         {form.geo.excluir.map((l) => (
                           <span
                             key={l.key}
@@ -1494,8 +2141,8 @@ const LauncherWizardModal = ({
                       </div>
                     ) : (
                       <p className="text-[10px] text-slate-400 mt-2">
-                        Ej: todo el país menos las zonas donde tu
-                        transportadora no llega o devuelve mucho.
+                        Todavía no excluyes ninguna zona: el anuncio se mostrará
+                        en todo el alcance elegido arriba.
                       </p>
                     )}
                   </div>
@@ -1560,9 +2207,10 @@ const LauncherWizardModal = ({
                     <input
                       ref={fileRef}
                       type="file"
+                      multiple
                       accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
                       className="hidden"
-                      onChange={handleImagen}
+                      onChange={handleArchivos}
                     />
                     <div className="grid grid-cols-3 gap-2">
                       {form.imagenes.map((img, idx) => (
@@ -1579,13 +2227,9 @@ const LauncherWizardModal = ({
                               : "Ver en grande"
                           }
                         >
-                          {img.url ? (
-                            <img
-                              src={img.url}
-                              alt={`Variación ${idx + 1}`}
-                              className="w-full aspect-square object-cover"
-                            />
-                          ) : img.local_url ? (
+                          {img.tipo === "video" && img.local_url ? (
+                            // Video recién subido: se muestra el propio archivo
+                            // del cliente (nunca la miniatura provisional de Meta).
                             <video
                               src={img.local_url}
                               muted
@@ -1593,12 +2237,23 @@ const LauncherWizardModal = ({
                               preload="metadata"
                               className="w-full aspect-square object-cover bg-slate-800"
                             />
+                          ) : img.url ? (
+                            <img
+                              src={img.url}
+                              alt={`Variación ${idx + 1}`}
+                              className="w-full aspect-square object-cover bg-slate-800"
+                              onError={(e) => {
+                                // Miniatura caducada o gris: se oculta y queda el
+                                // fondo con el ícono de reproducir.
+                                e.currentTarget.style.visibility = "hidden";
+                              }}
+                            />
                           ) : (
                             <div className="w-full aspect-square bg-slate-800 grid place-items-center text-white/70">
                               <div className="text-center">
-                                <i className="bx bx-loader-alt animate-spin text-2xl" />
+                                <i className="bx bx-video text-2xl" />
                                 <p className="text-[8px] mt-1 font-semibold">
-                                  Meta procesa el video
+                                  Video listo
                                 </p>
                               </div>
                             </div>
@@ -1627,40 +2282,154 @@ const LauncherWizardModal = ({
                           </button>
                         </div>
                       ))}
-                      {form.imagenes.length < MAX_IMAGENES && (
+                      {/* Subidas en curso: una tarjeta por archivo con su
+                          progreso; al terminar pasa a la lista de arriba */}
+                      {subidas.map((s) => (
                         <div
-                          onClick={() =>
-                            !subiendoImg && fileRef.current?.click()
-                          }
+                          key={s.uid}
+                          className={`relative rounded-xl overflow-hidden border ${
+                            s.error ? "border-rose-300" : "border-slate-200"
+                          } bg-slate-800`}
+                          title={s.nombre}
+                        >
+                          {s.tipo === "video" ? (
+                            <video
+                              src={s.local_url}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="w-full aspect-square object-cover opacity-50"
+                            />
+                          ) : (
+                            <img
+                              src={s.local_url}
+                              alt={s.nombre}
+                              className="w-full aspect-square object-cover opacity-50"
+                            />
+                          )}
+                          <div className="absolute inset-0 grid place-items-center text-white p-2">
+                            {s.error ? (
+                              // Solo el aviso corto: el detalle y las acciones
+                              // van en la lista bajo la cuadrícula, legibles.
+                              <div className="text-center">
+                                <i className="bx bx-error-circle text-2xl text-rose-300" />
+                                <p className="text-[9px] mt-1 font-bold">
+                                  No se subió
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => quitarSubida(s.uid)}
+                                  className="mt-1.5 px-2.5 py-1 rounded-md bg-white/90 text-slate-800 text-[9px] font-bold"
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-center w-full">
+                                <i className="bx bx-loader-alt animate-spin text-2xl" />
+                                <p className="text-[9px] mt-1 font-bold">
+                                  {s.pct >= 99 ? "Meta procesa…" : `${s.pct}%`}
+                                </p>
+                                <div className="mt-1.5 h-1 rounded-full bg-white/20 overflow-hidden">
+                                  <div
+                                    className="h-full bg-emerald-400 transition-all"
+                                    style={{ width: `${Math.max(3, s.pct)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {form.imagenes.length + subidas.length < MAX_IMAGENES && (
+                        <div
+                          onClick={() => fileRef.current?.click()}
                           className="rounded-xl border-2 border-dashed border-slate-200 hover:border-indigo-300 cursor-pointer transition aspect-square grid place-items-center text-slate-400"
                         >
-                          {subiendoImg ? (
-                            <div className="text-center">
-                              <i className="bx bx-loader-alt animate-spin text-2xl" />
-                              <p className="text-[9px] mt-1 font-semibold">
-                                Subiendo...
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="text-center">
-                              <i className="bx bx-plus text-2xl" />
-                              <p className="text-[9px] mt-1 font-semibold">
-                                {form.imagenes.length === 0
-                                  ? "Imagen o video"
-                                  : "Otra variación"}
-                              </p>
-                            </div>
-                          )}
+                          <div className="text-center">
+                            <i className="bx bx-plus text-2xl" />
+                            <p className="text-[9px] mt-1 font-semibold">
+                              {form.imagenes.length + subidas.length === 0
+                                ? "Imágenes o videos"
+                                : "Añadir más"}
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>
                     <p className="text-[10px] text-slate-400 mt-2">
-                      Imágenes 1080×1080 (máx 8 MB) o videos MP4 verticales
-                      (máx 64 MB). Hasta {MAX_IMAGENES} variaciones; probar
-                      3-6 ángulos distintos del producto es lo que mejor
-                      funciona. Toca un creativo para verlo en grande o
-                      reproducir el video.
+                      Puedes seleccionar <strong>varios archivos a la vez</strong>{" "}
+                      (se suben {SUBIDAS_PARALELAS} en paralelo). Imágenes
+                      1080×1080 (máx {MAX_IMAGEN_MB} MB) o videos MP4 verticales
+                      (máx {MAX_VIDEO_MB} MB; lo ideal, 10-20 MB).
+                      Hasta {MAX_IMAGENES} variaciones; probar 3-6 ángulos
+                      distintos del producto es lo que mejor funciona. Toca un
+                      creativo para verlo en grande o reproducir el video.
                     </p>
+                    {subidas.some((s) => s.error) && (
+                      <div className="mt-2 rounded-xl bg-rose-50 ring-1 ring-rose-100 p-3 space-y-2">
+                        <p className="text-[11px] font-bold text-rose-700">
+                          <i className="bx bx-error-circle mr-1" />
+                          {subidas.filter((s) => s.error).length === 1
+                            ? "Un archivo no se pudo subir"
+                            : `${subidas.filter((s) => s.error).length} archivos no se pudieron subir`}
+                        </p>
+                        {subidas
+                          .filter((s) => s.error)
+                          .map((s) => (
+                            <div
+                              key={s.uid}
+                              className="flex items-start gap-2 rounded-lg bg-white ring-1 ring-rose-100 p-2.5"
+                            >
+                              <i
+                                className={`bx ${s.tipo === "video" ? "bx-video" : "bx-image"} text-rose-400 mt-0.5`}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold text-slate-700 truncate">
+                                  {s.nombre}
+                                </p>
+                                <p className="text-[10px] text-slate-500 leading-snug">
+                                  {s.error}
+                                </p>
+                              </div>
+                              <div className="flex flex-col gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => reintentarSubida(s.uid)}
+                                  className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-700"
+                                >
+                                  Reintentar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => quitarSubida(s.uid)}
+                                  className="px-2.5 py-1 rounded-lg bg-white ring-1 ring-slate-200 text-slate-600 text-[10px] font-bold hover:bg-slate-50"
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                    {subiendoImg && (
+                      <div className="mt-2 rounded-xl bg-indigo-50 ring-1 ring-indigo-100 p-3 text-[10px] text-indigo-800 leading-relaxed">
+                        <p className="font-bold">
+                          <i className="bx bx-loader-alt animate-spin mr-1" />
+                          Subiendo {subidas.filter((s) => !s.error).length} archivo
+                          {subidas.filter((s) => !s.error).length > 1 ? "s" : ""}…
+                        </p>
+                        <p className="mt-0.5">
+                          Puedes seguir con los textos y pasar al paso 4: allí
+                          podrás dejar el lanzamiento en espera y se hará solo
+                          cuando termine la carga.{" "}
+                          <strong>
+                            Mantén esta pestaña abierta: si la cierras, la carga
+                            se cancela.
+                          </strong>
+                        </p>
+                      </div>
+                    )}
                   </Seccion>
                 </div>
 
@@ -1871,6 +2640,13 @@ const LauncherWizardModal = ({
                             "Vínculo anuncio → producto",
                             "la atribución del bot queda activa de una",
                           ],
+                          [
+                            "bxl-whatsapp",
+                            contexto?.whatsapp?.numero
+                              ? `Mensajes a ${contexto.whatsapp.numero}`
+                              : "Mensajes a tu WhatsApp conectado",
+                            "el número de esta cuenta va fijado en el anuncio; si Meta no lo acepta, no se crea nada",
+                          ],
                         ].map(([icon, t, d]) => (
                           <div key={t} className="flex items-start gap-2.5">
                             <div className="w-6 h-6 rounded-lg bg-emerald-50 grid place-items-center shrink-0 mt-0.5">
@@ -1926,16 +2702,16 @@ const LauncherWizardModal = ({
                       <div className="grid grid-cols-2 gap-2">
                         {[
                           {
+                            v: "ACTIVE",
+                            label: "Activa",
+                            desc: "Pasa revisión de Meta y arranca sola (recomendado)",
+                            icon: "bx-play-circle",
+                          },
+                          {
                             v: "PAUSED",
                             label: "En pausa",
                             desc: "Se crea apagada: no gasta hasta que la enciendas tú",
                             icon: "bx-pause-circle",
-                          },
-                          {
-                            v: "ACTIVE",
-                            label: "Activa",
-                            desc: "Pasa revisión de Meta y arranca sola",
-                            icon: "bx-play-circle",
                           },
                         ].map((o) => (
                           <button
@@ -2130,21 +2906,55 @@ const LauncherWizardModal = ({
               <>
                 <button
                   onClick={() => guardar()}
-                  disabled={guardando}
+                  disabled={guardando || subiendoImg}
+                  title={
+                    subiendoImg
+                      ? "Espera a que terminen de subir los creativos"
+                      : undefined
+                  }
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition disabled:opacity-60"
                 >
                   <i className="bx bx-save" />
                   Guardar plantilla
                 </button>
+                {subiendoImg && lanzarAlTerminar && (
+                  <button
+                    type="button"
+                    onClick={() => setLanzarAlTerminar(false)}
+                    className="text-[11px] font-semibold text-slate-400 hover:text-rose-600"
+                  >
+                    Cancelar
+                  </button>
+                )}
                 <button
-                  onClick={() => guardar({ lanzarDespues: true })}
-                  disabled={guardando}
+                  onClick={() => {
+                    if (subiendoImg) programarLanzamiento();
+                    else guardar({ lanzarDespues: true });
+                  }}
+                  disabled={guardando || (subiendoImg && lanzarAlTerminar)}
+                  title={
+                    subiendoImg
+                      ? "Los creativos siguen cargando: la campaña se lanzará automáticamente al finalizar"
+                      : undefined
+                  }
                   className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 shadow transition disabled:opacity-60"
                 >
                   {guardando ? (
                     <>
                       <i className="bx bx-loader-alt animate-spin" />
                       Procesando...
+                    </>
+                  ) : subiendoImg && lanzarAlTerminar ? (
+                    <>
+                      <i className="bx bx-loader-alt animate-spin" />
+                      Lanzamiento en espera · faltan{" "}
+                      {subidas.filter((s) => !s.error).length} archivo
+                      {subidas.filter((s) => !s.error).length > 1 ? "s" : ""}
+                    </>
+                  ) : subiendoImg ? (
+                    <>
+                      <i className="bx bx-rocket" />
+                      Lanzar al finalizar la carga
                     </>
                   ) : (
                     <>
@@ -2160,6 +2970,363 @@ const LauncherWizardModal = ({
       </div>
 
       {/* Reglas de optimización — modal sobre el wizard */}
+      {/* Archivo .txt/.csv con zonas (siempre montado: lo disparan botones
+          del paso 2 y del panel de carga masiva) */}
+      <input
+        ref={listaFileRef}
+        type="file"
+        accept=".txt,.csv,text/plain,text/csv"
+        className="hidden"
+        onChange={handleArchivoZonas}
+      />
+
+      {/* Panel de carga masiva de zonas excluidas: escribir/pegar → buscar
+          en Meta → revisar → excluir. Encima del wizard (z-60). */}
+      {excluirMasivoOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3">
+          <div className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
+            <div className="bg-[#171931] text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-500/30 grid place-items-center">
+                  <i className="bx bx-minus-circle" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold leading-tight">
+                    Agregar varias zonas para excluir
+                  </h3>
+                  <p className="text-[10px] text-white/60">
+                    {paisLabel(paisExcluir)} · el anuncio NO se mostrará en
+                    estas zonas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={cerrarMasivo}
+                className="w-8 h-8 rounded-lg hover:bg-white/10 grid place-items-center"
+                title="Cerrar"
+              >
+                <i className="bx bx-x text-xl" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {!excluirRevision ? (
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
+                  <div className="md:col-span-3 flex flex-col">
+                    <label className="text-xs font-bold text-slate-700 mb-1.5">
+                      Escribe o pega tus zonas,{" "}
+                      <span className="text-rose-600">una por renglón</span>
+                    </label>
+                    <textarea
+                      autoFocus
+                      className="flex-1 min-h-[260px] w-full rounded-xl border border-slate-200 px-3.5 py-3 text-sm text-slate-700 leading-7 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                      value={excluirTexto}
+                      onChange={(e) => setExcluirTexto(e.target.value)}
+                      placeholder={"Chiapas\nOaxaca\nGuerrero\nCancún"}
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-[11px] text-slate-500">
+                        {zonasDetectadas.length === 0 ? (
+                          "Aún no hay zonas escritas."
+                        ) : (
+                          <>
+                            <strong className="text-slate-700">
+                              {zonasDetectadas.length}
+                            </strong>{" "}
+                            zona{zonasDetectadas.length === 1 ? "" : "s"}{" "}
+                            detectada{zonasDetectadas.length === 1 ? "" : "s"}
+                          </>
+                        )}
+                      </p>
+                      {excluirTexto && (
+                        <button
+                          type="button"
+                          onClick={() => setExcluirTexto("")}
+                          className="text-[11px] font-semibold text-slate-400 hover:text-rose-600"
+                        >
+                          Borrar todo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-3">
+                    <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-3.5">
+                      <p className="text-[11px] font-bold text-slate-700 mb-2">
+                        <i className="bx bx-bulb text-amber-500 mr-1" />
+                        Así de fácil
+                      </p>
+                      <ol className="text-[11px] text-slate-600 space-y-1.5 list-decimal pl-4 leading-relaxed">
+                        <li>
+                          Escribe cada estado, provincia o ciudad y pulsa{" "}
+                          <strong>Enter</strong> para pasar al siguiente.
+                        </li>
+                        <li>
+                          ¿Ya tienes la lista en Excel, WhatsApp o un
+                          documento? Cópiala y pégala tal cual.
+                        </li>
+                        <li>
+                          Pulsa <strong>Buscar zonas</strong>: las ubicamos en
+                          Meta y te mostramos cuáles son antes de excluirlas.
+                        </li>
+                      </ol>
+                    </div>
+
+                    <div className="rounded-xl ring-1 ring-slate-200 p-3.5 space-y-2">
+                      <p className="text-[11px] font-bold text-slate-700">
+                        Otras formas de cargarlas
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => listaFileRef.current?.click()}
+                        className="w-full inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-700 bg-white ring-1 ring-slate-200 hover:ring-rose-300 hover:text-rose-700 transition"
+                      >
+                        <i className="bx bx-upload text-base text-slate-400" />
+                        Subir un archivo .txt o .csv
+                      </button>
+                      {geoListas.length > 0 && (
+                        <select
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                          value=""
+                          onChange={(e) => {
+                            if (!e.target.value) return;
+                            aplicarGeoLista(e.target.value);
+                            cerrarMasivo();
+                          }}
+                        >
+                          <option value="">Usar una lista guardada…</option>
+                          {geoListas.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.nombre} ({l.lugares.length} zonas)
+                              {l.global ? " · sugerida" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {sugerenciaExcluir && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const n = agregarExcluirVarias(sugerenciaExcluir.excluir);
+                            cerrarMasivo();
+                            toastZonas(`${n} zona${n === 1 ? "" : "s"} copiada${n === 1 ? "" : "s"}`);
+                          }}
+                          className="w-full inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-700 bg-white ring-1 ring-slate-200 hover:ring-rose-300 hover:text-rose-700 transition text-left"
+                        >
+                          <i className="bx bx-copy text-base text-slate-400 shrink-0" />
+                          <span className="min-w-0 truncate">
+                            Copiar las {sugerenciaExcluir.excluir.length} de «
+                            {sugerenciaExcluir.nombre}»
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {excluirRevision.encontrados.length > 0 && (
+                    <section>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold text-slate-700">
+                          <i className="bx bx-check-circle text-emerald-500 mr-1" />
+                          Encontradas ({excluirRevision.encontrados.length})
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const todas = excluirRevision.encontrados
+                              .filter((z) => !z.repetida)
+                              .every((z) => z.marcada);
+                            setExcluirRevision((r) => ({
+                              ...r,
+                              encontrados: r.encontrados.map((z) =>
+                                z.repetida ? z : { ...z, marcada: !todas },
+                              ),
+                            }));
+                          }}
+                          className="text-[11px] font-semibold text-indigo-600 hover:underline"
+                        >
+                          Marcar / desmarcar todas
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                        {excluirRevision.encontrados.map((z) => (
+                          <label
+                            key={z.key}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl ring-1 cursor-pointer transition ${
+                              z.repetida
+                                ? "bg-slate-50 ring-slate-100 text-slate-400"
+                                : z.marcada
+                                  ? "bg-rose-50 ring-rose-200"
+                                  : "bg-white ring-slate-200"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="accent-rose-600"
+                              disabled={z.repetida}
+                              checked={z.marcada}
+                              onChange={(e) => marcarEncontrada(z.key, e.target.checked)}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-[11px] font-bold text-slate-700 truncate">
+                                {z.name}
+                              </span>
+                              <span className="block text-[9px] text-slate-400">
+                                {z.type === "region" ? "Estado / provincia" : "Ciudad"}
+                                {z.repetida ? " · ya estaba en tu lista" : ""}
+                                {!z.repetida &&
+                                normalizarTexto(z.consulta) !== normalizarTexto(z.name)
+                                  ? ` · escribiste "${z.consulta}"`
+                                  : ""}
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {excluirRevision.ambiguas.length > 0 && (
+                    <section className="rounded-xl bg-amber-50 ring-1 ring-amber-100 p-3.5">
+                      <p className="text-xs font-bold text-amber-800 mb-1">
+                        <i className="bx bx-help-circle mr-1" />
+                        Hay varias zonas con este nombre: elige la correcta (
+                        {excluirRevision.ambiguas.length})
+                      </p>
+                      <p className="text-[10px] text-amber-700 mb-2.5">
+                        Si no eliges ninguna, esa zona no se excluye.
+                      </p>
+                      <div className="space-y-2.5">
+                        {excluirRevision.ambiguas.map((a) => (
+                          <div key={a.consulta} className="rounded-lg bg-white ring-1 ring-amber-100 p-2.5">
+                            <p className="text-[11px] font-bold text-slate-700 mb-1.5">
+                              {a.consulta}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {a.opciones.map((o) => (
+                                <button
+                                  key={o.key}
+                                  type="button"
+                                  onClick={() =>
+                                    elegirAmbigua(
+                                      a.consulta,
+                                      a.elegida?.key === o.key ? null : o,
+                                    )
+                                  }
+                                  className={`px-3 py-1.5 rounded-full text-[11px] font-semibold ring-1 transition ${
+                                    a.elegida?.key === o.key
+                                      ? "bg-rose-600 text-white ring-rose-600"
+                                      : "bg-white text-slate-600 ring-slate-200 hover:ring-rose-300"
+                                  }`}
+                                >
+                                  {o.name}
+                                  <span className="ml-1 opacity-70">
+                                    · {o.type === "region" ? "Estado" : "Ciudad"}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {excluirRevision.noEncontradas.length > 0 && (
+                    <section className="rounded-xl bg-rose-50 ring-1 ring-rose-100 p-3.5">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <p className="text-xs font-bold text-rose-800">
+                          <i className="bx bx-x-circle mr-1" />
+                          No encontramos estas ({excluirRevision.noEncontradas.length})
+                        </p>
+                        <button
+                          type="button"
+                          onClick={corregirNoEncontradas}
+                          className="text-[11px] font-semibold text-rose-700 hover:underline"
+                        >
+                          Corregir la escritura
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {excluirRevision.noEncontradas.map((n) => (
+                          <span
+                            key={n}
+                            className="px-2.5 py-1 rounded-full bg-white ring-1 ring-rose-200 text-[11px] text-rose-700 font-semibold"
+                          >
+                            {n}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-rose-600 mt-2">
+                        Revisa que el nombre esté bien escrito y que pertenezca
+                        a {paisLabel(paisExcluir)}. Puedes excluir las demás
+                        ahora y buscar estas después.
+                      </p>
+                    </section>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-slate-100 bg-white flex items-center justify-between gap-3 shrink-0">
+              {!excluirRevision ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={cerrarMasivo}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!zonasDetectadas.length || excluirResolviendo}
+                    onClick={() => resolverZonas(zonasDetectadas)}
+                    className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow transition disabled:opacity-50"
+                  >
+                    {excluirResolviendo ? (
+                      <>
+                        <i className="bx bx-loader-alt animate-spin" />
+                        Buscando en Meta…
+                      </>
+                    ) : (
+                      <>
+                        <i className="bx bx-search-alt" />
+                        Buscar {zonasDetectadas.length || ""} zona
+                        {zonasDetectadas.length === 1 ? "" : "s"}
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setExcluirRevision(null)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+                  >
+                    <i className="bx bx-arrow-back" />
+                    Editar la lista
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!totalAplicar}
+                    onClick={aplicarRevision}
+                    className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow transition disabled:opacity-50"
+                  >
+                    <i className="bx bx-minus-circle" />
+                    Excluir {totalAplicar} zona{totalAplicar === 1 ? "" : "s"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {reglasOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3">
           <div className="w-full max-w-5xl h-[92vh] flex flex-col rounded-2xl bg-slate-50 shadow-2xl overflow-hidden">

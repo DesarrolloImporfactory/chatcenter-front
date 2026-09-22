@@ -1458,6 +1458,7 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
           contexto={contexto}
           currency={currency}
           plantilla={wizard.plantilla}
+          plantillas={plantillas}
           onClose={(refrescar) => {
             setWizard(null);
             if (refrescar) fetchTodo();

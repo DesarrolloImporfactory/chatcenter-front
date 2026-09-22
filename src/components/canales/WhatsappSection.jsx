@@ -156,6 +156,15 @@ export default function WhatsappSection() {
       }
 
       const hint = data?.hint || "";
+      /* La WABA guardada ya no es accesible (el cliente migró el número a
+         otra WABA o nos quitó el acceso). El back ya marcó la conexión como
+         SIN_ACCESO: aquí se muestra la tarjeta "desconectado" con el enlace a
+         /conexiones, donde aparece el botón de reconectar. */
+      if (hint === "meta_sin_acceso") {
+        setHasNumbers(true);
+        setConnected(false);
+        return;
+      }
       if (hint === "meta_rate_limited") {
         if (!fetched) {
           try {
