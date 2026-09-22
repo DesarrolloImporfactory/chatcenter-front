@@ -3318,6 +3318,28 @@ const Chat = () => {
 
     socketRef.current.on("MESSAGE_STATUS_UPDATE", onMessageStatusUpdate);
 
+    // Precio que Meta confirmó para un mensaje ya en pantalla: llega un poco
+    // después del envío, por eso se actualiza en vivo como los ticks.
+    const onMessagePricingUpdate = ({
+      id_configuracion: cfg,
+      wamid,
+      precio_meta_tipo,
+      precio_meta_facturable,
+      fep_expira_at,
+    }) => {
+      if (String(cfg) !== String(id_configuracion)) return;
+
+      setMensajesOrdenados((prev) =>
+        prev.map((m) =>
+          m.id_wamid_mensaje === wamid
+            ? { ...m, precio_meta_tipo, precio_meta_facturable, fep_expira_at }
+            : m,
+        ),
+      );
+    };
+
+    socketRef.current.on("MESSAGE_PRICING_UPDATE", onMessagePricingUpdate);
+
     // ✅ NUEVO: el cliente editó o eliminó un mensaje que ya está en pantalla.
     // No llega un mensaje nuevo, se actualiza el que ya estaba, así que sin
     // esto el asesor tendría que recargar el chat para enterarse.
@@ -3364,6 +3386,7 @@ const Chat = () => {
     return () => {
       socketRef.current.off("UPDATE_CHAT", onUpdateChat);
       socketRef.current.off("MESSAGE_STATUS_UPDATE", onMessageStatusUpdate);
+      socketRef.current.off("MESSAGE_PRICING_UPDATE", onMessagePricingUpdate);
       socketRef.current.off("MESSAGE_UPDATED", onMessageUpdated);
     };
   }, [

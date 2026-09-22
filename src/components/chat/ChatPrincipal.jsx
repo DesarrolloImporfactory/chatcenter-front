@@ -1923,6 +1923,40 @@ const ChatPrincipal = ({
     );
   };
 
+  // Meta confirmó (status webhook) que el mensaje salió gratis por la ventana
+  // de 72 h que abre un clic en anuncio CTWA o en el botón de la página. Solo
+  // se marca con el dato de Meta, nunca por cálculo propio: si no llegó, no
+  // hay etiqueta.
+  const esGratisPorFep = (mensaje) =>
+    mensaje.rol_mensaje === 1 &&
+    selectedChat?.source === "wa" &&
+    mensaje.precio_meta_tipo === "free_entry_point" &&
+    Number(mensaje.precio_meta_facturable) === 0;
+
+  const PrecioMetaBadge = ({ mensaje }) => {
+    if (!esGratisPorFep(mensaje)) return null;
+
+    const vence = mensaje.fep_expira_at ? new Date(mensaje.fep_expira_at) : null;
+    const venceTexto =
+      vence && !Number.isNaN(vence.getTime())
+        ? ` La ventana vence el ${vence.toLocaleString("es-EC", {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}.`
+        : "";
+
+    return (
+      <span
+        className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full bg-white/80 text-emerald-700 ring-1 ring-emerald-600/25 px-1.5 py-0.5 text-[10px] font-semibold leading-none"
+        title={`Meta confirmó que este mensaje no tuvo costo: salió dentro de la ventana de 72 h que abre un anuncio de WhatsApp.${venceTexto}`}
+      >
+        <i className="bx bx-gift" aria-hidden="true" /> Sin costo · 72 h
+      </span>
+    );
+  };
+
   // ✅ NUEVO: Preview del mensaje al que responde el cliente
   const ReplyPreview = ({ contextWamid }) => {
     if (!contextWamid) return null;
@@ -2314,8 +2348,10 @@ const ChatPrincipal = ({
                           </div>
                         )}
 
+                        {(mensaje.responsable || esGratisPorFep(mensaje)) && (
+                          <div className="flex items-start gap-2 mb-1">
                         {mensaje.responsable && (
-                          <div className="text-[13px] font-bold text-gray-800 mb-1 leading-none flex flex-wrap items-center gap-1.5">
+                          <div className="min-w-0 text-[13px] font-bold text-gray-800 leading-none flex flex-wrap items-center gap-1.5">
                             <span>
                               Enviado por {prettyAgentName(mensaje.responsable)}:
                             </span>
@@ -2334,6 +2370,9 @@ const ChatPrincipal = ({
                                 <i className="bx bx-bolt-circle" /> sin IA
                               </span>
                             ) : null}
+                          </div>
+                        )}
+                            <PrecioMetaBadge mensaje={mensaje} />
                           </div>
                         )}
 
