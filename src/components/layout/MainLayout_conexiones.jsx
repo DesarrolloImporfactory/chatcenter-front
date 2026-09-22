@@ -8,6 +8,7 @@ import ModalPlanBlock from "./modales/ModalPlanBlock";
 import FloatingSupportChat from "./FloatingSupportChat";
 import { globalLogout } from "../../utils/globalLogout";
 import chatApi from "../../api/chatcenter";
+import WhatsAppCaptureModal from "../../pages/selectorHerramienta/modales/WhatsAppCaptureModal";
 
 // Rutas que siguen disponibles aunque el plan no esté activo: sin ellas el
 // usuario quedaría encerrado, sin forma de pagar ni de pedir ayuda.
@@ -136,6 +137,13 @@ function MainLayout({ children }) {
   // puede dejar el menú muerto, y el backend sigue siendo el que manda.
   const [planActivo, setPlanActivo] = useState(true);
 
+  /* WhatsApp personal del dueño (avisos del sistema). El modal que lo pide
+     vivía solo en /selector, pero el login manda directo a /conexiones, así
+     que cuentas enteras nunca lo registraron (p. ej. la 2682 desde julio) y
+     Mi Perfil decía "Sin registrar". Se pide aquí, en el layout de
+     /conexiones, y solo al administrador: es configuración de la cuenta. */
+  const [needsCapture, setNeedsCapture] = useState(false);
+
   useEffect(() => {
     // Los roles administrativos no tienen plan propio; no se les gatea nada.
     if (!userData || isSuperAdmin || isGestorClientes) return;
@@ -164,6 +172,9 @@ function MainLayout({ children }) {
             estado === "promo_usage");
 
         if (!cancelado) setPlanActivo(activo);
+        if (!cancelado && esAdministrador) {
+          setNeedsCapture(!!data?.user_flags?.needs_whatsapp_capture);
+        }
       } catch (e) {
         // Se deja el menú abierto a propósito.
         console.warn("[layout] no se pudo leer el plan:", e?.message);
@@ -173,7 +184,7 @@ function MainLayout({ children }) {
     return () => {
       cancelado = true;
     };
-  }, [userData, isSuperAdmin, isGestorClientes]);
+  }, [userData, isSuperAdmin, isGestorClientes, esAdministrador]);
 
   const conexionPath = isSuperAdmin
     ? "/administrador-conexiones"
@@ -312,8 +323,9 @@ function MainLayout({ children }) {
             />
 
             {/* Mi Perfil: datos del dueño de la cuenta + el WhatsApp
-                personal donde recibe los avisos del sistema */}
-            {!isGestorClientes && (
+                personal donde recibe los avisos del sistema. Solo el
+                administrador: un subusuario no configura eso. */}
+            {esAdministrador && (
               <NavBtn path="/mi-perfil" icon="bx-id-card" label="Mi Perfil" />
             )}
 
@@ -460,6 +472,13 @@ function MainLayout({ children }) {
 
       {/* Sin conexión elegida: modo general (tutoriales e integraciones) */}
       <FloatingSupportChat general />
+
+      {needsCapture && esAdministrador && userData?.id_usuario && (
+        <WhatsAppCaptureModal
+          id_usuario={userData.id_usuario}
+          onSuccess={() => setNeedsCapture(false)}
+        />
+      )}
     </div>
   );
 }
