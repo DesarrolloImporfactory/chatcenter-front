@@ -2021,10 +2021,14 @@ const Conexiones = () => {
               </div>
             )}
             </div>
-            {/* Columna derecha: Ranking Top tiendas (comparte espacio) */}
-            <aside className="w-full lg:w-[34%] xl:w-[31%] 2xl:w-[28%] lg:shrink-0 lg:sticky lg:top-6">
-              <RankingTiendas />
-            </aside>
+            {/* Columna derecha: Ranking Top tiendas (comparte espacio). No
+                para el asesor de ventas: le muestra el total vendido y la
+                posición de su administrador frente a las demás tiendas. */}
+            {!rolVentas && (
+              <aside className="w-full lg:w-[34%] xl:w-[31%] 2xl:w-[28%] lg:shrink-0 lg:sticky lg:top-6">
+                <RankingTiendas />
+              </aside>
+            )}
           </div>
         </div>
 

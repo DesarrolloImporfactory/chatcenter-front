@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import { esAdministrador } from "../../utils/rolActual";
 
 /**
  * MiPerfilView — /mi-perfil (MainLayout_conexiones)
@@ -80,6 +82,14 @@ const HeaderStat = ({ label, value, icon, accent }) => (
 );
 
 const MiPerfilView = () => {
+  const navigate = useNavigate();
+  // Aquí se ven y editan datos del dueño (correo, WhatsApp de avisos). Un
+  // subusuario de ventas o admin limitado no los configura: el back ya se
+  // los niega y el menú no le muestra la entrada.
+  useEffect(() => {
+    if (!esAdministrador()) navigate("/conexiones", { replace: true });
+  }, [navigate]);
+
   const [info, setInfo] = useState(null);
   const [avisos, setAvisos] = useState([]);
   const [loading, setLoading] = useState(true);
