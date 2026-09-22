@@ -2189,9 +2189,15 @@ const Modales = ({
           motivo: motivoTransferencia,
           id_cliente_chat_center: selectedChat.id,
           id_configuracion: selectedChat.id_configuracion,
+          // El backend ya toma el nombre de la sesión; se sigue mandando
+          // solo por compatibilidad con un backend sin actualizar.
           emisor: userData.nombre_encargado ?? "",
           source: selectedChat.source,
         },
+        // El catch de abajo ya muestra el motivo exacto (p. ej. el 403 de
+        // «solo el encargado o un administrador»); sin esto el interceptor
+        // sumaba un segundo aviso genérico.
+        { silentError: true },
       );
 
       if (res.data.status === "success") {
