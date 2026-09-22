@@ -121,6 +121,10 @@ function MainLayout({ children }) {
   const isSuperAdmin = role === "super_administrador";
   const isGestorClientes = role === "gestor_clientes";
   const puedePanelUsuarios = isSuperAdmin || isGestorClientes;
+  // Dueño de la cuenta: gestiona usuarios, departamentos y facturación. Un
+  // asesor de ventas o un admin limitado no ven esas entradas (el back las
+  // niega igual: restrictToRoles('administrador')).
+  const esAdministrador = role === "administrador";
 
   // ═══ Estado del plan: apaga el menú cuando no hay nada activo ═══
   //
@@ -342,8 +346,8 @@ function MainLayout({ children }) {
               />
             )}
 
-            {/* Usuarios*/}
-            {!isSuperAdmin && !isGestorClientes && (
+            {/* Usuarios: solo el administrador de la cuenta */}
+            {esAdministrador && (
               <NavBtn path="/usuarios" icon="bx-user" label="Usuarios" />
             )}
 
@@ -375,8 +379,8 @@ function MainLayout({ children }) {
               />
             )}
 
-            {/* Departamentos */}
-            {!isSuperAdmin && !isGestorClientes && (
+            {/* Departamentos: solo el administrador de la cuenta */}
+            {esAdministrador && (
               <NavBtn
                 path="/departamentos"
                 icon="bx-buildings"
@@ -388,7 +392,7 @@ function MainLayout({ children }) {
                 desde dos lados, y dos ítems para lo mismo confundía. Entra por
                 /planes —que además es a donde Stripe devuelve tras pagar— y
                 desde ahí se alterna con las pestañas de la propia vista. */}
-            {!isSuperAdmin && !isGestorClientes && (
+            {esAdministrador && (
               <NavBtn
                 path="/planes"
                 icon="bxs-credit-card"
@@ -399,7 +403,7 @@ function MainLayout({ children }) {
 
             {/* Referidos — va pegado a facturación porque es lo mismo visto
                 desde el otro lado: ahí se paga, aquí se cobra. */}
-            {!isSuperAdmin && !isGestorClientes && (
+            {esAdministrador && (
               <NavBtn path="/referidos" icon="bx-gift" label="Referidos" />
             )}
 

@@ -2,6 +2,7 @@ import { Fragment, useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
+import { esRolVentas } from "../../utils/rolActual";
 import Adsboard from "../../components/metaAsd/Adsboard";
 import Dropiboard from "../dropi/Dropiboard";
 import Chatboard from "../../components/dashboard/Dashboard";
@@ -544,6 +545,13 @@ function ChartTooltip({ active, payload, label }) {
  * MainLayout interno) — todo fijado a la conexión activa.
  */
 export default function ConnectionDashboard({ adminMode = false }) {
+  const navigate = useNavigate();
+  // Ventas, inversión y ROAS no son para el asesor de ventas. El back ya
+  // niega los endpoints por rol; aquí se evita la pantalla de errores.
+  useEffect(() => {
+    if (esRolVentas()) navigate("/conexiones", { replace: true });
+  }, [navigate]);
+
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
   // Cache por tab: cada board se monta la primera vez que se visita y
