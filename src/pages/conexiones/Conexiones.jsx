@@ -726,7 +726,7 @@ const Conexiones = () => {
     } catch (err) {
       Swal.fire("Error", "No se pudo desconectar.", "error");
     }
-  }, []);
+  }, [fetchConfiguracionAutomatizada]);
 
   const isConectado = (c) => {
     if (typeof c?.status_whatsapp === "string")
@@ -1155,11 +1155,25 @@ const Conexiones = () => {
       return null;
     }
   };
+  // El subusuario también se lee del token, no solo de userData: un handler
+  // memorizado con deps vacías (p. ej. desconectar Meta Ads) conservaba la
+  // copia del fetch del primer render, cuando userData aún era null, y la
+  // petición salía sin id_sub_usuario. El back respondía con TODAS las
+  // conexiones de la cuenta y un subusuario de ventas las veía hasta recargar.
+  const getSubUserIdSafe = () => {
+    try {
+      const t = localStorage.getItem("token");
+      if (!t) return null;
+      return jwtDecode(t)?.id_sub_usuario ?? null;
+    } catch {
+      return null;
+    }
+  };
 
   const fetchConfiguracionAutomatizada = useCallback(
     async (overrideUserId) => {
       const uid = overrideUserId ?? userData?.id_usuario ?? getUserIdSafe();
-      const uid_sub = userData?.id_sub_usuario;
+      const uid_sub = userData?.id_sub_usuario ?? getSubUserIdSafe();
       if (!uid) return;
       try {
         setLoading(true);
@@ -1188,7 +1202,7 @@ const Conexiones = () => {
         setLoading(false);
       }
     },
-    [userData?.id_usuario, navigate],
+    [userData?.id_usuario, userData?.id_sub_usuario, navigate],
   );
 
   useEffect(() => {
