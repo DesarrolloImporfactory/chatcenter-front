@@ -11,7 +11,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 /**
  * Adjunta comprobantes a un pago que se registró sin ellos (antes de que el
  * comprobante fuera obligatorio). No toca el monto ni el saldo de la deuda.
- * Props: { deuda, pago, onClose, onSaved }
+ * Props: { deuda, pago, onClose, onSaved(imagenes) }
  */
 export function SubirComprobanteForm({ deuda, pago, onClose, onSaved }) {
   const [urls, setUrls] = useState([]);
@@ -31,9 +31,10 @@ export function SubirComprobanteForm({ deuda, pago, onClose, onSaved }) {
 
     setSubmitting(true);
     try {
-      await subirComprobantePago({ idPago: pago.id_pago, imagenesUrls: urls, fechaTransaccion });
+      const res = await subirComprobantePago({ idPago: pago.id_pago, imagenesUrls: urls, fechaTransaccion });
       toast.success("Comprobante agregado");
-      onSaved?.();
+      // Se devuelven los comprobantes guardados para parchear solo este pago.
+      onSaved?.(res?.data?.imagenes ?? urls);
       onClose?.();
     } catch (err) {
       Swal.fire({ icon: "error", title: "No se pudo guardar el comprobante", text: err?.message ?? "Inténtalo de nuevo." });

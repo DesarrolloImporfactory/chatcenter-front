@@ -51,6 +51,7 @@ export function CarteraClientePanel({
     error,
     buscar,
     recargar,
+    patchPago,
     asegurarCartera,
     eliminarDeudaById,
   } = useCarteraCliente(correoInicial);
@@ -311,7 +312,8 @@ export function CarteraClientePanel({
           deuda={modal.comprobante.deuda}
           pago={modal.comprobante.pago}
           onClose={() => setModal(null)}
-          onSaved={() => recargar()}
+          // Solo se parchea ese pago: recargar colapsaría la deuda abierta.
+          onSaved={(imagenes) => patchPago(modal.comprobante.pago.id_pago, { imagenes })}
         />
       )}
     </div>

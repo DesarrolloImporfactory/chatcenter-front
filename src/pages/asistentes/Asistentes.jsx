@@ -84,7 +84,6 @@ const ChipRemove = (props) => (
 const Asistentes = () => {
   const navigate = useNavigate();
   const [id_configuracion, setId_configuracion] = useState(null);
-  const [idPlataformaConf, setIdPlataformaConf] = useState(null);
 
   // Key guardada, ENMASCARADA ("sk-proj-••••UVYA"): el backend ya no devuelve
   // la real. Sirve como bandera de "hay key" y como referencia visual.
@@ -102,7 +101,6 @@ const Asistentes = () => {
   const [nombreBotVenta, setNombreBotVenta] = useState("");
   const [activoVenta, setActivoVenta] = useState(false);
   const [productosVenta, setProductosVenta] = useState([]);
-  const [tomar_productos, setTomar_productos] = useState("chat_Center");
   const [tipoVenta, setTipoVenta] = useState("productos");
 
   const [showModalVentas, setShowModalVentas] = useState(false);
@@ -112,14 +110,6 @@ const Asistentes = () => {
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
     if (idc) setId_configuracion(parseInt(idc));
-
-    const idp = localStorage.getItem("id_plataforma_conf");
-    if (idp === "null" || idp === null) {
-      setIdPlataformaConf(null);
-    } else {
-      const parsed = Number.isNaN(parseInt(idp)) ? null : parseInt(idp);
-      setIdPlataformaConf(parsed);
-    }
   }, []);
 
   // true solo si la key existe GUARDADA en la BD (no lo que se tipea en el
@@ -168,20 +158,14 @@ const Asistentes = () => {
     }
   };
 
-  const fetchProductos = async (fuente) => {
+  /* Solo productos de ChatCenter. La fuente "imporsuit" leía inventario_bodegas
+     del ERP viejo, tabla que ya no existe. */
+  const fetchProductos = async () => {
     if (!id_configuracion) return;
     try {
-      let prodRes;
-      if (fuente === "imporsuit") {
-        if (!idPlataformaConf) return;
-        prodRes = await chatApi.post("/productos/listarProductosImporsuit", {
-          id_plataforma: idPlataformaConf,
-        });
-      } else {
-        prodRes = await chatApi.post("/productos/listarProductos", {
-          id_configuracion,
-        });
-      }
+      const prodRes = await chatApi.post("/productos/listarProductos", {
+        id_configuracion,
+      });
       setProductosLista(prodRes.data.data || []);
     } catch (error) {
       console.error("No se pudo cargar la información de productos.", error);
@@ -197,8 +181,8 @@ const Asistentes = () => {
   useEffect(() => {
     if (!id_configuracion) return;
     setProductosLista([]);
-    fetchProductos(tomar_productos);
-  }, [id_configuracion, tomar_productos]);
+    fetchProductos();
+  }, [id_configuracion]);
 
   useEffect(() => {
     if (asistenteVentas) {
@@ -232,12 +216,6 @@ const Asistentes = () => {
           setProductosVenta([]);
         }
       })();
-
-      setTomar_productos(
-        asistenteVentas.tomar_productos === "imporsuit"
-          ? "imporsuit"
-          : "chat_center",
-      );
 
       // Sincroniza el tipo de venta guardado (antes siempre decía "Productos")
       setTipoVenta(
