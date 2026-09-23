@@ -12,6 +12,7 @@ import { useCarteraCliente, tieneCartera } from "./useCarteraCliente";
 import { CrearUsuarioForm } from "./CrearUsuarioForm";
 import { AgregarDeudaForm } from "./AgregarDeudaForm";
 import { RegistrarPagoForm } from "./RegistrarPagoForm";
+import { SubirComprobanteForm } from "./SubirComprobanteForm";
 
 const MONEY = new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" });
 const fmt$ = (n) => MONEY.format(Number(n ?? 0));
@@ -54,7 +55,7 @@ export function CarteraClientePanel({
     eliminarDeudaById,
   } = useCarteraCliente(correoInicial);
 
-  const [modal, setModal] = useState(null); // 'crear' | 'paquetes' | 'deuda' | { pago: deuda }
+  const [modal, setModal] = useState(null); // 'crear' | 'paquetes' | 'deuda' | { pago: deuda } | { comprobante: { deuda, pago } }
   const [generando, setGenerando] = useState(false);
 
   // Búsqueda automática al montar si llega un correo inicial.
@@ -271,6 +272,7 @@ export function CarteraClientePanel({
               cargando={cargandoDeudas}
               onAgregar={() => setModal("deuda")}
               onPagar={(d) => setModal({ pago: d })}
+              onSubirComprobante={(deuda, pago) => setModal({ comprobante: { deuda, pago } })}
               onEliminar={onEliminar}
               onEditar={onEditar}
               onReenviar={onReenviar}
@@ -304,6 +306,14 @@ export function CarteraClientePanel({
           onSaved={() => recargar()}
         />
       )}
+      {modal?.comprobante && (
+        <SubirComprobanteForm
+          deuda={modal.comprobante.deuda}
+          pago={modal.comprobante.pago}
+          onClose={() => setModal(null)}
+          onSaved={() => recargar()}
+        />
+      )}
     </div>
   );
 }
@@ -321,7 +331,7 @@ function porFechaCreacionDesc(a, b) {
   return Number(b.id_cpp) - Number(a.id_cpp);
 }
 
-function DeudasTable({ deudas, cargando, onAgregar, onPagar, onEliminar, onEditar, onReenviar }) {
+function DeudasTable({ deudas, cargando, onAgregar, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar }) {
   const [openId, setOpenId] = useState(null);
   const [filtro, setFiltro] = useState(null); // null = automático
   const [page, setPage] = useState(1);
@@ -414,6 +424,7 @@ function DeudasTable({ deudas, cargando, onAgregar, onPagar, onEliminar, onEdita
                 isOpen={isOpen}
                 onToggle={() => setOpenId(isOpen ? null : d.id_cpp)}
                 onPagar={onPagar}
+                onSubirComprobante={onSubirComprobante}
                 onEliminar={onEliminar}
                 onEditar={onEditar}
                 onReenviar={onReenviar}
@@ -468,7 +479,7 @@ function FiltroBtn({ active, disabled, onClick, children }) {
   );
 }
 
-function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onEliminar, onEditar, onReenviar }) {
+function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar }) {
   const estadoTxt = ESTADO_DEUDA[Number(d.estado)] ?? "Pendiente";
   const estadoCls =
     Number(d.estado) === 1
@@ -574,6 +585,16 @@ function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onEliminar, onEditar, 
                 {fmtDate(p.fecha_pago)}
                 {p.referencia ? ` · ${p.referencia}` : ""}
               </div>
+              {/* Pagos cargados antes de que el comprobante fuera obligatorio. */}
+              {!(Array.isArray(p.imagenes) && p.imagenes.some(Boolean)) && p.id_pago != null && onSubirComprobante && (
+                <button
+                  type="button"
+                  onClick={() => onSubirComprobante(d, p)}
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
+                >
+                  <i className="bx bx-upload" /> Subir comprobante
+                </button>
+              )}
               {Array.isArray(p.imagenes) && p.imagenes.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {p.imagenes.map((url, ii) => (
