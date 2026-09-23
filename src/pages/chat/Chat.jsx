@@ -51,11 +51,6 @@ const Chat = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const [provincias, setProvincias] = useState(null);
-  const [facturasChatSeleccionado, setFacturasChatSeleccionado] =
-    useState(null);
-  const [guiasChatSeleccionado, setGuiasChatSeleccionado] = useState(null);
-
   const [seRecibioMensaje, setSeRecibioMensaje] = useState(false);
 
   const [dataAdmin, setDataAdmin] = useState(null);
@@ -160,8 +155,6 @@ const Chat = () => {
 
   const [buscarIdRecibe, setBuscarIdRecibe] = useState(null);
 
-  const [novedades_gestionadas, setNovedades_gestionadas] = useState(null);
-  const [novedades_noGestionadas, setNovedades_noGestionadas] = useState(null);
 
   /* calcular guia directa */
   const [monto_venta, setMonto_venta] = useState(null);
@@ -1933,7 +1926,6 @@ const Chat = () => {
 
     setSelectedChat(chat);
 
-    const src = chat?.source || "wa";
     // OJO: aquí NO se toca activeChannel. Ese estado es el filtro de canal
     // de la LISTA (selector "Todos los canales" del sidebar). Antes, abrir
     // un chat de WhatsApp lo cambiaba a "whatsapp" sin que el selector se
@@ -1941,19 +1933,6 @@ const Chat = () => {
     // Mis chats/En espera, paginar, o llegar un mensaje) desaparecían los
     // chats de Instagram y Messenger aunque el selector dijera "Todos".
     // El canal por el que se envía sale de selectedChat.source, no de aquí.
-
-    // pedir facturas/guías apenas seleccionas un chat de WhatsApp
-    if (
-      src === "wa" &&
-      id_plataforma_conf !== null &&
-      socketRef.current &&
-      chat.celular_cliente
-    ) {
-      socketRef.current.emit("GET_FACTURAS", {
-        id_plataforma: id_plataforma_conf,
-        telefono: chat.celular_cliente,
-      });
-    }
 
     // Chat recién abierto: siempre arranca en el último mensaje.
     marcarSeguirAbajo();
@@ -2505,8 +2484,6 @@ const Chat = () => {
 
       // Limpiar listeners existentes antes de registrar nuevos
       // socketRef.current.off("RECEIVED_MESSAGE");
-      socketRef.current.off("DATA_FACTURA_RESPONSE");
-      socketRef.current.off("DATA_NOVEDADES");
 
       emitGetChats({ reset: true, limit: 10 });
 
@@ -2524,25 +2501,6 @@ const Chat = () => {
         // texto, el tutorial y la URL de Meta viven en utils/avisoMetodoPagoMeta.
         avisoMetodoPagoMeta(data);
       });
-
-      if (id_plataforma_conf !== null) {
-        socketRef.current.emit("GET_PROVINCIAS", id_plataforma_conf);
-        socketRef.current.on("DATA_PROVINCIAS_RESPONSE", (data) => {
-          setProvincias(data);
-        });
-      }
-
-      if (id_plataforma_conf !== null) {
-        socketRef.current.on("DATA_FACTURA_RESPONSE", (data) => {
-          setFacturasChatSeleccionado(data.facturas);
-          setGuiasChatSeleccionado(data.guias);
-        });
-
-        socketRef.current.on("DATA_NOVEDADES", (data) => {
-          setNovedades_gestionadas(data.gestionadas);
-          setNovedades_noGestionadas(data.no_gestionadas);
-        });
-      }
     }
   }, [isSocketConnected, userData]); //SE QUITO SELECTEDCHAT PORQUE RECARGABA A CADA RATO
 
