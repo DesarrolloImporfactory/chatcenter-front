@@ -108,9 +108,29 @@ export function useCarteraCliente(correoInicial = "") {
     [cliente, cargarDeudas],
   );
 
+  /**
+   * Actualiza un pago puntual en memoria (p. ej. al adjuntarle un comprobante)
+   * sin volver a buscar al cliente: recargar colapsa la deuda abierta.
+   */
+  const patchPago = useCallback((idPago, patch) => {
+    setDeudas((prev) =>
+      prev.map((d) =>
+        Array.isArray(d.pagos) && d.pagos.some((p) => Number(p.id_pago) === Number(idPago))
+          ? {
+              ...d,
+              pagos: d.pagos.map((p) =>
+                Number(p.id_pago) === Number(idPago) ? { ...p, ...patch } : p,
+              ),
+            }
+          : d,
+      ),
+    );
+  }, []);
+
   return {
     correo,
     setCorreo,
+    patchPago,
     cliente,
     existe,
     deudas,
