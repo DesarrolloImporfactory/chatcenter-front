@@ -41,6 +41,12 @@ export const MEDIOS_PAGO = [
   { value: "otro", label: "Otro" },
 ];
 
+/** Tipo de pago (`cartera_pagos.tipo_pago`). Obligatorio al registrar un pago. */
+export const TIPOS_PAGO = [
+  { value: "automatico", label: "Automático" },
+  { value: "gestionado", label: "Gestionado" },
+];
+
 export const MONEDAS = [
   { value: "USD", label: "USD" },
   { value: "MXN", label: "MXN" },
@@ -98,4 +104,9 @@ export const ACCIONES_AUDITORIA = {
     color: "green",
   },
   eliminar_deuda: { label: "Eliminar deuda", icon: "bx-trash", color: "red" },
+  subir_comprobante: {
+    label: "Subir comprobante",
+    icon: "bx-upload",
+    color: "amber",
+  },
 };

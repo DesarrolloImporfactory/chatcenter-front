@@ -1,7 +1,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
-import { agregarPago, MEDIOS_PAGO, MONEDAS } from "../../services/imporsuit";
+import { agregarPago, MEDIOS_PAGO, MONEDAS, TIPOS_PAGO } from "../../services/imporsuit";
 import { Overlay, Field, inputCls, btnPrimary, btnGhost } from "./CrearUsuarioForm";
 import { ComprobantesUploader } from "./ComprobantesUploader";
 
@@ -13,7 +13,8 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
  * Props: { deuda, onClose, onSaved }
  *
  * Los comprobantes se suben a S3 con <ComprobantesUploader/> (drag&drop) y se
- * mandan como `imagenes_urls` al registrar el pago.
+ * mandan como `imagenes_urls` al registrar el pago. Comprobante y tipo de pago
+ * son obligatorios (el back los exige igual).
  */
 export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
   const pendiente = Number(deuda?.monto_pendiente ?? 0);
@@ -21,6 +22,8 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
     montoPagado: "",
     fechaPago: todayIso(),
     medioPago: "transferencia_ec",
+    // Sin default a propósito: el agente tiene que elegirlo.
+    tipoPago: "",
     moneda: "USD",
     referencia: "",
     numeroCuota: "",
@@ -45,20 +48,11 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
     if (monto > pendiente)
       return toast.error(`No puede superar ${MONEY.format(pendiente)}`);
     if (!form.fechaPago) return toast.error("Selecciona la fecha");
-    if (imagenesUrls.length > 0 && !form.fechaTransaccion)
+    if (!form.tipoPago) return toast.error("Selecciona el tipo de pago");
+    if (imagenesUrls.length === 0)
+      return toast.error("Adjunta el comprobante del pago");
+    if (!form.fechaTransaccion)
       return toast.error("Indica la fecha de la transacción del comprobante");
-
-    if (imagenesUrls.length === 0) {
-      const c = await Swal.fire({
-        icon: "warning",
-        title: "¿Registrar sin comprobante?",
-        text: "No subiste ninguna imagen ni archivo.",
-        showCancelButton: true,
-        confirmButtonText: "Sí, registrar",
-        cancelButtonText: "Cancelar",
-      });
-      if (!c.isConfirmed) return;
-    }
 
     setSubmitting(true);
     try {
@@ -67,6 +61,7 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
         montoPagado: monto,
         fechaPago: form.fechaPago,
         medioPago: form.medioPago,
+        tipoPago: form.tipoPago,
         referencia: form.referencia,
         imagenesUrls,
         numeroCuota: form.numeroCuota,
@@ -139,6 +134,15 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
             </Field>
           </div>
 
+          <Field label="Tipo de pago *">
+            <select className={inputCls} value={form.tipoPago} onChange={set("tipoPago")} disabled={submitting}>
+              <option value="">Seleccionar…</option>
+              {TIPOS_PAGO.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </Field>
+
           <Field label="Referencia (opcional)">
             <input className={inputCls} value={form.referencia} onChange={set("referencia")} disabled={submitting} placeholder="N° de transferencia, depósito…" />
           </Field>
@@ -147,7 +151,7 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
             <input className={inputCls} value={form.numeroCuota} onChange={set("numeroCuota")} disabled={submitting} placeholder="Ej. 1, 2, 3… (dispara webhook de cuotas)" />
           </Field>
 
-          <Field label="Comprobantes (imágenes / PDF / archivos)">
+          <Field label="Comprobantes (imágenes / PDF / archivos) *">
             <ComprobantesUploader
               urls={imagenesUrls}
               onChange={setImagenesUrls}
