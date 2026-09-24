@@ -153,7 +153,8 @@ export async function agregarDeuda(
 
 /**
  * Registra un pago/abono sobre una deuda.
- * Las imágenes (si las hay) deben venir ya subidas como URLs en imagenesUrls.
+ * Los comprobantes (obligatorios) deben venir ya subidos como URLs en
+ * imagenesUrls. `tipoPago` ('automatico' | 'gestionado') también es obligatorio.
  */
 export async function agregarPago(
   {
@@ -161,6 +162,7 @@ export async function agregarPago(
     montoPagado,
     fechaPago,
     medioPago,
+    tipoPago,
     referencia = "",
     imagenesUrls = [],
     numeroCuota = "",
@@ -184,11 +186,32 @@ export async function agregarPago(
       monto_pagado: Number(montoPagado),
       fecha_pago: fechaPago,
       medio_pago: medioPago,
+      tipo_pago: tipoPago,
       referencia: String(referencia ?? ""),
       imagenes_urls: comprobantes,
       numero_cuota: String(numeroCuota ?? ""),
       moneda: String(moneda ?? "USD"),
       fecha_transaccion: fechaDelComprobante,
+    },
+    { signal },
+  );
+  return unwrap(data);
+}
+
+/**
+ * Adjunta comprobantes (ya subidos a S3) a un pago registrado sin ellos.
+ * No toca montos; el back rechaza el pago si ya tenía comprobante.
+ */
+export async function subirComprobantePago(
+  { idPago, imagenesUrls, fechaTransaccion },
+  { signal } = {},
+) {
+  const { data } = await imporsuitApi.post(
+    "/Carterachat/subir_comprobante_pago",
+    {
+      id_cd: Number(idPago),
+      imagenes_urls: Array.isArray(imagenesUrls) ? imagenesUrls : [],
+      fecha_transaccion: fechaTransaccion,
     },
     { signal },
   );

@@ -1933,26 +1933,115 @@ const ChatPrincipal = ({
     mensaje.precio_meta_tipo === "free_entry_point" &&
     Number(mensaje.precio_meta_facturable) === 0;
 
+  // Estado de la ventana de 72 h *ahora*, que es distinto de lo que dice la
+  // etiqueta: que este mensaje no se haya cobrado ya no cambia nunca, pero la
+  // ventana puede haber vencido. Por eso van en dos líneas separadas.
+  const estadoVentanaFep = (fepExpiraAt) => {
+    const vence = fepExpiraAt ? new Date(fepExpiraAt) : null;
+    if (!vence || Number.isNaN(vence.getTime())) return null;
+
+    const restanteMs = vence.getTime() - Date.now();
+    const cuando = vence.toLocaleString("es-EC", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    if (restanteMs <= 0) {
+      return {
+        color: "text-slate-300",
+        titulo: "La ventana ya venció",
+        detalle: `Cerró el ${cuando}. Lo que envíes desde ahora sí tiene costo.`,
+      };
+    }
+
+    const horas = Math.floor(restanteMs / 3600000);
+
+    if (horas < 1) {
+      const minutos = Math.max(1, Math.round(restanteMs / 60000));
+      return {
+        color: "text-amber-300",
+        titulo: `La ventana vence en ${minutos} min`,
+        detalle: `${cuando}. Si va a ir un seguimiento o una plantilla, conviene mandarlo ya.`,
+      };
+    }
+
+    if (horas <= 6) {
+      return {
+        color: "text-amber-300",
+        titulo: `La ventana vence en ${horas} h`,
+        detalle: `${cuando}. Si va a ir un seguimiento o una plantilla, conviene mandarlo antes.`,
+      };
+    }
+
+    return {
+      color: "text-emerald-300",
+      titulo: `Quedan ${horas} h de ventana`,
+      detalle: `Vence el ${cuando}. Hasta esa hora todo sigue sin costo.`,
+    };
+  };
+
   const PrecioMetaBadge = ({ mensaje }) => {
     if (!esGratisPorFep(mensaje)) return null;
 
-    const vence = mensaje.fep_expira_at ? new Date(mensaje.fep_expira_at) : null;
-    const venceTexto =
-      vence && !Number.isNaN(vence.getTime())
-        ? ` La ventana vence el ${vence.toLocaleString("es-EC", {
-            day: "2-digit",
-            month: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}.`
-        : "";
+    const ventana = estadoVentanaFep(mensaje.fep_expira_at);
+    const tipId = `fep-tip-${mensaje.id}`;
 
     return (
-      <span
-        className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full bg-white/80 text-emerald-700 ring-1 ring-emerald-600/25 px-1.5 py-0.5 text-[10px] font-semibold leading-none"
-        title={`Meta confirmó que este mensaje no tuvo costo: salió dentro de la ventana de 72 h que abre un anuncio de WhatsApp.${venceTexto}`}
-      >
-        <i className="bx bx-gift" aria-hidden="true" /> Sin costo · 72 h
+      <span className="relative ml-auto shrink-0 group">
+        <span
+          tabIndex={0}
+          aria-describedby={tipId}
+          className="inline-flex items-center gap-1 rounded-full bg-white/80 text-emerald-700 ring-1 ring-emerald-600/25 px-1.5 py-0.5 text-[10px] font-semibold leading-none cursor-help"
+        >
+          <i className="bx bx-gift" aria-hidden="true" /> Sin costo · 72 h
+        </span>
+
+        {/* Hacia ARRIBA: la lista de mensajes tiene overflow-y-auto, así que
+            un tooltip hacia abajo se cortaría justo en el último mensaje, que
+            es el que más se consulta. */}
+        <span
+          id={tipId}
+          role="tooltip"
+          className="
+            pointer-events-none invisible opacity-0
+            group-hover:visible group-hover:opacity-100
+            group-focus-within:visible group-focus-within:opacity-100
+            transition-opacity duration-150
+            absolute bottom-full right-0 z-20 mb-2
+            w-64 max-w-[74vw] rounded-lg bg-[#10241d] px-3 py-2
+            text-left text-[12px] font-normal leading-snug text-emerald-50
+            shadow-lg whitespace-normal
+          "
+        >
+          <span className="flex items-center gap-1.5 font-bold">
+            <i className="bx bx-gift" aria-hidden="true" />
+            Este mensaje no tuvo costo
+          </span>
+          <span className="block mt-0.5">
+            Meta lo confirmó: salió dentro de la ventana de 72 h que abre un
+            anuncio de WhatsApp. Ahí no se cobra nada, ni siquiera las
+            plantillas.
+          </span>
+
+          {ventana && (
+            <span className="block mt-1.5 pt-1.5 border-t border-white/15">
+              <span className={`block font-bold ${ventana.color}`}>
+                {ventana.titulo}
+              </span>
+              <span className="block text-emerald-50/80">
+                {ventana.detalle}
+              </span>
+            </span>
+          )}
+
+          <span
+            aria-hidden="true"
+            className="absolute top-full right-3.5 border-[6px] border-transparent border-t-[#10241d]"
+          />
+        </span>
       </span>
     );
   };
