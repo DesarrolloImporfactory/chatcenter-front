@@ -5,6 +5,7 @@ import IncidenciasCliente from "./IncidenciasCliente";
 import EncuestasCliente from "./EncuestasCliente";
 import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
 import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
+import AnalisisIAImporsuitSection from "../imporsuit/AnalisisIAImporsuitSection";
 import ImporchatCuentaSection from "../imporchat/ImporchatCuentaSection";
 
 export default function BasicClientPanel({
@@ -149,6 +150,12 @@ export default function BasicClientPanel({
 
         {/* Checklist del alumno (solo lectura) */}
         <ChecklistImporsuitSection
+          selectedChat={selectedChat}
+          idConfiguracion={id_configuracion}
+        />
+
+        {/* Análisis IA de cotizaciones no cerradas (265, solo Johan) */}
+        <AnalisisIAImporsuitSection
           selectedChat={selectedChat}
           idConfiguracion={id_configuracion}
         />

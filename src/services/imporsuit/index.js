@@ -43,6 +43,8 @@ export {
 
 export { listarAuditoria } from "./auditoria.service";
 
+export { getCotizacionesIA, analizarCotizacionIA } from "./cotizacionesIA.service";
+
 export { getActorChatcenter, setCarteraCtx, getCarteraCtx } from "./actor";
 
 export {
@@ -54,6 +56,8 @@ export {
   TIPOS_VENTA,
   CARTERA_CONFIGS_HABILITADAS,
   CHECKLIST_CONFIGS_HABILITADAS,
+  IA_CONFIGS_HABILITADAS,
+  IA_AGENTES_HABILITADOS,
   ESTADO_DEUDA,
   ACCIONES_AUDITORIA,
 } from "./constants";

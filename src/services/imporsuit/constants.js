@@ -75,6 +75,19 @@ export const CARTERA_CONFIGS_HABILITADAS = [242, 265];
  */
 export const CHECKLIST_CONFIGS_HABILITADAS = [265];
 
+/**
+ * ANÁLISIS IA de cotizaciones no cerradas (por qué no se cerró y cómo
+ * recuperarla). Pedido del 2026-09-24: solo en la línea 265 y solo para Johan.
+ *
+ * El agente se reconoce por su id_sub_usuario (el JWT de chatcenter no trae el
+ * correo del subusuario). El back busca su correo, lo cruza con su usuario de
+ * Imporsuit y lo vuelve a validar (AnalisisCotizacionIA::USUARIOS_HABILITADOS);
+ * acá es solo para no mostrar la sección a quien le daría 403.
+ *   377 = Johan Bonilla (j.bonilla@imporfactorylatam.com → Imporsuit 9185)
+ */
+export const IA_CONFIGS_HABILITADAS = [265];
+export const IA_AGENTES_HABILITADOS = [377];
+
 /** Estado de una deuda (cuenta_por_pagar.estado). */
 export const ESTADO_DEUDA = {
   0: "Pendiente",
