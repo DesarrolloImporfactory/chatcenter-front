@@ -636,7 +636,13 @@ const MiPlan = () => {
                 accent="text-indigo-300"
               />
               <HeaderStat
-                label="Renovación"
+                label={
+                  plan?.periodo_pago === "anual"
+                    ? "Renovación · pago anual"
+                    : plan?.periodo_pago === "semestral"
+                      ? "Renovación · pago semestral"
+                      : "Renovación"
+                }
                 value={
                   infoPeriodo?.fin ? infoPeriodo.fin.toLocaleDateString() : "—"
                 }

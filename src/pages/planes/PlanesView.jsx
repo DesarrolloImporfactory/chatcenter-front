@@ -329,6 +329,12 @@ const PlanBadge = ({ text, gradient }) => (
 const PlanesView = () => {
   const navigate = useNavigate();
   const [planes, setPlanes] = useState([]);
+  // Periodo de pago elegido en el selector (mensual | semestral | anual) y el
+  // que el cliente ya tiene contratado (viene de obtenerSuscripcionActiva).
+  const [periodo, setPeriodo] = useState("mensual");
+  const [periodoActual, setPeriodoActual] = useState("mensual");
+  // Cambio a un periodo más corto ya programado para la próxima renovación.
+  const [periodoPendiente, setPeriodoPendiente] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [hasActivePlan, setHasActivePlan] = useState(false);
@@ -390,6 +396,22 @@ const PlanesView = () => {
     return decoded.id_usuario || decoded.id_users;
   };
 
+  // Periodo que se manda al checkout para un plan: el elegido en el selector
+  // si ese plan lo ofrece (semestral/anual), si no, mensual. Los planes de
+  // $29 no tienen periodos y siempre van mensual.
+  const periodoParaPlan = (idPlan) => {
+    const p = (planes || []).find((x) => Number(x.id_plan) === Number(idPlan));
+    return (p?.periodos || []).some((x) => x.periodo === periodo)
+      ? periodo
+      : "mensual";
+  };
+
+  const PERIODO_LABEL = {
+    mensual: "mensual",
+    semestral: "semestral",
+    anual: "anual",
+  };
+
   const refreshPlanActual = async () => {
     const token = localStorage.getItem("token");
     if (!token) return null;
@@ -412,6 +434,8 @@ const PlanesView = () => {
     setIlTrialUsed(Boolean(flags?.il_trial_used));
     setCurrentPlanId(plan?.id_plan ?? null);
     setCurrentPlanEstado(plan?.estado ?? null);
+    setPeriodoActual(plan?.periodo_pago || "mensual");
+    setPeriodoPendiente(plan?.periodo_pendiente || null);
     const estado = (plan?.estado || "").toLowerCase();
     const isTU = estado === "trial_usage";
     const isPU = estado === "promo_usage";
@@ -561,7 +585,7 @@ const PlanesView = () => {
         setActionText("Redirigiendo al pago...");
         const res = await chatApi.post(
           "stripe_plan/crearSesionPago",
-          { id_plan: idPlan, id_usuario },
+          { id_plan: idPlan, id_usuario, periodo: periodoParaPlan(idPlan) },
           { headers: { Authorization: `Bearer ${token}` } },
         );
         if (res.data?.url) {
@@ -573,6 +597,80 @@ const PlanesView = () => {
       }
 
       if (Number(currentPlanId) === Number(idPlan) && isPlanActualActivo) {
+        // Mismo plan, distinto periodo de pago → cambiarPeriodo.
+        const periodoDestino = periodoParaPlan(idPlan);
+        // Elegir el periodo actual con uno más corto programado = cancelar
+        // ese cambio (el backend libera el schedule).
+        if (periodoPendiente && periodoDestino === periodoActual) {
+          const confirm = await Swal.fire({
+            title: "Cancelar cambio programado",
+            text: `Seguirás en pago ${PERIODO_LABEL[periodoActual]} y se cancela el cambio a pago ${PERIODO_LABEL[periodoPendiente]}.`,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Sí, cancelar el cambio",
+            cancelButtonText: "Volver",
+          });
+          if (!confirm.isConfirmed) return;
+          setActionText("Cancelando cambio...");
+          const res = await chatApi.post(
+            "stripe_plan/cambiarPeriodo",
+            { id_usuario, periodo: periodoActual },
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          await Swal.fire(
+            res.data?.success ? "Listo" : "No se pudo",
+            res.data?.message || "",
+            res.data?.success ? "success" : "error",
+          );
+          await refreshPlanActual();
+          return;
+        }
+        if (periodoDestino !== periodoActual) {
+          const alarga =
+            (periodoDestino === "anual"
+              ? 12
+              : periodoDestino === "semestral"
+                ? 6
+                : 1) >
+            (periodoActual === "anual"
+              ? 12
+              : periodoActual === "semestral"
+                ? 6
+                : 1);
+          const confirm = await Swal.fire({
+            title: `Cambiar a pago ${PERIODO_LABEL[periodoDestino]}`,
+            html: alarga
+              ? `<div style="text-align:left;line-height:1.5;font-size:14px;"><p style="margin:0 0 10px">Se cobra <b>ahora</b> el periodo completo, con crédito por los días que no usaste del actual.</p><p style="margin:0">Al terminar, se renueva automáticamente por el mismo periodo.</p></div>`
+              : `<div style="text-align:left;line-height:1.5;font-size:14px;"><p style="margin:0">Sigues usando lo que ya pagaste. En tu próxima renovación pasas a pago ${PERIODO_LABEL[periodoDestino]}.</p></div>`,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Sí, cambiar",
+            cancelButtonText: "Cancelar",
+            focusCancel: true,
+          });
+          if (!confirm.isConfirmed) return;
+          setActionText("Cambiando periodo...");
+          const res = await chatApi.post(
+            "stripe_plan/cambiarPeriodo",
+            { id_usuario, periodo: periodoDestino },
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (!res.data?.success) {
+            await Swal.fire(
+              "No se pudo cambiar",
+              res.data?.message || "Intente de nuevo.",
+              "error",
+            );
+            return;
+          }
+          await Swal.fire(
+            "Listo",
+            res.data?.message || "Periodo cambiado.",
+            "success",
+          );
+          await refreshPlanActual();
+          return;
+        }
         await Swal.fire("Listo", "Ya tiene este plan actualmente.", "info");
         return;
       }
@@ -581,7 +679,10 @@ const PlanesView = () => {
         setActionText("Cambiando plan...");
         const confirm = await Swal.fire({
           title: "Confirmar cambio de plan",
-          html: `<div style="text-align:left;line-height:1.5;font-size:14px;"><p style="margin:0 0 10px"><b>Upgrade:</b> se cobra de inmediato.</p><p style="margin:0"><b>Downgrade:</b> se aplica en la próxima renovación.</p></div>`,
+          html:
+            periodoParaPlan(idPlan) !== "mensual"
+              ? `<div style="text-align:left;line-height:1.5;font-size:14px;"><p style="margin:0 0 10px">Pasas a <b>pago ${PERIODO_LABEL[periodoParaPlan(idPlan)]}</b> de este plan.</p><p style="margin:0 0 10px"><b>Si subes de plan:</b> se cobra hoy el periodo completo, con crédito por lo que no usaste del actual.</p><p style="margin:0"><b>Si bajas de plan:</b> se aplica en la próxima renovación.</p></div>`
+              : `<div style="text-align:left;line-height:1.5;font-size:14px;"><p style="margin:0 0 10px"><b>Upgrade:</b> se cobra de inmediato.</p><p style="margin:0"><b>Downgrade:</b> se aplica en la próxima renovación.</p></div>`,
           icon: "question",
           showCancelButton: true,
           confirmButtonText: "Sí, cambiar",
@@ -591,13 +692,17 @@ const PlanesView = () => {
         if (!confirm.isConfirmed) return;
         const res = await chatApi.post(
           "stripe_plan/cambiarPlan",
-          { id_usuario, id_plan_nuevo: idPlan },
+          {
+            id_usuario,
+            id_plan_nuevo: idPlan,
+            periodo: periodoParaPlan(idPlan),
+          },
           { headers: { Authorization: `Bearer ${token}` } },
         );
         if (res.data?.redirect_to_checkout) {
           const res2 = await chatApi.post(
             "stripe_plan/crearSesionPago",
-            { id_plan: idPlan, id_usuario },
+            { id_plan: idPlan, id_usuario, periodo: periodoParaPlan(idPlan) },
             { headers: { Authorization: `Bearer ${token}` } },
           );
           if (res2.data?.url) {
@@ -660,7 +765,7 @@ const PlanesView = () => {
       setActionText("Redirigiendo...");
       const res = await chatApi.post(
         "stripe_plan/crearSesionPago",
-        { id_plan: idPlan, id_usuario },
+        { id_plan: idPlan, id_usuario, periodo: periodoParaPlan(idPlan) },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (res.data?.url) {
@@ -772,6 +877,7 @@ const PlanesView = () => {
         {
           id_usuario,
           id_plan_nuevo: modalSusp.idPlan,
+          periodo: periodoParaPlan(modalSusp.idPlan),
           conexiones_suspender: conexionesSuspender,
           subusuarios_suspender: subusuariosSuspender,
         },
@@ -1078,6 +1184,54 @@ const PlanesView = () => {
       </div>
 
       <div className="px-6 sm:px-10 lg:px-14 pb-10">
+        {/* Selector de periodo de pago. Solo aparece si algún plan visible
+            ofrece semestral/anual (los de $29 son solo mensuales). */}
+        {(planes || []).some((p) => (p.periodos || []).length > 0) && (
+          <div className="flex justify-center mb-6">
+            <div
+              className="inline-flex items-center rounded-2xl p-1 bg-white shadow-sm"
+              style={{ border: "1px solid rgba(15,23,42,0.08)" }}
+              role="tablist"
+              aria-label="Periodo de pago"
+            >
+              {[
+                { key: "mensual", label: "Mensual", nota: null },
+                { key: "semestral", label: "Semestral", nota: "1 mes gratis" },
+                { key: "anual", label: "Anual", nota: "2 meses gratis" },
+              ].map((op) => {
+                const activo = periodo === op.key;
+                return (
+                  <button
+                    key={op.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={activo}
+                    onClick={() => setPeriodo(op.key)}
+                    disabled={loading || !!actionPlanId}
+                    className={`relative px-4 sm:px-5 py-2 rounded-xl text-[13px] font-bold transition-all duration-200 ${
+                      activo
+                        ? "bg-[#0B1426] text-white shadow"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    {op.label}
+                    {op.nota && (
+                      <span
+                        className={`ml-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          activo
+                            ? "bg-white/15 text-white"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {op.nota}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div
           className={`grid grid-cols-1 gap-5 items-stretch mx-auto ${gridCols}`}
         >
@@ -1119,13 +1273,51 @@ const PlanesView = () => {
               plan.promo_aplicable !== undefined
                 ? !!plan.promo_aplicable
                 : PROMO_PLANS.has(planId);
-            const showPromo = planAceptaPromo && promoEligible;
+            // Periodo adelantado (semestral/anual) aplicable a ESTA tarjeta.
+            // Con plan activo solo aplica a la tarjeta del plan actual: el
+            // cambio de plan se hace en mensual y el periodo se elige después.
+            const periodoInfo = (plan.periodos || []).find(
+              (p) => p.periodo === periodo,
+            );
+            // El periodo aplica a cualquier tarjeta que lo ofrezca: al cambiar
+            // de plan, cambiarPlan recibe el periodo y cobra el periodo
+            // completo (o lo programa si es downgrade).
+            const usaPeriodo = periodo !== "mensual" && !!periodoInfo;
+            const esTarjetaDelPlanActual =
+              isCurrent &&
+              isPlanActualActivo &&
+              !isCurrentFreeUsage &&
+              !hayDowngradePendiente;
+            // "mensual" no está en plan.periodos (ese price vive en el plan):
+            // se ofrece volver a mensual siempre que el plan tenga periodos.
+            const periodoOfrecido =
+              periodo === "mensual"
+                ? (plan.periodos || []).length > 0
+                : !!periodoInfo;
+            const cambioPeriodoDisponible =
+              esTarjetaDelPlanActual &&
+              periodoOfrecido &&
+              periodo !== periodoActual &&
+              periodo !== periodoPendiente;
+            // Volver a elegir el periodo actual teniendo uno más corto
+            // programado = cancelar ese cambio programado.
+            const cancelarPendienteDisponible =
+              esTarjetaDelPlanActual &&
+              !!periodoPendiente &&
+              periodo === periodoActual;
+            const accionPeriodo =
+              cambioPeriodoDisponible || cancelarPendienteDisponible;
+            // El cupón de $5 es para una factura mensual: no aplica adelantado.
+            const showPromo = planAceptaPromo && promoEligible && !usaPeriodo;
             const precioNormal = Number(plan?.precio_plan || 0).toFixed(2);
             const precioEntero = Number(plan?.precio_plan || 0).toFixed(0);
             const capacidad = buildCapacidad(plan);
             const isDisabled =
               loading ||
-              (isCurrent && isPlanActualActivo && !isCurrentFreeUsage) ||
+              (isCurrent &&
+                isPlanActualActivo &&
+                !isCurrentFreeUsage &&
+                !accionPeriodo) ||
               isDowngradeTarget ||
               !!actionPlanId;
             const getCTAText = () => {
@@ -1135,10 +1327,22 @@ const PlanesView = () => {
                 return showPromo
                   ? `Suscribirse — $${PROMO_FIRST_MONTH} primer mes`
                   : "Suscribirse ahora";
-              if (isCurrent && isPlanActualActivo)
+              if (cambioPeriodoDisponible && !isAction)
+                return `Pasar a pago ${PERIODO_LABEL[periodo]}`;
+              if (cancelarPendienteDisponible && !isAction)
+                return `Cancelar cambio a pago ${PERIODO_LABEL[periodoPendiente]}`;
+              if (
+                esTarjetaDelPlanActual &&
+                periodoPendiente &&
+                periodo === periodoPendiente
+              )
+                return `Pago ${PERIODO_LABEL[periodo]} programado`;
+              if (isCurrent && isPlanActualActivo && !isAction)
                 return hayDowngradePendiente
                   ? `Plan actual · hasta ${fmtFecha(pendingEffectiveAt)}`
-                  : "Tu plan actual";
+                  : periodoActual !== "mensual"
+                    ? `Tu plan actual · pago ${PERIODO_LABEL[periodoActual]}`
+                    : "Tu plan actual";
               if (isCurrentVencido) return "Renovar plan";
               if (isAction)
                 return (
@@ -1150,6 +1354,9 @@ const PlanesView = () => {
               if (isTrialUsageActive || isPromoUsageActive)
                 return "Cambiar a este plan";
               if (hasActivePlan) return "Cambiar a este plan";
+              // Pago adelantado: sin trial ni promo, se cobra el periodo ya.
+              if (usaPeriodo)
+                return `Comenzar · pago ${PERIODO_LABEL[periodo]}`;
               if (canTrialIL)
                 return `Probar gratis (${TRIAL_USAGE_LIMIT} imágenes)`;
               if (canTrialComunidad)
@@ -1236,7 +1443,39 @@ const PlanesView = () => {
                       </p>
                     </div>
                     <div className="text-center mt-4 mb-2">
-                      {!showPromo ? (
+                      {usaPeriodo ? (
+                        <div className="flex flex-col items-center">
+                          <div className="inline-flex items-baseline gap-0.5">
+                            <span className="text-sm text-slate-400">$</span>
+                            <span className="text-[40px] font-extrabold text-[#0B1426] leading-none tracking-tight">
+                              {Number(periodoInfo.precio).toFixed(0)}
+                            </span>
+                            <span className="text-sm text-slate-400 ml-0.5">
+                              /{periodoInfo.meses} meses
+                            </span>
+                          </div>
+                          <span className="mt-1 text-[11px] text-slate-500">
+                            = $
+                            {Number(periodoInfo.precio_mes_equivalente).toFixed(
+                              2,
+                            )}
+                            /mes
+                          </span>
+                          {Number(periodoInfo.ahorro) > 0 && (
+                            <span
+                              className="mt-1.5 text-[10px] font-semibold px-3 py-0.5 rounded-full"
+                              style={{
+                                color: theme.accent,
+                                background: theme.accentLight,
+                                border: `1px solid ${theme.accentBorder}`,
+                              }}
+                            >
+                              Ahorras ${Number(periodoInfo.ahorro).toFixed(0)}{" "}
+                              frente al pago mensual
+                            </span>
+                          )}
+                        </div>
+                      ) : !showPromo ? (
                         <div className="inline-flex items-baseline gap-0.5">
                           <span className="text-sm text-slate-400">$</span>
                           <span className="text-[40px] font-extrabold text-[#0B1426] leading-none tracking-tight">
@@ -1371,7 +1610,14 @@ const PlanesView = () => {
                         </span>
                       )}
                       <span className="text-[9px] text-slate-400 text-center leading-relaxed">
-                        {isCurrentFreeUsage && showPromo ? (
+                        {usaPeriodo ? (
+                          <>
+                            Un solo pago de $
+                            {Number(periodoInfo.precio).toFixed(0)} cada{" "}
+                            {periodoInfo.meses} meses. Se renueva solo. Cancele
+                            cuando quiera.
+                          </>
+                        ) : isCurrentFreeUsage && showPromo ? (
                           <>
                             Paga solo <b>$5</b> tu primer mes. Luego $
                             {precioNormal}/mes.
@@ -1409,7 +1655,10 @@ const PlanesView = () => {
                       disabled={isDisabled}
                       className={`w-full rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 mb-5 inline-flex items-center justify-center focus:outline-none
                         ${
-                          isCurrent && isPlanActualActivo && !isCurrentFreeUsage
+                          isCurrent &&
+                          isPlanActualActivo &&
+                          !isCurrentFreeUsage &&
+                          !accionPeriodo
                             ? "bg-slate-50 text-slate-400 cursor-default border border-slate-200"
                             : isDisabled
                               ? "bg-slate-100 text-slate-400 cursor-not-allowed"
@@ -1419,7 +1668,8 @@ const PlanesView = () => {
                         !(
                           isCurrent &&
                           isPlanActualActivo &&
-                          !isCurrentFreeUsage
+                          !isCurrentFreeUsage &&
+                          !accionPeriodo
                         ) && !isDisabled
                           ? { background: theme.gradient }
                           : {}
