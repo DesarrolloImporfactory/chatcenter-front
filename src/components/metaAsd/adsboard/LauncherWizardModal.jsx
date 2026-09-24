@@ -75,6 +75,27 @@ const GENERO_LABEL = { all: "Todos", male: "Hombres", female: "Mujeres" };
 const paisLabel = (code) =>
   PAISES_SUGERIDOS.find((p) => p.code === code)?.label || code;
 
+/* Mensaje con el que el cliente final llega a WhatsApp al tocar el anuncio.
+   Con producto elegido se arma solo con su nombre (el bot lo detecta de una);
+   el cliente puede editarlo. */
+const mensajeEntradaPorDefecto = (nombreProducto) => {
+  const n = String(nombreProducto || "").trim();
+  return n
+    ? `Hola 👋 quiero información sobre ${n}`
+    : "Hola 👋 vi su anuncio y quiero más información";
+};
+
+/* Mañana a la hora indicada, en formato del <input type="datetime-local">.
+   La mayoría de las tiendas saca sus campañas a las 5:00 del día siguiente:
+   es el valor premarcado en plantillas nuevas. */
+const HORA_LANZAMIENTO_POR_DEFECTO = 5;
+const manianaA = (hora) => {
+  const d = new Date(Date.now() + 24 * 3600 * 1000);
+  d.setHours(hora, 0, 0, 0);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(hora)}:00`;
+};
+
 const normalizarTexto = (s) =>
   String(s || "")
     .normalize("NFD")
@@ -440,7 +461,10 @@ const LauncherWizardModal = ({
       descripcion: plantilla?.descripcion || "",
       mensaje_bienvenida:
         plantilla?.mensaje_bienvenida ||
-        "Hola 👋 vi su anuncio y quiero más información",
+        mensajeEntradaPorDefecto(
+          productos.find((p) => Number(p.id) === Number(plantilla?.id_producto))
+            ?.nombre,
+        ),
       imagenes,
       // Por defecto la campaña nace ACTIVA: el cliente llega aquí para
       // lanzar, no para revisar en el Ads Manager; puede cambiarlo aquí.
@@ -448,6 +472,9 @@ const LauncherWizardModal = ({
       // Programación: '' = lanzar de inmediato; 'YYYY-MM-DDTHH:mm' = el
       // conjunto arranca a esa hora (hora local de la cuenta publicitaria).
       inicio_at: (() => {
+        // Plantilla nueva: premarcada "Programada" para mañana a las 5:00
+        // (editable). Plantilla existente: lo que tenga guardado.
+        if (!plantilla) return manianaA(HORA_LANZAMIENTO_POR_DEFECTO);
         if (!plantilla?.inicio_at) return "";
         try {
           const d = new Date(plantilla.inicio_at);
@@ -494,6 +521,19 @@ const LauncherWizardModal = ({
   const productoSel = productos.find(
     (p) => Number(p.id) === Number(form.id_producto),
   );
+
+  // El mensaje de entrada sigue al producto elegido mientras el cliente no
+  // lo haya escrito a mano (si lo borra del todo, vuelve a seguirlo).
+  const mensajeManualRef = useRef(!!plantilla?.mensaje_bienvenida);
+  useEffect(() => {
+    if (mensajeManualRef.current) return;
+    const porDefecto = mensajeEntradaPorDefecto(productoSel?.nombre);
+    setForm((f) =>
+      f.mensaje_bienvenida === porDefecto
+        ? f
+        : { ...f, mensaje_bienvenida: porDefecto },
+    );
+  }, [productoSel?.nombre]);
   const paginaSel = paginas.find((p) => p.page_id === form.page_id);
   const paginaNombre = paginaSel?.page_name || null;
 
@@ -2526,12 +2566,16 @@ const LauncherWizardModal = ({
                         <textarea
                           className={`${inputCls} min-h-[60px] mt-1.5 border-emerald-200`}
                           value={form.mensaje_bienvenida}
-                          onChange={(e) =>
-                            set("mensaje_bienvenida", e.target.value)
-                          }
-                          placeholder="Hola, vi su anuncio y quiero más información"
+                          onChange={(e) => {
+                            mensajeManualRef.current = !!e.target.value.trim();
+                            set("mensaje_bienvenida", e.target.value);
+                          }}
+                          placeholder={mensajeEntradaPorDefecto(productoSel?.nombre)}
                         />
                         <p className="text-[10px] text-emerald-700/80 mt-1 leading-snug">
+                          {productoSel && !mensajeManualRef.current
+                            ? "Se armó solo con el nombre de tu producto; puedes cambiarlo. "
+                            : ""}
                           Se autocompleta en el chat cuando el cliente toca el
                           botón. Tu bot lo recibe como primer mensaje y
                           arranca la conversación al instante.
@@ -2759,12 +2803,9 @@ const LauncherWizardModal = ({
                           type="button"
                           onClick={() => {
                             if (!form.inicio_at) {
-                              const d = new Date(Date.now() + 24 * 3600 * 1000);
-                              d.setHours(9, 0, 0, 0);
-                              const p = (n) => String(n).padStart(2, "0");
                               set(
                                 "inicio_at",
-                                `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T09:00`,
+                                manianaA(HORA_LANZAMIENTO_POR_DEFECTO),
                               );
                             }
                           }}
