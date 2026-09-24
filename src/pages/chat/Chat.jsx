@@ -498,7 +498,27 @@ const Chat = () => {
       (c) => String(c.id_cliente_chat_center ?? c.id) === String(chatId),
     );
 
+    /* A /chat/:id se llega desde el kanban, flujos masivos, carritos
+       abandonados, órdenes de Dropi… es decir, con cualquier chat de la
+       cuenta. Si no es tuyo, no se abre: ni la conversación ni el panel de
+       la derecha. Antes se abría completo y el asesor podía escribirle o
+       intentar transferirlo, y ahí recién el backend respondía 403. */
+    const rechazarSiNoEsSuyo = (chat) => {
+      if (puedoAtenderElChatRef.current(chat?.id_encargado)) return false;
+      Swal.fire({
+        icon: "info",
+        title: "Este chat no es tuyo",
+        text: `No eres el encargado de este chat${
+          chat?.nombre_encargado ? `, es de ${chat.nombre_encargado}` : ""
+        }. Pide que te lo transfieran para poder atenderlo.`,
+        confirmButtonText: "Entendido",
+      });
+      navigate("/chat", { replace: true });
+      return true;
+    };
+
     if (existente) {
+      if (rechazarSiNoEsSuyo(existente)) return;
       handleSelectChat(existente);
       return;
     }
@@ -507,7 +527,15 @@ const Chat = () => {
     (async () => {
       try {
         const { data } = await getChatById(chatId, id_configuracion);
-        setMensajesAcumulados((prev) => [data.data, ...prev]);
+        if (rechazarSiNoEsSuyo(data.data)) return;
+        /* Se abre igual (se llega acá desde el kanban, flujos masivos,
+           carritos abandonados…), pero solo se agrega a la lista si
+           corresponde a la pestaña. Antes entraba cualquier chat, así que en
+           «Mis chats» aparecían chats de otros asesores y al transferirlos
+           el backend respondía 403. */
+        if (esDeMiListaRef.current(data.data?.id_encargado)) {
+          setMensajesAcumulados((prev) => [data.data, ...prev]);
+        }
         handleSelectChat(data.data);
       } catch (err) {
         if (err.response?.status === 404) {
@@ -1231,6 +1259,13 @@ const Chat = () => {
           celular_cliente: selectedChat?.celular_cliente || "",
           etiquetas: "[]",
         };
+
+        /* Si el chat no corresponde a esta pestaña no se agrega: se abrió
+           desde el kanban o desde el aviso de sin respuesta y por eso no
+           estaba en la lista. Sin esto, responderle lo volvía a meter. */
+        if (!esDeMiListaRef.current(selectedChat?.id_encargado)) {
+          return actualizado;
+        }
 
         return [nuevoChat, ...actualizado];
       });
@@ -1985,7 +2020,9 @@ const Chat = () => {
     try {
       const { data } = await getChatById(chat.id, id_configuracion);
       if (!data?.data) return;
-      setMensajesAcumulados((prev) => [data.data, ...prev]);
+      if (esDeMiLista(data.data?.id_encargado)) {
+        setMensajesAcumulados((prev) => [data.data, ...prev]);
+      }
       handleSelectChat(data.data);
     } catch (err) {
       console.error(err);
@@ -2028,6 +2065,11 @@ const Chat = () => {
     }
   };
 
+  /* Marca si el diálogo de asignación está abierto, para poder cerrarlo desde
+     el aviso del socket sin arriesgarse a cerrar otro Swal que el usuario
+     tenga en pantalla. */
+  const dialogoAsignarAbiertoRef = useRef(false);
+
   const showAsignarChatDialog = () => {
     Swal.fire({
       title: "Este chat no tiene asesor asignado",
@@ -2041,7 +2083,11 @@ const Chat = () => {
       <button id="btn-asignar" class="swal2-confirm swal2-styled">Asignarme</button>
       <button id="btn-cancelar" class="swal2-cancel swal2-styled">Cancelar</button>
     `,
+      didClose: () => {
+        dialogoAsignarAbiertoRef.current = false;
+      },
       didOpen: () => {
+        dialogoAsignarAbiertoRef.current = true;
         const btnAsignar = document.getElementById("btn-asignar");
         const btnCancelar = document.getElementById("btn-cancelar");
 
@@ -2504,20 +2550,77 @@ const Chat = () => {
     }
   }, [isSocketConnected, userData]); //SE QUITO SELECTEDCHAT PORQUE RECARGABA A CADA RATO
 
+  /* ¿Este chat corresponde a la lista que se está viendo?
+   *
+   * Es la misma regla que aplica el backend en findChats: «Mis chats» son
+   * los asignados (al asesor, o cualquiera con dueño si es admin) y «En
+   * espera» los que no tienen dueño. Hay que repetirla acá porque los avisos
+   * en vivo del socket también agregan y quitan chats de la lista; si no
+   * coinciden, un chat que cambió de dueño se queda pegado en la lista de
+   * quien lo tenía y al intentar transferirlo el backend responde 403. */
+  const esDeMiLista = useCallback(
+    (encargadoId) => {
+      const sinDueno =
+        encargadoId == null || String(encargadoId).trim() === "";
+      if (scopeChats === "waiting") return sinDueno;
+      if (sinDueno) return false;
+      return (
+        rol_usuario_global === "administrador" ||
+        rol_usuario_global === "admin_limitado" ||
+        String(encargadoId) === String(id_sub_usuario_global)
+      );
+    },
+    [scopeChats, rol_usuario_global, id_sub_usuario_global],
+  );
+
+  /* La misma regla, accesible desde efectos que NO deben volver a ejecutarse
+     cuando cambia la pestaña (el que abre un chat por /chat/:id: si se
+     re-ejecutara, volvería a pedir el chat y a seleccionarlo). */
+  const esDeMiListaRef = useRef(esDeMiLista);
+  useEffect(() => {
+    esDeMiListaRef.current = esDeMiLista;
+  }, [esDeMiLista]);
+
+  /* Distinto de lo anterior: si el chat lo puede ATENDER, aunque no esté en
+     la lista de esta pestaña. Se usa para decidir si hay que cerrar el chat
+     abierto a la derecha. */
+  const puedoAtenderElChat = useCallback(
+    (encargadoId) => {
+      const sinDueno =
+        encargadoId == null || String(encargadoId).trim() === "";
+      return (
+        rol_usuario_global === "administrador" ||
+        rol_usuario_global === "admin_limitado" ||
+        sinDueno ||
+        String(encargadoId) === String(id_sub_usuario_global)
+      );
+    },
+    [rol_usuario_global, id_sub_usuario_global],
+  );
+
+  /* Se inicializa con el valor, no vacía: el efecto que abre /chat/:id está
+     declarado antes que este y React ejecuta los efectos en ese orden, así
+     que en el primer render la referencia todavía no estaría cargada. */
+  const puedoAtenderElChatRef = useRef(puedoAtenderElChat);
+  useEffect(() => {
+    puedoAtenderElChatRef.current = puedoAtenderElChat;
+  }, [puedoAtenderElChat]);
+
   useEffect(() => {
     if (!socketRef.current) return;
     if (!isSocketConnected) return;
 
-    socketRef.current.on("ENCARGADO_CHAT_ACTUALIZADO", (data) => {
+    /* El handler va en una const y se da de baja al final: este efecto
+       depende de selectedChat, así que se re-ejecuta en cada clic de chat.
+       Sin el `off`, quedaban vivos todos los handlers anteriores, cada uno
+       con la pestaña que estaba activa cuando se registró: uno viejo de
+       «Mis chats» podía reinsertar en «En espera» un chat con dueño, y el
+       resultado dependía de cuál corriera último. */
+    const onEncargadoActualizado = (data) => {
       const msg = normalizeMsg(data, data.source);
 
       if (msg.id_configuracion == localStorage.getItem("id_configuracion")) {
         const encargadoId = msg?.clientePorCelular?.id_encargado;
-        const isAdmin =
-          rol_usuario_global === "administrador" ||
-          rol_usuario_global === "admin_limitado";
-
-        const deboVerlo = String(encargadoId) === String(id_sub_usuario_global);
 
         const isIncoming =
           msg.direction === "in" ||
@@ -2530,20 +2633,15 @@ const Chat = () => {
 
           // si NO debo verlo, lo quito
           if (prev.length != 0) {
-            /* validamos para saber si se quita o no */
-
-            if (scopeChats == "waiting") {
-              if (!deboVerlo) {
-                return prev.filter((c) => c.id != msg.celular_recibe);
-              } else {
-                return prev;
-              }
+            /* El chat cambió de dueño: si ya no corresponde a esta pestaña,
+               se saca de la lista. Antes, en «Mis chats» esto era un
+               `return prev` y el chat se quedaba pegado en la lista de quien
+               lo tenía, aunque ya fuera de otro asesor. */
+            if (!esDeMiLista(encargadoId)) {
+              return prev.filter(
+                (c) => String(c.id) !== String(msg.celular_recibe),
+              );
             }
-
-            if (!deboVerlo && !isAdmin) {
-              return prev;
-            }
-            /* validamos para saber si se quita o no */
 
             const actualizado = prev.map((c) => ({ ...c }));
 
@@ -2630,16 +2728,62 @@ const Chat = () => {
           selectedChat &&
           String(selectedChat.id) === String(msg.celular_recibe)
         ) {
-          if (msg?.clientePorCelular?.id_encargado != id_sub_usuario_global) {
-            // opcional: cerrar chat actual o mostrar aviso
+          const yaTieneDueno =
+            encargadoId != null && String(encargadoId).trim() !== "";
+          const esMio = String(encargadoId) === String(id_sub_usuario_global);
+
+          /* El diálogo de «¿Deseas asignarte este cliente?» pierde sentido en
+             cuanto otro se queda con el chat, aunque yo sea administrador y
+             pueda seguir atendiéndolo. Antes se cerraba de rebote junto con
+             el panel, comparando contra el propio id; como el administrador
+             nunca coincide, a él se le quedaba abierto. */
+          if (dialogoAsignarAbiertoRef.current && yaTieneDueno && !esMio) {
+            Swal.close();
+          }
+
+          // El panel abierto se queda con el encargado al día.
+          if (yaTieneDueno) {
+            setSelectedChat((prev) =>
+              prev && String(prev.id) === String(msg.celular_recibe)
+                ? {
+                    ...prev,
+                    id_encargado: encargadoId,
+                    nombre_encargado:
+                      msg?.clientePorCelular?.nombre_encargado ??
+                      prev.nombre_encargado,
+                  }
+                : prev,
+            );
+          }
+
+          /* Se cierra el chat abierto solo si ya no se puede atender. Antes
+             se comparaba contra el propio id, así que a un administrador se
+             le cerraba el panel apenas el chat pasaba a otro asesor. */
+          if (!puedoAtenderElChat(encargadoId)) {
             if (Swal.isVisible()) Swal.close();
             setSelectedChat(null);
             setChatMessages([]);
           }
         }
       }
-    });
-  }, [isSocketConnected, userData, scopeChats, selectedChat]);
+    };
+
+    socketRef.current.on("ENCARGADO_CHAT_ACTUALIZADO", onEncargadoActualizado);
+
+    return () => {
+      socketRef.current.off(
+        "ENCARGADO_CHAT_ACTUALIZADO",
+        onEncargadoActualizado,
+      );
+    };
+  }, [
+    isSocketConnected,
+    userData,
+    scopeChats,
+    selectedChat,
+    esDeMiLista,
+    puedoAtenderElChat,
+  ]);
 
   /* sistema de notificacion cuando se asigne correctamente */
   useEffect(() => {
@@ -2654,19 +2798,23 @@ const Chat = () => {
           id_encargado: id_sub_usuario_global,
         }));
 
-        // Actualizar id_encargado en mensajesAcumulados
-        const updatedMensajesAcumulados = mensajesAcumulados.map((mensaje) => {
-          if (mensaje.id === selectedChat.id) {
-            return {
-              ...mensaje,
-              id_encargado: id_sub_usuario_global, // Actualizar id_encargado
-            };
-          }
-          return mensaje;
-        });
+        /* El chat pasa a tener dueño, así que si estabas en «En espera» ya
+           no pertenece a esa lista y hay que sacarlo; en «Mis chats» solo se
+           actualiza el encargado. Antes se quedaba en «En espera» hasta
+           recargar, mostrando como libre un chat que ya era tuyo. */
+        const siguePerteneciendo = esDeMiLista(id_sub_usuario_global);
 
-        // Actualizar mensajesAcumulados en el estado si es necesario
-        setMensajesAcumulados(updatedMensajesAcumulados);
+        setMensajesAcumulados((prev) =>
+          siguePerteneciendo
+            ? prev.map((mensaje) =>
+                String(mensaje.id) === String(selectedChat.id)
+                  ? { ...mensaje, id_encargado: id_sub_usuario_global }
+                  : mensaje,
+              )
+            : prev.filter(
+                (mensaje) => String(mensaje.id) !== String(selectedChat.id),
+              ),
+        );
       } else {
         Toast.fire({
           icon: "error",
@@ -2680,7 +2828,7 @@ const Chat = () => {
     return () => {
       socketRef.current.off("ASIGNAR_ENCARGADO_RESPONSE", onAsignarResponse);
     };
-  }, [isSocketConnected, selectedChat, mensajesAcumulados]);
+  }, [isSocketConnected, selectedChat, esDeMiLista]);
   /* sistema de notificacion cuando se asigne correctamente */
 
   /* ── Plantillas programadas del chat abierto (tiempo real) ──────────────
@@ -3097,16 +3245,10 @@ const Chat = () => {
       const clienteWa = msg.clientePorCelular || null;
       const encargadoId = chat?.id_encargado ?? clienteWa?.id_encargado ?? null;
 
-      const isAdmin =
-        rol_usuario_global === "administrador" ||
-        rol_usuario_global === "admin_limitado";
-      const encargadoStr =
-        encargadoId == null ? "" : String(encargadoId).trim();
-      const isUnassigned = !encargadoStr;
-      const canSeeChat =
-        isAdmin ||
-        isUnassigned ||
-        encargadoStr === String(id_sub_usuario_global);
+      // Pertenece a la pestaña actual (para la lista) vs. lo puede atender
+      // (para el chat abierto a la derecha): no son lo mismo.
+      const perteneceALista = esDeMiLista(encargadoId);
+      const canSeeChat = puedoAtenderElChat(encargadoId);
 
       // 1) IZQUIERDA
       setMensajesAcumulados((prevChats) => {
@@ -3117,10 +3259,8 @@ const Chat = () => {
         );
 
         if (index !== -1) {
-          console.log("canSeeChat: " + canSeeChat);
-          // ✅ si ya existe en la izquierda pero ya NO le corresponde (y no es admin) => eliminarlo
-          if (!canSeeChat) {
-            console.log("entro");
+          // ✅ si ya existe en la izquierda pero ya NO le corresponde => eliminarlo
+          if (!perteneceALista) {
             actualizado.splice(index, 1);
             return actualizado;
           }
@@ -3186,18 +3326,10 @@ const Chat = () => {
               },
             };
 
-        // ✅ CONDICIÓN EXACTA DEL ANTIGUO (pero con encargado unificado)
+        // Se agrega solo si corresponde a la pestaña que se está viendo.
         const isSearchEmpty = !searchTerm?.trim();
-        if (canSeeChat && isSearchEmpty) {
-          if (selectedTab == "abierto") {
-            if (encargadoId == null) {
-              if (scopeChats == "waiting") {
-                actualizado.unshift(nuevoChat);
-              }
-            } else if (scopeChats == "mine") {
-              actualizado.unshift(nuevoChat);
-            }
-          }
+        if (perteneceALista && isSearchEmpty && selectedTab == "abierto") {
+          actualizado.unshift(nuevoChat);
         }
 
         return actualizado;
@@ -3358,6 +3490,8 @@ const Chat = () => {
     scopeChats,
     searchTerm,
     selectedTab,
+    esDeMiLista,
+    puedoAtenderElChat,
   ]);
 
   function validar_estadoLaar(estado) {

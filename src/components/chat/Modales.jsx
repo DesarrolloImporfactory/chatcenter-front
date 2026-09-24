@@ -737,6 +737,10 @@ const Modales = ({
         wamid,
         "",
         "",
+        // nombre_cliente va antes que id_encargado (ver la firma en
+        // Chat.jsx): sin este argumento el id caía en el nombre y el
+        // encargado quedaba vacío, y el chat se trataba como sin dueño.
+        selectedChat.nombre_cliente ?? "",
         selectedChat.id_encargado,
       );
 
@@ -927,6 +931,10 @@ const Modales = ({
         wamid,
         "",
         "",
+        // nombre_cliente va antes que id_encargado (ver la firma en
+        // Chat.jsx): sin este argumento el id caía en el nombre y el
+        // encargado quedaba vacío, y el chat se trataba como sin dueño.
+        selectedChat.nombre_cliente ?? "",
         selectedChat.id_encargado,
       );
 
@@ -1251,6 +1259,10 @@ const Modales = ({
         wamid,
         "",
         "",
+        // nombre_cliente va antes que id_encargado (ver la firma en
+        // Chat.jsx): sin este argumento el id caía en el nombre y el
+        // encargado quedaba vacío, y el chat se trataba como sin dueño.
+        selectedChat.nombre_cliente ?? "",
         selectedChat.id_encargado,
       );
     } catch (error) {
