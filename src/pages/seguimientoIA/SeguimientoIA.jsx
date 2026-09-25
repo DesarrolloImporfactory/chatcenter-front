@@ -51,6 +51,7 @@ const FILTROS_INICIALES = {
   motivo: "",
   recuperar: "",
   descartadas: "",
+  orden: "",
   page: 1,
   limit: 20,
 };
@@ -380,6 +381,10 @@ export default function SeguimientoIA() {
             <option value={60}>Últimos 60 días</option>
             <option value={90}>Últimos 90 días</option>
             <option value={180}>Últimos 180 días</option>
+          </select>
+          <select value={filtros.orden} onChange={(e) => aplicar({ orden: e.target.value })} className={INPUT}>
+            <option value="">Más recientes primero</option>
+            <option value="antiguas">Más viejas primero</option>
           </select>
         </div>
 
