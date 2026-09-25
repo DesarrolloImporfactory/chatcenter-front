@@ -1,4 +1,5 @@
 import imporsuitApi from "../../api/imporsuit";
+import chatApi from "../../api/chatcenter";
 import { getActorChatcenter } from "./actor";
 
 /**
@@ -42,6 +43,48 @@ export async function getCotizacionesIA({ telefono, signal } = {}) {
   });
   unwrap(data);
   return Array.isArray(data?.data) ? data.data : [];
+}
+
+/**
+ * Bandeja de «Seguimiento IA» (página /seguimiento-ia): todas las
+ * cotizaciones atascadas de todos los asesores con su análisis, el chat de
+ * cada cliente en la línea (265) con su encargado, y el departamento del
+ * agente en esa línea (lo pide la transferencia).
+ *
+ * @returns {Promise<{ total, total_paginas, pagina, total_alcance, conteos,
+ *   asesores, data, linea, departamento_agente }>}
+ */
+export async function getBandejaIA(filtros = {}, { signal } = {}) {
+  const params = { agente: getActorChatcenter().id_sub_usuario ?? "" };
+  Object.entries(filtros).forEach(([k, v]) => {
+    if (v !== "" && v != null) params[k] = v;
+  });
+  const { data } = await imporsuitApi.get("/Carterachat/ia_bandeja", { params, signal });
+  unwrap(data);
+  return data;
+}
+
+/**
+ * El agente se asigna el chat de un cliente que hoy atiende otro asesor. Usa
+ * la transferencia normal del socket (historial, aviso en el chat y refresco
+ * en vivo); el socket solo lo permite a los subusuarios habilitados y solo
+ * hacia sí mismos (SUB_USUARIOS_AUTOASIGNAN en utils/historialEncargados.js).
+ */
+export async function asignarmeChat({ idCliente, idConfiguracion, idDepartamento, motivo }) {
+  const actor = getActorChatcenter();
+  await chatApi.post(
+    "departamentos_chat_center/transferirChat",
+    {
+      source: "wa",
+      id_encargado: actor.id_sub_usuario,
+      id_departamento: idDepartamento,
+      id_cliente_chat_center: idCliente,
+      id_configuracion: idConfiguracion,
+      motivo,
+      emisor: actor.nombre,
+    },
+    { silentError: true },
+  );
 }
 
 /**

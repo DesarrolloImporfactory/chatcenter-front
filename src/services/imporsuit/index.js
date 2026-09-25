@@ -43,7 +43,12 @@ export {
 
 export { listarAuditoria } from "./auditoria.service";
 
-export { getCotizacionesIA, analizarCotizacionIA } from "./cotizacionesIA.service";
+export {
+  getCotizacionesIA,
+  analizarCotizacionIA,
+  getBandejaIA,
+  asignarmeChat,
+} from "./cotizacionesIA.service";
 
 export { getActorChatcenter, setCarteraCtx, getCarteraCtx } from "./actor";
 
