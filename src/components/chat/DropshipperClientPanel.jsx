@@ -6,6 +6,7 @@ import CreateOrderPanel from "./CreateOrderPanel";
 import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
 import HistorialEncargados from "./HistorialEncargados";
 import IncidenciasCliente from "./IncidenciasCliente";
+import PagosClienteSection from "./PagosClienteSection";
 import OrderList from "./OrderList";
 import OrderDetail from "./OrderDetail";
 import EncuestasCliente from "./EncuestasCliente";
@@ -818,6 +819,10 @@ function ClientHeader({
         {/* <EtiquetasCustomSelect clienteId={selectedChat?.id} /> */}
         <HistorialEncargados clienteId={selectedChat?.id} />
         <IncidenciasCliente
+          clienteId={selectedChat?.id}
+          idConfiguracion={id_configuracion}
+        />
+        <PagosClienteSection
           clienteId={selectedChat?.id}
           idConfiguracion={id_configuracion}
         />

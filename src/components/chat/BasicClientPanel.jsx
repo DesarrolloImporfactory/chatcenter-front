@@ -2,6 +2,7 @@ import React from "react";
 import EtiquetasCustomSelect from "./EtiquetasCustomSelect";
 import HistorialEncargados from "./HistorialEncargados";
 import IncidenciasCliente from "./IncidenciasCliente";
+import PagosClienteSection from "./PagosClienteSection";
 import EncuestasCliente from "./EncuestasCliente";
 import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
 import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
@@ -131,6 +132,10 @@ export default function BasicClientPanel({
               <EtiquetasCustomSelect clienteId={selectedChat?.id} />
               <HistorialEncargados clienteId={selectedChat?.id} />
               <IncidenciasCliente
+                clienteId={selectedChat?.id}
+                idConfiguracion={id_configuracion}
+              />
+              <PagosClienteSection
                 clienteId={selectedChat?.id}
                 idConfiguracion={id_configuracion}
               />

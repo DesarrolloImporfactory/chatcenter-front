@@ -1139,6 +1139,20 @@ const Cabecera = ({
                   <span>Aliclik</span>
                 </a>
 
+                {/* ===== Stripe (enlaces de pago desde el chat) ===== */}
+                <a
+                  href="/stripe"
+                  onClick={(e) => handleNavClick(e, "/stripe")}
+                  className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                    location.pathname.startsWith("/stripe")
+                      ? "font-semibold text-blue-600"
+                      : ""
+                  }`}
+                >
+                  <i className="bx bxl-stripe text-xl text-gray-600 group-hover:text-blue-600"></i>
+                  <span>Stripe</span>
+                </a>
+
                 {/* ===== Shopify (directo a configuración) ===== */}
                 <a
                   href="/shopify"
