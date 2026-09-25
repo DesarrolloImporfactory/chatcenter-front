@@ -97,7 +97,7 @@ export function TagSelect({
 
 /* ═══════════════════════════════════════════
    MultiLabelSelect — multi-select para
-   Asesor, Ciclo, Estado Contacto
+   Asesor, Encargado, Ciclo, Estado Contacto
    ═══════════════════════════════════════════ */
 
 export function MultiLabelSelect({
@@ -249,6 +249,10 @@ export default function FilterBar({
   opcionesAsesor,
   onDeleteAsesor,
   onCreateAsesor,
+  // encargado = sub-usuario asignado al contacto (MULTI select, sin CRUD)
+  idsEncargadoFiltro = [],
+  setIdsEncargadoFiltro = () => {},
+  opcionesEncargado = [],
   // ciclo (MULTI select)
   idsCicloFiltro, // array
   setIdsCicloFiltro, // setter array
@@ -364,6 +368,16 @@ export default function FilterBar({
             colorBadge="#0ea5e9"
             onDelete={onDeleteAsesor}
             onCreateNew={onCreateAsesor}
+          />
+
+          {/* Encargado (MULTI). Es el sub-usuario asignado al chat; no
+              confundir con "Asesor", que es una etiqueta custom. */}
+          <MultiLabelSelect
+            options={opcionesEncargado}
+            value={idsEncargadoFiltro}
+            onChange={setIdsEncargadoFiltro}
+            placeholder="Encargado"
+            colorBadge="#6366f1"
           />
 
           {/* Ciclo (MULTI) */}
