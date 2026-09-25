@@ -822,6 +822,8 @@ export default function Contactos() {
   const [opcionesAsesor, setOpcionesAsesor] = useState([]);
   const [opcionesCiclo, setOpcionesCiclo] = useState([]);
   const [idsAsesorFiltro, setIdsAsesorFiltro] = useState([]);
+  const [opcionesEncargado, setOpcionesEncargado] = useState([]);
+  const [idsEncargadoFiltro, setIdsEncargadoFiltro] = useState([]);
   const [idsCicloFiltro, setIdsCicloFiltro] = useState([]);
   const [filtroFecha, setFiltroFecha] = useState(null);
 
@@ -1978,7 +1980,36 @@ export default function Contactos() {
     cargarOpcionesCustomLabels();
     cargarOpcionesEstadoContacto();
     cargarOpcionesProductoAd();
+    cargarOpcionesEncargado();
   }, []);
+
+  // Encargados = sub-usuarios de la configuración (departamentos o con
+  // contactos asignados). "sin" filtra los contactos sin encargado.
+  async function cargarOpcionesEncargado() {
+    try {
+      const { data } = await chatApi.get(
+        "/clientes_chat_center/encargados_filtro",
+        {
+          params: {
+            id_configuracion: localStorage.getItem("id_configuracion"),
+          },
+        },
+      );
+      const lista = Array.isArray(data?.data) ? data.data : [];
+      setOpcionesEncargado([
+        { id: "sin", nombre: "Sin encargado", color: "#94a3b8" },
+        ...lista.map((u) => ({
+          id: u.id_sub_usuario,
+          nombre: `${u.nombre_encargado || u.usuario}${
+            Number(u.suspendido) === 1 ? " (suspendido)" : ""
+          }`,
+        })),
+      ]);
+    } catch (e) {
+      console.warn("Error cargando encargados:", e?.message);
+      setOpcionesEncargado([]);
+    }
+  }
 
   async function cargarOpcionesCustomLabels() {
     try {
@@ -2128,6 +2159,9 @@ export default function Contactos() {
         id_configuracion: localStorage.getItem("id_configuracion"),
         id_etiqueta_asesor: idsAsesorFiltro.length
           ? idsAsesorFiltro.join(",")
+          : undefined,
+        id_encargado: idsEncargadoFiltro.length
+          ? idsEncargadoFiltro.join(",")
           : undefined,
         id_etiqueta_ciclo: idsCicloFiltro.length
           ? idsCicloFiltro.join(",")
@@ -2407,6 +2441,7 @@ export default function Contactos() {
     pageSize,
     idEtiquetaFiltro,
     idsAsesorFiltro,
+    idsEncargadoFiltro,
     idsCicloFiltro,
     idsEstadoContactoFiltro,
     productosAdFiltro,
@@ -2472,6 +2507,9 @@ export default function Contactos() {
             : undefined,
           id_etiqueta_asesor: idsAsesorFiltro.length
             ? idsAsesorFiltro.join(",")
+            : undefined,
+          id_encargado: idsEncargadoFiltro.length
+            ? idsEncargadoFiltro.join(",")
             : undefined,
           id_etiqueta_ciclo: idsCicloFiltro.length
             ? idsCicloFiltro.join(",")
@@ -3010,6 +3048,9 @@ export default function Contactos() {
             opcionesAsesor={opcionesAsesor}
             onDeleteAsesor={(id, nombre) => eliminarCustomLabel(id, nombre)}
             onCreateAsesor={() => promptCrearCustomLabel("asesor")}
+            idsEncargadoFiltro={idsEncargadoFiltro}
+            setIdsEncargadoFiltro={setIdsEncargadoFiltro}
+            opcionesEncargado={opcionesEncargado}
             idsCicloFiltro={idsCicloFiltro}
             setIdsCicloFiltro={setIdsCicloFiltro}
             opcionesCiclo={opcionesCiclo}
@@ -3037,6 +3078,7 @@ export default function Contactos() {
               setIdEtiquetaFiltro([]);
               setOrden("recientes");
               setIdsAsesorFiltro([]);
+              setIdsEncargadoFiltro([]);
               setIdsCicloFiltro([]);
               setIdsEstadoContactoFiltro([]);
               setProductosAdFiltro([]);
