@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSocket } from "./SocketProvider";
 import { Outlet } from "react-router-dom";
+import LlamadaWhatsapp from "../components/llamadas/LlamadaWhatsapp";
 
 const PresenceContext = createContext(null);
 
@@ -59,6 +60,10 @@ export default function PresenceProvider({ children }) {
   return (
     <PresenceContext.Provider value={value}>
       {children ?? <Outlet />}
+      {/* Panel de llamadas de WhatsApp: acá y no en MainLayout, porque /chat
+          renderiza <Chat /> sin layout y ahí es donde más se necesita.
+          Vive junto al socket de /presence, que es por donde llega el aviso. */}
+      <LlamadaWhatsapp />
     </PresenceContext.Provider>
   );
 }
