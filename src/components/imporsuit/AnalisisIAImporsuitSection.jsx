@@ -216,13 +216,13 @@ function PanelAnalisis({ telefono, nombre, onClose }) {
   );
 }
 
-const SITUACIONES = {
+export const SITUACIONES = {
   no_cerrada: ["No cerrada", "border-amber-300 bg-amber-50 text-amber-800"],
   cerrada_no_reflejada: ["Cerrada, falta actualizar", "border-emerald-300 bg-emerald-50 text-emerald-800"],
   reemplazada_por_otra: ["Reemplazada por otra", "border-sky-300 bg-sky-50 text-sky-800"],
   sin_informacion: ["Sin información", "border-slate-200 bg-slate-50 text-slate-600"],
 };
-const MOTIVOS = {
+export const MOTIVOS = {
   precio_alto: "Precio alto",
   costo_flete_o_impuestos: "Flete o impuestos",
   sin_liquidez: "Sin liquidez",
@@ -239,7 +239,7 @@ const MOTIVOS = {
   otro: "Otro",
   no_aplica: "No aplica",
 };
-const RECUPERAR = {
+export const RECUPERAR = {
   alta: ["Alta", "border-emerald-300 bg-emerald-50 text-emerald-800"],
   media: ["Media", "border-amber-300 bg-amber-50 text-amber-800"],
   baja: ["Baja", "border-rose-300 bg-rose-50 text-rose-800"],
@@ -299,7 +299,7 @@ function TarjetaCotizacion({ cot, analizando, onAnalizar }) {
   );
 }
 
-function Resultado({ analisis, r }) {
+export function Resultado({ analisis, r }) {
   const sit = SITUACIONES[r.situacion] || SITUACIONES.sin_informacion;
   const rec = RECUPERAR[r.probabilidad_recuperar] || RECUPERAR.no_aplica;
   return (
@@ -382,7 +382,7 @@ function MensajeSugerido({ texto }) {
   );
 }
 
-function Chip({ cls = "border-slate-200 bg-slate-50 text-slate-700", children }) {
+export function Chip({ cls = "border-slate-200 bg-slate-50 text-slate-700", children }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
       {children}
@@ -390,7 +390,7 @@ function Chip({ cls = "border-slate-200 bg-slate-50 text-slate-700", children })
   );
 }
 
-function Aviso({ tono = "info", className = "", children }) {
+export function Aviso({ tono = "info", className = "", children }) {
   const cls =
     tono === "err" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-sky-200 bg-sky-50 text-sky-800";
   return <div className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${cls} ${className}`}>{children}</div>;

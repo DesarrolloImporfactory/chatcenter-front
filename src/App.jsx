@@ -37,6 +37,7 @@ import Usuarios from "./pages/usuarios/UsuariosView";
 import AdminUsuarios from "./components/admin/usuarios/AdminUsuarios";
 import AdminDashboard from "./components/admin/dashboard/AdminDashboard";
 import AuditoriaCarteraView from "./pages/auditoria/AuditoriaCarteraView";
+import SeguimientoIA from "./pages/seguimientoIA/SeguimientoIA";
 import TutorialesView from "./pages/tutoriales/TutorialesView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
@@ -616,6 +617,17 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
+                {/* Seguimiento IA de cotizaciones (solo Johan; la página
+                    valida IA_AGENTES_HABILITADOS y lo manda a /chat si no) */}
+                <Route
+                  path="/seguimiento-ia"
+                  element={
+                    <MainLayout>
+                      <SeguimientoIA />
+                    </MainLayout>
+                  }
+                />
+
                 {/* auditoría de cartera imporsuit */}
                 <Route
                   path="/auditoria-cartera"

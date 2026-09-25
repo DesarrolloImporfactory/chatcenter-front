@@ -17,6 +17,7 @@ import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
+import { IA_AGENTES_HABILITADOS } from "../../services/imporsuit/constants";
 
 function MainLayout({ children }) {
   usePresenceRegister();
@@ -492,6 +493,27 @@ function MainLayout({ children }) {
                 <i className="bx bx-bar-chart-alt-2 text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
                 <span className="text-lg text-gray-700 group-hover:text-blue-600">
                   Dashboard
+                </span>
+              </a>
+            )}
+
+            {/* Seguimiento IA de cotizaciones: solo los habilitados (Johan). */}
+            {IA_AGENTES_HABILITADOS.includes(Number(id_sub_usuario)) && (
+              <a
+                href="/seguimiento-ia"
+                className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                  location.pathname === "/seguimiento-ia"
+                    ? "bg-gray-200 font-semibold"
+                    : ""
+                }`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goTo("/seguimiento-ia");
+                }}
+              >
+                <i className="bx bx-brain text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                  Seguimiento IA
                 </span>
               </a>
             )}
