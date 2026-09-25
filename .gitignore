@@ -10,6 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# Respaldos que deja el deploy (rsync --backup-dir) en el checkout del
+# servidor. Se llegaron a commitear ahí (commit 61944ad, 2026-09-25).
+releases
+index.html.bak.*
 *.local
 .env
 # Editor directories and files
