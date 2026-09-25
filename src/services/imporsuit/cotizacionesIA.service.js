@@ -8,7 +8,7 @@ import { getActorChatcenter } from "./actor";
  *   POST /Carterachat/ia_analizar { tipo, id, forzar? }   (el interceptor
  *        agrega `_cc_actor`, de donde el back saca el id_sub_usuario)
  *
- * Solo para los agentes habilitados (hoy Johan) y sobre SUS cotizaciones: el
+ * Solo para los agentes habilitados (hoy Johan), sobre cualquier asesor: el
  * back busca el correo del subusuario en chatcenter, lo cruza con su usuario
  * de Imporsuit y lo valida con AnalisisCotizacionIA::USUARIOS_HABILITADOS.
  *
@@ -30,7 +30,7 @@ function unwrap(data) {
 
 /**
  * Cotizaciones atascadas (más de 3 días sin cerrarse, o anuladas) del cliente
- * de este teléfono que son del agente, con su último análisis.
+ * de este teléfono, de cualquier asesor, con su último análisis.
  *
  * @returns {Promise<Array<{tipo:"grupal"|"directa", id:number, codigo:string,
  *   estado:string, fecha_creacion:string, modo:string, analisis:object|null}>>}
