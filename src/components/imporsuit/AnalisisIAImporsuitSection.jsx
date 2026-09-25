@@ -199,8 +199,8 @@ function PanelAnalisis({ telefono, nombre, onClose }) {
         )}
         {!error && lista?.length === 0 && (
           <Aviso>
-            Este cliente no tiene cotizaciones atascadas: solo aparecen las que llevan más de 3 días sin cerrarse
-            o las anuladas.
+            Este cliente no tiene cotizaciones sin respuesta: solo aparecen las que llevan más de 3 días sin
+            cerrarse (ni anuladas ni descartadas del seguimiento).
           </Aviso>
         )}
         {lista?.map((c) => (
