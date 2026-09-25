@@ -6,6 +6,7 @@ import { esRolVentas } from "../../utils/rolActual";
 import Adsboard from "../../components/metaAsd/Adsboard";
 import Dropiboard from "../dropi/Dropiboard";
 import Chatboard from "../../components/dashboard/Dashboard";
+import AtencionResumen from "../../components/dashboard/AtencionResumen";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -571,6 +572,85 @@ export default function ConnectionDashboard({ adminMode = false }) {
   }));
   const [conexiones, setConexiones] = useState([]);
 
+  /* ── Modo del dashboard de esta conexión ──
+     'dropshipping' → Resumen de ventas (Dropi/Shopify) + tab Dropi.
+     'atencion'     → Resumen de atención (cola, asesores por hora, tiempos
+                      de respuesta); el tab Dropi se oculta.
+     El back lo infiere de los datos (GET /dashboard/modo: pedidos Dropi
+     recientes = ventas, si no = atención). Si el dueño quiere forzarlo, la
+     elección se guarda por navegador en localStorage — sin tocar la base.
+     Hasta que responde no se pinta ningún Resumen, para no mostrar Dropi
+     un instante a una cuenta de atención. */
+  const claveModo = (id) => `dashboard_modo:${id}`;
+  const leerModoGuardado = (id) => {
+    try {
+      const v = localStorage.getItem(claveModo(id));
+      return v === "dropshipping" || v === "atencion" ? v : "auto";
+    } catch {
+      return "auto";
+    }
+  };
+  const [modo, setModo] = useState({ guardado: "auto", efectivo: null });
+  const [modoInferido, setModoInferido] = useState(null);
+  useEffect(() => {
+    if (!conexion.id) return undefined;
+    let vigente = true;
+    const guardado = leerModoGuardado(conexion.id);
+    setModoInferido(null);
+    setModo({
+      guardado,
+      efectivo: guardado === "auto" ? null : guardado,
+    });
+    chatApi
+      .get("/dashboard/modo", { params: { id_configuracion: conexion.id } })
+      .then(({ data }) => {
+        if (!vigente) return;
+        const inferido = data?.data?.modo_efectivo || "dropshipping";
+        setModoInferido(inferido);
+        setModo((m) => ({
+          ...m,
+          efectivo: m.guardado === "auto" ? inferido : m.guardado,
+        }));
+      })
+      .catch(() => {
+        if (!vigente) return;
+        setModoInferido("dropshipping");
+        setModo((m) => ({
+          ...m,
+          efectivo: m.guardado === "auto" ? "dropshipping" : m.guardado,
+        }));
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [conexion.id]);
+
+  const cambiarModo = (nuevo) => {
+    if (!conexion.id) return;
+    try {
+      if (nuevo === "auto") localStorage.removeItem(claveModo(conexion.id));
+      else localStorage.setItem(claveModo(conexion.id), nuevo);
+    } catch {
+      // Sin almacenamiento: el cambio vale solo hasta recargar.
+    }
+    setModo({
+      guardado: nuevo,
+      efectivo: nuevo === "auto" ? modoInferido || "dropshipping" : nuevo,
+    });
+  };
+
+  const esAtencion = modo.efectivo === "atencion";
+  const tabsVisibles = esAtencion
+    ? TABS.filter((t) => t.id !== "dropi")
+    : TABS;
+  // Si estaba en Dropi y la conexión resulta ser de atención, vuelve a Resumen.
+  useEffect(() => {
+    if (esAtencion && activeTab === "dropi") {
+      setActiveTab("resumen");
+      updateUrlParam("resumen");
+    }
+  }, [esAtencion, activeTab]);
+
   // En modo selector: cargar las conexiones del usuario y, si no hay una
   // activa (o ya no existe), arrancar con la primera registrada.
   useEffect(() => {
@@ -696,7 +776,26 @@ export default function ConnectionDashboard({ adminMode = false }) {
           </div>
 
           <div className="flex items-center gap-0.5 sm:gap-1">
-            {TABS.map((tab) => {
+            {/* Interruptor de modo (ventas / atención) de esta conexión */}
+            <select
+              value={modo.guardado}
+              onChange={(e) => cambiarModo(e.target.value)}
+              disabled={!modo.efectivo}
+              className="mr-1 h-7 rounded-md border border-slate-200 bg-white px-1.5 text-[11px] font-semibold text-slate-600 outline-none focus:border-indigo-400"
+              title={`Qué Resumen muestra esta conexión (ahora: ${
+                esAtencion ? "atención al cliente" : "ventas / dropshipping"
+              }). Se recuerda en este navegador.`}
+            >
+              <option value="auto">
+                Auto
+                {modoInferido
+                  ? ` (${modoInferido === "atencion" ? "atención" : "ventas"})`
+                  : ""}
+              </option>
+              <option value="dropshipping">Ventas</option>
+              <option value="atencion">Atención</option>
+            </select>
+            {tabsVisibles.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button
@@ -736,13 +835,27 @@ export default function ConnectionDashboard({ adminMode = false }) {
       <div key={allowSwitch ? "admin" : conexion.id || "sin-conexion"}>
         {visitedTabs.has("resumen") && (
           <div className={activeTab === "resumen" ? "" : "hidden"}>
-            <ResumenView
-              configId={conexion.id}
-              configNombre={conexion.nombre}
-              allowSwitch={allowSwitch}
-              conexiones={conexiones}
-              onChangeConexion={handleChangeConexion}
-            />
+            {modo.efectivo === null ? (
+              <div className="px-3 sm:px-6 py-4">
+                <SkBox className="h-[52px] w-full" />
+              </div>
+            ) : esAtencion ? (
+              <AtencionResumen
+                configId={conexion.id}
+                configNombre={conexion.nombre}
+                allowSwitch={allowSwitch}
+                conexiones={conexiones}
+                onChangeConexion={handleChangeConexion}
+              />
+            ) : (
+              <ResumenView
+                configId={conexion.id}
+                configNombre={conexion.nombre}
+                allowSwitch={allowSwitch}
+                conexiones={conexiones}
+                onChangeConexion={handleChangeConexion}
+              />
+            )}
           </div>
         )}
         {visitedTabs.has("dropi") && (

@@ -10,6 +10,8 @@ import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
+import CronometroRespuesta from "./CronometroRespuesta";
+import BotonLlamarWhatsapp from "./BotonLlamarWhatsapp";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
@@ -1824,6 +1826,18 @@ const Cabecera = ({
 
               {/* ─── Lado derecho: acciones ─── */}
               <div className="flex items-center gap-2 shrink-0">
+                {/* Cronómetro de respuesta (piloto: configs habilitadas) */}
+                <CronometroRespuesta
+                  chatMessages={chatMessages}
+                  selectedChat={selectedChat}
+                  id_configuracion={id_configuracion}
+                />
+                {/* Llamar por WhatsApp (solo si la conexión tiene llamadas
+                    encendidas; pide permiso al cliente si hace falta) */}
+                <BotonLlamarWhatsapp
+                  selectedChat={selectedChat}
+                  id_configuracion={id_configuracion}
+                />
                 {/* Bot IA */}
                 <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 shadow-sm">
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100">
