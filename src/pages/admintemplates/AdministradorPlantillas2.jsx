@@ -23,6 +23,7 @@ import io from "socket.io-client";
 
 import SectionHeader from "../../components/canales/SectionHeader";
 import { ThWithTooltip } from "../../components/canales/Tooltip";
+import LlamadasWhatsappCard from "../../components/canales/LlamadasWhatsappCard";
 import { components } from "react-select";
 
 const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
@@ -874,17 +875,25 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
               const description = p?.description || "—";
 
               const tierLabel = (() => {
+                // Escala vigente de Meta (octubre 2025): 250 → 2K → 10K →
+                // 100K → ilimitado. El back ya normaliza el campo nuevo.
                 switch (num.messaging_limit_tier) {
+                  case "TIER_50":
+                    return "50 / 24 h";
                   case "TIER_250":
                     return "250 / 24 h";
                   case "TIER_500":
                     return "500 / 24 h";
                   case "TIER_1K":
                     return "1.000 / 24 h";
+                  case "TIER_2K":
+                    return "2.000 / 24 h";
                   case "TIER_10K":
                     return "10.000 / 24 h";
                   case "TIER_100K":
                     return "100.000 / 24 h";
+                  case "TIER_UNLIMITED":
+                    return "Ilimitado";
                   default:
                     return "—";
                 }
@@ -1078,6 +1087,11 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
                 </div>
               );
             })}
+            {/* Llamadas de WhatsApp: a la derecha de la vista previa del
+                perfil, en el espacio que quedaba vacío. */}
+            <div className="md:col-span-1 xl:col-span-2">
+              <LlamadasWhatsappCard />
+            </div>
           </div>
         )}
       </div>

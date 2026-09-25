@@ -12,6 +12,7 @@ import usePresenceRegister from "../../hooks/usePresenceRegister";
 import { usePresence } from "../../context/PresenceProvider";
 // Asistente de la cuenta: diseño "Lienzo" con métricas del "Tablero". La variante Tablero pura está en ./AsistenteCuentaTablero
 import FloatingSupportChat from "./FloatingSupportChat";
+import LlamadaWhatsapp from "../llamadas/LlamadaWhatsapp";
 import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
@@ -1106,6 +1107,9 @@ function MainLayout({ children }) {
       </div>
 
       <FloatingSupportChat />
+      {/* Llamadas de WhatsApp: panel flotante en toda la app (suena aunque el
+          asesor no esté en /chat). */}
+      <LlamadaWhatsapp />
       {/* <Footer /> */}
     </div>
   );
