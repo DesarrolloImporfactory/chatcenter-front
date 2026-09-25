@@ -11,6 +11,76 @@ import useDefinicionesTemplates from "./useDefinicionesTemplates";
 import TemplateBody from "./TemplateBody";
 import { renderTextoWhatsapp, aplicarVariables } from "../../utils/waFormat";
 import { formatFechaProgramada } from "../../services/programados.service";
+import ModalEnlacePago from "./ModalEnlacePago";
+
+/* === Estado del cobro pegado a la burbuja del enlace de pago === */
+const ESTADO_ENLACE = {
+  pendiente: {
+    label: "Pendiente de pago",
+    icon: "bx-time-five",
+    cls: "bg-amber-50 text-amber-800 border-amber-200",
+  },
+  pagado: {
+    label: "Pagado",
+    icon: "bx-check-circle",
+    cls: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  },
+  anulado: {
+    label: "Anulado",
+    icon: "bx-x-circle",
+    cls: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+};
+
+function EstadoEnlacePago({ enlace }) {
+  const ui = ESTADO_ENLACE[enlace?.estado] || ESTADO_ENLACE.pendiente;
+  const monto = `${String(enlace?.moneda || "usd").toUpperCase()} ${Number(
+    enlace?.monto || 0,
+  ).toFixed(2)}`;
+  const fecha = (d) => {
+    if (!d) return "";
+    const f = new Date(d);
+    return Number.isNaN(f.getTime())
+      ? ""
+      : f.toLocaleString([], {
+          day: "2-digit",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+  };
+  const detalle =
+    enlace?.estado === "pagado"
+      ? `Pagado ${fecha(enlace.pagado_at)}`
+      : enlace?.estado === "anulado"
+        ? `Anulado ${fecha(enlace.anulado_at)}`
+        : "El cliente aún no paga";
+  return (
+    <div
+      className={`mt-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] ${ui.cls}`}
+      title={enlace?.concepto || ""}
+    >
+      <i className={`bx ${ui.icon} text-base shrink-0`} />
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="font-bold">
+          {monto}
+          <span className="font-normal opacity-80"> · {ui.label}</span>
+        </div>
+        <div className="opacity-80 truncate">{detalle}</div>
+      </div>
+      {enlace?.estado === "pagado" && enlace?.url_pdf ? (
+        <a
+          href={enlace.url_pdf}
+          target="_blank"
+          rel="noreferrer"
+          className="shrink-0 font-semibold underline"
+        >
+          Recibo
+        </a>
+      ) : null}
+    </div>
+  );
+}
 
 /* === Player estilo WhatsApp (sin autoplay) + velocidades 1x / 1.5x / 2x === */
 function WaAudioPlayer({ src }) {
@@ -277,6 +347,103 @@ const ChatPrincipal = ({
   const [ultimoMensaje, setUltimoMensaje] = useState(null);
 
   const cfgId = id_configuracion || selectedChat?.id_configuracion;
+
+  /* "+" → Crear enlace de pago. Solo si la cuenta tiene Stripe vinculado
+     (Integraciones → Stripe); se consulta una vez por configuración. */
+  const [enlacePagoOpen, setEnlacePagoOpen] = useState(false);
+  const [stripeCuenta, setStripeCuenta] = useState({
+    activa: false,
+    moneda_default: "usd",
+  });
+  useEffect(() => {
+    let vivo = true;
+    if (!cfgId) return undefined;
+    chatApi
+      .get("stripe_integrations/estado", {
+        params: { id_configuracion: cfgId },
+      })
+      .then((res) => {
+        if (vivo) setStripeCuenta(res?.data?.data || { activa: false });
+      })
+      .catch(() => {
+        if (vivo) setStripeCuenta({ activa: false, moneda_default: "usd" });
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [cfgId]);
+
+  /* Enlaces de pago de ESTE contacto, para pintar el estado del cobro en la
+     burbuja del mensaje. Se cargan al abrir el chat y se recargan cuando el
+     backend avisa de un pago (Chat.jsx reenvía PAGO_RECIBIDO como evento de
+     ventana) o cuando el asesor crea uno nuevo. */
+  const [enlacesChat, setEnlacesChat] = useState([]);
+  // No depende de que Stripe siga vinculado: los cobros ya enviados quedan en
+  // nuestra base y su estado se sigue mostrando (y consultando, mientras la
+  // llave siga valiendo) aunque el cliente desvincule la integración.
+  const cargarEnlacesChat = useMemo(
+    () => async () => {
+      if (!cfgId || !selectedChat?.id) {
+        setEnlacesChat([]);
+        return;
+      }
+      try {
+        const res = await chatApi.get("enlaces_pago", {
+          params: { id_configuracion: cfgId, id_cliente: selectedChat.id },
+          silentError: true,
+        });
+        setEnlacesChat(res?.data?.data || []);
+      } catch {
+        setEnlacesChat([]);
+      }
+    },
+    [cfgId, selectedChat?.id],
+  );
+  useEffect(() => {
+    cargarEnlacesChat();
+  }, [cargarEnlacesChat]);
+  /* Mientras el chat abierto tenga un cobro pendiente, se vuelve a pedir la
+     lista cada 30 s (el backend consulta Stripe al listar). Así el asesor ve
+     "Pagado" en la burbuja a los segundos, sin esperar al cron ni recargar.
+     Se detiene si no hay pendientes o la pestaña no está visible. */
+  const hayPendientes = enlacesChat.some((e) => e.estado === "pendiente");
+  useEffect(() => {
+    if (!hayPendientes) return undefined;
+    const tick = () => {
+      if (document.visibilityState === "visible") cargarEnlacesChat();
+    };
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, [hayPendientes, cargarEnlacesChat]);
+  useEffect(() => {
+    const onActualizado = (ev) => {
+      const d = ev?.detail || {};
+      if (
+        d.chatId == null ||
+        String(d.chatId) === String(selectedChat?.id || "")
+      ) {
+        cargarEnlacesChat();
+      }
+    };
+    window.addEventListener("enlace-pago:actualizado", onActualizado);
+    return () =>
+      window.removeEventListener("enlace-pago:actualizado", onActualizado);
+  }, [cargarEnlacesChat, selectedChat?.id]);
+
+  // Un mensaje es "de enlace de pago" si el backend lo enlazó por id o, para
+  // mensajes viejos sin id_mensaje, si su texto contiene la URL del cobro.
+  const enlaceDeMensaje = (mensaje) => {
+    if (!enlacesChat.length || mensaje?.rol_mensaje !== 1) return null;
+    const porId = enlacesChat.find(
+      (e) => e.id_mensaje && String(e.id_mensaje) === String(mensaje.id),
+    );
+    if (porId) return porId;
+    const texto = String(mensaje?.texto_mensaje || "");
+    if (!texto.includes("invoice.stripe.com")) return null;
+    return (
+      enlacesChat.find((e) => e.url_pago && texto.includes(e.url_pago)) || null
+    );
+  };
 
   /* Plantillas ya programadas para ESTE contacto (solo el chat abierto). */
   const programados = useProgramadosChat(cfgId, selectedChat?.id);
@@ -2439,28 +2606,31 @@ const ChatPrincipal = ({
 
                         {(mensaje.responsable || esGratisPorFep(mensaje)) && (
                           <div className="flex items-start gap-2 mb-1">
-                        {mensaje.responsable && (
-                          <div className="min-w-0 text-[13px] font-bold text-gray-800 leading-none flex flex-wrap items-center gap-1.5">
-                            <span>
-                              Enviado por {prettyAgentName(mensaje.responsable)}:
-                            </span>
-                            {/* El mensaje fijo y las respuestas rápidas del
+                            {mensaje.responsable && (
+                              <div className="min-w-0 text-[13px] font-bold text-gray-800 leading-none flex flex-wrap items-center gap-1.5">
+                                <span>
+                                  Enviado por{" "}
+                                  {prettyAgentName(mensaje.responsable)}:
+                                </span>
+                                {/* El mensaje fijo y las respuestas rápidas del
                                 wizard de producto salen sin pasar por el
                                 modelo: se marcan para que se vea la
                                 optimización. El consumo en tokens/dinero se
                                 muestra agregado en Asistentes, no por mensaje. */}
-                            {["IA_wizard", "IA_mensaje_fijo", "IA_respuesta_rapida"].includes(
-                              String(mensaje.responsable),
-                            ) ? (
-                              <span
-                                className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[10px] font-semibold"
-                                title="Configurado por producto: se envió sin consumir IA"
-                              >
-                                <i className="bx bx-bolt-circle" /> sin IA
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
+                                {[
+                                  "IA_wizard",
+                                  "IA_mensaje_fijo",
+                                  "IA_respuesta_rapida",
+                                ].includes(String(mensaje.responsable)) ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[10px] font-semibold"
+                                    title="Configurado por producto: se envió sin consumir IA"
+                                  >
+                                    <i className="bx bx-bolt-circle" /> sin IA
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
                             <PrecioMetaBadge mensaje={mensaje} />
                           </div>
                         )}
@@ -2713,14 +2883,25 @@ const ChatPrincipal = ({
                                 )}
                               </p>
                             ) : (
-                              <p>
-                                {renderTextoWhatsapp(
-                                  (mensaje.texto_mensaje || "").replace(
-                                    /^\*[^*]+\*\s*🎤:\s*\r?\n/,
-                                    "",
-                                  ),
-                                )}
-                              </p>
+                              <>
+                                <p>
+                                  {renderTextoWhatsapp(
+                                    (mensaje.texto_mensaje || "").replace(
+                                      /^\*[^*]+\*\s*🎤:\s*\r?\n/,
+                                      "",
+                                    ),
+                                  )}
+                                </p>
+                                {/* Enlace de pago enviado desde "+": estado del
+                                    cobro pegado a la burbuja, se actualiza solo
+                                    cuando el cliente paga (PAGO_RECIBIDO). */}
+                                {(() => {
+                                  const ep = enlaceDeMensaje(mensaje);
+                                  return ep ? (
+                                    <EstadoEnlacePago enlace={ep} />
+                                  ) : null;
+                                })()}
+                              </>
                             )
                           ) : mensaje.tipo_mensaje === "revoke" ? (
                             <div className="flex justify-center">
@@ -3484,7 +3665,7 @@ const ChatPrincipal = ({
                 )}
 
                 {isMenuOpen && (
-                  <div className="absolute bottom-full left-4 mb-1 bg-white border rounded shadow-lg p-2 w-32 z-10">
+                  <div className="absolute bottom-full left-4 mb-1 bg-white border rounded shadow-lg p-2 min-w-[8rem] w-auto z-10">
                     <ul className="flex flex-col space-y-2 text-sm">
                       <li
                         className="cursor-pointer hover:bg-gray-200 p-1 rounded"
@@ -3534,9 +3715,29 @@ const ChatPrincipal = ({
                           Enviar template
                         </li>
                       )}
+                      {selectedChat?.source === "wa" &&
+                        stripeCuenta?.activa && (
+                          <li
+                            className="cursor-pointer hover:bg-gray-200 p-1 rounded whitespace-nowrap"
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              setEnlacePagoOpen(true);
+                            }}
+                          >
+                            Crear enlace de pago
+                          </li>
+                        )}
                     </ul>
                   </div>
                 )}
+
+                <ModalEnlacePago
+                  open={enlacePagoOpen}
+                  onClose={() => setEnlacePagoOpen(false)}
+                  selectedChat={selectedChat}
+                  id_configuracion={cfgId}
+                  monedaDefault={stripeCuenta?.moneda_default || "usd"}
+                />
 
                 <label
                   htmlFor="file-upload"

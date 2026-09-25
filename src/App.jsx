@@ -100,6 +100,7 @@ import MainLayoutPlanes from "./components/layout/MainLayoutPlanes";
 import Contactos from "./components/clientes/Contactos";
 import IntegracionesDropi from "./pages/dropi/IntegracionesDropi";
 import IntegracionesAliclik from "./pages/aliclik/IntegracionesAliclik";
+import IntegracionesStripe from "./pages/stripe/IntegracionesStripe";
 import DropiProvider from "./context/DropiProvider";
 
 import SocketProvider from "./context/SocketProvider";
@@ -482,6 +483,15 @@ function App() {
                   element={
                     <MainLayout>
                       <IntegracionesAliclik />
+                    </MainLayout>
+                  }
+                />
+
+                <Route
+                  path="/stripe"
+                  element={
+                    <MainLayout>
+                      <IntegracionesStripe />
                     </MainLayout>
                   }
                 />

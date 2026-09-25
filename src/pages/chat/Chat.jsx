@@ -155,7 +155,6 @@ const Chat = () => {
 
   const [buscarIdRecibe, setBuscarIdRecibe] = useState(null);
 
-
   /* calcular guia directa */
   const [monto_venta, setMonto_venta] = useState(null);
   const [costo, setCosto] = useState(null);
@@ -2560,8 +2559,7 @@ const Chat = () => {
    * quien lo tenía y al intentar transferirlo el backend responde 403. */
   const esDeMiLista = useCallback(
     (encargadoId) => {
-      const sinDueno =
-        encargadoId == null || String(encargadoId).trim() === "";
+      const sinDueno = encargadoId == null || String(encargadoId).trim() === "";
       if (scopeChats === "waiting") return sinDueno;
       if (sinDueno) return false;
       return (
@@ -2586,8 +2584,7 @@ const Chat = () => {
      abierto a la derecha. */
   const puedoAtenderElChat = useCallback(
     (encargadoId) => {
-      const sinDueno =
-        encargadoId == null || String(encargadoId).trim() === "";
+      const sinDueno = encargadoId == null || String(encargadoId).trim() === "";
       return (
         rol_usuario_global === "administrador" ||
         rol_usuario_global === "admin_limitado" ||
@@ -2860,6 +2857,42 @@ const Chat = () => {
       });
     };
   }, [isSocketConnected, id_configuracion, selectedChat?.id]);
+
+  /* Enlaces de pago (Integraciones → Stripe): el backend avisa cuando una
+     factura pendiente pasa a pagada (lo detecta al abrir el chat o el cron).
+     Aviso liviano para todos los asesores de la cuenta; el detalle está en
+     "+" → Crear enlace de pago → Historial. */
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !isSocketConnected || !id_configuracion) return undefined;
+
+    const onPagoRecibido = (ev) => {
+      if (Number(ev?.id_configuracion) !== Number(id_configuracion)) return;
+      const e = ev?.enlace || {};
+      const monto = `${String(e.moneda || "usd").toUpperCase()} ${Number(
+        e.monto || 0,
+      ).toFixed(2)}`;
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: `Pago recibido: ${monto}`,
+        text: e.concepto || "",
+        timer: 6000,
+        showConfirmButton: false,
+      });
+      // La burbuja del enlace en el chat abierto (ChatPrincipal) recarga el
+      // estado del cobro con este evento.
+      window.dispatchEvent(
+        new CustomEvent("enlace-pago:actualizado", {
+          detail: { chatId: ev?.chatId, enlace: e },
+        }),
+      );
+    };
+
+    socket.on("PAGO_RECIBIDO", onPagoRecibido);
+    return () => socket.off("PAGO_RECIBIDO", onPagoRecibido);
+  }, [isSocketConnected, id_configuracion]);
 
   const scrollRef = useRef(null);
   const [cargandoChats, setCargandoChats] = useState(false);
@@ -3312,7 +3345,10 @@ const Chat = () => {
               visto: isIncoming ? 0 : 1,
               source: msg.source,
               id_encargado: encargadoId,
-              nombre_encargado: clienteWa.nombre_encargado ?? "",
+              // clienteWa puede venir null (mensajes emitidos por el
+              // backend sin clientePorCelular): sin el ?. tumbaba la
+              // pantalla entera del chat.
+              nombre_encargado: clienteWa?.nombre_encargado ?? "",
               nombre_cliente: clienteWa?.nombre_cliente,
               celular_cliente: clienteWa?.celular_cliente,
               etiquetas: [{ id: null, nombre: null, color: null }],

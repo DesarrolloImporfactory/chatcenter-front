@@ -541,6 +541,9 @@ export default function AutoOrdenesFallidas({
               direccion: d.direccion || "",
               producto: d.producto || "",
               producto_id: "",
+              // Variante elegida en Shopify (color/modelo): prellena la
+              // variedad de Dropi y se muestra en la tarjeta.
+              variedad: d.variedad || "",
               precio: d.total || String(o.total || ""),
               cantidad: d.cantidad || "1",
             },
@@ -903,6 +906,7 @@ export default function AutoOrdenesFallidas({
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-50 text-gray-600">
                             <i className="bx bx-package" />
                             {it.datos?.producto || "—"}
+                            {it.datos?.variedad ? ` · ${it.datos.variedad}` : ""}
                           </span>
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-50 text-gray-600">
                             <i className="bx bx-hash" />
