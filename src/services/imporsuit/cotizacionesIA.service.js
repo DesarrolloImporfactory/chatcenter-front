@@ -30,7 +30,7 @@ function unwrap(data) {
 }
 
 /**
- * Cotizaciones atascadas (más de 3 días sin cerrarse, o anuladas) del cliente
+ * Cotizaciones sin respuesta (más de 3 días sin cerrarse) del cliente
  * de este teléfono, de cualquier asesor, con su último análisis.
  *
  * @returns {Promise<Array<{tipo:"grupal"|"directa", id:number, codigo:string,
@@ -62,6 +62,18 @@ export async function getBandejaIA(filtros = {}, { signal } = {}) {
   const { data } = await imporsuitApi.get("/Carterachat/ia_bandeja", { params, signal });
   unwrap(data);
   return data;
+}
+
+/** Saca una cotización del seguimiento; el motivo es obligatorio. */
+export async function descartarCotizacionIA({ tipo, id, motivo }) {
+  const { data } = await imporsuitApi.post("/Carterachat/ia_descartar", { tipo, id: Number(id), motivo });
+  unwrap(data);
+}
+
+/** La vuelve a poner en el seguimiento. */
+export async function restaurarCotizacionIA({ tipo, id }) {
+  const { data } = await imporsuitApi.post("/Carterachat/ia_restaurar", { tipo, id: Number(id) });
+  unwrap(data);
 }
 
 /**

@@ -5,9 +5,20 @@ import {
   IA_AGENTES_HABILITADOS,
   analizarCotizacionIA,
   asignarmeChat,
+  descartarCotizacionIA,
   getActorChatcenter,
   getBandejaIA,
+  restaurarCotizacionIA,
 } from "../../services/imporsuit";
+
+/** Motivos rápidos para descartar (se pueden editar). Mismos que en Imporsuit. */
+const MOTIVOS_DESCARTE = [
+  "Compró con otro proveedor",
+  "El cliente desistió de la compra",
+  "Cotización duplicada o de prueba",
+  "Ya se cerró por otro lado",
+  "No es un cliente real",
+];
 import {
   Aviso,
   MOTIVOS,
@@ -19,8 +30,8 @@ import {
  * «Seguimiento IA» dentro de ImporChat (pedido 2026-09-25) — la bandeja de
  * trabajo de Johan.
  *
- * Todas las cotizaciones atascadas (más de 3 días sin cerrarse, o anuladas)
- * de todos los asesores, con el análisis de la IA: por qué no se cerró y cómo
+ * Todas las cotizaciones sin respuesta (más de 3 días sin cerrarse; las
+ * anuladas no entran) de todos los asesores, con el análisis de la IA: por qué no se cerró y cómo
  * recuperarla. Desde cada una se va directo al chat del cliente en la línea
  * 265; si el chat lo atiende otro asesor, Johan se lo puede asignar (lo hace
  * la transferencia normal del socket, que deja el historial y el aviso).
@@ -39,6 +50,7 @@ const FILTROS_INICIALES = {
   situacion: "",
   motivo: "",
   recuperar: "",
+  descartadas: "",
   page: 1,
   limit: 20,
 };
@@ -150,6 +162,56 @@ export default function SeguimientoIA() {
     }
   }
 
+  async function descartar(cot) {
+    const chips = MOTIVOS_DESCARTE.map(
+      (m) =>
+        `<button type="button" data-motivo="${escapar(m)}" style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;color:#334155;cursor:pointer">${escapar(m)}</button>`,
+    ).join("");
+    const r = await Swal.fire({
+      title: `Descartar ${escapar(cot.codigo || `#${cot.id}`)}`,
+      html: `<p style="margin:0 0 10px;color:#64748b;font-size:13px;text-align:left">${escapar(
+        cot.cliente || "Cliente",
+      )} · asesor ${escapar(cot.asesor || "—")}. Sale del seguimiento; se ve en «Descartadas» y se puede restaurar.</p>
+             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">${chips}</div>`,
+      input: "textarea",
+      inputPlaceholder: "Por qué sale del seguimiento…",
+      inputAttributes: { maxlength: "500" },
+      showCancelButton: true,
+      confirmButtonText: "Descartar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#dc2626",
+      didOpen: (popup) =>
+        popup.querySelectorAll("[data-motivo]").forEach((b) =>
+          b.addEventListener("click", () => {
+            Swal.getInput().value = b.dataset.motivo;
+          }),
+        ),
+      preConfirm: async (motivo) => {
+        if (!motivo || motivo.trim().length < 3) {
+          Swal.showValidationMessage("Escribe el motivo del descarte");
+          return false;
+        }
+        try {
+          await descartarCotizacionIA({ tipo: cot.tipo, id: cot.id, motivo: motivo.trim() });
+          return true;
+        } catch (e) {
+          Swal.showValidationMessage(e.message || "No se pudo descartar");
+          return false;
+        }
+      },
+    });
+    if (r.isConfirmed) cargar();
+  }
+
+  async function restaurar(cot) {
+    try {
+      await restaurarCotizacionIA({ tipo: cot.tipo, id: cot.id });
+      cargar();
+    } catch (e) {
+      Swal.fire("No se pudo restaurar", e.message || "", "error");
+    }
+  }
+
   async function irAlChat(cot) {
     const chat = cot.chat;
     if (!chat) return;
@@ -219,7 +281,7 @@ export default function SeguimientoIA() {
               Seguimiento IA de cotizaciones
             </h1>
             <p className="mt-1 max-w-3xl text-sm text-slate-500">
-              Las cotizaciones que llevan más de 3 días sin cerrarse, de todos los asesores, con lo que dice la IA del
+              Las cotizaciones que llevan más de 3 días sin respuesta del cliente, de todos los asesores, con lo que dice la IA del
               chat: por qué no se cerró y cómo recuperarla. Desde cada una vas directo al chat del cliente.
             </p>
           </div>
@@ -231,6 +293,23 @@ export default function SeguimientoIA() {
             <i className={`bx bx-refresh ${cargando ? "bx-spin" : ""}`} /> Actualizar
           </button>
         </header>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => aplicar({ descartadas: filtros.descartadas === "1" ? "" : "1" })}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${
+              filtros.descartadas === "1"
+                ? "border-rose-300 bg-rose-50 text-rose-700"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <i className="bx bx-archive" />
+            {filtros.descartadas === "1"
+              ? "Viendo las descartadas · volver al seguimiento"
+              : `Descartadas (${datos?.total_descartadas ?? 0})`}
+          </button>
+        </div>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {kpis.map((k) => (
@@ -329,6 +408,8 @@ export default function SeguimientoIA() {
                     onToggle={() => setAbiertas((a) => ({ ...a, [clave]: !a[clave] }))}
                     onAnalizar={() => analizar(cot)}
                     onChat={() => irAlChat(cot)}
+                    onDescartar={() => descartar(cot)}
+                    onRestaurar={() => restaurar(cot)}
                   />
                 );
               })}
@@ -374,8 +455,9 @@ const ESTADOS_IA = {
   error: ["Falló el análisis", "border-rose-300 bg-rose-50 text-rose-700", "bx-error"],
 };
 
-function Fila({ cot, miId, abierta, analizando, onToggle, onAnalizar, onChat }) {
+function Fila({ cot, miId, abierta, analizando, onToggle, onAnalizar, onChat, onDescartar, onRestaurar }) {
   const a = cot.analisis;
+  const descarte = cot.descarte;
   const r = a?.estado === "listo" ? a.resultado : null;
   const tipo = cot.tipo === "grupal" ? "Grupal" : cot.modo === "cajas" ? "Cajas" : "Externa";
   const recuperable = r?.probabilidad_recuperar === "alta";
@@ -425,6 +507,13 @@ function Fila({ cot, miId, abierta, analizando, onToggle, onAnalizar, onChat }) 
               )
             )}
           </div>
+          {descarte && (
+            <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs text-rose-800">
+              <i className="bx bx-archive mr-1" />
+              Descartada{descarte.por ? ` por ${descarte.por}` : ""} el {String(descarte.fecha || "").slice(0, 10)}:{" "}
+              <strong>{descarte.motivo}</strong>
+            </p>
+          )}
           {r && !abierta && <p className="mt-2 line-clamp-2 text-xs text-slate-500">{r.resumen}</p>}
           {!r && cot.estado_ia === "error" && cot.error && <p className="mt-2 text-xs text-rose-600">{cot.error}</p>}
         </div>
@@ -451,7 +540,25 @@ function Fila({ cot, miId, abierta, analizando, onToggle, onAnalizar, onChat }) 
               <i className={`bx ${abierta ? "bx-chevron-up" : "bx-chevron-down"}`} /> {abierta ? "Ocultar" : "Ver análisis"}
             </button>
           )}
-          {!analizando && cot.estado_ia !== "procesando" && (
+          {descarte ? (
+            <button
+              type="button"
+              onClick={onRestaurar}
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+            >
+              <i className="bx bx-undo" /> Restaurar
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onDescartar}
+              title="Sacarla del seguimiento, con el motivo"
+              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+            >
+              <i className="bx bx-archive-in" /> Descartar
+            </button>
+          )}
+          {!descarte && !analizando && cot.estado_ia !== "procesando" && (
             <button
               type="button"
               onClick={onAnalizar}
