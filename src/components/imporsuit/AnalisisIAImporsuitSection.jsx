@@ -11,13 +11,14 @@ import {
  * Análisis IA de cotizaciones — panel "Información del cliente".
  *
  * Lista las cotizaciones del cliente de este chat que llevan más de 3 días sin
- * cerrarse (o se anularon) y que son del agente, con el análisis de la IA: por
+ * cerrarse (o se anularon), de cualquier asesor, con el análisis de la IA: por
  * qué no se cerró, qué hacer para recuperarla y un WhatsApp sugerido para
- * copiar. Lo lee el asesor; nunca se le envía al cliente.
+ * copiar. Lo lee el agente; nunca se le envía al cliente.
  *
  * Pedido del 2026-09-24: solo en la línea 265 y solo para Johan (ver
- * IA_AGENTES_HABILITADOS). Espejo del botón «IA» de Imporsuit; los endpoints
- * son los de Carterachat (ia_cotizaciones / ia_analizar).
+ * IA_AGENTES_HABILITADOS); desde el 25 ve las de todos los asesores. Espejo
+ * del botón «IA» de Imporsuit; los endpoints son los de Carterachat
+ * (ia_cotizaciones / ia_analizar).
  */
 export default function AnalisisIAImporsuitSection({ selectedChat, idConfiguracion }) {
   const [open, setOpen] = useState(false);
@@ -198,7 +199,7 @@ function PanelAnalisis({ telefono, nombre, onClose }) {
         )}
         {!error && lista?.length === 0 && (
           <Aviso>
-            Este cliente no tiene cotizaciones tuyas atascadas: solo aparecen las que llevan más de 3 días sin cerrarse
+            Este cliente no tiene cotizaciones atascadas: solo aparecen las que llevan más de 3 días sin cerrarse
             o las anuladas.
           </Aviso>
         )}
@@ -259,7 +260,8 @@ function TarjetaCotizacion({ cot, analizando, onAnalizar }) {
             <span className="font-normal text-slate-400"> · {tipo}</span>
           </p>
           <p className="text-[11px] text-slate-500">
-            Estado {cot.estado} · creada {String(cot.fecha_creacion || "").slice(0, 10)}
+            {cot.asesor ? `Asesor ${cot.asesor} · ` : ""}estado {cot.estado} · creada{" "}
+            {String(cot.fecha_creacion || "").slice(0, 10)}
           </p>
         </div>
         {!analizando && (
