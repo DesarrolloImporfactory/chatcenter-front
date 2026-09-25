@@ -48,6 +48,8 @@ export {
   analizarCotizacionIA,
   getBandejaIA,
   asignarmeChat,
+  descartarCotizacionIA,
+  restaurarCotizacionIA,
 } from "./cotizacionesIA.service";
 
 export { getActorChatcenter, setCarteraCtx, getCarteraCtx } from "./actor";
