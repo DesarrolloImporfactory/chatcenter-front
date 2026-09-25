@@ -193,6 +193,9 @@ export default function useLlamadaWhatsapp() {
       .get("/llamadas/activas")
       .then(({ data }) => {
         if (!vigente) return;
+        // Diagnóstico visible en la consola: sockets_en_sala debe ser ≥ 1
+        // para que a este usuario le suenen las llamadas.
+        if (data?.diagnostico) console.log("[llamadas] diagnóstico", data.diagnostico);
         const pendiente = (data?.data || []).find((c) => c.sdp_offer && !c.tomada_por);
         if (pendiente) mostrarEntrante(pendiente);
       })
