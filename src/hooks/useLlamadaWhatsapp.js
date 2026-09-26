@@ -266,10 +266,8 @@ export default function useLlamadaWhatsapp() {
       await esperarIce(pc);
       // Depuración: si Meta rechaza la respuesta (SDP Validation error),
       // estas dos SDP son lo que hay que comparar.
-      console.log("[llamadas] SDP oferta de Meta:
-" + actual.sdp_offer);
-      console.log("[llamadas] SDP respuesta enviada:
-" + pc.localDescription.sdp);
+      console.log("[llamadas] SDP oferta de Meta:", actual.sdp_offer);
+      console.log("[llamadas] SDP respuesta enviada:", pc.localDescription.sdp);
       await chatApi.post("/llamadas/aceptar", {
         call_id: actual.call_id,
         sdp_answer: pc.localDescription.sdp,
