@@ -3299,6 +3299,11 @@ const ChatPrincipal = ({
                             })()
                           ) : mensaje.tipo_mensaje === "button" ? (
                             mensaje.texto_mensaje
+                          ) : mensaje.tipo_mensaje === "interactive" ? (
+                            /* Respuestas interactivas del cliente (botón,
+                               lista, permiso de llamada): el back ya deja
+                               el texto legible en texto_mensaje. */
+                            mensaje.texto_mensaje || "Respuesta interactiva"
                           ) : mensaje.tipo_mensaje === "reaction" ? (
                             mensaje.texto_mensaje
                           ) : mensaje.tipo_mensaje === "sticker" ? (
