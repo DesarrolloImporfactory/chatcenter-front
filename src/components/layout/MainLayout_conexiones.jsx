@@ -391,6 +391,15 @@ function MainLayout({ children }) {
               />
             )}
 
+            {/* Telefonía por saldo (Zadarma): solo super_administrador */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/telefonia"
+                icon="bx-phone-call"
+                label="Telefonía por saldo"
+              />
+            )}
+
             {/* Departamentos: solo el administrador de la cuenta */}
             {esAdministrador && (
               <NavBtn
