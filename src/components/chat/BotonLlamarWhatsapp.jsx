@@ -149,7 +149,7 @@ export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion, va
         <button type="button" onClick={llamar} className={fila}>
           {icono("bxl-whatsapp")}
           <span className="min-w-0">
-            <span className="block text-sm font-semibold text-slate-800">Por WhatsApp (gratis)</span>
+            <span className="block text-sm font-semibold text-slate-800">Por WhatsApp</span>
             <span className="block text-[11px] text-slate-500">{permiso.status === "permanent" ? "permiso permanente" : `permiso hasta ${fechaCorta(permiso.expira_at)}`}</span>
           </span>
         </button>

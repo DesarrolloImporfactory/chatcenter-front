@@ -113,7 +113,7 @@ export default function BotonLlamarTelefono({ selectedChat, id_configuracion, va
           <i className={`bx ${ocupado ? "bx-loader-alt bx-spin" : "bx-mobile-alt"} text-lg`} />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-slate-800">Al celular (con saldo)</span>
+          <span className="block text-sm font-semibold text-slate-800">Con saldo (celular)</span>
           <span className="block text-[11px] text-slate-500">
             {aviso || (sinSaldo ? "Sin saldo: recarga para llamar" : `Se cobra por segundo · ${fmtUSD(cuenta.saldo_centavos)} disponibles`)}
           </span>

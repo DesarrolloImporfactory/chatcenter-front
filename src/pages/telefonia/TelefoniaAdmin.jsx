@@ -81,12 +81,15 @@ export default function TelefoniaAdmin() {
   }, []);
 
   const [cuentas, setCuentas] = useState([]);
+  const [resumen, setResumen] = useState(null); // cobertura: vendido vs saldo Zadarma
   const cargarCuentas = useCallback(async () => {
     try {
       const { data } = await chatApi.get("/telefonia/cuentas");
       setCuentas(data?.data || []);
+      setResumen(data?.resumen || null);
     } catch {
       setCuentas([]);
+      setResumen(null);
     }
   }, []);
 
@@ -146,6 +149,31 @@ export default function TelefoniaAdmin() {
   const [msg3, setMsg3] = useState(null);
   const [numero, setNumero] = useState(null); // { verificado, detalle } del número de salida
   const [comprobando, setComprobando] = useState(false);
+  const [costo, setCosto] = useState(null); // costo real de Zadarma por minuto para el país de la conexión
+
+  useEffect(() => {
+    if (!sel) {
+      setCosto(null);
+      return undefined;
+    }
+    let vigente = true;
+    chatApi
+      .get("/telefonia/costo", { params: { id_configuracion: sel.id } })
+      .then(({ data }) => vigente && setCosto(data?.data || null))
+      .catch(() => vigente && setCosto(null));
+    return () => {
+      vigente = false;
+    };
+  }, [sel]);
+
+  const tarifaC = Math.round(Number(recarga.tarifa || 0) * 100);
+  const costoC = costo?.centavos_min || 0;
+  const margenPct = tarifaC > 0 && costoC ? Math.round(((tarifaC - costoC) / tarifaC) * 100) : null;
+  const recargaC = Math.round(Number(recarga.dolares || 0) * 100);
+  const costoTrasRecarga =
+    resumen && costoC && tarifaC > 0 ? resumen.costo_pendiente_centavos + (recargaC / tarifaC) * costoC : null;
+  const excedeZadarma =
+    costoTrasRecarga != null && resumen?.saldo_zadarma_centavos != null && costoTrasRecarga > resumen.saldo_zadarma_centavos;
 
   const comprobarNumero = async () => {
     if (!sel || !recarga.caller_id) return;
@@ -269,10 +297,21 @@ export default function TelefoniaAdmin() {
             <div className="font-bold">{diag?.central?.numbers?.length ?? "—"}</div>
           </div>
           <div className="rounded-lg bg-white/10 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Conexiones con saldo</div>
-            <div className="font-bold">{cuentas.length}</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Vendido a clientes</div>
+            <div className="font-bold">
+              {resumen ? `${fmtUSD(resumen.asignado_centavos)} · ${resumen.minutos_vendidos} min · ${cuentas.length} conexiones` : cuentas.length}
+            </div>
+          </div>
+          <div className={`rounded-lg px-3 py-2 ${resumen?.cubierto === false ? "bg-rose-500/30" : "bg-white/10"}`}>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Lo que esos minutos cuestan en Zadarma</div>
+            <div className="font-bold">{resumen?.costo_pendiente_centavos != null ? fmtUSD(resumen.costo_pendiente_centavos) : "—"}</div>
           </div>
         </div>
+        {resumen?.cubierto === false ? (
+          <div className="mt-3 rounded-lg border border-rose-300 bg-rose-500/20 px-3 py-2 text-sm">
+            <b>Saldo insuficiente en Zadarma.</b> Los minutos que ya vendiste costarían {fmtUSD(resumen.costo_pendiente_centavos)} y en Zadarma hay {fmtUSD(resumen.saldo_zadarma_centavos)}. Recarga en Zadarma antes de seguir asignando saldo.
+          </div>
+        ) : null}
       </header>
 
       {/* Tres pasos */}
@@ -394,6 +433,16 @@ export default function TelefoniaAdmin() {
                   Precio por minuto que le cobras (USD)
                   <input className={`${input} mt-1`} value={recarga.tarifa} onChange={(e) => setRecarga((r) => ({ ...r, tarifa: e.target.value }))} inputMode="decimal" />
                 </label>
+                {!costoC ? (
+                  <div className="text-[11px] text-slate-400">Consultando el costo real en Zadarma…</div>
+                ) : (
+                  <div className={`rounded-lg border px-3 py-2 text-xs ${tarifaC <= costoC ? "border-rose-300 bg-rose-50 text-rose-800" : margenPct < 20 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
+                    <b>Costo real en Zadarma: {fmtUSD(costoC)} por minuto</b> ({costo.descripcion}).{" "}
+                    {tarifaC <= costoC
+                      ? `No es rentable: a ${fmtUSD(tarifaC)} pierdes ${fmtUSD(costoC - tarifaC)} por cada minuto que hable este cliente.`
+                      : `Ganas ${fmtUSD(tarifaC - costoC)} por minuto (margen ${margenPct}%).${margenPct < 20 ? " Es un margen bajo." : ""}`}
+                  </div>
+                )}
                 <label className="block text-xs font-semibold text-slate-600">
                   Número con el que salen sus llamadas
                   <input className={`${input} mt-1`} value={recarga.caller_id} onChange={(e) => { setRecarga((r) => ({ ...r, caller_id: e.target.value })); setNumero(null); }} placeholder="593999999999" />
@@ -423,8 +472,13 @@ export default function TelefoniaAdmin() {
                     Equivale a unos {minutos(recarga.dolares, recarga.tarifa)} minutos a {`$${Number(recarga.tarifa || 0).toFixed(2)}`} el minuto.
                   </span>
                 </label>
+                {excedeZadarma ? (
+                  <div className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                    <b>Ojo:</b> con esta recarga, los minutos vendidos a tus clientes costarían {fmtUSD(costoTrasRecarga)} en Zadarma y allá solo hay {fmtUSD(resumen.saldo_zadarma_centavos)}. Si todos llaman, las llamadas se cortan. Recarga primero en Zadarma. Puedes continuar igual.
+                  </div>
+                ) : null}
                 <button type="button" onClick={recargarSaldo} className={`${btn} w-full bg-indigo-600 text-white hover:bg-indigo-700`}>
-                  <i className="bx bx-plus-circle text-lg" /> Cargar {fmtUSD(Math.round(Number(recarga.dolares || 0) * 100))}
+                  <i className="bx bx-plus-circle text-lg" /> Cargar {fmtUSD(recargaC)}
                 </button>
               </div>
               {msg3 ? <Aviso tipo={msg3.tipo}>{msg3.texto}</Aviso> : null}
@@ -447,6 +501,7 @@ export default function TelefoniaAdmin() {
                 <th className="px-3 py-2">Saldo</th>
                 <th className="px-3 py-2">Minutos aprox.</th>
                 <th className="px-3 py-2">Precio/min</th>
+                <th className="px-3 py-2">Margen</th>
                 <th className="px-3 py-2">Sale con</th>
                 <th className="px-3 py-2">Número</th>
                 <th className="px-3 py-2">Llamadas</th>
@@ -456,7 +511,7 @@ export default function TelefoniaAdmin() {
             <tbody>
               {cuentas.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-3 py-6 text-center text-slate-400">Ninguna conexión tiene saldo todavía.</td>
+                  <td colSpan="9" className="px-3 py-6 text-center text-slate-400">Ninguna conexión tiene saldo todavía.</td>
                 </tr>
               ) : (
                 cuentas.map((c) => (
@@ -471,6 +526,9 @@ export default function TelefoniaAdmin() {
                     <td className="px-3 py-2 font-bold">{fmtUSD(c.saldo_centavos)}</td>
                     <td className="px-3 py-2">{Math.floor(c.saldo_centavos / c.tarifa_centavos_min)}</td>
                     <td className="px-3 py-2">{fmtUSD(c.tarifa_centavos_min)}</td>
+                    <td className="px-3 py-2">
+                      {c.margen_pct == null ? <span className="text-slate-400">—</span> : c.margen_pct <= 0 ? <span className="font-bold text-rose-700">pierdes {fmtUSD(c.costo_centavos_min - c.tarifa_centavos_min)}/min</span> : <span className={c.margen_pct < 20 ? "font-semibold text-amber-700" : "font-semibold text-emerald-700"}>{c.margen_pct}%</span>}
+                    </td>
                     <td className="px-3 py-2">{tel(c.caller_id)}</td>
                     <td className="px-3 py-2">
                       {!c.caller_id ? <span className="text-slate-400">—</span> : Number(c.numero_verificado) === 1 ? <span className="font-semibold text-emerald-700">verificado</span> : c.numero_comprobado_at ? <span className="font-semibold text-amber-700">sin verificar</span> : <span className="text-slate-400">sin comprobar</span>}
