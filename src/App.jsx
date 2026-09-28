@@ -41,6 +41,7 @@ import SeguimientoIA from "./pages/seguimientoIA/SeguimientoIA";
 import TutorialesView from "./pages/tutoriales/TutorialesView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
+import TelefoniaAdmin from "./pages/telefonia/TelefoniaAdmin";
 import AdministradorCanales from "./pages/administradorcanales/AdministradorCanales";
 import Comentarios from "./pages/comentarios/Comentarios";
 import Asistentes from "./pages/asistentes/Asistentes";
@@ -618,6 +619,18 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
+                {/* Telefonía por saldo (Zadarma): vinculación de la cuenta
+                    maestra y saldo por conexión. Solo super administrador
+                    (el back lo exige en cada endpoint). */}
+                <Route
+                  path="/telefonia"
+                  element={
+                    <MainLayout_conexiones>
+                      <TelefoniaAdmin />
+                    </MainLayout_conexiones>
+                  }
+                />
+
                 {/*dashboard de usuariosadmin */}
                 <Route
                   path="/dashboard_admin"

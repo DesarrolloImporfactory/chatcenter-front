@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSocket } from "./SocketProvider";
 import { Outlet } from "react-router-dom";
 import LlamadaWhatsapp from "../components/llamadas/LlamadaWhatsapp";
+import WidgetZadarma from "../components/telefonia/WidgetZadarma";
 
 const PresenceContext = createContext(null);
 
@@ -64,6 +65,8 @@ export default function PresenceProvider({ children }) {
           renderiza <Chat /> sin layout y ahí es donde más se necesita.
           Vive junto al socket de /presence, que es por donde llega el aviso. */}
       <LlamadaWhatsapp />
+      {/* Teléfono en el navegador (Zadarma) para las llamadas por saldo. */}
+      <WidgetZadarma />
     </PresenceContext.Provider>
   );
 }

@@ -12,6 +12,7 @@ import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
 import CronometroRespuesta from "./CronometroRespuesta";
 import BotonLlamarWhatsapp from "./BotonLlamarWhatsapp";
+import BotonLlamarTelefono from "./BotonLlamarTelefono";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
@@ -1835,6 +1836,12 @@ const Cabecera = ({
                 {/* Llamar por WhatsApp (solo si la conexión tiene llamadas
                     encendidas; pide permiso al cliente si hace falta) */}
                 <BotonLlamarWhatsapp
+                  selectedChat={selectedChat}
+                  id_configuracion={id_configuracion}
+                />
+                {/* Llamada telefónica por saldo (Zadarma): para clientes
+                    sin datos. Solo si la conexión tiene telefonía activa. */}
+                <BotonLlamarTelefono
                   selectedChat={selectedChat}
                   id_configuracion={id_configuracion}
                 />
