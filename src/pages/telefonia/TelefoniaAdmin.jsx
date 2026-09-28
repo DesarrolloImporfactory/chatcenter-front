@@ -237,6 +237,12 @@ export default function TelefoniaAdmin() {
             </div>
           </div>
           <div className="rounded-lg bg-white/10 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Plan de llamadas</div>
+            <div className="font-bold">
+              {diag?.plan?.nombre ? `${diag.plan.nombre === "Standard" ? "Estándar (por segundo)" : diag.plan.nombre}${diag.plan.activo ? "" : " · se activa al recargar"}` : "—"}
+            </div>
+          </div>
+          <div className="rounded-lg bg-white/10 px-3 py-2">
             <div className="text-[10px] uppercase tracking-wider text-slate-400">Extensiones en la central</div>
             <div className="font-bold">{diag?.central?.numbers?.length ?? "—"}</div>
           </div>
