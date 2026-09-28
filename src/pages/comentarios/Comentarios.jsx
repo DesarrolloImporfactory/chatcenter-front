@@ -1,8 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import io from "socket.io-client";
 import chatApi from "../../api/chatcenter";
 
 const ENDPOINTS = {
   posts: "/facebook_comentarios/posts",
+  planos: "/facebook_comentarios/comentarios",
   resumen: "/facebook_comentarios/resumen",
   comentarios: (id) => `/facebook_comentarios/posts/${id}/comentarios`,
   responder: "/facebook_comentarios/responder",
@@ -21,6 +29,32 @@ const fechaCorta = (v) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+/**
+ * Cuánto lleva esperando, en color.
+ *
+ * Un comentario de venta se enfría rápido. La fecha exacta no dice nada de un
+ * vistazo; "hace 6 h" en rojo sí.
+ */
+const espera = (iso) => {
+  if (!iso) return { texto: "", tono: "gris" };
+  const ms = Date.now() - new Date(String(iso).replace(" ", "T")).getTime();
+  if (Number.isNaN(ms)) return { texto: "", tono: "gris" };
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return { texto: "ahora", tono: "verde" };
+  if (min < 60) return { texto: `hace ${min} min`, tono: "verde" };
+  const h = Math.floor(min / 60);
+  if (h < 24) return { texto: `hace ${h} h`, tono: h >= 4 ? "rojo" : "ambar" };
+  const d = Math.floor(h / 24);
+  return { texto: d === 1 ? "hace 1 día" : `hace ${d} días`, tono: "rojo" };
+};
+
+const COLOR_ESPERA = {
+  verde: "text-emerald-600",
+  ambar: "text-amber-600",
+  rojo: "text-rose-600",
+  gris: "text-gray-400",
 };
 
 const Pastilla = ({ children, tono = "gris" }) => {
@@ -74,8 +108,19 @@ const ETIQUETA_TIPO = {
  * da 403 y quedaría un hueco roto en la lista, así que se cae al icono. El
  * refresco de detalle (cada 24h, en el backend) renueva la URL.
  */
-const Miniatura = ({ post }) => {
+const TAMANOS_MINIATURA = {
+  // En la lista manda la densidad: cuanto más alta la fila, menos
+  // publicaciones caben sin hacer scroll.
+  lista: { caja: "h-20 w-20", icono: "text-3xl" },
+  // En la cabecera del hilo sobra espacio y la imagen ayuda a reconocer de
+  // qué publicación se está hablando.
+  hilo: { caja: "h-28 w-28", icono: "text-5xl" },
+};
+
+const Miniatura = ({ post, tamano = "lista" }) => {
   const [falla, setFalla] = useState(false);
+  const { caja, icono: tamIcono } =
+    TAMANOS_MINIATURA[tamano] || TAMANOS_MINIATURA.lista;
 
   if (post.media_url && !falla) {
     return (
@@ -84,7 +129,7 @@ const Miniatura = ({ post }) => {
         alt=""
         loading="lazy"
         onError={() => setFalla(true)}
-        className="h-14 w-14 shrink-0 rounded-xl object-cover border border-gray-100 bg-gray-50"
+        className={`${caja} shrink-0 rounded-xl object-cover border border-gray-100 bg-gray-50`}
       />
     );
   }
@@ -99,8 +144,10 @@ const Miniatura = ({ post }) => {
           : "bx-news";
 
   return (
-    <div className="h-14 w-14 shrink-0 rounded-xl grid place-items-center bg-gray-50 border border-gray-100">
-      <i className={`bx ${icono} text-2xl text-gray-300`} />
+    <div
+      className={`${caja} shrink-0 rounded-xl grid place-items-center bg-gray-50 border border-gray-100`}
+    >
+      <i className={`bx ${icono} ${tamIcono} text-gray-300`} />
     </div>
   );
 };
@@ -355,6 +402,17 @@ export default function Comentarios() {
   const [cargandoHilo, setCargandoHilo] = useState(false);
   const [error, setError] = useState(null);
 
+  // Vista combinada: dos formas de llegar al mismo panel de detalle.
+  //   pendientes  → lista plana de toda la cuenta, por antigüedad
+  //   publicacion → publicaciones y su hilo, como estaba
+  const [vista, setVista] = useState("pendientes");
+  const [planos, setPlanos] = useState([]);
+  const [cargandoPlanos, setCargandoPlanos] = useState(true);
+  const [comentarioSel, setComentarioSel] = useState(null);
+  const [estadoFiltro, setEstadoFiltro] = useState("pendientes");
+  const [orden, setOrden] = useState("antiguos");
+  const [busqueda, setBusqueda] = useState("");
+
   const cargarPosts = useCallback(async () => {
     if (!id_configuracion) return;
     setCargando(true);
@@ -390,13 +448,85 @@ export default function Comentarios() {
     cargarPosts();
   }, [cargarPosts]);
 
-  const abrirHilo = async (post) => {
-    // Segundo clic sobre la misma publicación la cierra.
-    if (seleccionado?.id_facebook_post === post.id_facebook_post) {
-      setSeleccionado(null);
-      setHilo(null);
-      return;
+  const cargarPlanos = useCallback(async () => {
+    if (!id_configuracion) return;
+    setCargandoPlanos(true);
+    try {
+      const { data } = await chatApi.get(ENDPOINTS.planos, {
+        params: {
+          id_configuracion,
+          estado: estadoFiltro,
+          orden,
+          q: busqueda || undefined,
+          limite: 100,
+        },
+      });
+      setPlanos(data.comentarios || []);
+    } catch (err) {
+      console.error("[COMENTARIOS] no se pudo cargar la bandeja:", err);
+      setPlanos([]);
+    } finally {
+      setCargandoPlanos(false);
     }
+  }, [id_configuracion, estadoFiltro, orden, busqueda]);
+
+  // El buscador escribe letra a letra: sin esta espera sería una consulta por
+  // cada tecla.
+  useEffect(() => {
+    const t = setTimeout(cargarPlanos, busqueda ? 350 : 0);
+    return () => clearTimeout(t);
+  }, [cargarPlanos, busqueda]);
+
+  /**
+   * Tiempo real.
+   *
+   * El backend emite `COMENTARIO_ACTUALIZADO` cuando entra, se edita, se
+   * oculta o se borra un comentario. Antes de esto la pantalla sólo consultaba
+   * al abrirse o al pulsar "Actualizar", así que un comentario podía estar
+   * minutos en la base sin que nadie lo viera.
+   *
+   * La señal sólo trae ids —el contenido se pide por el endpoint, que valida
+   * el dueño—, así que al recibirla se relee. Y como el evento se reparte a
+   * todos los navegadores conectados, hay que filtrar por cuenta: sin ese
+   * filtro, la bandeja se recargaría con la actividad de otros clientes.
+   */
+  const recargarRef = useRef(null);
+  recargarRef.current = () => {
+    cargarPosts();
+    cargarPlanos();
+    if (seleccionado) recargarHiloRef.current?.(seleccionado.id_facebook_post);
+  };
+  const recargarHiloRef = useRef(null);
+
+  useEffect(() => {
+    if (!id_configuracion) return;
+
+    const socket = io(import.meta.env.VITE_socket, {
+      transports: ["websocket", "polling"],
+    });
+
+    // Una ráfaga de comentarios llegaría como una ráfaga de recargas. Se
+    // agrupan: se relee una sola vez poco después del último aviso.
+    let temporizador = null;
+    const onComentario = (data) => {
+      if (Number(data?.id_configuracion) !== Number(id_configuracion)) return;
+      clearTimeout(temporizador);
+      temporizador = setTimeout(() => recargarRef.current(), 600);
+    };
+
+    socket.on("COMENTARIO_ACTUALIZADO", onComentario);
+
+    return () => {
+      clearTimeout(temporizador);
+      socket.off("COMENTARIO_ACTUALIZADO", onComentario);
+      socket.disconnect();
+    };
+  }, [id_configuracion]);
+
+  const abrirHilo = async (post) => {
+    // Con dos paneles, volver a pulsar la publicación abierta no hace nada:
+    // cerrarla dejaría el panel derecho vacío sin que nadie lo haya pedido.
+    if (seleccionado?.id_facebook_post === post.id_facebook_post) return;
     setSeleccionado(post);
     setHilo(null);
     setCargandoHilo(true);
@@ -437,6 +567,23 @@ export default function Comentarios() {
    * El error se propaga a propósito: lo muestra el redactor, junto al
    * comentario, que es donde el usuario está mirando.
    */
+  /**
+   * Cambio de vista conservando dónde estabas.
+   *
+   * Si vienes de un comentario en la lista plana y saltas a "por publicación",
+   * se abre su publicación. Al revés no hay equivalente —un hilo no es un
+   * comentario— así que sólo se cambia la vista.
+   */
+  const cambiarVista = (nueva) => {
+    setVista(nueva);
+    if (nueva === "publicacion" && comentarioSel) {
+      const post = posts.find(
+        (p) => p.id_facebook_post === comentarioSel.id_facebook_post,
+      );
+      if (post) abrirHilo(post);
+    }
+  };
+
   const enviarRespuesta = async ({ comment_id, mensaje, privado }) => {
     await chatApi.post(
       privado ? ENDPOINTS.responderPrivado : ENDPOINTS.responder,
@@ -448,7 +595,12 @@ export default function Comentarios() {
     );
     if (seleccionado) await recargarHilo(seleccionado.id_facebook_post);
     cargarPosts();
+    cargarPlanos();
   };
+
+  // El efecto de tiempo real necesita recargar el hilo abierto, pero se define
+  // antes que recargarHilo: la referencia salva el orden.
+  recargarHiloRef.current = recargarHilo;
 
   if (!id_configuracion) {
     return (
@@ -461,10 +613,14 @@ export default function Comentarios() {
     );
   }
 
+  // El detalle es el mismo en las dos vistas: cambia sólo cómo se llega a él.
+  const hayDetalle =
+    vista === "pendientes" ? !!comentarioSel : !!seleccionado;
+
   return (
-    <div className="p-4 sm:p-6 max-w-4xl">
+    <div className="p-4 sm:p-6 flex flex-col gap-4 lg:h-[calc(100vh-7rem)]">
       {/* Encabezado */}
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden mb-5">
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden shrink-0">
         <div className="bg-gradient-to-r from-sky-600 to-blue-700 text-white px-5 py-4 flex items-center gap-3 flex-wrap">
           <div className="h-11 w-11 rounded-full bg-white/15 grid place-items-center shrink-0">
             <i className="bx bx-message-rounded-dots text-2xl" />
@@ -475,31 +631,39 @@ export default function Comentarios() {
               Comentarios de las publicaciones de tus páginas de Facebook.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSoloPendientes((v) => !v)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm border transition ${
-                soloPendientes
-                  ? "bg-white text-blue-700 border-white font-medium"
-                  : "bg-white/10 text-white border-white/25 hover:bg-white/20"
-              }`}
-            >
-              <i className="bx bx-filter-alt" />
-              Solo pendientes
-            </button>
-            <button
-              onClick={cargarPosts}
-              disabled={cargando}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm bg-white/10 text-white border border-white/25 hover:bg-white/20 disabled:opacity-50 transition"
-            >
-              <i
-                className={`bx bx-refresh text-base ${
-                  cargando ? "bx-spin" : ""
+
+          {/* Interruptor de vista */}
+          <div className="inline-flex rounded-xl overflow-hidden border border-white/30">
+            {[
+              ["pendientes", "Pendientes"],
+              ["publicacion", "Por publicación"],
+            ].map(([clave, texto]) => (
+              <button
+                key={clave}
+                onClick={() => cambiarVista(clave)}
+                aria-pressed={vista === clave}
+                className={`px-3.5 py-2 text-sm transition ${
+                  vista === clave
+                    ? "bg-white text-blue-700 font-medium"
+                    : "bg-white/10 text-white hover:bg-white/20"
                 }`}
-              />
-              {cargando ? "Actualizando…" : "Actualizar"}
-            </button>
+              >
+                {texto}
+              </button>
+            ))}
           </div>
+
+          <button
+            onClick={() => {
+              cargarPosts();
+              cargarPlanos();
+            }}
+            disabled={cargando}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm bg-white/10 text-white border border-white/25 hover:bg-white/20 disabled:opacity-50 transition"
+          >
+            <i className={`bx bx-refresh text-base ${cargando ? "bx-spin" : ""}`} />
+            Actualizar
+          </button>
         </div>
 
         {resumen ? (
@@ -526,153 +690,386 @@ export default function Comentarios() {
       </div>
 
       {error ? (
-        <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 mb-5">
+        <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 shrink-0">
           <i className="bx bx-error-circle text-lg mt-0.5 shrink-0" />
           <span>{error}</span>
         </div>
       ) : null}
 
-      {cargando && !posts.length ? (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />
-          ))}
-        </div>
-      ) : null}
-
-      {!cargando && !posts.length ? (
-        <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
-          <div className="h-14 w-14 rounded-full bg-gray-50 border border-gray-100 grid place-items-center mx-auto mb-3">
-            <i
-              className={`bx ${
-                soloPendientes ? "bx-check-circle" : "bx-message-rounded-dots"
-              } text-3xl text-gray-300`}
-            />
-          </div>
-          <p className="text-gray-700 font-medium">
-            {soloPendientes
-              ? "No hay comentarios sin responder."
-              : "Todavía no hay comentarios."}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            {soloPendientes
-              ? "Todo al día."
-              : "Aparecerán aquí en cuanto alguien comente una publicación de tu página."}
-          </p>
-        </div>
-      ) : null}
-
-      <div className="space-y-3">
-        {posts.map((post) => {
-          const abierto =
-            seleccionado?.id_facebook_post === post.id_facebook_post;
-          return (
-            <div
-              key={post.id_facebook_post}
-              className={`rounded-2xl border bg-white shadow-sm overflow-hidden transition ${
-                abierto
-                  ? "border-blue-200 shadow-md"
-                  : "border-gray-100 hover:shadow-md"
-              }`}
-            >
-              <button
-                onClick={() => abrirHilo(post)}
-                className="w-full text-left p-4 hover:bg-gray-50/70 transition"
-              >
-                <div className="flex items-start gap-3">
-                  <Miniatura post={post} />
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                      {post.mensaje || `Publicación ${post.post_id}`}
-                    </p>
-
-                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                      {post.tipo ? (
-                        <Pastilla tono="azul">
-                          {ETIQUETA_TIPO[post.tipo] || post.tipo}
-                        </Pastilla>
-                      ) : null}
-                      <Pastilla>
-                        {post.total_comentarios}{" "}
-                        {post.total_comentarios === 1
-                          ? "comentario"
-                          : "comentarios"}
-                      </Pastilla>
-                      {post.sin_responder > 0 ? (
-                        <Pastilla tono="ambar">
-                          {post.sin_responder} sin responder
-                        </Pastilla>
-                      ) : null}
-                    </div>
-
-                    <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-gray-400 mt-1.5">
-                      <span className="inline-flex items-center gap-1">
-                        <i className="bx bx-time-five" />
-                        Actividad: {fechaCorta(post.ultimo_comentario_at)}
-                      </span>
-                      {post.publicado_at ? (
-                        <span className="inline-flex items-center gap-1">
-                          <i className="bx bx-calendar" />
-                          Publicado: {fechaCorta(post.publicado_at)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div
-                    className={`h-9 w-9 shrink-0 rounded-xl grid place-items-center transition ${
-                      abierto
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-50 text-gray-400 border border-gray-100"
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4">
+        {/* ═══ IZQUIERDA ═══ */}
+        <div
+          className={`flex flex-col lg:flex-row gap-4 min-h-0 ${
+            vista === "pendientes" ? "lg:flex-1" : "lg:w-[30rem] shrink-0"
+          } ${hayDetalle ? "hidden lg:flex" : "flex"}`}
+        >
+          {vista === "pendientes" ? (
+            /* ── Bandeja plana ── */
+            <div className="flex-1 min-w-0 flex flex-col min-h-0">
+              <div className="flex items-center gap-2 flex-wrap mb-3 shrink-0">
+                {[
+                  ["pendientes", "Sin responder"],
+                  ["respondidos", "Respondidos"],
+                  ["todos", "Todos"],
+                ].map(([clave, texto]) => (
+                  <button
+                    key={clave}
+                    onClick={() => setEstadoFiltro(clave)}
+                    className={`px-3 py-1.5 rounded-full text-xs border transition ${
+                      estadoFiltro === clave
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
                     }`}
                   >
-                    <i
-                      className={`bx bx-chevron-right text-xl transition-transform ${
-                        abierto ? "rotate-90" : ""
-                      }`}
-                    />
-                  </div>
-                </div>
-              </button>
+                    {texto}
+                  </button>
+                ))}
 
-              {abierto ? (
-                <div className="border-t border-gray-100 px-4 pb-2 bg-gray-50/40">
-                  {post.permalink_url ? (
+                <select
+                  id="orden-comentarios"
+                  value={orden}
+                  onChange={(e) => setOrden(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600"
+                >
+                  <option value="antiguos">Más antiguos primero</option>
+                  <option value="nuevos">Más nuevos primero</option>
+                </select>
+
+                <input
+                  id="buscar-comentarios"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar por texto o autor…"
+                  className="flex-1 min-w-[10rem] text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400"
+                />
+              </div>
+
+              <div className="flex-1 lg:overflow-y-auto space-y-2 lg:pr-1">
+                {cargandoPlanos && !planos.length ? (
+                  [0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-20 rounded-2xl bg-gray-100 animate-pulse"
+                    />
+                  ))
+                ) : !planos.length ? (
+                  <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+                    <div className="h-14 w-14 rounded-full bg-gray-50 border border-gray-100 grid place-items-center mx-auto mb-3">
+                      <i className="bx bx-check-circle text-3xl text-gray-300" />
+                    </div>
+                    <p className="text-gray-700 font-medium">
+                      {busqueda
+                        ? "Ningún comentario coincide."
+                        : estadoFiltro === "pendientes"
+                          ? "No hay comentarios sin responder."
+                          : "Todavía no hay comentarios."}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {busqueda ? "Prueba con otro texto." : "Todo al día."}
+                    </p>
+                  </div>
+                ) : (
+                  planos.map((c) => {
+                    const activo =
+                      comentarioSel?.id_facebook_comment ===
+                      c.id_facebook_comment;
+                    const esp = espera(c.comentado_at);
+                    return (
+                      <button
+                        key={c.id_facebook_comment}
+                        onClick={() => setComentarioSel(c)}
+                        className={`w-full text-left rounded-2xl border bg-white p-3 transition ${
+                          activo
+                            ? "border-blue-300 ring-2 ring-blue-100"
+                            : "border-gray-100 hover:border-gray-200 hover:shadow-sm"
+                        }`}
+                      >
+                        <div className="flex gap-3">
+                          <Avatar nombre={c.from_nombre} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-gray-900">
+                                {c.from_nombre || "Usuario de Facebook"}
+                              </span>
+                              {c.respondido ? (
+                                <Pastilla tono="verde">
+                                  <i className="bx bx-check" />
+                                  respondido
+                                </Pastilla>
+                              ) : (
+                                <Pastilla tono="ambar">sin responder</Pastilla>
+                              )}
+                              {c.privado_enviado ? (
+                                <Pastilla>privado enviado</Pastilla>
+                              ) : null}
+                              <span
+                                className={`ml-auto text-xs shrink-0 ${COLOR_ESPERA[esp.tono]}`}
+                              >
+                                {esp.texto}
+                              </span>
+                            </div>
+
+                            <p className="text-sm text-gray-800 mt-1 line-clamp-2">
+                              {c.mensaje || (
+                                <span className="italic text-gray-400">
+                                  (sin texto)
+                                </span>
+                              )}
+                            </p>
+
+                            <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-1.5 min-w-0">
+                              <i className="bx bx-paperclip shrink-0" />
+                              <span className="truncate">
+                                {c.post_mensaje ||
+                                  `Publicación ${c.post_id}`}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          ) : (
+            /* ── Publicaciones ── */
+            <aside className="flex-1 min-w-0 flex flex-col min-h-0">
+              {/* El filtro vive aquí, no en el encabezado: sólo afecta a esta
+                  vista. La bandeja plana tiene el suyo propio. */}
+              <div className="shrink-0 mb-3">
+                <button
+                  onClick={() => setSoloPendientes((v) => !v)}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition ${
+                    soloPendientes
+                      ? "bg-amber-500 border-amber-500 text-white"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  <i className="bx bx-filter-alt mr-1" />
+                  Solo con pendientes
+                </button>
+              </div>
+
+              <div className="flex-1 lg:overflow-y-auto lg:pr-1">
+              {cargando && !posts.length ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-24 rounded-2xl bg-gray-100 animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {!cargando && !posts.length ? (
+                <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+                  <div className="h-14 w-14 rounded-full bg-gray-50 border border-gray-100 grid place-items-center mx-auto mb-3">
+                    <i className="bx bx-message-rounded-dots text-3xl text-gray-300" />
+                  </div>
+                  <p className="text-gray-700 font-medium">
+                    Todavía no hay comentarios.
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Aparecerán aquí en cuanto alguien comente una publicación de
+                    tu página.
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="space-y-2">
+                {posts.map((post) => {
+                  const activo =
+                    seleccionado?.id_facebook_post === post.id_facebook_post;
+                  return (
+                    <button
+                      key={post.id_facebook_post}
+                      onClick={() => abrirHilo(post)}
+                      className={`w-full text-left rounded-2xl border bg-white p-3 transition ${
+                        activo
+                          ? "border-blue-300 ring-2 ring-blue-100 shadow-sm"
+                          : "border-gray-100 hover:border-gray-200 hover:shadow-sm"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Miniatura post={post} />
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`text-sm line-clamp-2 ${
+                              activo
+                                ? "font-semibold text-blue-900"
+                                : "font-medium text-gray-900"
+                            }`}
+                          >
+                            {post.mensaje || `Publicación ${post.post_id}`}
+                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                            <Pastilla>
+                              {post.total_comentarios}{" "}
+                              {post.total_comentarios === 1
+                                ? "comentario"
+                                : "comentarios"}
+                            </Pastilla>
+                            {post.sin_responder > 0 ? (
+                              <Pastilla tono="ambar">
+                                {post.sin_responder} sin responder
+                              </Pastilla>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-gray-400 mt-1.5">
+                            <i className="bx bx-time-five" />
+                            {fechaCorta(post.ultimo_comentario_at)}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              </div>
+            </aside>
+          )}
+        </div>
+
+        {/* ═══ DERECHA · el detalle, común a las dos vistas ═══ */}
+        <section
+          className={`flex-1 min-w-0 lg:overflow-y-auto ${
+            hayDetalle ? "block" : "hidden lg:block"
+          }`}
+        >
+          {!hayDetalle ? (
+            <div className="h-full min-h-[18rem] rounded-2xl border border-dashed border-gray-200 bg-white/60 grid place-items-center text-center p-8">
+              <div>
+                <div className="h-14 w-14 rounded-full bg-gray-50 border border-gray-100 grid place-items-center mx-auto mb-3">
+                  <i className="bx bx-conversation text-3xl text-gray-300" />
+                </div>
+                <p className="text-gray-700 font-medium">
+                  {vista === "pendientes"
+                    ? "Elige un comentario"
+                    : "Elige una publicación"}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {vista === "pendientes"
+                    ? "Podrás responderlo aquí mismo."
+                    : "Sus comentarios aparecerán aquí."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+              {/* Cabecera del detalle */}
+              <div className="border-b border-gray-100 p-4 flex items-start gap-3">
+                <button
+                  onClick={() => {
+                    if (vista === "pendientes") setComentarioSel(null);
+                    else {
+                      setSeleccionado(null);
+                      setHilo(null);
+                    }
+                  }}
+                  className="lg:hidden h-9 w-9 shrink-0 rounded-xl grid place-items-center border border-gray-200 text-gray-500 hover:bg-gray-50"
+                  aria-label="Volver"
+                >
+                  <i className="bx bx-arrow-back text-xl" />
+                </button>
+
+                <Miniatura
+                  post={
+                    vista === "pendientes"
+                      ? {
+                          media_url: comentarioSel.post_media_url,
+                          tipo: comentarioSel.post_tipo,
+                        }
+                      : seleccionado
+                  }
+                  tamano="hilo"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                    {vista === "pendientes"
+                      ? comentarioSel.post_mensaje ||
+                        `Publicación ${comentarioSel.post_id}`
+                      : seleccionado.mensaje ||
+                        `Publicación ${seleccionado.post_id}`}
+                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                    {vista === "publicacion" && seleccionado.tipo ? (
+                      <Pastilla tono="azul">
+                        {ETIQUETA_TIPO[seleccionado.tipo] || seleccionado.tipo}
+                      </Pastilla>
+                    ) : null}
+                    {vista === "publicacion" && seleccionado.publicado_at ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                        <i className="bx bx-calendar" />
+                        Publicado: {fechaCorta(seleccionado.publicado_at)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {vista === "pendientes" ? (
+                    <button
+                      onClick={() => {
+                        const post = posts.find(
+                          (p) =>
+                            p.id_facebook_post ===
+                            comentarioSel.id_facebook_post,
+                        );
+                        if (post) {
+                          setVista("publicacion");
+                          abrirHilo(post);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 mt-2 text-xs text-blue-600 hover:underline"
+                    >
+                      <i className="bx bx-conversation" />
+                      Ver el hilo completo
+                    </button>
+                  ) : seleccionado.permalink_url ? (
                     <a
-                      href={post.permalink_url}
+                      href={seleccionado.permalink_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 mt-3 text-xs text-blue-600 hover:underline"
+                      className="inline-flex items-center gap-1.5 mt-2 text-xs text-blue-600 hover:underline"
                     >
                       <i className="bx bx-link-external" />
                       Ver la publicación en Facebook
                     </a>
                   ) : null}
-
-                  {cargandoHilo ? (
-                    <div className="py-6 flex items-center gap-2 text-sm text-gray-500">
-                      <i className="bx bx-loader-alt bx-spin" />
-                      Cargando comentarios…
-                    </div>
-                  ) : hilo && hilo.length ? (
-                    hilo.map((c) => (
-                      <Comentario
-                        key={c.id_facebook_comment}
-                        nodo={c}
-                        onEnviar={enviarRespuesta}
-                      />
-                    ))
-                  ) : (
-                    <div className="py-6 text-sm text-gray-500">
-                      Esta publicación no tiene comentarios visibles.
-                    </div>
-                  )}
                 </div>
-              ) : null}
+              </div>
+
+              {/* Contenido */}
+              <div className="px-4 pb-2 bg-gray-50/40">
+                {vista === "pendientes" ? (
+                  <Comentario
+                    key={comentarioSel.id_facebook_comment}
+                    nodo={comentarioSel}
+                    onEnviar={enviarRespuesta}
+                  />
+                ) : cargandoHilo ? (
+                  <div className="py-8 flex items-center justify-center gap-2 text-sm text-gray-500">
+                    <i className="bx bx-loader-alt bx-spin" />
+                    Cargando comentarios…
+                  </div>
+                ) : hilo && hilo.length ? (
+                  hilo.map((c) => (
+                    <Comentario
+                      key={c.id_facebook_comment}
+                      nodo={c}
+                      onEnviar={enviarRespuesta}
+                    />
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-sm text-gray-500">
+                    Esta publicación no tiene comentarios visibles.
+                  </div>
+                )}
+              </div>
             </div>
-          );
-        })}
+          )}
+        </section>
       </div>
     </div>
   );
