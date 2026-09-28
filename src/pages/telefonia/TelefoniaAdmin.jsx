@@ -58,6 +58,7 @@ export default function TelefoniaAdmin() {
   const [form, setForm] = useState({ user_key: "", secret: "" });
   const [msg1, setMsg1] = useState(null);
   const [guardando, setGuardando] = useState(false);
+  const [editarLlaves, setEditarLlaves] = useState(false);
 
   const cargarMaestra = useCallback(async () => {
     try {
@@ -122,8 +123,13 @@ export default function TelefoniaAdmin() {
     setMsg2(null);
     try {
       const { data } = await chatApi.post("/telefonia/instalar", { url: urlWebhook });
-      const g = data?.data?.grabacion;
-      setMsg2({ tipo: "ok", texto: `Zadarma ya nos avisa de cada llamada. Grabación: ${g?.error ? `no se pudo encender (${g.error})` : "encendida"}.` });
+      const g = data?.data?.grabacion || {};
+      const enc = (g.encendidas || []).join(", ");
+      const err = (g.errores || []).join(" · ");
+      setMsg2({
+        tipo: err && !enc ? "error" : "ok",
+        texto: `Zadarma ya nos avisa de cada llamada. Grabación encendida en: ${enc || "ninguna"}${err ? `. Fallaron: ${err}` : ""}.`,
+      });
       cargarMaestra();
     } catch (err) {
       setMsg2({ tipo: "error", texto: err?.response?.data?.message || "No se pudo instalar" });
@@ -242,7 +248,7 @@ export default function TelefoniaAdmin() {
       </header>
 
       {/* Tres pasos */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         {/* Paso 1 */}
         <Paso n={1} titulo="Vincular la cuenta de Zadarma" hecho={vinculada}>
           <p className="mb-3 text-sm text-slate-600">
@@ -256,6 +262,11 @@ export default function TelefoniaAdmin() {
               {maestra.balance_error ? <div className="mt-1 text-rose-600">Zadarma responde: {maestra.balance_error}</div> : null}
             </div>
           ) : null}
+          {vinculada && !editarLlaves ? (
+            <button type="button" onClick={() => setEditarLlaves(true)} className={`${btn} w-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
+              <i className="bx bx-edit-alt text-lg" /> Reemplazar llaves
+            </button>
+          ) : (
           <form onSubmit={guardarLlaves} className="space-y-3">
             <label className="block text-xs font-semibold text-slate-600">
               Llave de usuario
@@ -267,9 +278,10 @@ export default function TelefoniaAdmin() {
             </label>
             <button type="submit" disabled={guardando || !form.user_key || !form.secret} className={`${btn} w-full bg-indigo-600 text-white hover:bg-indigo-700`}>
               <i className={`bx ${guardando ? "bx-loader-alt bx-spin" : "bx-link"} text-lg`} />
-              {vinculada ? "Reemplazar llaves" : "Vincular cuenta"}
+              {vinculada ? "Guardar nuevas llaves" : "Vincular cuenta"}
             </button>
           </form>
+          )}
           {msg1 ? <Aviso tipo={msg1.tipo}>{msg1.texto}</Aviso> : null}
         </Paso>
 
