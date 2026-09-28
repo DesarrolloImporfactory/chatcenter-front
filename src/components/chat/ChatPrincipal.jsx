@@ -2120,7 +2120,7 @@ const ChatPrincipal = ({
       return {
         color: "text-slate-300",
         titulo: "La ventana ya venció",
-        detalle: `Cerró el ${cuando}. Lo que envíes desde ahora sí tiene costo.`,
+        detalle: `Cerró el ${cuando}. Desde ahora WhatsApp sí cobra la conversación y las plantillas.`,
       };
     }
 
@@ -2131,7 +2131,7 @@ const ChatPrincipal = ({
       return {
         color: "text-amber-300",
         titulo: `La ventana vence en ${minutos} min`,
-        detalle: `${cuando}. Si va a ir un seguimiento o una plantilla, conviene mandarlo ya.`,
+        detalle: `${cuando}. Si va a ir un seguimiento o una plantilla, conviene mandarlo ya para que WhatsApp no lo cobre.`,
       };
     }
 
@@ -2139,15 +2139,28 @@ const ChatPrincipal = ({
       return {
         color: "text-amber-300",
         titulo: `La ventana vence en ${horas} h`,
-        detalle: `${cuando}. Si va a ir un seguimiento o una plantilla, conviene mandarlo antes.`,
+        detalle: `${cuando}. Si va a ir un seguimiento o una plantilla, conviene mandarlo antes para que WhatsApp no lo cobre.`,
       };
     }
 
     return {
       color: "text-emerald-300",
       titulo: `Quedan ${horas} h de ventana`,
-      detalle: `Vence el ${cuando}. Hasta esa hora todo sigue sin costo.`,
+      detalle: `Vence el ${cuando}. Hasta esa hora WhatsApp no cobra lo que envíes por este chat.`,
     };
+  };
+
+  // Lo que la etiqueta NO cubre. "Sin costo" a secas hacía creer que el
+  // mensaje no consumió nada, ni IA; y la ventana de 72 h solo exonera el
+  // cobro de Meta por conversación/plantilla. Si lo redactó el bot, los
+  // tokens se cobraron igual (el consumo se ve agregado en Asistentes).
+  const SIN_CONSUMO_IA = ["IA_wizard", "IA_mensaje_fijo", "IA_respuesta_rapida"];
+  const aclaracionCostoFep = (mensaje) => {
+    const r = String(mensaje?.responsable || "");
+    if (/^IA_/i.test(r) && !SIN_CONSUMO_IA.includes(r)) {
+      return "Ojo: esto es solo el cobro de WhatsApp. Este mensaje lo redactó la IA y ese consumo de tokens sí se cobró aparte (se ve en Asistentes).";
+    }
+    return "Esto es solo el cobro de WhatsApp (Meta). No incluye el consumo de IA ni el plan de ChatCenter.";
   };
 
   const PrecioMetaBadge = ({ mensaje }) => {
@@ -2163,7 +2176,7 @@ const ChatPrincipal = ({
           aria-describedby={tipId}
           className="inline-flex items-center gap-1 rounded-full bg-white/80 text-emerald-700 ring-1 ring-emerald-600/25 px-1.5 py-0.5 text-[10px] font-semibold leading-none cursor-help"
         >
-          <i className="bx bx-gift" aria-hidden="true" /> Sin costo · 72 h
+          <i className="bx bxl-whatsapp" aria-hidden="true" /> WhatsApp no lo cobró · 72 h
         </span>
 
         {/* Hacia ARRIBA: la lista de mensajes tiene overflow-y-auto, así que
@@ -2184,13 +2197,16 @@ const ChatPrincipal = ({
           "
         >
           <span className="flex items-center gap-1.5 font-bold">
-            <i className="bx bx-gift" aria-hidden="true" />
-            Este mensaje no tuvo costo
+            <i className="bx bxl-whatsapp" aria-hidden="true" />
+            WhatsApp no cobró este mensaje
           </span>
           <span className="block mt-0.5">
             Meta lo confirmó: salió dentro de la ventana de 72 h que abre un
-            anuncio de WhatsApp. Ahí no se cobra nada, ni siquiera las
-            plantillas.
+            anuncio de WhatsApp. En esa ventana Meta no cobra la conversación
+            ni las plantillas.
+          </span>
+          <span className="block mt-1 text-amber-200/90">
+            {aclaracionCostoFep(mensaje)}
           </span>
 
           {ventana && (
