@@ -19,6 +19,147 @@ const input =
 const btn =
   "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50";
 
+const fmtFecha = (v) => {
+  if (!v) return "—";
+  const d = new Date(String(v).includes("T") ? v : `${String(v).replace(" ", "T")}-05:00`);
+  return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString("es-EC", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+};
+const fmtSeg = (s) => {
+  const n = Number(s) || 0;
+  return n < 60 ? `${n} s` : `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")} min`;
+};
+const ESTADOS = {
+  answered: ["contestada", "text-emerald-700"],
+  no_answer: ["no contestaron", "text-amber-700"],
+  busy: ["ocupado", "text-amber-700"],
+  cancel: ["colgó antes", "text-slate-500"],
+  failed: ["falló", "text-rose-700"],
+  ringing: ["timbrando", "text-sky-700"],
+  pedida: ["marcando", "text-sky-700"],
+};
+
+/**
+ * Historial de llamadas de una conexión, paginado. La columna "Salió con"
+ * es el número que Zadarma reporta haber enviado en esa llamada (no el que
+ * intentamos poner): ante una queja de "me llamaron de un número raro" es
+ * el dato para comparar. Si la operadora del destino lo reemplazó por uno
+ * de pasarela, eso no lo reporta nadie y aquí se verá el enviado.
+ */
+function HistorialModal({ cuenta, onClose }) {
+  const [page, setPage] = useState(1);
+  const [datos, setDatos] = useState({ data: [], total: 0, limit: 20 });
+  const [cargando, setCargando] = useState(false);
+  useEffect(() => {
+    let vigente = true;
+    setCargando(true);
+    chatApi
+      .get("/telefonia/admin/historial", { params: { id_configuracion: cuenta.id_configuracion, page, limit: 20 } })
+      .then(({ data }) => vigente && setDatos({ data: data?.data || [], total: data?.total || 0, limit: data?.limit || 20 }))
+      .catch(() => vigente && setDatos({ data: [], total: 0, limit: 20 }))
+      .finally(() => vigente && setCargando(false));
+    return () => {
+      vigente = false;
+    };
+  }, [cuenta.id_configuracion, page]);
+  useEffect(() => {
+    const esc = (e) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
+  const paginas = Math.max(1, Math.ceil(datos.total / datos.limit));
+  const salieron = new Map();
+  datos.data.forEach((l) => {
+    if (l.caller_id) salieron.set(l.caller_id, (salieron.get(l.caller_id) || 0) + 1);
+  });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              Llamadas de #{cuenta.id_configuracion} {cuenta.nombre_configuracion || ""}
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {datos.total} llamada{datos.total === 1 ? "" : "s"} · saldo {fmtUSD(cuenta.saldo_centavos)} · número configurado {tel(cuenta.caller_id)}
+              {salieron.size > 0 ? (
+                <>
+                  {" "}· en esta página salieron con {[...salieron.entries()].map(([n, c]) => `${tel(n)} (${c})`).join(", ")}
+                </>
+              ) : null}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Cerrar">
+            <i className="bx bx-x text-2xl" />
+          </button>
+        </div>
+        <div className="overflow-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-2">Fecha</th>
+                <th className="px-4 py-2">Asesor</th>
+                <th className="px-4 py-2">Cliente</th>
+                <th className="px-4 py-2">Salió con</th>
+                <th className="px-4 py-2">Estado</th>
+                <th className="px-4 py-2">Duración</th>
+                <th className="px-4 py-2">Costo</th>
+                <th className="px-4 py-2">Grabación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cargando && datos.data.length === 0 ? (
+                <tr><td colSpan="8" className="px-4 py-8 text-center text-slate-400">Cargando…</td></tr>
+              ) : datos.data.length === 0 ? (
+                <tr><td colSpan="8" className="px-4 py-8 text-center text-slate-400">Esta conexión todavía no ha hecho llamadas.</td></tr>
+              ) : (
+                datos.data.map((l) => {
+                  const [txt, cls] = ESTADOS[l.estado] || [l.estado, "text-slate-600"];
+                  return (
+                    <tr key={l.id} className="border-t border-slate-100">
+                      <td className="px-4 py-2 whitespace-nowrap">{fmtFecha(l.inicio_at)}</td>
+                      <td className="px-4 py-2">{l.asesor || `Asesor ${l.id_sub_usuario}`} <span className="text-xs text-slate-400">ext {l.extension}</span></td>
+                      <td className="px-4 py-2">
+                        <div className="font-medium text-slate-800">{l.cliente || "—"}</div>
+                        <div className="text-xs text-slate-500">{tel(l.telefono_cliente)}</div>
+                      </td>
+                      <td className="px-4 py-2 font-semibold">
+                        {l.caller_id ? tel(l.caller_id) : <span className="font-normal text-slate-400" title="Zadarma no reportó el número enviado (llamada anterior a esta función o aún en curso)">sin dato</span>}
+                      </td>
+                      <td className={`px-4 py-2 font-semibold ${cls}`}>{txt}{l.disposition && !ESTADOS[l.estado] ? ` (${l.disposition})` : ""}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{l.estado === "answered" ? fmtSeg(l.duracion_seg) : "—"}</td>
+                      <td className="px-4 py-2">{l.costo_centavos ? fmtUSD(l.costo_centavos) : "—"}</td>
+                      <td className="px-4 py-2">
+                        {l.grabacion_url ? (
+                          <a href={l.grabacion_url} target="_blank" rel="noreferrer" className="font-semibold text-indigo-600 hover:underline">escuchar</a>
+                        ) : Number(l.grabada) === 1 ? (
+                          <span className="text-slate-400">procesando</span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-sm">
+          <span className="text-slate-500">Página {page} de {paginas}</span>
+          <div className="flex gap-2">
+            <button type="button" disabled={page <= 1 || cargando} onClick={() => setPage((p) => p - 1)} className={`${btn} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
+              <i className="bx bx-chevron-left" /> Anterior
+            </button>
+            <button type="button" disabled={page >= paginas || cargando} onClick={() => setPage((p) => p + 1)} className={`${btn} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
+              Siguiente <i className="bx bx-chevron-right" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Aviso({ tipo = "info", children }) {
   const cls =
     tipo === "ok"
@@ -146,6 +287,7 @@ export default function TelefoniaAdmin() {
   const [resultados, setResultados] = useState([]);
   const [sel, setSel] = useState(null);
   const [recarga, setRecarga] = useState({ dolares: "10", tarifa: "0.40", caller_id: "" });
+  const [hist, setHist] = useState(null); // conexión cuyo historial de llamadas está abierto
   const [msg3, setMsg3] = useState(null);
   const [numero, setNumero] = useState(null); // { verificado, detalle } del número de salida
   const [comprobando, setComprobando] = useState(false);
@@ -533,7 +675,19 @@ export default function TelefoniaAdmin() {
                     <td className="px-3 py-2">
                       {!c.caller_id ? <span className="text-slate-400">—</span> : Number(c.numero_verificado) === 1 ? <span className="font-semibold text-emerald-700">verificado</span> : c.numero_comprobado_at ? <span className="font-semibold text-amber-700">sin verificar</span> : <span className="text-slate-400">sin comprobar</span>}
                     </td>
-                    <td className="px-3 py-2">{c.llamadas}</td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHist(c);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                        title="Ver el historial de llamadas y con qué número salió cada una"
+                      >
+                        <i className="bx bx-history" /> {c.llamadas} · ver
+                      </button>
+                    </td>
                     <td className="px-3 py-2">
                       {Number(c.activo) === 1 ? <span className="font-semibold text-emerald-700">activa</span> : <span className="text-slate-400">apagada</span>}
                     </td>
@@ -544,6 +698,8 @@ export default function TelefoniaAdmin() {
           </table>
         </div>
       </section>
+
+      {hist ? <HistorialModal cuenta={hist} onClose={() => setHist(null)} /> : null}
     </div>
   );
 }
