@@ -144,6 +144,22 @@ export default function TelefoniaAdmin() {
   const [sel, setSel] = useState(null);
   const [recarga, setRecarga] = useState({ dolares: "10", tarifa: "0.40", caller_id: "" });
   const [msg3, setMsg3] = useState(null);
+  const [numero, setNumero] = useState(null); // { verificado, detalle } del número de salida
+  const [comprobando, setComprobando] = useState(false);
+
+  const comprobarNumero = async () => {
+    if (!sel || !recarga.caller_id) return;
+    setComprobando(true);
+    try {
+      const { data } = await chatApi.post("/telefonia/cuenta/comprobar-numero", { id_configuracion: sel.id, numero: recarga.caller_id });
+      setNumero(data?.data || null);
+      cargarCuentas();
+    } catch (err) {
+      setNumero({ verificado: false, detalle: err?.response?.data?.message || "No se pudo comprobar" });
+    } finally {
+      setComprobando(false);
+    }
+  };
 
   useEffect(() => {
     if (!q.trim()) {
@@ -172,18 +188,24 @@ export default function TelefoniaAdmin() {
       caller_id: existente?.caller_id || c.telefono || "",
     });
     setMsg3(null);
+    setNumero(
+      existente && existente.caller_id
+        ? { verificado: Number(existente.numero_verificado) === 1, detalle: existente.numero_comprobado_at ? null : "Sin comprobar todavía" }
+        : null,
+    );
   };
 
   const guardarCuenta = async () => {
     if (!sel) return;
     setMsg3(null);
     try {
-      await chatApi.post("/telefonia/cuenta", {
+      const { data } = await chatApi.post("/telefonia/cuenta", {
         id_configuracion: sel.id,
         tarifa_centavos_min: Math.round(Number(recarga.tarifa) * 100),
         caller_id: recarga.caller_id,
         activo: true,
       });
+      setNumero(data?.data?.numero || null);
       setMsg3({ tipo: "ok", texto: "Precio por minuto y número de salida guardados." });
       cargarCuentas();
     } catch (err) {
@@ -374,8 +396,23 @@ export default function TelefoniaAdmin() {
                 </label>
                 <label className="block text-xs font-semibold text-slate-600">
                   Número con el que salen sus llamadas
-                  <input className={`${input} mt-1`} value={recarga.caller_id} onChange={(e) => setRecarga((r) => ({ ...r, caller_id: e.target.value }))} placeholder="593999999999" />
+                  <input className={`${input} mt-1`} value={recarga.caller_id} onChange={(e) => { setRecarga((r) => ({ ...r, caller_id: e.target.value })); setNumero(null); }} placeholder="593999999999" />
                 </label>
+                <div className={`rounded-lg border px-3 py-2 text-xs ${numero?.verificado ? "border-emerald-200 bg-emerald-50 text-emerald-800" : numero ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold">
+                      {numero?.verificado ? "Número verificado en Zadarma: las llamadas salen con él" : numero ? "Número sin verificar: las llamadas salen como desconocido" : "Aún no se ha comprobado este número"}
+                    </span>
+                    <button type="button" onClick={comprobarNumero} disabled={comprobando || !recarga.caller_id} className="rounded-md border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                      <i className={`bx ${comprobando ? "bx-loader-alt bx-spin" : "bx-refresh"}`} /> Comprobar
+                    </button>
+                  </div>
+                  {numero && !numero.verificado ? (
+                    <p className="mt-1">
+                      Para verificarlo: en my.zadarma.com → Configuración → Conexión SIP → Identificador de llamada → Verificar número. Al dueño del número le llega un código por llamada o SMS; te lo dicta, lo escribes, y vuelves a pulsar Comprobar.
+                    </p>
+                  ) : null}
+                </div>
                 <button type="button" onClick={guardarCuenta} className={`${btn} w-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
                   <i className="bx bx-save text-lg" /> Guardar precio y número
                 </button>
@@ -411,6 +448,7 @@ export default function TelefoniaAdmin() {
                 <th className="px-3 py-2">Minutos aprox.</th>
                 <th className="px-3 py-2">Precio/min</th>
                 <th className="px-3 py-2">Sale con</th>
+                <th className="px-3 py-2">Número</th>
                 <th className="px-3 py-2">Llamadas</th>
                 <th className="px-3 py-2">Estado</th>
               </tr>
@@ -418,7 +456,7 @@ export default function TelefoniaAdmin() {
             <tbody>
               {cuentas.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-3 py-6 text-center text-slate-400">Ninguna conexión tiene saldo todavía.</td>
+                  <td colSpan="8" className="px-3 py-6 text-center text-slate-400">Ninguna conexión tiene saldo todavía.</td>
                 </tr>
               ) : (
                 cuentas.map((c) => (
@@ -434,6 +472,9 @@ export default function TelefoniaAdmin() {
                     <td className="px-3 py-2">{Math.floor(c.saldo_centavos / c.tarifa_centavos_min)}</td>
                     <td className="px-3 py-2">{fmtUSD(c.tarifa_centavos_min)}</td>
                     <td className="px-3 py-2">{tel(c.caller_id)}</td>
+                    <td className="px-3 py-2">
+                      {!c.caller_id ? <span className="text-slate-400">—</span> : Number(c.numero_verificado) === 1 ? <span className="font-semibold text-emerald-700">verificado</span> : c.numero_comprobado_at ? <span className="font-semibold text-amber-700">sin verificar</span> : <span className="text-slate-400">sin comprobar</span>}
+                    </td>
                     <td className="px-3 py-2">{c.llamadas}</td>
                     <td className="px-3 py-2">
                       {Number(c.activo) === 1 ? <span className="font-semibold text-emerald-700">activa</span> : <span className="text-slate-400">apagada</span>}
