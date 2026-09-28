@@ -20,6 +20,16 @@ const Toast = Swal.mixin({
   },
 });
 
+// Los nombres de usuario van dentro del `html` de SweetAlert
+const escapeHtml = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+
 const SortHeader = ({ k, sort, onSort, children, align = "left" }) => (
   <th
     onClick={() => onSort(k)}
@@ -416,26 +426,93 @@ const UsuariosView = () => {
         customClass: { popup: "rounded-2xl" },
       });
     }
-    const result = await Swal.fire({
-      title: "¿Eliminar usuario?",
-      text: u.usuario,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#dc2626",
-      cancelButtonColor: "#64748b",
-      customClass: { popup: "rounded-2xl" },
-    });
+    // Chats que tiene asignados: si se borra sin moverlos, quedan colgados
+    // de un usuario que ya no existe y nadie los ve en «En espera».
+    let chats = { total: 0, abiertos: 0 };
+    try {
+      const res = await chatApi.get(
+        `/usuarios_chat_center/chatsAsignados/${u.id_sub_usuario}`,
+        { silentError: true },
+      );
+      chats = res.data?.data || chats;
+    } catch (error) {
+      console.warn("No se pudo contar los chats asignados:", error?.message);
+    }
+
+    const nombre = u.nombre_encargado || u.usuario;
+    const destinos = usuarios.filter(
+      (x) => Number(x.id_sub_usuario) !== Number(u.id_sub_usuario),
+    );
+
+    let result;
+    if (chats.total > 0) {
+      const opciones = destinos
+        .map(
+          (x) =>
+            `<option value="${x.id_sub_usuario}">${escapeHtml(
+              x.nombre_encargado || x.usuario,
+            )}</option>`,
+        )
+        .join("");
+      result = await Swal.fire({
+        title: "¿Eliminar usuario?",
+        icon: "warning",
+        html: `
+          <p class="text-sm text-slate-600">
+            <b>${escapeHtml(nombre)}</b> tiene asignado${
+              chats.total === 1 ? "" : "s"
+            } <b>${chats.total} chat${chats.total === 1 ? "" : "s"}</b>
+            (${chats.abiertos} abierto${chats.abiertos === 1 ? "" : "s"}).
+          </p>
+          <p class="text-sm text-slate-600 mt-2">
+            ¿Deseas asignárselos a otra persona o dejarlos en espera?
+          </p>
+          <select id="swal-reasignar" class="swal2-select" style="display:flex;width:100%;margin:1rem 0 0">
+            <option value="">Dejar en espera</option>
+            ${opciones}
+          </select>`,
+        showCancelButton: true,
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#64748b",
+        customClass: { popup: "rounded-2xl" },
+        preConfirm: () => document.getElementById("swal-reasignar").value,
+      });
+    } else {
+      result = await Swal.fire({
+        title: "¿Eliminar usuario?",
+        text: u.usuario,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#64748b",
+        customClass: { popup: "rounded-2xl" },
+      });
+    }
+
     if (result.isConfirmed) {
+      const reasignarA = chats.total > 0 ? result.value || null : null;
       try {
         await chatApi.delete("/usuarios_chat_center/eliminarSubUsuario", {
-          data: { id_sub_usuario: u.id_sub_usuario },
+          data: { id_sub_usuario: u.id_sub_usuario, reasignar_a: reasignarA },
           silentError: true,
         });
+        const destino = destinos.find(
+          (x) => String(x.id_sub_usuario) === String(reasignarA),
+        );
         Toast.fire({
           icon: "success",
-          title: "Usuario eliminado.",
+          title:
+            chats.total === 0
+              ? "Usuario eliminado."
+              : destino
+                ? `Usuario eliminado. Sus chats pasaron a ${
+                    destino.nombre_encargado || destino.usuario
+                  }.`
+                : "Usuario eliminado. Sus chats quedaron en espera.",
         });
         fetchUsuarios();
       } catch (error) {
