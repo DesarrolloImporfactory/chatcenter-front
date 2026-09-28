@@ -49,9 +49,11 @@ function HistorialModal({ cuenta, onClose }) {
   const [page, setPage] = useState(1);
   const [datos, setDatos] = useState({ data: [], total: 0, limit: 20 });
   const [cargando, setCargando] = useState(false);
+  const [escuchando, setEscuchando] = useState(null); // id de la llamada con el reproductor abierto
   useEffect(() => {
     let vigente = true;
     setCargando(true);
+    setEscuchando(null);
     chatApi
       .get("/telefonia/admin/historial", { params: { id_configuracion: cuenta.id_configuracion, page, limit: 20 } })
       .then(({ data }) => vigente && setDatos({ data: data?.data || [], total: data?.total || 0, limit: data?.limit || 20 }))
@@ -130,7 +132,20 @@ function HistorialModal({ cuenta, onClose }) {
                       <td className="px-4 py-2">{l.costo_centavos ? fmtUSD(l.costo_centavos) : "—"}</td>
                       <td className="px-4 py-2">
                         {l.grabacion_url ? (
-                          <a href={l.grabacion_url} target="_blank" rel="noreferrer" className="font-semibold text-indigo-600 hover:underline">escuchar</a>
+                          /* Reproductor en la misma fila: el enlace de Zadarma
+                             viene como descarga, así que un <a> bajaba el
+                             archivo al PC. El <audio> lo reproduce en línea sin
+                             guardar nada; "descargar" queda para quien lo quiera. */
+                          escuchando === l.id ? (
+                            <div className="flex items-center gap-2">
+                              <audio controls autoPlay src={l.grabacion_url} className="h-8 w-56" />
+                              <a href={l.grabacion_url} download className="text-xs text-slate-500 hover:underline" title="Guardar el archivo en tu PC">descargar</a>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => setEscuchando(l.id)} className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
+                              <i className="bx bx-play-circle" /> escuchar
+                            </button>
+                          )
                         ) : Number(l.grabada) === 1 ? (
                           <span className="text-slate-400">procesando</span>
                         ) : (
