@@ -114,7 +114,12 @@ export default function WidgetZadarma() {
         clearTimeout(limpiezaRef.current);
         setSilenciado(false);
         setLlamada({ numero, nombre: meta.nombre || "", fase: "llamando", inicio: null, error: "" });
-        const r = api.call(numero);
+        /* Siempre con "+": sin él, el widget toma el número como nacional y
+           le antepone el país de la cuenta. Así "593962803007" salía como
+           593593962803007 y Zadarma lo rechazaba ("no ha podido
+           realizarse"). Con el "+" lo marca tal cual, en internacional. */
+        const internacional = `+${String(numero).replace(/\D/g, "")}`;
+        const r = api.call(internacional);
         if (typeof r === "string") {
           // el widget devuelve texto de error cuando no puede marcar
           setLlamada((a) => (a ? { ...a, fase: "finalizada", error: r } : a));
