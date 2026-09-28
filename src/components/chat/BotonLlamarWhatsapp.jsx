@@ -42,7 +42,7 @@ const fechaCorta = (iso) => {
     : d.toLocaleDateString("es-EC", { day: "2-digit", month: "short" });
 };
 
-export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion }) {
+export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion, variante = "pill", onLanzada }) {
   const { socket } = useSocket() || {};
   const [activo, setActivo] = useState(false);
   const [permiso, setPermiso] = useState(null); // { status, puede_pedir, puede_llamar, expira_at }
@@ -116,6 +116,7 @@ export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion }) 
   };
 
   const llamar = () => {
+    onLanzada?.();
     window.dispatchEvent(
       new CustomEvent("llamada:iniciar", {
         detail: {
@@ -127,6 +128,54 @@ export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion }) 
       }),
     );
   };
+
+  if (variante === "menu") {
+    const fila = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60";
+    const icono = (cls, extra = "") => (
+      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700 ${extra}`}>
+        <i className={`bx ${cls} text-lg`} />
+      </span>
+    );
+    if (!permiso) {
+      return (
+        <button type="button" disabled className={fila}>
+          {icono("bx-loader-alt bx-spin")}
+          <span className="block text-sm font-semibold text-slate-500">Por WhatsApp · consultando permiso…</span>
+        </button>
+      );
+    }
+    if (permiso.puede_llamar) {
+      return (
+        <button type="button" onClick={llamar} className={fila}>
+          {icono("bxl-whatsapp")}
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-slate-800">Por WhatsApp (gratis)</span>
+            <span className="block text-[11px] text-slate-500">{permiso.status === "permanent" ? "permiso permanente" : `permiso hasta ${fechaCorta(permiso.expira_at)}`}</span>
+          </span>
+        </button>
+      );
+    }
+    if (permiso.puede_pedir) {
+      return (
+        <button type="button" onClick={pedir} disabled={ocupado} className={fila}>
+          {icono(ocupado ? "bx-loader-alt bx-spin" : "bxl-whatsapp")}
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-slate-800">Por WhatsApp · pedir permiso</span>
+            <span className="block text-[11px] text-slate-500">{aviso || "Le llega un mensaje para aceptar que lo llames"}</span>
+          </span>
+        </button>
+      );
+    }
+    return (
+      <button type="button" disabled className={fila}>
+        {icono("bx-time-five", "bg-amber-100 text-amber-700")}
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-slate-700">Por WhatsApp · esperando permiso</span>
+          <span className="block text-[11px] text-slate-500">{aviso || permiso.error || "Ya se pidió; falta que el cliente acepte"}</span>
+        </span>
+      </button>
+    );
+  }
 
   const base =
     "hidden sm:inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold shadow-sm transition";

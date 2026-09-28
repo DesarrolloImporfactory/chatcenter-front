@@ -3,36 +3,29 @@ import chatApi from "../../api/chatcenter";
 import { useSocket } from "../../context/SocketProvider";
 
 /**
- * "Llamar al celular" en la cabecera del chat: llamada telefónica normal por
- * Zadarma, pagada con el saldo de la conexión (no necesita que el cliente
- * tenga datos). Al pulsarlo el back pide el callback: primero suena el
- * widget de Zadarma en este navegador, el asesor contesta ahí, y Zadarma
- * marca al cliente. El estado (timbrando, contestó, no contestó) y el costo
- * llegan por socket (TELEFONIA_ESTADO).
+ * Opción "Al celular (saldo)" del menú de llamar: llamada telefónica normal
+ * por Zadarma, pagada con el saldo de la conexión (no necesita que el
+ * cliente tenga datos).
  *
- * Solo aparece si la telefonía está configurada y la conexión está activa;
- * con saldo en cero se muestra deshabilitado con "Sin saldo".
+ * Flujo: POST /telefonia/llamar registra la llamada, fija el número de
+ * salida de la conexión (si está verificado) y devuelve el destino; el
+ * navegador marca directo con el teléfono integrado
+ * (window.telefoniaZadarma.llamar). El panel de la llamada lo pinta
+ * WidgetZadarma; el costo y el estado final llegan del back por socket
+ * (TELEFONIA_ESTADO) cuando Zadarma avisa que terminó.
+ *
+ * Solo aparece si la conexión tiene telefonía; con saldo en cero se
+ * muestra deshabilitado con "Sin saldo".
  */
 const cacheSaldo = new Map(); // id_configuracion → { data, at }
 const CACHE_MS = 60_000;
+const fmtUSD = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 
-const fmtUSD = (centavos) => `$${(Number(centavos || 0) / 100).toFixed(2)}`;
-
-const ESTADO_TXT = {
-  pedida: "Llamando… contesta el teléfono del widget",
-  ringing: "Timbrando al cliente…",
-  answered: "Llamada terminada",
-  no_answer: "No contestó",
-  busy: "Ocupado",
-  cancel: "Cancelada",
-  failed: "No se pudo conectar",
-};
-
-export default function BotonLlamarTelefono({ selectedChat, id_configuracion }) {
+export default function BotonLlamarTelefono({ selectedChat, id_configuracion, variante = "menu", onLanzada }) {
   const { socket } = useSocket() || {};
-  const [cuenta, setCuenta] = useState(null); // { activo, saldo_centavos, tarifa_centavos_min, minutos_disponibles }
+  const [cuenta, setCuenta] = useState(null);
   const [ocupado, setOcupado] = useState(false);
-  const [estado, setEstado] = useState(null); // { texto, tono, hasta }
+  const [aviso, setAviso] = useState("");
   const idChat = selectedChat?.id || null;
   const idCfg = Number(id_configuracion) || null;
 
@@ -58,24 +51,17 @@ export default function BotonLlamarTelefono({ selectedChat, id_configuracion }) 
     cargarSaldo();
   }, [cargarSaldo]);
 
-  // Estado de la llamada en curso, desde el back (webhooks de Zadarma).
+  // Cierre real de la llamada (desde el webhook de Zadarma): costo y saldo.
   useEffect(() => {
     if (!socket) return undefined;
     const h = (p) => {
       if (String(p?.id_cliente_chat_center) !== String(idChat)) return;
-      const final = ["answered", "no_answer", "busy", "cancel", "failed"].includes(p.estado);
-      const texto =
-        p.estado === "answered" && p.duracion_seg != null
-          ? `Llamada de ${Math.floor(p.duracion_seg / 60)}:${String(p.duracion_seg % 60).padStart(2, "0")} · ${fmtUSD(p.costo_centavos)}`
-          : ESTADO_TXT[p.estado] || p.estado;
-      setEstado({ texto, tono: final ? (p.estado === "answered" ? "ok" : "warn") : "info" });
-      if (final) {
+      if (["answered", "no_answer", "busy", "cancel", "failed"].includes(p.estado)) {
         setOcupado(false);
         if (p.saldo_centavos != null) {
-          setCuenta((c) => (c ? { ...c, saldo_centavos: p.saldo_centavos } : c));
+          setCuenta((c) => (c ? { ...c, saldo_centavos: p.saldo_centavos, minutos_disponibles: Math.floor(p.saldo_centavos / (c.tarifa_centavos_min || 1)) } : c));
           cacheSaldo.delete(idCfg);
         }
-        setTimeout(() => setEstado(null), 8000);
       }
     };
     socket.on("TELEFONIA_ESTADO", h);
@@ -89,53 +75,52 @@ export default function BotonLlamarTelefono({ selectedChat, id_configuracion }) 
   const llamar = async () => {
     if (ocupado || sinSaldo) return;
     setOcupado(true);
-    setEstado({ texto: ESTADO_TXT.pedida, tono: "info" });
+    setAviso("");
     try {
-      await chatApi.post("/telefonia/llamar", {
+      const { data } = await chatApi.post("/telefonia/llamar", {
         id_configuracion: idCfg,
         id_cliente_chat_center: idChat,
+        modo: "directo",
       });
+      const d = data?.data || {};
+      if (!window.telefoniaZadarma?.listo?.()) {
+        throw new Error("El teléfono todavía se está conectando. Espera unos segundos y vuelve a intentar.");
+      }
+      window.telefoniaZadarma.llamar(d.telefono, { nombre: selectedChat?.nombre_cliente || "" });
+      onLanzada?.();
     } catch (err) {
+      setAviso(err?.response?.data?.message || err?.message || "No se pudo llamar");
       setOcupado(false);
-      setEstado({
-        texto: err?.response?.data?.message || "No se pudo llamar",
-        tono: "warn",
-      });
-      setTimeout(() => setEstado(null), 8000);
       if (err?.response?.data?.code === "SIN_SALDO") cargarSaldo(true);
+      setTimeout(() => setAviso(""), 8000);
     }
   };
 
-  const base =
-    "hidden sm:inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold shadow-sm transition";
-  const tonoCls =
-    estado?.tono === "ok"
-      ? "text-emerald-700"
-      : estado?.tono === "warn"
-        ? "text-rose-700"
-        : "text-slate-600";
+  const titulo = sinSaldo
+    ? `Sin saldo telefónico (${fmtUSD(cuenta.saldo_centavos)}). Recarga para llamar.`
+    : `Saldo ${fmtUSD(cuenta.saldo_centavos)} · ${cuenta.minutos_disponibles} min aprox. a ${fmtUSD(cuenta.tarifa_centavos_min)}/min`;
 
-  return (
-    <div className="hidden sm:flex flex-col items-start gap-0.5">
+  if (variante === "menu") {
+    return (
       <button
         type="button"
         onClick={llamar}
         disabled={ocupado || sinSaldo}
-        className={`${base} ${
-          sinSaldo
-            ? "border-amber-200 bg-amber-50 text-amber-700"
-            : "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
-        } disabled:opacity-60`}
-        title={
-          sinSaldo
-            ? `Sin saldo telefónico (${fmtUSD(cuenta.saldo_centavos)}). Recarga para llamar.`
-            : `Llamar al celular del cliente por la red telefónica (no necesita datos). Saldo ${fmtUSD(cuenta.saldo_centavos)} · ${cuenta.minutos_disponibles} min aprox. a ${fmtUSD(cuenta.tarifa_centavos_min)}/min. Primero suena el teléfono del widget; contesta ahí.`
-        }
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        title={titulo}
       >
-        <i className={`bx ${ocupado ? "bx-loader-alt bx-spin" : "bx-mobile-alt"} text-[15px]`} />
-        <span className="hidden lg:inline">{sinSaldo ? "Sin saldo" : "Llamar al celular"}</span>
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-sky-100 text-sky-700">
+          <i className={`bx ${ocupado ? "bx-loader-alt bx-spin" : "bx-mobile-alt"} text-lg`} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-slate-800">Al celular (con saldo)</span>
+          <span className="block text-[11px] text-slate-500">
+            {aviso || (sinSaldo ? "Sin saldo: recarga para llamar" : `Se cobra por segundo · ${fmtUSD(cuenta.saldo_centavos)} disponibles`)}
+          </span>
+        </span>
       </button>
-      {estado ? <span className={`text-[10px] font-medium ${tonoCls}`}>{estado.texto}</span> : null}
-    </div>
-  );
+    );
+  }
+
+  return null;
 }

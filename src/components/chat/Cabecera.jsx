@@ -11,8 +11,7 @@ import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
 import CronometroRespuesta from "./CronometroRespuesta";
-import BotonLlamarWhatsapp from "./BotonLlamarWhatsapp";
-import BotonLlamarTelefono from "./BotonLlamarTelefono";
+import MenuLlamar from "./MenuLlamar";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
@@ -1833,15 +1832,9 @@ const Cabecera = ({
                   selectedChat={selectedChat}
                   id_configuracion={id_configuracion}
                 />
-                {/* Llamar por WhatsApp (solo si la conexión tiene llamadas
-                    encendidas; pide permiso al cliente si hace falta) */}
-                <BotonLlamarWhatsapp
-                  selectedChat={selectedChat}
-                  id_configuracion={id_configuracion}
-                />
-                {/* Llamada telefónica por saldo (Zadarma): para clientes
-                    sin datos. Solo si la conexión tiene telefonía activa. */}
-                <BotonLlamarTelefono
+                {/* Un solo icono "Llamar": por WhatsApp (gratis) o al celular
+                    con saldo (Zadarma). Cada opción sale solo si aplica. */}
+                <MenuLlamar
                   selectedChat={selectedChat}
                   id_configuracion={id_configuracion}
                 />
