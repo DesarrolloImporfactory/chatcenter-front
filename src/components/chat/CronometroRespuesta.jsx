@@ -83,28 +83,27 @@ const nivelDe = (minutos) =>
       ? "advertencia"
       : "ok";
 
-function Caja({ tema, icono, titulo, detalle, title, pulso }) {
+/* Mismo molde que las pastillas "Bot IA" y "Llamar" de la cabecera: icono en
+   cajita de 24px + una sola línea de texto pequeño. Solo cambia el color. */
+function Caja({ tema, icono, titulo, detalle, title }) {
   return (
     <div
-      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1 shadow-sm ${tema.caja} ${pulso ? "" : "animate-none"}`}
+      className={`hidden sm:flex items-center gap-2 rounded-lg border px-2.5 py-1 shadow-sm ${tema.caja}`}
       title={title}
     >
       <span
         className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${tema.icono}`}
       >
-        <i className={`bx ${icono} text-[15px]`} />
+        <i className={`bx ${icono} text-[14px]`} />
       </span>
-      <div className="leading-tight">
-        <div
-          className={`text-sm font-extrabold tabular-nums ${tema.texto}`}
-          aria-live="off"
-        >
-          {titulo}
-        </div>
-        <div className={`text-[10px] font-medium hidden lg:block ${tema.texto}`}>
-          {detalle}
-        </div>
-      </div>
+      <span className={`text-xs font-semibold tabular-nums ${tema.texto}`} aria-live="off">
+        {titulo}
+      </span>
+      {detalle ? (
+        <span className={`text-xs font-medium hidden lg:inline ${tema.texto} opacity-80`}>
+          · {detalle}
+        </span>
+      ) : null}
     </div>
   );
 }

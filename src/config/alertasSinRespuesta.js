@@ -49,13 +49,15 @@ export const esResponsableAutomatico = (responsable) => {
   return RESPONSABLES_AUTOMATICOS.includes(r.toLowerCase());
 };
 
-/** Mensaje que atiende al cliente: una persona del equipo o el bot; no una
- *  plantilla del cron ni un aviso automático. */
+/** Mensaje que deja al cliente atendido: CUALQUIERA que salga de nosotros
+ *  (persona, bot, plantilla del cron o aviso). Decisión del 2026-09-28: los
+ *  avisos de seguimiento o de cobro dejaban "esperando 2 días" a clientes ya
+ *  atendidos; se unifica con el criterio del sidebar. Solo un mensaje del
+ *  cliente abre la espera. */
 export const esRespuestaHumana = (m) =>
   Number(m?.rol_mensaje) === 1 &&
   m?.tipo_mensaje !== "revoke" &&
-  !m?.eliminado_at &&
-  !esResponsableAutomatico(m?.responsable);
+  !m?.eliminado_at;
 
 /** Horario de atención por defecto (el back manda el de cada conexión). */
 export const HORARIO_DEFAULT = { inicio: 8, fin: 17, dias: [1, 2, 3, 4, 5] };
