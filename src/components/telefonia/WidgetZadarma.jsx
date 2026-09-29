@@ -143,6 +143,13 @@ export default function WidgetZadarma() {
       },
       silenciar: (on) => {
         try {
+          /* Ojo con el widget: micSwitch("on") SILENCIA el micrófono y
+             micSwitch("off") lo vuelve a activar (widget-api.min.js:
+             "on" → mediaControl(local, mute)). Está al revés de lo que
+             sugiere el nombre; el primer intento lo llamaba invertido y el
+             botón no hacía nada. setParams deja el estado igual que el
+             botón propio del widget. */
+          window.zdrmWPhI?.setParams?.("zdrmMicMute", !!on);
           window.zdrmWPhI?.apiWidget?.micSwitch(on ? "on" : "off");
           setSilenciado(!!on);
         } catch {
