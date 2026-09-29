@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import PendingQueue from "./PendingQueue";
 import { formatDuration } from "../../utils/parseEventDef";
@@ -172,6 +173,133 @@ function DatoSemaforo({ etiqueta, seg, umbrales, ayuda }) {
         {tema.texto}
       </div>
     </div>
+  );
+}
+
+/** Abre el chat en otra pestaña, igual que PendingQueue. */
+function abrirChat(chatId, idConfig) {
+  if (!chatId) return;
+  if (idConfig) localStorage.setItem("id_configuracion", String(idConfig));
+  window.open(`${window.location.origin}/chat/${chatId}`, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Peor tiempo de respuesta del período (pedido «gestión de incidencias»,
+ * parte 4). El promedio esconde al cliente que esperó 40 minutos: aquí se ve
+ * la espera más larga, marcada si pasa del límite de la conexión, y se llega
+ * al chat que la causó. Si hay clientes que siguen esperando y llevan más que
+ * eso, manda la espera abierta («sin responder»).
+ */
+function PeorTiempo({ tot, umbrales, horario, cargando }) {
+  const respondido = tot?.peor || null;
+  const pendiente = tot?.sin_responder?.peor || null;
+  const cantPend = tot?.sin_responder?.cantidad || 0;
+  const hayDatos = !!tot && (tot.respuestas > 0 || cantPend > 0);
+
+  if (!hayDatos) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Peor tiempo de respuesta
+        </div>
+        <div className="text-sm font-semibold text-slate-400">
+          {cargando ? "Cargando…" : "Sin datos en este período"}
+        </div>
+      </div>
+    );
+  }
+
+  // Manda la espera más larga, respondida o no.
+  const peor =
+    pendiente && (!respondido || pendiente.seg > respondido.seg) ? pendiente : respondido;
+  const sinResponder = peor === pendiente;
+  const pasado = peor.seg / 60 >= umbrales.advertencia;
+  const quien = peor.cliente || peor.celular || `chat #${peor.chat}`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => abrirChat(peor.chat, peor.id_configuracion)}
+      className={`rounded-2xl border p-4 text-left shadow-sm transition hover:shadow-md ${
+        pasado ? "border-rose-300 bg-rose-50" : "border-emerald-200 bg-emerald-50"
+      }`}
+      title={`Toca para abrir el chat. Tiempo en horario ${hh(horario.inicio)}–${hh(horario.fin)}; en reloj fueron ${fmtSeg(peor.seg_real)}.`}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Peor tiempo de respuesta
+        </span>
+        <i className={`bx ${pasado ? "bx-error-circle text-rose-600" : "bx-check-circle text-emerald-600"} text-lg`} />
+      </div>
+      <div className={`text-2xl font-extrabold leading-none ${pasado ? "text-rose-700" : "text-emerald-700"}`}>
+        {fmtSeg(peor.seg)}
+      </div>
+      <div className={`mt-1.5 text-xs font-semibold ${pasado ? "text-rose-700" : "text-emerald-700"}`}>
+        {sinResponder ? "Sin responder: sigue esperando" : "Respondido"} ·{" "}
+        {pasado ? `pasó el límite de ${umbrales.advertencia} min` : `dentro del límite de ${umbrales.advertencia} min`}
+      </div>
+      <div className="mt-1 truncate text-xs text-slate-500">
+        {quien} <i className="bx bx-link-external text-[11px]" />
+      </div>
+      {cantPend > 0 && !sinResponder ? (
+        <div className="mt-1 text-[11px] text-slate-500">
+          {cantPend} {cantPend === 1 ? "chat sigue" : "chats siguen"} sin responder
+          {pendiente ? ` (el que más lleva: ${fmtSeg(pendiente.seg)})` : ""}
+        </div>
+      ) : null}
+    </button>
+  );
+}
+
+/** Casos escalados / respondidos (Incidencias → «Escalar»; ver /seguimiento-casos). */
+function CasosEscalados({ casos, cargando }) {
+  const navigate = useNavigate();
+  if (!casos?.habilitado) return null;
+  const e = casos.escalamiento || {};
+  const o = casos.oportunidad || {};
+  const irASeguimiento = () => navigate("/seguimiento-casos");
+  return (
+    <button
+      type="button"
+      onClick={irASeguimiento}
+      className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:shadow-md"
+      title="Toca para ver los casos en Seguimiento de casos"
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <div className="grid h-7 w-7 place-items-center rounded-lg bg-rose-50">
+          <i className="bx bx-flag text-base text-rose-600" />
+        </div>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Casos escalados
+        </span>
+      </div>
+      {!e.total ? (
+        <div className="text-sm font-semibold text-slate-400">
+          {cargando ? "Cargando…" : "Sin casos escalados en este período"}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-3">
+            <div>
+              <div className="text-2xl font-extrabold leading-none text-slate-900">{e.total}</div>
+              <div className="text-[11px] text-slate-500">escalados</div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold leading-none text-emerald-700">{e.respondidos}</div>
+              <div className="text-[11px] text-slate-500">respondidos</div>
+            </div>
+          </div>
+          <div className="mt-1.5 text-xs text-slate-500">
+            {e.sin_resolver} sin resolver · {e.en_espera} en espera · {e.resuelto} resueltos
+          </div>
+        </>
+      )}
+      {o.total ? (
+        <div className="mt-1 text-[11px] text-slate-500">
+          Oportunidades comerciales: {o.total} ({o.respondidos} respondidas)
+        </div>
+      ) : null}
+    </button>
   );
 }
 
@@ -380,10 +508,15 @@ const nombreDias = (dias = []) => {
  */
 function HorarioEditor({ configId, horario, onGuardado }) {
   const [abierto, setAbierto] = useState(false);
+  // Límite de respuesta: desde cuándo una espera se marca (y cuándo es
+  // crítica). Configurable por conexión desde el 2026-09-29.
+  const limites = horario.limites_min || { advertencia: 5, critico: 10 };
   const [form, setForm] = useState(() => ({
     inicio: horario.inicio,
     fin: horario.fin,
     dias: horario.dias || [1, 2, 3, 4, 5],
+    advertencia: limites.advertencia,
+    critico: limites.critico,
   }));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
@@ -394,9 +527,16 @@ function HorarioEditor({ configId, horario, onGuardado }) {
         inicio: horario.inicio,
         fin: horario.fin,
         dias: horario.dias || [1, 2, 3, 4, 5],
+        advertencia: limites.advertencia,
+        critico: limites.critico,
       });
     }
-  }, [horario, abierto]);
+  }, [horario, abierto, limites.advertencia, limites.critico]);
+  const limitesValidos =
+    Number.isInteger(form.advertencia) &&
+    form.advertencia >= 1 &&
+    Number.isInteger(form.critico) &&
+    form.critico > form.advertencia;
 
   const toggleDia = (n) =>
     setForm((f) => ({
@@ -415,6 +555,8 @@ function HorarioEditor({ configId, horario, onGuardado }) {
         hora_inicio: form.inicio,
         hora_fin: form.fin,
         dias: form.dias,
+        limite_advertencia_min: form.advertencia,
+        limite_critico_min: form.critico,
       });
       onGuardado?.(data?.data || form);
       setAbierto(false);
@@ -434,7 +576,8 @@ function HorarioEditor({ configId, horario, onGuardado }) {
         title="Los tiempos se cuentan solo dentro de este horario. Clic para cambiarlo."
       >
         <i className="bx bx-time text-sm text-indigo-500" />
-        Horario: {hh(horario.inicio)}–{hh(horario.fin)} · {nombreDias(horario.dias)}
+        Horario: {hh(horario.inicio)}–{hh(horario.fin)} · {nombreDias(horario.dias)} · límite{" "}
+        {limites.advertencia} min
         <i className="bx bx-edit-alt text-sm text-slate-400" />
       </button>
     );
@@ -501,10 +644,31 @@ function HorarioEditor({ configId, horario, onGuardado }) {
             </button>
           ))}
         </span>
+        <span className="ml-2 inline-flex items-center gap-1" title="Una espera más larga que el límite se marca en el tablero; desde el crítico, en rojo en las tarjetas del equipo">
+          <span className="font-semibold">Límite de respuesta</span>
+          <input
+            type="number"
+            min={1}
+            max={1440}
+            className="h-7 w-14 rounded-md border border-slate-200 bg-white px-1.5 text-[11px]"
+            value={form.advertencia}
+            onChange={(e) => setForm((f) => ({ ...f, advertencia: Number(e.target.value) }))}
+          />
+          <span>min · crítico</span>
+          <input
+            type="number"
+            min={2}
+            max={1440}
+            className="h-7 w-14 rounded-md border border-slate-200 bg-white px-1.5 text-[11px]"
+            value={form.critico}
+            onChange={(e) => setForm((f) => ({ ...f, critico: Number(e.target.value) }))}
+          />
+          <span>min</span>
+        </span>
         <button
           type="button"
           onClick={guardar}
-          disabled={guardando || form.fin <= form.inicio || form.dias.length === 0}
+          disabled={guardando || form.fin <= form.inicio || form.dias.length === 0 || !limitesValidos}
           className="ml-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
         >
           {guardando ? "Guardando…" : "Guardar"}
@@ -520,6 +684,11 @@ function HorarioEditor({ configId, horario, onGuardado }) {
       {form.fin <= form.inicio ? (
         <div className="mt-1 text-[11px] text-rose-600">
           La hora de cierre debe ser mayor que la de inicio.
+        </div>
+      ) : null}
+      {!limitesValidos ? (
+        <div className="mt-1 text-[11px] text-rose-600">
+          El límite crítico debe ser mayor que el límite de respuesta.
         </div>
       ) : null}
       {error ? <div className="mt-1 text-[11px] text-rose-600">{error}</div> : null}
@@ -559,7 +728,7 @@ export default function AtencionResumen({
             from: dateRange.from,
             to: dateRange.to,
             id_configuracion: configId,
-            sections: ["pendingQueue", "atencionAsesores"],
+            sections: ["pendingQueue", "atencionAsesores", "casosIncidencias"],
           },
         );
         setData(resp?.data || null);
@@ -781,6 +950,14 @@ export default function AtencionResumen({
           }
           title="Respuestas que superaron el umbral rojo"
         />
+      </div>
+
+      {/* ── Peor tiempo + casos escalados (gestión de incidencias, parte 4) ── */}
+      <div
+        className={`grid grid-cols-1 gap-3 ${data?.casosIncidencias?.habilitado ? "lg:grid-cols-2" : ""}`}
+      >
+        <PeorTiempo tot={tot} umbrales={umbrales} horario={horario} cargando={loading} />
+        <CasosEscalados casos={data?.casosIncidencias} cargando={loading} />
       </div>
 
       {/* ── Cola de espera ── */}

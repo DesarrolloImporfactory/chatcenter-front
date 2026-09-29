@@ -38,6 +38,7 @@ import AdminUsuarios from "./components/admin/usuarios/AdminUsuarios";
 import AdminDashboard from "./components/admin/dashboard/AdminDashboard";
 import AuditoriaCarteraView from "./pages/auditoria/AuditoriaCarteraView";
 import SeguimientoIA from "./pages/seguimientoIA/SeguimientoIA";
+import SeguimientoCasos from "./pages/seguimientoCasos/SeguimientoCasos";
 import TutorialesView from "./pages/tutoriales/TutorialesView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
@@ -638,6 +639,16 @@ function App() {
                     <MainLayout_conexiones>
                       <AdminDashboard />
                     </MainLayout_conexiones>
+                  }
+                />
+                {/* Seguimiento de casos (Escalamientos / Oportunidades):
+                    el back decide quién entra; sin permiso, la página lo dice */}
+                <Route
+                  path="/seguimiento-casos"
+                  element={
+                    <MainLayout>
+                      <SeguimientoCasos />
+                    </MainLayout>
                   }
                 />
                 {/* Seguimiento IA de cotizaciones (solo Johan; la página
