@@ -43,6 +43,8 @@ export default function IncidenciasCliente({ clienteId, idConfiguracion }) {
   const [destinos, setDestinos] = useState([]);
   // Casos con la línea de tiempo desplegada: { [id]: true }
   const [tiempos, setTiempos] = useState({});
+  // ¿Existe ya el estado «en espera»? (lo dice el back con la lista)
+  const [esperaHabilitada, setEsperaHabilitada] = useState(false);
 
   useEffect(() => {
     if (!idConfiguracion) {
@@ -73,12 +75,62 @@ export default function IncidenciasCliente({ clienteId, idConfiguracion }) {
         silentError: true,
       });
       setItems(Array.isArray(data?.data) ? data.data : []);
+      setEsperaHabilitada(!!data?.espera_habilitada);
     } catch (_) {
       setItems([]);
     } finally {
       setLoading(false);
     }
   }, [clienteId]);
+
+  /**
+   * Resolver o poner en espera un caso desde el propio chat. Solo aparece a
+   * quien el back se lo permite (`puede_resolver`: el destinatario del caso o
+   * un administrador). Deja su entrada en la línea de tiempo y la nota en el
+   * chat; al terminar se abre la línea de tiempo para verla.
+   */
+  const actuarCaso = async (it, accion) => {
+    const resolver = accion === "resolver";
+    const r = await Swal.fire({
+      title: resolver ? "Resolver caso" : "Poner en espera",
+      text: resolver
+        ? "Cuenta cómo se resolvió. Queda en la línea de tiempo y en el chat."
+        : "Escribe qué se está esperando. El caso sigue abierto.",
+      input: "textarea",
+      inputPlaceholder: resolver
+        ? "Cómo se resolvió el caso…"
+        : "Respuesta del cliente, del proveedor…",
+      inputAttributes: { maxlength: "2000" },
+      showCancelButton: true,
+      confirmButtonText: resolver ? "Resolver" : "Poner en espera",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: resolver ? "#059669" : "#0284c7",
+      reverseButtons: true,
+      customClass: { popup: "rounded-2xl" },
+      preConfirm: async (comentario) => {
+        if (!comentario || !comentario.trim()) {
+          Swal.showValidationMessage(
+            resolver ? "Escribe cómo se resolvió el caso" : "Escribe qué se está esperando",
+          );
+          return false;
+        }
+        try {
+          await chatApi.patch(
+            `/incidencias_chat_center/caso/${it.id}/${resolver ? "resolver" : "espera"}`,
+            { comentario: comentario.trim() },
+            { silentError: true },
+          );
+          return true;
+        } catch (e) {
+          Swal.showValidationMessage(e?.response?.data?.message || "No se pudo guardar");
+          return false;
+        }
+      },
+    });
+    if (!r.isConfirmed) return;
+    await fetchItems();
+    setTiempos((x) => ({ ...x, [it.id]: true }));
+  };
 
   useEffect(() => {
     fetchItems();
@@ -356,6 +408,26 @@ export default function IncidenciasCliente({ clienteId, idConfiguracion }) {
                   <p className="text-[9px] text-white/35 mt-1">
                     {it.autor_nombre} · {fmt(it.created_at)}
                   </p>
+                  {it.puede_resolver && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        onClick={() => actuarCaso(it, "resolver")}
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 text-[9px] font-semibold text-emerald-200 hover:bg-emerald-500/30"
+                      >
+                        <i className="bx bx-check text-[11px]" /> Resolver
+                      </button>
+                      {esperaHabilitada && it.estado_caso !== "en_espera" && (
+                        <button
+                          type="button"
+                          onClick={() => actuarCaso(it, "espera")}
+                          className="inline-flex items-center gap-1 rounded-md bg-sky-500/15 border border-sky-400/25 px-2 py-0.5 text-[9px] font-semibold text-sky-200 hover:bg-sky-500/25"
+                        >
+                          <i className="bx bx-pause text-[11px]" /> En espera
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {Array.isArray(it.eventos) && (
                     <>
                       <button
