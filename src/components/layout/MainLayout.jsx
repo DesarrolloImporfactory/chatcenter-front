@@ -30,6 +30,41 @@ function MainLayout({ children }) {
 
   const p = getPresence(id_sub_usuario);
 
+  // «Seguimiento de casos»: el back decide quién lo ve (destinatarios de
+  // casos y administradores). Se pregunta una vez por sesión y subusuario.
+  const claveCasos = `casos_acceso_${id_sub_usuario ?? ""}`;
+  const [casosAcceso, setCasosAcceso] = useState(() => {
+    try {
+      return sessionStorage.getItem(claveCasos) === "1";
+    } catch (_) {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (!id_sub_usuario) return undefined;
+    try {
+      if (sessionStorage.getItem(claveCasos) !== null) return undefined;
+    } catch (_) {
+      /* sin sessionStorage: se pregunta igual */
+    }
+    let vivo = true;
+    chatApi
+      .get("/incidencias_chat_center/casos-acceso", { silentError: true })
+      .then(({ data }) => {
+        const ok = !!data?.data?.acceso;
+        try {
+          sessionStorage.setItem(claveCasos, ok ? "1" : "0");
+        } catch (_) {
+          /* no pasa nada: se vuelve a preguntar */
+        }
+        if (vivo) setCasosAcceso(ok);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [id_sub_usuario, claveCasos]);
+
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
   const [openContacto, setOpenContacto] = useState(false);
@@ -493,6 +528,27 @@ function MainLayout({ children }) {
                 <i className="bx bx-bar-chart-alt-2 text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
                 <span className="text-lg text-gray-700 group-hover:text-blue-600">
                   Dashboard
+                </span>
+              </a>
+            )}
+
+            {/* Seguimiento de casos: destinatarios de casos y administradores. */}
+            {casosAcceso && (
+              <a
+                href="/seguimiento-casos"
+                className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                  location.pathname === "/seguimiento-casos"
+                    ? "bg-gray-200 font-semibold"
+                    : ""
+                }`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goTo("/seguimiento-casos");
+                }}
+              >
+                <i className="bx bx-flag text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                  Seguimiento de casos
                 </span>
               </a>
             )}
