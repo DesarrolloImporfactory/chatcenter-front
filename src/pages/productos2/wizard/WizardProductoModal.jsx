@@ -138,6 +138,9 @@ export default function WizardProductoModal({
   categorias = [],
   onCategoriasChange,
   productosExistentes = [],
+  // Cuenta proveedora: se le pasa al formulario de producto incrustado para
+  // que presente los combos como precios por cantidad.
+  esProveedor = false,
 }) {
   const [step, setStep] = useState(1);
   const [cargando, setCargando] = useState(false);
@@ -812,6 +815,7 @@ export default function WizardProductoModal({
                 categorias={categorias}
                 onCategoriasChange={onCategoriasChange}
                 productosExistentes={productosExistentes}
+                esProveedor={esProveedor}
                 onSaved={() => {
                   setHuboCambios(true);
                   cargar({ mantenerPaso: true });

@@ -80,6 +80,9 @@ const Productos2View = () => {
   const { isDropiLinked, isAliclikLinked } = useDropi();
 
   const [productos, setProductos] = useState([]);
+  // Cuenta proveedora: el formulario de producto muestra los combos como
+  // "Precios por cantidad" y explica cómo los cobra el bot.
+  const [esProveedor, setEsProveedor] = useState(false);
   const [categorias, setCategorias] = useState([]);
   const [wizards, setWizards] = useState({}); // id_producto -> estado wizard
   const [loading, setLoading] = useState(true);
@@ -159,6 +162,7 @@ const Productos2View = () => {
         ),
       ]);
       setProductos(prodRes.data.data || []);
+      setEsProveedor(Boolean(prodRes.data?.es_proveedor));
       setCategorias(catRes.data.data || []);
       const mapa = {};
       for (const p of wizRes?.data?.data || []) {
@@ -1171,6 +1175,7 @@ const Productos2View = () => {
         categorias={categorias}
         onCategoriasChange={setCategorias}
         productosExistentes={productos}
+        esProveedor={esProveedor}
         onSaved={fetchData}
       />
 
@@ -1190,6 +1195,7 @@ const Productos2View = () => {
         categorias={categorias}
         onCategoriasChange={setCategorias}
         productosExistentes={productos}
+        esProveedor={esProveedor}
         onClose={(r) => {
           setWizardOpen(false);
           setWizardProducto(null);
