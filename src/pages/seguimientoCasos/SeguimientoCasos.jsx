@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import LineaTiempoCaso from "../../components/chat/LineaTiempoCaso";
+import DesempenoCasos from "./DesempenoCasos";
 
 /**
  * «Seguimiento de casos» (pedido 2026-09-28, parte 2 de 3) — la bandeja de
@@ -49,6 +50,8 @@ export default function SeguimientoCasos() {
   const [error, setError] = useState("");
   const [sinPermiso, setSinPermiso] = useState(false);
   const [asesores, setAsesores] = useState([]);
+  // «casos» (la bandeja) o «desempeno» (tiempos de los responsables, solo admins).
+  const [vista, setVista] = useState("casos");
   const vivo = useRef(true);
 
   useEffect(() => {
@@ -190,7 +193,10 @@ export default function SeguimientoCasos() {
   function irAlChat(caso) {
     if (!caso.id_chat) return;
     localStorage.setItem("id_configuracion", String(caso.id_configuracion));
-    navigate(`/chat/${caso.id_chat}`);
+    // En una pestaña nueva (pedido 2026-09-30): la bandeja queda abierta.
+    // Si el navegador bloquea la pestaña, se abre acá como antes.
+    const pestana = window.open(`/chat/${caso.id_chat}`, "_blank");
+    if (!pestana) navigate(`/chat/${caso.id_chat}`);
   }
 
   if (sinPermiso) {
@@ -240,14 +246,43 @@ export default function SeguimientoCasos() {
               en el chat del cliente, sin informes aparte.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => cargar()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <i className={`bx bx-refresh ${cargando ? "bx-spin" : ""}`} /> Actualizar
-          </button>
+          {vista === "casos" && (
+            <button
+              type="button"
+              onClick={() => cargar()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <i className={`bx bx-refresh ${cargando ? "bx-spin" : ""}`} /> Actualizar
+            </button>
+          )}
         </header>
+
+        {/* Desempeño: para que los administradores sigan a los responsables
+            (tiempos de respuesta e historial), no a los casos. */}
+        {datos?.es_admin && (
+          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+            {[
+              ["casos", "bx-list-ul", "Casos"],
+              ["desempeno", "bx-stopwatch", "Desempeño de responsables"],
+            ].map(([v, icon, label]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVista(v)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                  vista === v ? "bg-[#0B1426] text-white" : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <i className={`bx ${icon}`} /> {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {vista === "desempeno" ? (
+          <DesempenoCasos onChat={irAlChat} />
+        ) : (
+        <>
 
         {/* Las dos listas, cada una con su contador de pendientes */}
         <div className="flex flex-wrap gap-2">
@@ -404,6 +439,8 @@ export default function SeguimientoCasos() {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );
