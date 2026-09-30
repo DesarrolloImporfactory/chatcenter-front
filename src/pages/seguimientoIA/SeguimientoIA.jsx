@@ -219,43 +219,61 @@ export default function SeguimientoIA() {
     const linea = datos?.linea ?? 265;
     const esMio = chat.id_encargado == null || String(chat.id_encargado) === String(actor.id_sub_usuario);
 
-    if (!esMio) {
-      const r = await Swal.fire({
-        icon: "question",
-        title: "¿Asignarte este chat?",
-        html: `El chat de <b>${escapar(cot.cliente || "este cliente")}</b> lo atiende <b>${escapar(
-          chat.encargado || "otro asesor",
-        )}</b>.<br>Para escribirle tienes que asignártelo: quedará en tu bandeja y se avisa en el chat.`,
-        showCancelButton: true,
-        confirmButtonText: "Asignármelo y abrir",
-        cancelButtonText: "Cancelar",
-        confirmButtonColor: "#7c3aed",
-      });
-      if (!r.isConfirmed) return;
-      if (!datos?.departamento_agente) {
-        Swal.fire("No se pudo asignar", "No estás en ningún departamento de esta línea.", "error");
-        return;
-      }
-      try {
-        await asignarmeChat({
-          idCliente: chat.id,
-          idConfiguracion: linea,
-          idDepartamento: datos.departamento_agente,
-          motivo: `Seguimiento IA de la cotización ${cot.codigo || `#${cot.id}`}`,
-        });
-      } catch (e) {
-        Swal.fire(
-          "No se pudo asignar",
-          e?.response?.data?.message || e.message || "El servidor rechazó la transferencia.",
-          "error",
-        );
-        return;
-      }
+    // El chat abre en una pestaña NUEVA (pedido 2026-09-30): Johan no pierde
+    // la bandeja ni los filtros. La pestaña se abre vacía en el mismo clic —
+    // si se abriera después del `await` de la asignación, el navegador la
+    // bloquearía como popup — y recién ahí se le pone la dirección.
+    // El chat abre en la línea de la cotización (como PendingQueue).
+    const abrir = (pestana) => {
+      localStorage.setItem("id_configuracion", String(linea));
+      const url = `/chat/${chat.id}`;
+      if (pestana && !pestana.closed) pestana.location.href = url;
+      else navigate(url); // popup bloqueado: se abre acá, como antes
+    };
+
+    if (esMio) {
+      abrir(window.open("", "_blank"));
+      return;
     }
 
-    // El chat abre en la línea de la cotización (como PendingQueue).
-    localStorage.setItem("id_configuracion", String(linea));
-    navigate(`/chat/${chat.id}`);
+    const r = await Swal.fire({
+      icon: "question",
+      title: "¿Asignarte este chat?",
+      html: `El chat de <b>${escapar(cot.cliente || "este cliente")}</b> lo atiende <b>${escapar(
+        chat.encargado || "otro asesor",
+      )}</b>.<br>Para escribirle tienes que asignártelo: quedará en tu bandeja y se avisa en el chat.`,
+      showCancelButton: true,
+      confirmButtonText: "Asignármelo y abrir",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#7c3aed",
+    });
+    if (!r.isConfirmed) return;
+    if (!datos?.departamento_agente) {
+      Swal.fire("No se pudo asignar", "No estás en ningún departamento de esta línea.", "error");
+      return;
+    }
+
+    // Todavía dentro del clic de «Asignármelo y abrir».
+    const pestana = window.open("", "_blank");
+    try {
+      await asignarmeChat({
+        idCliente: chat.id,
+        idConfiguracion: linea,
+        idDepartamento: datos.departamento_agente,
+        motivo: `Seguimiento IA de la cotización ${cot.codigo || `#${cot.id}`}`,
+      });
+    } catch (e) {
+      pestana?.close();
+      Swal.fire(
+        "No se pudo asignar",
+        e?.response?.data?.message || e.message || "El servidor rechazó la transferencia.",
+        "error",
+      );
+      return;
+    }
+    abrir(pestana);
+    // La bandeja se refresca: el chat ya figura como suyo.
+    cargar();
   }
 
   if (!habilitado) return null;

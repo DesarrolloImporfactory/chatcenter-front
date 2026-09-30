@@ -370,14 +370,58 @@ const MiPlan = () => {
     };
   }, [plan]);
 
+  // Renovación que Stripe no logró cobrar (sub past_due/unpaid). El backend
+  // manda la factura abierta en plan.pago_pendiente; el estado "suspendido"
+  // basta como respaldo si esa lectura falló.
+  const pagoPendiente = useMemo(() => {
+    if (!plan) return null;
+    const est = (plan.estado || "").toLowerCase();
+    const stripeSt = (plan.stripe_subscription_status || "").toLowerCase();
+    const debe =
+      Boolean(plan.pago_pendiente) ||
+      est.includes("suspend") ||
+      stripeSt === "past_due" ||
+      stripeSt === "unpaid";
+    if (!debe) return null;
+    const pp = plan.pago_pendiente || {};
+    return {
+      monto: pp.monto ?? null,
+      moneda: pp.moneda || "usd",
+      vencioEl: pp.vencio_el ? new Date(pp.vencio_el) : null,
+      intentos: Number(pp.intentos || 0),
+      proximoIntento: pp.proximo_intento ? new Date(pp.proximo_intento) : null,
+      url: pp.hosted_invoice_url || null,
+    };
+  }, [plan]);
+
   const infoPeriodo = useMemo(() => {
     if (!plan?.fecha_renovacion) return null;
 
     const hoy = new Date();
     const fin = new Date(plan.fecha_renovacion);
 
-    const diasRestantesRaw = Math.ceil((fin - hoy) / (1000 * 60 * 60 * 24));
-    const diasRestantes = Math.max(0, diasRestantesRaw);
+    // Sin pago no hay días: Stripe ya corrió fecha_renovacion al periodo
+    // nuevo aunque la factura rebotó, y contar contra esa fecha le regalaba
+    // "22 días restantes" a quien debe el mes entero.
+    if (pagoPendiente) {
+      return {
+        // Fecha del cobro rebotado; sin ella se pinta "—" antes que mostrar
+        // el cierre del periodo que no pagó como si fuera su vencimiento.
+        fin: pagoPendiente.vencioEl,
+        diasRestantes: 0,
+        tone: "text-red-700",
+        porcentaje: 100,
+        vencido: true,
+        pagoPendiente: true,
+      };
+    }
+
+    // El backend ya calcula los días con la misma regla; el cálculo local
+    // queda como respaldo para respuestas viejas sin ese campo.
+    const diasRestantes =
+      typeof plan.dias_restantes === "number"
+        ? Math.max(0, plan.dias_restantes)
+        : Math.max(0, Math.ceil((fin - hoy) / (1000 * 60 * 60 * 24)));
 
     let tone = "text-emerald-700";
     if (diasRestantes === 0) tone = "text-red-700";
@@ -404,7 +448,7 @@ const MiPlan = () => {
           );
 
     return { fin, diasRestantes, tone, porcentaje };
-  }, [plan]);
+  }, [plan, pagoPendiente]);
 
   const cancelProgramada = useMemo(() => {
     return (
@@ -637,23 +681,31 @@ const MiPlan = () => {
               />
               <HeaderStat
                 label={
-                  plan?.periodo_pago === "anual"
-                    ? "Renovación · pago anual"
-                    : plan?.periodo_pago === "semestral"
-                      ? "Renovación · pago semestral"
-                      : "Renovación"
+                  pagoPendiente
+                    ? "Pago vencido desde"
+                    : plan?.periodo_pago === "anual"
+                      ? "Renovación · pago anual"
+                      : plan?.periodo_pago === "semestral"
+                        ? "Renovación · pago semestral"
+                        : "Renovación"
                 }
                 value={
                   infoPeriodo?.fin ? infoPeriodo.fin.toLocaleDateString() : "—"
                 }
                 icon="bx bx-calendar"
-                accent="text-emerald-300"
+                accent={pagoPendiente ? "text-red-300" : "text-emerald-300"}
               />
               <HeaderStat
                 label="Días restantes"
-                value={infoPeriodo?.fin ? infoPeriodo.diasRestantes : "—"}
+                value={
+                  pagoPendiente
+                    ? "0 · pago pendiente"
+                    : infoPeriodo?.fin
+                      ? infoPeriodo.diasRestantes
+                      : "—"
+                }
                 icon="bx bx-time-five"
-                accent="text-amber-300"
+                accent={pagoPendiente ? "text-red-300" : "text-amber-300"}
               />
               <HeaderStat
                 label="Facturas"
@@ -666,6 +718,63 @@ const MiPlan = () => {
                 accent="text-sky-300"
               />
             </div>
+
+            {/* Renovación rebotada: la tarjeta no pasó y la cuenta queda
+                suspendida hasta saldar la factura abierta. No se ofrece
+                "Renovar plan" aquí: eso crea OTRA suscripción y termina en
+                doble cobro (sub reemplazada); se paga la factura existente. */}
+            {pagoPendiente && (
+              <div className="rounded-xl border border-red-300/25 bg-red-500/10 text-red-50 px-4 py-3 text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <FaExclamationCircle className="mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-semibold">
+                      Pago pendiente
+                      {pagoPendiente.monto != null
+                        ? ` · ${fmtMoney(pagoPendiente.monto)}`
+                        : ""}
+                    </p>
+                    <p className="text-red-50/80">
+                      No pudimos cobrar la renovación
+                      {pagoPendiente.vencioEl
+                        ? ` del ${pagoPendiente.vencioEl.toLocaleDateString()}`
+                        : ""}
+                      {pagoPendiente.intentos > 0
+                        ? ` (${pagoPendiente.intentos} intento${
+                            pagoPendiente.intentos === 1 ? "" : "s"
+                          } a su tarjeta)`
+                        : ""}
+                      . Su cuenta está suspendida hasta que se complete el
+                      pago.{" "}
+                      {pagoPendiente.proximoIntento
+                        ? `Volveremos a intentar el ${pagoPendiente.proximoIntento.toLocaleDateString()}, o puede pagar ahora.`
+                        : "Pague ahora o actualice su tarjeta para reactivarla."}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {pagoPendiente.url && (
+                    <a
+                      href={pagoPendiente.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-emerald-600 text-white hover:bg-emerald-500 px-4 py-2 rounded-lg font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-300"
+                    >
+                      <FaCreditCard />
+                      Pagar ahora
+                    </a>
+                  )}
+                  <button
+                    onClick={abrirPortalGestionMetodos}
+                    disabled={loadingGestion || loadingAgregar}
+                    className="inline-flex items-center gap-2 bg-white/10 text-white hover:bg-white/15 px-4 py-2 rounded-lg font-semibold border border-white/15 transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+                  >
+                    <FaCreditCard />
+                    Actualizar tarjeta
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Aviso cancelación programada */}
             {cancelProgramada && (
@@ -857,10 +966,14 @@ const MiPlan = () => {
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
                         <div>
                           <p className="text-[11px] text-[#171931]/60">
-                            Renovación
+                            {infoPeriodo.pagoPendiente
+                              ? "Pago vencido desde"
+                              : "Renovación"}
                           </p>
                           <p className="mt-1 text-sm sm:text-base font-bold">
-                            {infoPeriodo.fin.toLocaleDateString()}
+                            {infoPeriodo.fin
+                              ? infoPeriodo.fin.toLocaleDateString()
+                              : "—"}
                           </p>
                           <p
                             className={[
@@ -869,6 +982,9 @@ const MiPlan = () => {
                             ].join(" ")}
                           >
                             {infoPeriodo.diasRestantes} días restantes
+                            {infoPeriodo.pagoPendiente
+                              ? " · pendiente de pago"
+                              : ""}
                           </p>
                         </div>
 
@@ -986,6 +1102,15 @@ const MiPlan = () => {
                   <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 custom-scrollbar">
                     {facturas.map((f) => {
                       const paid = Boolean(f.paid);
+                      // Abierta = Stripe aún la está cobrando; se puede
+                      // pagar a mano desde su página. Una void/uncollectible
+                      // ya no se cobra y solo se consulta.
+                      const abierta = !paid && f.status === "open";
+                      // Pagada: lo cobrado. Pendiente: lo adeudado (antes
+                      // salía USD 0.00 porque amount_paid es 0 sin pagar).
+                      const monto = paid
+                        ? f.amount_paid
+                        : (f.amount_due ?? f.total ?? f.amount_paid);
                       return (
                         <div
                           key={f.id}
@@ -999,7 +1124,7 @@ const MiPlan = () => {
                                 ).toLocaleDateString()}
                               </p>
                               <p className="text-xs text-white/70">
-                                {fmtMoney(f.amount_paid)}
+                                {fmtMoney(monto)}
                               </p>
 
                               <div className="mt-2 inline-flex items-center gap-2 text-xs font-semibold">
@@ -1022,10 +1147,15 @@ const MiPlan = () => {
                                 href={f.hosted_invoice_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold bg-white text-[#171931] hover:opacity-95 transition"
+                                className={[
+                                  "shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition",
+                                  abierta
+                                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                                    : "bg-white text-[#171931] hover:opacity-95",
+                                ].join(" ")}
                               >
-                                <FaFilePdf />
-                                Ver factura
+                                {abierta ? <FaCreditCard /> : <FaFilePdf />}
+                                {abierta ? "Pagar ahora" : "Ver factura"}
                               </a>
                             ) : (
                               <span className="text-xs text-white/50">

@@ -5,6 +5,7 @@ import { Footer } from "../shared/Footer";
 import chatApi from "../../api/chatcenter";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
 import { jwtDecode } from "jwt-decode";
+import useCasosAcceso from "../../hooks/useCasosAcceso";
 import io from "socket.io-client";
 
 import Swal from "sweetalert2";
@@ -29,6 +30,9 @@ function MainLayout({ children }) {
   const id_sub_usuario = decoded?.id_sub_usuario;
 
   const p = getPresence(id_sub_usuario);
+
+  // «Seguimiento de casos»: el back decide quién lo ve (hooks/useCasosAcceso).
+  const casosAcceso = useCasosAcceso();
 
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
@@ -493,6 +497,27 @@ function MainLayout({ children }) {
                 <i className="bx bx-bar-chart-alt-2 text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
                 <span className="text-lg text-gray-700 group-hover:text-blue-600">
                   Dashboard
+                </span>
+              </a>
+            )}
+
+            {/* Seguimiento de casos: destinatarios de casos y administradores. */}
+            {casosAcceso && (
+              <a
+                href="/seguimiento-casos"
+                className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                  location.pathname === "/seguimiento-casos"
+                    ? "bg-gray-200 font-semibold"
+                    : ""
+                }`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goTo("/seguimiento-casos");
+                }}
+              >
+                <i className="bx bx-flag text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+                <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                  Seguimiento de casos
                 </span>
               </a>
             )}

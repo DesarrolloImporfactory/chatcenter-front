@@ -11,6 +11,7 @@ import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
 import CronometroRespuesta from "./CronometroRespuesta";
+import useCasosAcceso from "../../hooks/useCasosAcceso";
 import MenuLlamar from "./MenuLlamar";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
 
@@ -194,6 +195,7 @@ const Cabecera = ({
 
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
+  const casosAcceso = useCasosAcceso();
   //Manejo de referencias
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -850,6 +852,29 @@ const Cabecera = ({
               <i className="bx bx-bar-chart-alt-2 text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
               <span className="text-lg text-gray-700 group-hover:text-blue-600">
                 Dashboard
+              </span>
+            </a>
+          )}
+
+          {/* Seguimiento de casos (Escalamientos / Oportunidades): solo a
+              quien el back le da acceso (hooks/useCasosAcceso). */}
+          {casosAcceso && (
+            <a
+              href="/seguimiento-casos"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/seguimiento-casos"
+                  ? "bg-gray-200 font-semibold"
+                  : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                goTo("/seguimiento-casos");
+                setSliderOpen(false);
+              }}
+            >
+              <i className="bx bx-flag text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Seguimiento de casos
               </span>
             </a>
           )}
