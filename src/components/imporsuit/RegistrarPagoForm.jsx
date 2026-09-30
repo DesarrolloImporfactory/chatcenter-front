@@ -68,7 +68,13 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
         moneda: form.moneda,
         fechaTransaccion: form.fechaTransaccion,
       });
-      toast.success("Pago registrado");
+      if (resultado?.aviso) {
+        // Pidió «gestionado» pero el CRM ya había mandado la plantilla de
+        // cobro: el back lo guardó como automático (Class/AtribucionPago).
+        Swal.fire({ icon: "info", title: "Pago registrado como automático", text: resultado.aviso });
+      } else {
+        toast.success("Pago registrado");
+      }
       onSaved?.(resultado);
       onClose?.();
     } catch (err) {
