@@ -12,6 +12,29 @@ import MisPlantillas from "./componentes/MisPlantillas";
 // Constantes de UI
 // ─────────────────────────────────────────────────────────────
 
+/* Clave interna (estado_db) de una columna nueva, derivada del nombre visible:
+   minúsculas, sin tildes, snake_case, máximo 40 caracteres. Antes el cliente
+   tenía que inventarla a mano en un segundo campo ("contacto_inicial") sin
+   saber qué era; ahora sale sola del nombre y se muestra solo como referencia.
+   Si ya existe en el tablero se le agrega _2, _3… (el backend repite el
+   chequeo contra los demás tableros de la cuenta). */
+const slugEstadoDb = (nombre, existentes = []) => {
+  const base =
+    String(nombre || "")
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 40)
+      .replace(/_+$/g, "") || "columna";
+  const usados = new Set(existentes.map((e) => String(e || "").toLowerCase()));
+  if (!usados.has(base)) return base;
+  let n = 2;
+  while (usados.has(`${base}_${n}`)) n += 1;
+  return `${base}_${n}`;
+};
+
 // Para qué sirve cada columna del tablero (por estado_db). Se muestra al
 // seleccionar la columna para que el dueño sepa qué hace cada una.
 const PROPOSITOS_COLUMNA = {
@@ -1061,10 +1084,10 @@ const KanbanConfig = () => {
 
   // ── Crear columna nueva ──────────────────────────────────
   const crearColumna = async () => {
-    if (!formNueva.nombre || !formNueva.estado_db) {
+    if (!formNueva.nombre?.trim()) {
       Toast.fire({
         icon: "warning",
-        title: "Nombre y estado_db son obligatorios",
+        title: "Escribe el nombre de la columna",
       });
       return;
     }
@@ -1074,6 +1097,14 @@ const KanbanConfig = () => {
         id_configuracion,
         id_tablero: tableroActivo,
         ...formNueva,
+        nombre: formNueva.nombre.trim(),
+        // La clave interna sale del nombre; el backend la vuelve única entre
+        // todos los tableros de la cuenta si hiciera falta.
+        estado_db: slugEstadoDb(
+          formNueva.nombre,
+          columnas.map((c) => c.estado_db),
+        ),
+        auto_estado_db: true,
       });
       if (data?.success) {
         Toast.fire({ icon: "success", title: "Columna creada" });
@@ -1591,7 +1622,7 @@ const KanbanConfig = () => {
                       marginTop: 2,
                     }}
                   >
-                    estado_db: <strong>{columnaSeleccionada.estado_db}</strong>
+                    Clave interna: <strong>{columnaSeleccionada.estado_db}</strong>
                   </div>
                   {PROPOSITOS_COLUMNA[columnaSeleccionada.estado_db] && (
                     <div
@@ -2761,33 +2792,35 @@ const KanbanConfig = () => {
                   placeholder="Ej: Contacto Inicial"
                 />
               </div>
-              <div>
-                <label style={lbl}>
-                  estado_db *{" "}
+              {/* La clave interna ya no se pide: se deriva del nombre y se
+                  muestra solo como referencia (es lo que verá en reportes y
+                  en las reglas del asistente). */}
+              {formNueva.nombre?.trim() && (
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#94a3b8",
+                    marginTop: -6,
+                  }}
+                >
+                  Clave interna:{" "}
                   <span
                     style={{
                       fontFamily: "monospace",
-                      fontSize: "0.73rem",
-                      color: "#94a3b8",
+                      color: "#64748b",
+                      background: "#f1f5f9",
+                      padding: "1px 6px",
+                      borderRadius: 6,
                     }}
                   >
-                    (clave interna, no editable después)
-                  </span>
-                </label>
-                <input
-                  value={formNueva.estado_db}
-                  onChange={(e) =>
-                    setFormNueva((p) => ({
-                      ...p,
-                      estado_db: e.target.value
-                        .toLowerCase()
-                        .replace(/\s+/g, "_"),
-                    }))
-                  }
-                  style={{ ...inp, fontFamily: "monospace" }}
-                  placeholder="contacto_inicial"
-                />
-              </div>
+                    {slugEstadoDb(
+                      formNueva.nombre,
+                      columnas.map((c) => c.estado_db),
+                    )}
+                  </span>{" "}
+                  · se genera sola y no cambia después
+                </div>
+              )}
               <div>
                 <label style={lbl}>Color</label>
                 <div
