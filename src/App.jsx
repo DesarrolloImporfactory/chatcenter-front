@@ -53,6 +53,7 @@ import Estado_contactos_imporshop_proveedor from "./pages/contactos/Estado_conta
 import Estado_contactos_eventos from "./pages/contactos/Estado_contactos_eventos";
 import KanbanConfig from "./pages/kanban/configuracion/KanbanConfig";
 import OrdenesDropi from "./pages/dropi/OrdenesDropi";
+import NovedadesDropi from "./pages/dropi/NovedadesDropi";
 import Conexiones from "./pages/conexiones/Conexiones";
 import TransportadorasView from "./pages/transportadoras/TransportadorasView";
 import ConnectionDashboard from "./pages/conexiones/ConnectionDashboard";
@@ -504,6 +505,16 @@ function App() {
                   element={
                     <MainLayout>
                       <OrdenesDropi />
+                    </MainLayout>
+                  }
+                />
+
+                {/* Novedades Dropi pendientes por solucionar (en vivo) */}
+                <Route
+                  path="/novedades-dropi"
+                  element={
+                    <MainLayout>
+                      <NovedadesDropi />
                     </MainLayout>
                   }
                 />
