@@ -235,6 +235,10 @@ const TabAsistente = ({
   const [retiroAgenciaPiloto, setRetiroAgenciaPiloto] = useState(false);
   const [retiroAgenciaArchivo, setRetiroAgenciaArchivo] = useState(null);
   const [retiroAgenciaLoading, setRetiroAgenciaLoading] = useState(false);
+  // Qué sugiere el bot primero cuando el cliente aún no eligió cómo recibir:
+  // "" = pregunta neutra, "agencia" = ofrece primero la oficina Servientrega
+  // (tiendas que despachan casi todo por retiro).
+  const [retiroPreferencia, setRetiroPreferencia] = useState("");
   const [previewAgencias, setPreviewAgencias] = useState(null); // {nombre, texto}
   const [previewBusqueda, setPreviewBusqueda] = useState("");
 
@@ -249,6 +253,7 @@ const TabAsistente = ({
         setRetiroAgenciaPiloto(!!d.piloto);
         setRetiroAgencia(!!d.activo);
         setRetiroAgenciaArchivo(d.archivo || null);
+        setRetiroPreferencia(d.modalidad_preferida || "");
         // Si recargó la página con un toggle corriendo por detrás, engancharse
         // a la espera para que el switch no mienta.
         if (d.trabajo?.en_curso) {
@@ -284,6 +289,20 @@ const TabAsistente = ({
       }
     }
     return null; // no terminó en ~2 min
+  };
+
+  // Cambio inmediato en pantalla; si el backend falla se vuelve al valor previo.
+  const cambiarPreferenciaRetiro = async (modalidad) => {
+    const previa = retiroPreferencia;
+    setRetiroPreferencia(modalidad);
+    try {
+      await chatApi.post("/kanban_columnas/retiro_agencia_preferencia", {
+        id_configuracion: idConfiguracion,
+        modalidad: modalidad || null,
+      });
+    } catch {
+      setRetiroPreferencia(previa);
+    }
   };
 
   const toggleRetiroAgencia = async () => {
@@ -1813,6 +1832,43 @@ const TabAsistente = ({
                   />
                 )}
               </div>
+
+              {/* Qué sugiere primero cuando el cliente aún no eligió. Solo con
+                  el switch encendido: apagado, el bot pregunta como siempre. */}
+              {retiroAgencia && !retiroAgenciaLoading && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    fontSize: "0.8rem",
+                    color: "#475569",
+                  }}
+                >
+                  <span>Cuando el cliente aún no eligió cómo recibir:</span>
+                  <select
+                    value={retiroPreferencia}
+                    onChange={(e) => cambiarPreferenciaRetiro(e.target.value)}
+                    style={{
+                      border: "1px solid rgba(245,158,11,.4)",
+                      borderRadius: 8,
+                      padding: "5px 10px",
+                      fontSize: "0.8rem",
+                      color: "#0f172a",
+                      background: "#fff",
+                    }}
+                  >
+                    <option value="">
+                      Preguntar sin preferencia (domicilio o agencia)
+                    </option>
+                    <option value="agencia">
+                      Sugerir primero retiro en oficina Servientrega
+                    </option>
+                  </select>
+                </div>
+              )}
 
               <div
                 style={{
