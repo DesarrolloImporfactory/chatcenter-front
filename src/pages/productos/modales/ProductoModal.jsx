@@ -993,6 +993,11 @@ const ProductoModal = ({
      entrega handleSave por ref y este formulario oculta su pie propio para
      no mostrar dos botones de guardar. */
   submitRef = null,
+  /* esProveedor: la cuenta tiene el tablero de proveeduría. Los combos son su
+     tabla de precios por cantidad (el bot cobra el unitario del combo más
+     grande que no supere lo pedido), así que se presentan con ese nombre y
+     con el unitario que resulta de cada fila. */
+  esProveedor = false,
 }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
@@ -1437,8 +1442,10 @@ const ProductoModal = ({
       // no, y por eso "Agregar" reventaba con ReferenceError.
       setAtributo("Color");
     }
-    setCombosOpen(false);
-  }, [open, editingProduct, borradorInicial]);
+    // El proveedor ve su tabla de precios por cantidad abierta de entrada:
+    // es la parte del formulario que le explica cómo cotiza el bot.
+    setCombosOpen(Boolean(esProveedor));
+  }, [open, editingProduct, borradorInicial, esProveedor]);
 
   const setF = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -1956,7 +1963,9 @@ const ProductoModal = ({
                       todo el ancho y así se ahorra un salto de línea. */}
                   <div className="grid grid-cols-[130px_1fr] gap-3">
                     <div>
-                      <Lbl required>Precio</Lbl>
+                      <Lbl required>
+                        {esProveedor ? "Precio unitario (al detalle)" : "Precio"}
+                      </Lbl>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">
                           $
@@ -2249,10 +2258,12 @@ const ProductoModal = ({
                   <div className="flex items-center gap-2">
                     <i className="bx bx-package text-slate-500" />
                     <span className="text-sm font-semibold text-slate-700">
-                      Combos
+                      {esProveedor ? "Precios por cantidad (mayorista)" : "Combos"}
                     </span>
                     <span className="text-xs text-slate-400 font-normal">
-                      (opcional)
+                      {esProveedor
+                        ? "(la escala que cobra el bot a revendedores)"
+                        : "(opcional)"}
                     </span>
                   </div>
                   <i
@@ -2262,6 +2273,19 @@ const ProductoModal = ({
 
                 {combosOpen && (
                   <div className="border-t border-slate-100 p-4">
+                    {esProveedor && (
+                      <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+                        <i className="bx bx-bulb text-amber-400 align-middle mr-0.5" />
+                        Cada fila es un paquete: la cantidad y el precio{" "}
+                        <strong>total</strong> de ese paquete. El bot calcula el
+                        unitario (total ÷ cantidad) y a un pedido le aplica el
+                        paquete más grande que no supere lo pedido: con paquetes
+                        de 6 y 12, un pedido de 20 se cobra al unitario del de
+                        12. Si quieres otro precio para volúmenes mayores, agrega
+                        un paquete con esa cantidad. Una sola unidad se cobra al
+                        precio unitario de arriba.
+                      </p>
+                    )}
                     <div className="grid grid-cols-3 gap-3">
                       {[0, 1, 2].map((i) => (
                         <div
@@ -2310,13 +2334,26 @@ const ProductoModal = ({
                               />
                             </div>
                           </div>
+                          {esProveedor &&
+                            Number(form.combos_producto?.[i]?.cantidad) > 0 &&
+                            Number(form.combos_producto?.[i]?.precio) > 0 && (
+                              <div className="text-xs text-emerald-700">
+                                = $
+                                {(
+                                  Number(form.combos_producto[i].precio) /
+                                  Number(form.combos_producto[i].cantidad)
+                                ).toFixed(2)}{" "}
+                                c/u
+                              </div>
+                            )}
                         </div>
                       ))}
                     </div>
 
                     {/* ID Dropi por combo: el aviso va UNA sola vez y abajo
-                        la fila de IDs, alineada con cada combo. */}
-                    {esDropi && (
+                        la fila de IDs, alineada con cada combo. Un proveedor
+                        no lo necesita: sus paquetes son su propia escala. */}
+                    {esDropi && !esProveedor && (
                       <div className="mt-4">
                         <p className="text-xs text-slate-500 mb-2">
                           <i className="bx bx-bulb text-amber-400 align-middle mr-0.5" />
@@ -2537,9 +2574,11 @@ const ProductoModal = ({
                     {/* Precio proveedor */}
                     <div>
                       <Lbl>
-                        Precio proveedor{" "}
+                        {esProveedor ? "Costo del producto" : "Precio proveedor"}{" "}
                         <span className="normal-case font-normal text-slate-400">
-                          (costo Dropi u otro)
+                          {esProveedor
+                            ? "(tu costo; el bot no lo ve ni lo cobra)"
+                            : "(costo Dropi u otro)"}
                         </span>
                       </Lbl>
                       <div className="relative">

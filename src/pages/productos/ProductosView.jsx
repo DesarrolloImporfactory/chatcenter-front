@@ -43,6 +43,9 @@ const ProductosView = () => {
 
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  // Cuenta proveedora (tablero de proveeduría): el formulario de producto
+  // presenta los combos como "Precios por cantidad" y explica cómo los cobra el bot.
+  const [esProveedor, setEsProveedor] = useState(false);
   const [loading, setLoading] = useState(true);
 
   /* Modal producto */
@@ -100,6 +103,7 @@ const ProductosView = () => {
         }),
       ]);
       setProductos(prodRes.data.data || []);
+      setEsProveedor(Boolean(prodRes.data?.es_proveedor));
       setCategorias(catRes.data.data || []);
     } catch {
       Swal.fire({ icon: "error", title: "Error al cargar productos" });
@@ -846,6 +850,7 @@ const ProductosView = () => {
         /* Respaldo para deducir si la cuenta es de productos o de servicios
            cuando el asistente de ventas todavía no lo tiene definido. */
         productosExistentes={productos}
+        esProveedor={esProveedor}
         onSaved={fetchData}
       />
 
