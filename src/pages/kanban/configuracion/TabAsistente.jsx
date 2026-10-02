@@ -66,6 +66,12 @@ const MODELOS = [
     color: "#f59e0b",
   },
   {
+    value: "gpt-4.1",
+    label: "GPT-4.1",
+    desc: "≈ $0.01 por respuesta (unas 100 por dólar). El más preciso siguiendo guiones y respuestas fijas; rápido",
+    color: "#7c3aed",
+  },
+  {
     value: "gpt-4o",
     label: "GPT-4o",
     desc: "≈ $0.03 por respuesta (unas 30 por dólar). El más potente; conviene solo con poco volumen",

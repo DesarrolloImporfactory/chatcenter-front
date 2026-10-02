@@ -1533,6 +1533,7 @@ const TabAsistenteAdmin = ({
                 <option value="gpt-5-nano">gpt-5-nano (el más económico)</option>
                 <option value="gpt-4o-mini">gpt-4o-mini (estándar anterior)</option>
                 <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                <option value="gpt-4.1">gpt-4.1 (preciso con guiones)</option>
                 <option value="gpt-4o">gpt-4o (premium)</option>
                 <option value="gpt-3.5-turbo">gpt-3.5-turbo (legado)</option>
               </select>

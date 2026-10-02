@@ -1065,6 +1065,19 @@ const KanbanConfig = () => {
     if (columnaActiva) cargarAcciones(columnaActiva);
   };
 
+  // reenviar_fijos en TODAS las acciones enviar_media de la cuenta.
+  const toggleReenviarMediaFija = async () => {
+    const nuevo = !configKanban.reenviar_media_fija;
+    await guardarConfigKanban(
+      "reenviar_media_fija",
+      nuevo,
+      nuevo
+        ? "Los videos e imágenes fijos se enviarán cada vez"
+        : "Los videos e imágenes fijos no se repetirán por 48 h",
+    );
+    if (columnaActiva) cargarAcciones(columnaActiva);
+  };
+
   const toggleDropiPrincipal = async () => {
     const esDropi = !!columnaSeleccionada?.es_dropi_principal;
     try {
@@ -2118,6 +2131,64 @@ const KanbanConfig = () => {
                               <ToggleSwitch
                                 checked={!!configKanban.agenda_automatica}
                                 onChange={toggleAgendaAutomatica}
+                                colorOn="#ca8a04"
+                              />
+                            </div>
+                          )}
+
+                        {/* Ajuste de toda la cuenta: repetir la media fija del prompt */}
+                        {configKanban.reenviar_media_fija !== null &&
+                          configKanban.reenviar_media_fija !== undefined && (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "10px 14px",
+                                borderRadius: 12,
+                                border: "1px solid rgba(0,0,0,.07)",
+                                background: "#fafafa",
+                                marginTop: 8,
+                                opacity: guardandoConfig ? 0.6 : 1,
+                              }}
+                            >
+                              <div>
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    fontSize: "0.87rem",
+                                    color: "#0f172a",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 7,
+                                  }}
+                                >
+                                  <i
+                                    className="bx bx-video"
+                                    style={{
+                                      color: configKanban.reenviar_media_fija
+                                        ? "#ca8a04"
+                                        : "#94a3b8",
+                                    }}
+                                  />
+                                  Reenviar siempre los videos e imágenes fijos
+                                  del prompt
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "#64748b",
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  {configKanban.reenviar_media_fija
+                                    ? "Activado: el video o imagen sale cada vez que el bot responde ese tema (ideal para tutoriales de soporte)."
+                                    : "Apagado: un mismo video o imagen no se repite al cliente durante 48 h, para no saturarlo."}
+                                </div>
+                              </div>
+                              <ToggleSwitch
+                                checked={!!configKanban.reenviar_media_fija}
+                                onChange={toggleReenviarMediaFija}
                                 colorOn="#ca8a04"
                               />
                             </div>
