@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
+import { ResumenIACelda, DetalleIA } from "../../components/telefonia/ResumenLlamadaIA";
 
 /**
  * /telefonia — Telefonía por saldo con Zadarma (solo super administrador).
@@ -50,6 +51,7 @@ function HistorialModal({ cuenta, onClose }) {
   const [datos, setDatos] = useState({ data: [], total: 0, limit: 20 });
   const [cargando, setCargando] = useState(false);
   const [escuchando, setEscuchando] = useState(null); // id de la llamada con el reproductor abierto
+  const [detalle, setDetalle] = useState(null); // id de la llamada con el análisis IA desplegado
   useEffect(() => {
     let vigente = true;
     setCargando(true);
@@ -106,18 +108,20 @@ function HistorialModal({ cuenta, onClose }) {
                 <th className="px-4 py-2">Duración</th>
                 <th className="px-4 py-2">Costo</th>
                 <th className="px-4 py-2">Grabación</th>
+                <th className="px-4 py-2">Resumen IA</th>
               </tr>
             </thead>
             <tbody>
               {cargando && datos.data.length === 0 ? (
-                <tr><td colSpan="8" className="px-4 py-8 text-center text-slate-400">Cargando…</td></tr>
+                <tr><td colSpan="9" className="px-4 py-8 text-center text-slate-400">Cargando…</td></tr>
               ) : datos.data.length === 0 ? (
-                <tr><td colSpan="8" className="px-4 py-8 text-center text-slate-400">Esta conexión todavía no ha hecho llamadas.</td></tr>
+                <tr><td colSpan="9" className="px-4 py-8 text-center text-slate-400">Esta conexión todavía no ha hecho llamadas.</td></tr>
               ) : (
                 datos.data.map((l) => {
                   const [txt, cls] = ESTADOS[l.estado] || [l.estado, "text-slate-600"];
                   return (
-                    <tr key={l.id} className="border-t border-slate-100">
+                    <Fragment key={l.id}>
+                    <tr className="border-t border-slate-100">
                       <td className="px-4 py-2 whitespace-nowrap">{fmtFecha(l.inicio_at)}</td>
                       <td className="px-4 py-2">{l.asesor || `Asesor ${l.id_sub_usuario}`} <span className="text-xs text-slate-400">ext {l.extension}</span></td>
                       <td className="px-4 py-2">
@@ -152,7 +156,18 @@ function HistorialModal({ cuenta, onClose }) {
                           <span className="text-slate-400">—</span>
                         )}
                       </td>
+                      <td className="px-4 py-2 max-w-xs">
+                        <ResumenIACelda l={l} abierto={detalle === l.id} onToggle={() => setDetalle((d) => (d === l.id ? null : l.id))} />
+                      </td>
                     </tr>
+                    {detalle === l.id && l.ia_estado === "listo" ? (
+                      <tr className="bg-slate-50">
+                        <td colSpan="9" className="px-4 py-3">
+                          <DetalleIA l={l} />
+                        </td>
+                      </tr>
+                    ) : null}
+                    </Fragment>
                   );
                 })
               )}
@@ -172,6 +187,136 @@ function HistorialModal({ cuenta, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Llave de OpenAI con la que se transcriben y resumen las llamadas. Es la
+ * llave de Imporfactory (el análisis va incluido en el minuto); sin ella se
+ * usa la del negocio y, si tampoco hay, la llamada queda "sin analizar".
+ */
+function AnalisisIACard() {
+  const [ia, setIa] = useState(null);
+  const [key, setKey] = useState("");
+  const [msg, setMsg] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+  const [editar, setEditar] = useState(false);
+  const cargar = useCallback(async () => {
+    try {
+      const { data } = await chatApi.get("/telefonia/ia");
+      setIa(data?.data || null);
+    } catch {
+      setIa(null);
+    }
+  }, []);
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+  const guardar = async (e) => {
+    e.preventDefault();
+    setGuardando(true);
+    setMsg(null);
+    try {
+      const { data } = await chatApi.post("/telefonia/ia", { api_key: key });
+      setIa(data?.data || null);
+      setKey("");
+      setEditar(false);
+      setMsg({ tipo: "ok", texto: "Llave guardada y probada contra OpenAI. Las llamadas pendientes se están analizando." });
+    } catch (err) {
+      setMsg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo guardar" });
+    } finally {
+      setGuardando(false);
+    }
+  };
+  const activar = async (activo) => {
+    const { data } = await chatApi.post("/telefonia/ia/activar", { activo });
+    setIa(data?.data || null);
+  };
+  const reanalizar = async () => {
+    setMsg(null);
+    try {
+      const { data } = await chatApi.post("/telefonia/ia/reanalizar", {});
+      setMsg({ tipo: "ok", texto: `Reintentadas ${data?.data?.intentadas || 0}, listas ${data?.data?.listas || 0}.` });
+      cargar();
+    } catch (err) {
+      setMsg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo reanalizar" });
+    }
+  };
+  const pendientes = (ia?.analisis?.sin_llave || 0) + (ia?.analisis?.con_error || 0);
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-900">
+            <i className="bx bx-brain mr-1 text-indigo-600" /> Análisis de llamadas con IA
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">
+            Cada grabación se transcribe y se resume: qué se habló, en qué quedó, objeciones, siguiente paso y una nota
+            de cómo atendió el asesor. El resumen aparece en el chat del cliente y en el dashboard de la conexión. Cuesta
+            alrededor de <b>$0.004 por minuto</b> de llamada (transcripción con {ia?.modelo_transcripcion || "gpt-4o-mini-transcribe"} y resumen con{" "}
+            {ia?.modelo_resumen || "gpt-5-mini"}).
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <div className="rounded-lg bg-slate-50 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Analizadas</div>
+            <div className="font-bold">{ia?.analisis?.listas ?? "—"}</div>
+          </div>
+          <div className={`rounded-lg px-3 py-2 ${pendientes ? "bg-amber-50" : "bg-slate-50"}`}>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Pendientes</div>
+            <div className="font-bold">{ia ? pendientes : "—"}</div>
+          </div>
+          <div className="rounded-lg bg-slate-50 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Gastado en OpenAI</div>
+            <div className="font-bold">{ia ? fmtUSD(ia.analisis?.costo_centavos) : "—"}</div>
+          </div>
+        </div>
+      </div>
+
+      {ia?.configurada && !editar ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+          <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${ia.activo ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"}`}>
+            {ia.activo ? "Encendido" : "Apagado"}
+          </span>
+          <span className="text-slate-600">
+            Llave de OpenAI <code className="font-mono">sk-····{ia.api_key_last4}</code>
+            {ia.updated_at ? ` · guardada el ${new Date(ia.updated_at).toLocaleString("es-EC")}` : ""}
+          </span>
+          <button type="button" onClick={() => setEditar(true)} className={`${btn} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
+            Cambiar llave
+          </button>
+          <button type="button" onClick={() => activar(!ia.activo)} className={`${btn} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
+            {ia.activo ? "Apagar análisis" : "Encender análisis"}
+          </button>
+          {pendientes ? (
+            <button type="button" onClick={reanalizar} className={`${btn} bg-indigo-600 text-white hover:bg-indigo-700`}>
+              <i className="bx bx-refresh" /> Analizar {pendientes} pendiente{pendientes === 1 ? "" : "s"}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <form onSubmit={guardar} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <label className="block flex-1 text-xs font-semibold text-slate-600">
+            Llave de OpenAI de Imporfactory
+            <input id="ia-key" className={`${input} mt-1 font-mono`} value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-proj-…" autoComplete="off" />
+            <span className="mt-1 block font-normal text-slate-500">
+              Se guarda cifrada. Sin llave propia, se usa la llave de OpenAI de cada conexión; si tampoco hay, la llamada queda sin analizar.
+            </span>
+          </label>
+          <div className="flex gap-2">
+            <button type="submit" disabled={guardando || !key.trim()} className={`${btn} bg-indigo-600 text-white hover:bg-indigo-700`}>
+              {guardando ? "Probando…" : "Guardar llave"}
+            </button>
+            {ia?.configurada ? (
+              <button type="button" onClick={() => setEditar(false)} className={`${btn} border border-slate-300 bg-white text-slate-700`}>
+                Cancelar
+              </button>
+            ) : null}
+          </div>
+        </form>
+      )}
+      {msg ? <Aviso tipo={msg.tipo}>{msg.texto}</Aviso> : null}
+    </section>
   );
 }
 
@@ -595,9 +740,21 @@ export default function TelefoniaAdmin() {
                 ) : (
                   <div className={`rounded-lg border px-3 py-2 text-xs ${tarifaC <= costoC ? "border-rose-300 bg-rose-50 text-rose-800" : margenPct < 20 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
                     <b>Costo real en Zadarma: {fmtUSD(costoC)} por minuto</b> ({costo.descripcion}).{" "}
-                    {tarifaC <= costoC
-                      ? `No es rentable: a ${fmtUSD(tarifaC)} pierdes ${fmtUSD(costoC - tarifaC)} por cada minuto que hable este cliente.`
-                      : `Ganas ${fmtUSD(tarifaC - costoC)} por minuto (margen ${margenPct}%).${margenPct < 20 ? " Es un margen bajo." : ""}`}
+                    {tarifaC === costoC
+                      ? "Al costo: no ganas ni pierdes. Es lo correcto para una conexión propia de Imporfactory."
+                      : tarifaC < costoC
+                        ? `No es rentable: a ${fmtUSD(tarifaC)} pierdes ${fmtUSD(costoC - tarifaC)} por cada minuto que hable este cliente.`
+                        : `Ganas ${fmtUSD(tarifaC - costoC)} por minuto (margen ${margenPct}%).${margenPct < 20 ? " Es un margen bajo." : ""}`}
+                    {tarifaC !== costoC ? (
+                      <button
+                        type="button"
+                        onClick={() => setRecarga((r) => ({ ...r, tarifa: (costoC / 100).toFixed(2) }))}
+                        className="ml-2 rounded-md border border-current px-2 py-0.5 font-semibold hover:bg-white/60"
+                        title="Para conexiones propias (como la 242): se cobra exactamente lo que cuesta en Zadarma"
+                      >
+                        Usar el costo de Zadarma
+                      </button>
+                    ) : null}
                   </div>
                 )}
                 <label className="block text-xs font-semibold text-slate-600">
@@ -631,10 +788,10 @@ export default function TelefoniaAdmin() {
                 </label>
                 {excedeZadarma ? (
                   <div className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
-                    <b>Ojo:</b> con esta recarga, los minutos vendidos a tus clientes costarían {fmtUSD(costoTrasRecarga)} en Zadarma y allá solo hay {fmtUSD(resumen.saldo_zadarma_centavos)}. Si todos llaman, las llamadas se cortan. Recarga primero en Zadarma. Puedes continuar igual.
+                    <b>No se puede cargar:</b> con esta recarga, los minutos vendidos costarían {fmtUSD(costoTrasRecarga)} en Zadarma y allá solo hay {fmtUSD(resumen.saldo_zadarma_centavos)}. El cliente vería saldo para llamar y la llamada se cortaría. Recarga primero en Zadarma o carga menos.
                   </div>
                 ) : null}
-                <button type="button" onClick={recargarSaldo} className={`${btn} w-full bg-indigo-600 text-white hover:bg-indigo-700`}>
+                <button type="button" onClick={recargarSaldo} disabled={excedeZadarma || recargaC <= 0} className={`${btn} w-full bg-indigo-600 text-white hover:bg-indigo-700`}>
                   <i className="bx bx-plus-circle text-lg" /> Cargar {fmtUSD(recargaC)}
                 </button>
               </div>
@@ -645,6 +802,8 @@ export default function TelefoniaAdmin() {
           )}
         </Paso>
       </div>
+
+      <AnalisisIACard />
 
       {/* Tabla de conexiones con saldo */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
