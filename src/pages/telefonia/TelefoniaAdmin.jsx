@@ -1,24 +1,28 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
+import { ResumenIACelda, DetalleIA } from "../../components/telefonia/ResumenLlamadaIA";
 
 /**
- * /telefonia — Telefonía por saldo con Zadarma (solo super administrador).
+ * /telefonia — Telefonía por saldo con Zadarma. Solo super administrador y
+ * es GLOBAL (todas las cuentas, todas las conexiones).
  *
- * Tres pasos, de izquierda a derecha, y abajo la tabla de conexiones con
- * saldo. Cada paso muestra si ya está hecho:
- *   1. Vincular la cuenta maestra de Zadarma (llaves; la secreta se cifra).
- *   2. Instalar: registrar nuestro webhook en Zadarma y encender grabación.
- *   3. Dar saldo a una conexión: cuánto, a qué precio por minuto y con qué
- *      número sale.
+ * Qué hay:
+ *   - Cabecera: saldo en Zadarma, lo vendido a clientes y lo que esos minutos
+ *     costarían (cobertura), llamadas y análisis con IA.
+ *   - Conexiones con saldo (lo principal): buscar una conexión y darle saldo
+ *     en un modal (precio por minuto con el costo real al lado, candado si
+ *     Zadarma no cubre), recargar, apagar, ver el historial con grabación y
+ *     resumen de IA.
+ *   - Configuración de Imporfactory, a un lado: cuenta de Zadarma, avisos
+ *     (webhook) y central, como lista de estados.
+ *
+ * Decisiones (2026-10-02): el número de salida ya no se configura aquí
+ * (Zadarma solo respalda los números comprados; el CallerID se deja en el SIP
+ * de la central), y el análisis con IA usa la llave de OpenAI de cada
+ * conexión (/asistentes), no una llave maestra.
  */
 const fmtUSD = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 const tel = (t) => (t ? `+${String(t).replace(/^\+/, "")}` : "—");
-
-const input =
-  "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
-const btn =
-  "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50";
-
 const fmtFecha = (v) => {
   if (!v) return "—";
   const d = new Date(String(v).includes("T") ? v : `${String(v).replace(" ", "T")}-05:00`);
@@ -38,18 +42,54 @@ const ESTADOS = {
   pedida: ["marcando", "text-sky-700"],
 };
 
-/**
- * Historial de llamadas de una conexión, paginado. La columna "Salió con"
- * es el número que Zadarma reporta haber enviado en esa llamada (no el que
- * intentamos poner): ante una queja de "me llamaron de un número raro" es
- * el dato para comparar. Si la operadora del destino lo reemplazó por uno
- * de pasarela, eso no lo reporta nadie y aquí se verá el enviado.
- */
+const input =
+  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
+const btn =
+  "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50";
+const btnPrimario = `${btn} bg-indigo-600 text-white hover:bg-indigo-700`;
+const btnSuave = `${btn} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`;
+
+function Aviso({ tipo = "info", children }) {
+  const cls =
+    tipo === "ok"
+      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+      : tipo === "error"
+        ? "bg-rose-50 text-rose-700 border-rose-200"
+        : "bg-sky-50 text-sky-800 border-sky-200";
+  return <div className={`mt-3 rounded-lg border px-3 py-2 text-sm ${cls}`}>{children}</div>;
+}
+
+function Modal({ titulo, subtitulo, onClose, ancho = "max-w-lg", children }) {
+  useEffect(() => {
+    const esc = (e) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+      <div className={`flex max-h-[90vh] w-full ${ancho} flex-col rounded-2xl bg-white shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">{titulo}</h3>
+            {subtitulo ? <p className="mt-0.5 text-xs text-slate-500">{subtitulo}</p> : null}
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Cerrar">
+            <i className="bx bx-x text-2xl" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ── Historial de llamadas de una conexión ───────────────────────────── */
 function HistorialModal({ cuenta, onClose }) {
   const [page, setPage] = useState(1);
   const [datos, setDatos] = useState({ data: [], total: 0, limit: 20 });
   const [cargando, setCargando] = useState(false);
-  const [escuchando, setEscuchando] = useState(null); // id de la llamada con el reproductor abierto
+  const [escuchando, setEscuchando] = useState(null);
+  const [detalle, setDetalle] = useState(null);
   useEffect(() => {
     let vigente = true;
     setCargando(true);
@@ -63,83 +103,60 @@ function HistorialModal({ cuenta, onClose }) {
       vigente = false;
     };
   }, [cuenta.id_configuracion, page]);
-  useEffect(() => {
-    const esc = (e) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
   const paginas = Math.max(1, Math.ceil(datos.total / datos.limit));
-  const salieron = new Map();
-  datos.data.forEach((l) => {
-    if (l.caller_id) salieron.set(l.caller_id, (salieron.get(l.caller_id) || 0) + 1);
-  });
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">
-              Llamadas de #{cuenta.id_configuracion} {cuenta.nombre_configuracion || ""}
-            </h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {datos.total} llamada{datos.total === 1 ? "" : "s"} · saldo {fmtUSD(cuenta.saldo_centavos)} · número configurado {tel(cuenta.caller_id)}
-              {salieron.size > 0 ? (
-                <>
-                  {" "}· en esta página salieron con {[...salieron.entries()].map(([n, c]) => `${tel(n)} (${c})`).join(", ")}
-                </>
-              ) : null}
-            </p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Cerrar">
-            <i className="bx bx-x text-2xl" />
-          </button>
-        </div>
-        <div className="overflow-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2">Fecha</th>
-                <th className="px-4 py-2">Asesor</th>
-                <th className="px-4 py-2">Cliente</th>
-                <th className="px-4 py-2">Salió con</th>
-                <th className="px-4 py-2">Estado</th>
-                <th className="px-4 py-2">Duración</th>
-                <th className="px-4 py-2">Costo</th>
-                <th className="px-4 py-2">Grabación</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cargando && datos.data.length === 0 ? (
-                <tr><td colSpan="8" className="px-4 py-8 text-center text-slate-400">Cargando…</td></tr>
-              ) : datos.data.length === 0 ? (
-                <tr><td colSpan="8" className="px-4 py-8 text-center text-slate-400">Esta conexión todavía no ha hecho llamadas.</td></tr>
-              ) : (
-                datos.data.map((l) => {
-                  const [txt, cls] = ESTADOS[l.estado] || [l.estado, "text-slate-600"];
-                  return (
-                    <tr key={l.id} className="border-t border-slate-100">
-                      <td className="px-4 py-2 whitespace-nowrap">{fmtFecha(l.inicio_at)}</td>
-                      <td className="px-4 py-2">{l.asesor || `Asesor ${l.id_sub_usuario}`} <span className="text-xs text-slate-400">ext {l.extension}</span></td>
-                      <td className="px-4 py-2">
+    <Modal
+      titulo={`Llamadas de #${cuenta.id_configuracion} ${cuenta.nombre_configuracion || ""}`}
+      subtitulo={`${datos.total} llamada${datos.total === 1 ? "" : "s"} · saldo ${fmtUSD(cuenta.saldo_centavos)} · "Salió con" es el número que Zadarma reporta haber enviado en cada llamada`}
+      onClose={onClose}
+      ancho="max-w-6xl"
+    >
+      <div className="overflow-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="sticky top-0 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-2">Fecha</th>
+              <th className="px-4 py-2">Asesor</th>
+              <th className="px-4 py-2">Cliente</th>
+              <th className="px-4 py-2">Salió con</th>
+              <th className="px-4 py-2">Estado</th>
+              <th className="px-4 py-2">Duración</th>
+              <th className="px-4 py-2">Costo</th>
+              <th className="px-4 py-2">Grabación</th>
+              <th className="px-4 py-2">Resumen IA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cargando && datos.data.length === 0 ? (
+              <tr><td colSpan="9" className="px-4 py-8 text-center text-slate-400">Cargando…</td></tr>
+            ) : datos.data.length === 0 ? (
+              <tr><td colSpan="9" className="px-4 py-8 text-center text-slate-400">Esta conexión todavía no ha hecho llamadas.</td></tr>
+            ) : (
+              datos.data.map((l) => {
+                const [txt, cls] = ESTADOS[l.estado] || [l.estado, "text-slate-600"];
+                return (
+                  <Fragment key={l.id}>
+                    <tr className="border-t border-slate-100 align-top">
+                      <td className="whitespace-nowrap px-4 py-2 text-xs">{fmtFecha(l.inicio_at)}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {l.asesor || `Asesor ${l.id_sub_usuario}`} <span className="text-slate-400">ext {l.extension}</span>
+                      </td>
+                      <td className="px-4 py-2 text-xs">
                         <div className="font-medium text-slate-800">{l.cliente || "—"}</div>
-                        <div className="text-xs text-slate-500">{tel(l.telefono_cliente)}</div>
+                        <div className="text-slate-500">{tel(l.telefono_cliente)}</div>
                       </td>
-                      <td className="px-4 py-2 font-semibold">
-                        {l.caller_id ? tel(l.caller_id) : <span className="font-normal text-slate-400" title="Zadarma no reportó el número enviado (llamada anterior a esta función o aún en curso)">sin dato</span>}
+                      <td className="whitespace-nowrap px-4 py-2 text-xs font-semibold">
+                        {l.caller_id ? tel(l.caller_id) : <span className="font-normal text-slate-400">sin dato</span>}
                       </td>
-                      <td className={`px-4 py-2 font-semibold ${cls}`}>{txt}{l.disposition && !ESTADOS[l.estado] ? ` (${l.disposition})` : ""}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{l.estado === "answered" ? fmtSeg(l.duracion_seg) : "—"}</td>
-                      <td className="px-4 py-2">{l.costo_centavos ? fmtUSD(l.costo_centavos) : "—"}</td>
-                      <td className="px-4 py-2">
+                      <td className={`whitespace-nowrap px-4 py-2 text-xs font-semibold ${cls}`}>{txt}</td>
+                      <td className="whitespace-nowrap px-4 py-2 text-xs">{l.estado === "answered" ? fmtSeg(l.duracion_seg) : "—"}</td>
+                      <td className="px-4 py-2 text-xs">{l.costo_centavos ? fmtUSD(l.costo_centavos) : "—"}</td>
+                      <td className="px-4 py-2 text-xs">
                         {l.grabacion_url ? (
-                          /* Reproductor en la misma fila: el enlace de Zadarma
-                             viene como descarga, así que un <a> bajaba el
-                             archivo al PC. El <audio> lo reproduce en línea sin
-                             guardar nada; "descargar" queda para quien lo quiera. */
                           escuchando === l.id ? (
                             <div className="flex items-center gap-2">
-                              <audio controls autoPlay src={l.grabacion_url} className="h-8 w-56" />
-                              <a href={l.grabacion_url} download className="text-xs text-slate-500 hover:underline" title="Guardar el archivo en tu PC">descargar</a>
+                              <audio controls autoPlay src={l.grabacion_url} className="h-8 w-52" />
+                              <a href={l.grabacion_url} download className="text-slate-500 hover:underline" title="Guardar el archivo en tu PC">descargar</a>
                             </div>
                           ) : (
                             <button type="button" onClick={() => setEscuchando(l.id)} className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
@@ -152,200 +169,197 @@ function HistorialModal({ cuenta, onClose }) {
                           <span className="text-slate-400">—</span>
                         )}
                       </td>
+                      <td className="max-w-xs px-4 py-2">
+                        <ResumenIACelda l={l} abierto={detalle === l.id} onToggle={() => setDetalle((d) => (d === l.id ? null : l.id))} />
+                      </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-sm">
-          <span className="text-slate-500">Página {page} de {paginas}</span>
-          <div className="flex gap-2">
-            <button type="button" disabled={page <= 1 || cargando} onClick={() => setPage((p) => p - 1)} className={`${btn} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
-              <i className="bx bx-chevron-left" /> Anterior
-            </button>
-            <button type="button" disabled={page >= paginas || cargando} onClick={() => setPage((p) => p + 1)} className={`${btn} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
-              Siguiente <i className="bx bx-chevron-right" />
-            </button>
-          </div>
+                    {detalle === l.id && l.ia_estado === "listo" ? (
+                      <tr className="bg-slate-50">
+                        <td colSpan="9" className="px-4 py-3"><DetalleIA l={l} /></td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-sm">
+        <span className="text-slate-500">Página {page} de {paginas}</span>
+        <div className="flex gap-2">
+          <button type="button" disabled={page <= 1 || cargando} onClick={() => setPage((p) => p - 1)} className={btnSuave}>
+            <i className="bx bx-chevron-left" /> Anterior
+          </button>
+          <button type="button" disabled={page >= paginas || cargando} onClick={() => setPage((p) => p + 1)} className={btnSuave}>
+            Siguiente <i className="bx bx-chevron-right" />
+          </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
-function Aviso({ tipo = "info", children }) {
-  const cls =
-    tipo === "ok"
-      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-      : tipo === "error"
-        ? "bg-rose-50 text-rose-700 border-rose-200"
-        : "bg-sky-50 text-sky-800 border-sky-200";
-  return <div className={`mt-3 rounded-lg border px-3 py-2 text-sm ${cls}`}>{children}</div>;
-}
-
-function Paso({ n, titulo, hecho, children }) {
-  return (
-    <section className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center gap-3">
-        <span
-          className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-extrabold ${
-            hecho ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"
-          }`}
-        >
-          {hecho ? <i className="bx bx-check text-xl" /> : n}
-        </span>
-        <div>
-          <h2 className="text-base font-extrabold text-slate-900">{titulo}</h2>
-          <div className={`text-xs font-semibold ${hecho ? "text-emerald-600" : "text-slate-400"}`}>
-            {hecho ? "Listo" : "Pendiente"}
-          </div>
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-export default function TelefoniaAdmin() {
-  /* ── Paso 1: cuenta maestra ── */
-  const [maestra, setMaestra] = useState(null);
-  const [form, setForm] = useState({ user_key: "", secret: "" });
-  const [msg1, setMsg1] = useState(null);
-  const [guardando, setGuardando] = useState(false);
-  const [editarLlaves, setEditarLlaves] = useState(false);
-
-  const cargarMaestra = useCallback(async () => {
-    try {
-      const { data } = await chatApi.get("/telefonia/maestra");
-      setMaestra(data?.data || { configurada: false });
-    } catch (err) {
-      setMaestra({ configurada: false, error: err?.response?.data?.message || "No se pudo consultar" });
-    }
-  }, []);
-
-  /* ── Paso 3 / central ── */
-  const [diag, setDiag] = useState(null);
-  const cargarDiagnostico = useCallback(async () => {
-    try {
-      const { data } = await chatApi.get("/telefonia/diagnostico");
-      setDiag(data?.data || null);
-    } catch {
-      setDiag(null);
-    }
-  }, []);
-
-  const [cuentas, setCuentas] = useState([]);
-  const [resumen, setResumen] = useState(null); // cobertura: vendido vs saldo Zadarma
-  const cargarCuentas = useCallback(async () => {
-    try {
-      const { data } = await chatApi.get("/telefonia/cuentas");
-      setCuentas(data?.data || []);
-      setResumen(data?.resumen || null);
-    } catch {
-      setCuentas([]);
-      setResumen(null);
-    }
-  }, []);
-
+/* ── Dar saldo / precio a una conexión ───────────────────────────────── */
+function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
+  const [tarifa, setTarifa] = useState(cuenta ? (cuenta.tarifa_centavos_min / 100).toFixed(2) : "0.40");
+  const [dolares, setDolares] = useState("10");
+  const [costo, setCosto] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [ocupado, setOcupado] = useState(false);
   useEffect(() => {
-    cargarMaestra();
-    cargarDiagnostico();
-    cargarCuentas();
-  }, [cargarMaestra, cargarDiagnostico, cargarCuentas]);
-
-  const guardarLlaves = async (e) => {
-    e.preventDefault();
-    setGuardando(true);
-    setMsg1(null);
-    try {
-      const { data } = await chatApi.post("/telefonia/maestra", form);
-      const b = data?.data?.balance;
-      setMsg1({ tipo: "ok", texto: `Cuenta vinculada. Saldo en Zadarma: ${b?.balance} ${b?.currency || ""}` });
-      setForm({ user_key: "", secret: "" });
-      cargarMaestra();
-      cargarDiagnostico();
-    } catch (err) {
-      setMsg1({ tipo: "error", texto: err?.response?.data?.message || "Zadarma no aceptó las llaves" });
-    } finally {
-      setGuardando(false);
-    }
-  };
-
-  /* ── Paso 2: instalación ── */
-  const [instalando, setInstalando] = useState(false);
-  const [msg2, setMsg2] = useState(null);
-  const [urlWebhook, setUrlWebhook] = useState("https://chat.imporfactory.app/api/v1/telefonia/webhook");
-  const instalar = async () => {
-    setInstalando(true);
-    setMsg2(null);
-    try {
-      const { data } = await chatApi.post("/telefonia/instalar", { url: urlWebhook });
-      const g = data?.data?.grabacion || {};
-      const enc = (g.encendidas || []).join(", ");
-      const err = (g.errores || []).join(" · ");
-      setMsg2({
-        tipo: err && !enc ? "error" : "ok",
-        texto: `Zadarma ya nos avisa de cada llamada. Grabación encendida en: ${enc || "ninguna"}${err ? `. Fallaron: ${err}` : ""}.`,
-      });
-      cargarMaestra();
-    } catch (err) {
-      setMsg2({ tipo: "error", texto: err?.response?.data?.message || "No se pudo instalar" });
-    } finally {
-      setInstalando(false);
-    }
-  };
-
-  /* ── Paso 3: saldo por conexión ── */
-  const [q, setQ] = useState("");
-  const [resultados, setResultados] = useState([]);
-  const [sel, setSel] = useState(null);
-  const [recarga, setRecarga] = useState({ dolares: "10", tarifa: "0.40", caller_id: "" });
-  const [hist, setHist] = useState(null); // conexión cuyo historial de llamadas está abierto
-  const [msg3, setMsg3] = useState(null);
-  const [numero, setNumero] = useState(null); // { verificado, detalle } del número de salida
-  const [comprobando, setComprobando] = useState(false);
-  const [costo, setCosto] = useState(null); // costo real de Zadarma por minuto para el país de la conexión
-
-  useEffect(() => {
-    if (!sel) {
-      setCosto(null);
-      return undefined;
-    }
     let vigente = true;
     chatApi
-      .get("/telefonia/costo", { params: { id_configuracion: sel.id } })
+      .get("/telefonia/costo", { params: { id_configuracion: conexion.id } })
       .then(({ data }) => vigente && setCosto(data?.data || null))
       .catch(() => vigente && setCosto(null));
     return () => {
       vigente = false;
     };
-  }, [sel]);
+  }, [conexion.id]);
 
-  const tarifaC = Math.round(Number(recarga.tarifa || 0) * 100);
+  const tarifaC = Math.round(Number(tarifa || 0) * 100);
   const costoC = costo?.centavos_min || 0;
-  const margenPct = tarifaC > 0 && costoC ? Math.round(((tarifaC - costoC) / tarifaC) * 100) : null;
-  const recargaC = Math.round(Number(recarga.dolares || 0) * 100);
-  const costoTrasRecarga =
-    resumen && costoC && tarifaC > 0 ? resumen.costo_pendiente_centavos + (recargaC / tarifaC) * costoC : null;
-  const excedeZadarma =
-    costoTrasRecarga != null && resumen?.saldo_zadarma_centavos != null && costoTrasRecarga > resumen.saldo_zadarma_centavos;
+  const recargaC = Math.round(Number(dolares || 0) * 100);
+  const minutos = tarifaC > 0 ? Math.floor(recargaC / tarifaC) : 0;
+  const costoNuevo = costoC && tarifaC > 0 ? (recargaC / tarifaC) * costoC : 0;
+  const disponible = resumen?.saldo_zadarma_centavos != null ? resumen.saldo_zadarma_centavos - (resumen.costo_pendiente_centavos || 0) : null;
+  const excede = disponible != null && costoNuevo > disponible;
+  const maxRecarga = disponible != null && costoC && tarifaC > 0 ? Math.max(0, Math.floor((disponible / costoC) * tarifaC)) : null;
 
-  const comprobarNumero = async () => {
-    if (!sel || !recarga.caller_id) return;
-    setComprobando(true);
+  const guardarPrecio = async () => {
+    setOcupado(true);
+    setMsg(null);
     try {
-      const { data } = await chatApi.post("/telefonia/cuenta/comprobar-numero", { id_configuracion: sel.id, numero: recarga.caller_id });
-      setNumero(data?.data || null);
-      cargarCuentas();
+      await chatApi.post("/telefonia/cuenta", { id_configuracion: conexion.id, tarifa_centavos_min: tarifaC, activo: true });
+      setMsg({ tipo: "ok", texto: `Precio guardado: ${fmtUSD(tarifaC)} por minuto.` });
+      onDone();
     } catch (err) {
-      setNumero({ verificado: false, detalle: err?.response?.data?.message || "No se pudo comprobar" });
+      setMsg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo guardar" });
     } finally {
-      setComprobando(false);
+      setOcupado(false);
+    }
+  };
+  const cargar = async () => {
+    setOcupado(true);
+    setMsg(null);
+    try {
+      // El precio se guarda junto con la recarga, para no exigir dos clics.
+      await chatApi.post("/telefonia/cuenta", { id_configuracion: conexion.id, tarifa_centavos_min: tarifaC, activo: true });
+      const { data } = await chatApi.post("/telefonia/recargar", { id_configuracion: conexion.id, centavos: recargaC, detalle: "Recarga desde /telefonia" });
+      setMsg({ tipo: "ok", texto: `Saldo cargado. La conexión ahora tiene ${fmtUSD(data?.data?.saldo_centavos)} (${Math.floor((data?.data?.saldo_centavos || 0) / tarifaC)} min).` });
+      onDone();
+    } catch (err) {
+      setMsg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo recargar" });
+    } finally {
+      setOcupado(false);
     }
   };
 
+  return (
+    <Modal
+      titulo={`#${conexion.id} ${conexion.nombre_configuracion || ""}`}
+      subtitulo={`${tel(conexion.telefono)}${cuenta ? ` · saldo actual ${fmtUSD(cuenta.saldo_centavos)}` : " · todavía sin telefonía"}`}
+      onClose={onClose}
+    >
+      <div className="space-y-4 px-5 py-4">
+        <div>
+          <label htmlFor="tel-tarifa" className="block text-xs font-semibold text-slate-600">Precio por minuto que le cobras (USD)</label>
+          <div className="mt-1 flex gap-2">
+            <input id="tel-tarifa" className={input} value={tarifa} onChange={(e) => setTarifa(e.target.value)} inputMode="decimal" />
+            {costoC ? (
+              <button type="button" onClick={() => setTarifa((costoC / 100).toFixed(2))} className={`${btnSuave} whitespace-nowrap`} title="Para conexiones propias de Imporfactory: se cobra lo mismo que cuesta en Zadarma">
+                Al costo
+              </button>
+            ) : null}
+          </div>
+          <div className={`mt-2 rounded-lg px-3 py-2 text-xs ${!costoC ? "bg-slate-50 text-slate-500" : tarifaC < costoC ? "bg-rose-50 text-rose-800" : tarifaC === costoC ? "bg-sky-50 text-sky-800" : "bg-emerald-50 text-emerald-800"}`}>
+            {!costoC ? (
+              "Consultando el costo real en Zadarma…"
+            ) : (
+              <>
+                Zadarma cobra <b>{fmtUSD(costoC)}/min</b> ({costo.descripcion}).{" "}
+                {tarifaC < costoC
+                  ? `Pierdes ${fmtUSD(costoC - tarifaC)} por minuto.`
+                  : tarifaC === costoC
+                    ? "Al costo: ni ganas ni pierdes."
+                    : `Ganas ${fmtUSD(tarifaC - costoC)} por minuto (margen ${Math.round(((tarifaC - costoC) / tarifaC) * 100)}%).`}
+              </>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="tel-monto" className="block text-xs font-semibold text-slate-600">Saldo a cargar (USD)</label>
+          <input id="tel-monto" className={`${input} mt-1`} value={dolares} onChange={(e) => setDolares(e.target.value)} inputMode="decimal" />
+          <div className="mt-1 text-xs text-slate-500">
+            Son unos <b>{minutos} minutos</b> a {fmtUSD(tarifaC)}. Le costarían {fmtUSD(costoNuevo)} a Imporfactory en Zadarma
+            {disponible != null ? <>, donde quedan {fmtUSD(Math.max(0, disponible))} sin comprometer</> : null}.
+          </div>
+          {excede ? (
+            <div className="mt-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+              <b>No se puede cargar:</b> Zadarma no cubre estos minutos. {maxRecarga > 0 ? `Máximo ahora: ${fmtUSD(maxRecarga)}.` : "Recarga primero en Zadarma."}
+            </div>
+          ) : null}
+        </div>
+
+        {msg ? <Aviso tipo={msg.tipo}>{msg.texto}</Aviso> : null}
+      </div>
+      <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <button type="button" onClick={guardarPrecio} disabled={ocupado || tarifaC <= 0} className={btnSuave}>Guardar solo el precio</button>
+        <button type="button" onClick={cargar} disabled={ocupado || excede || recargaC <= 0 || tarifaC <= 0} className={btnPrimario}>
+          <i className="bx bx-plus-circle" /> Cargar {fmtUSD(recargaC)}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Fila de estado del panel de configuración ───────────────────────── */
+function Estado({ ok, titulo, detalle, children }) {
+  return (
+    <div className="flex gap-3 border-t border-slate-100 py-3 first:border-t-0 first:pt-0">
+      <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-sm ${ok ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+        <i className={`bx ${ok ? "bx-check" : "bx-time-five"}`} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-bold text-slate-900">{titulo}</div>
+        {detalle ? <div className="text-xs text-slate-500">{detalle}</div> : null}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export default function TelefoniaAdmin() {
+  const [maestra, setMaestra] = useState(null);
+  const [diag, setDiag] = useState(null);
+  const [cuentas, setCuentas] = useState([]);
+  const [resumen, setResumen] = useState(null);
+  const [ia, setIa] = useState(null);
+
+  const cargarTodo = useCallback(async () => {
+    const [m, d, c, i] = await Promise.allSettled([
+      chatApi.get("/telefonia/maestra"),
+      chatApi.get("/telefonia/diagnostico"),
+      chatApi.get("/telefonia/cuentas"),
+      chatApi.get("/telefonia/ia"),
+    ]);
+    setMaestra(m.status === "fulfilled" ? m.value.data?.data || { configurada: false } : { configurada: false });
+    setDiag(d.status === "fulfilled" ? d.value.data?.data || null : null);
+    if (c.status === "fulfilled") {
+      setCuentas(c.value.data?.data || []);
+      setResumen(c.value.data?.resumen || null);
+    }
+    setIa(i.status === "fulfilled" ? i.value.data?.data || null : null);
+  }, []);
+  useEffect(() => {
+    cargarTodo();
+  }, [cargarTodo]);
+
+  /* buscador */
+  const [q, setQ] = useState("");
+  const [resultados, setResultados] = useState([]);
   useEffect(() => {
     if (!q.trim()) {
       setResultados([]);
@@ -362,358 +376,238 @@ export default function TelefoniaAdmin() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const elegir = (c) => {
-    setSel(c);
+  /* modales */
+  const [saldoDe, setSaldoDe] = useState(null); // { conexion, cuenta }
+  const [hist, setHist] = useState(null);
+  const abrirSaldo = (conexion) => {
+    const cuenta = cuentas.find((x) => Number(x.id_configuracion) === Number(conexion.id)) || null;
+    setSaldoDe({ conexion, cuenta });
     setQ("");
     setResultados([]);
-    const existente = cuentas.find((x) => Number(x.id_configuracion) === Number(c.id));
-    setRecarga({
-      dolares: "10",
-      tarifa: existente ? (existente.tarifa_centavos_min / 100).toFixed(2) : "0.40",
-      caller_id: existente?.caller_id || c.telefono || "",
-    });
-    setMsg3(null);
-    setNumero(
-      existente && existente.caller_id
-        ? { verificado: Number(existente.numero_verificado) === 1, detalle: existente.numero_comprobado_at ? null : "Sin comprobar todavía" }
-        : null,
-    );
+  };
+  const alternar = async (c) => {
+    await chatApi.post("/telefonia/cuenta", { id_configuracion: c.id_configuracion, activo: Number(c.activo) !== 1 });
+    cargarTodo();
   };
 
-  const guardarCuenta = async () => {
-    if (!sel) return;
-    setMsg3(null);
+  /* configuración de Imporfactory */
+  const [form, setForm] = useState({ user_key: "", secret: "" });
+  const [editarLlaves, setEditarLlaves] = useState(false);
+  const [msgCfg, setMsgCfg] = useState(null);
+  const [ocupadoCfg, setOcupadoCfg] = useState(false);
+  const guardarLlaves = async (e) => {
+    e.preventDefault();
+    setOcupadoCfg(true);
+    setMsgCfg(null);
     try {
-      const { data } = await chatApi.post("/telefonia/cuenta", {
-        id_configuracion: sel.id,
-        tarifa_centavos_min: Math.round(Number(recarga.tarifa) * 100),
-        caller_id: recarga.caller_id,
-        activo: true,
-      });
-      setNumero(data?.data?.numero || null);
-      setMsg3({ tipo: "ok", texto: "Precio por minuto y número de salida guardados." });
-      cargarCuentas();
+      const { data } = await chatApi.post("/telefonia/maestra", form);
+      const b = data?.data?.balance;
+      setMsgCfg({ tipo: "ok", texto: `Cuenta vinculada. Saldo en Zadarma: ${b?.balance} ${b?.currency || ""}` });
+      setForm({ user_key: "", secret: "" });
+      setEditarLlaves(false);
+      cargarTodo();
     } catch (err) {
-      setMsg3({ tipo: "error", texto: err?.response?.data?.message || "No se pudo guardar" });
+      setMsgCfg({ tipo: "error", texto: err?.response?.data?.message || "Zadarma no aceptó las llaves" });
+    } finally {
+      setOcupadoCfg(false);
     }
   };
-
-  const recargarSaldo = async () => {
-    if (!sel) return;
-    setMsg3(null);
+  const instalar = async () => {
+    setOcupadoCfg(true);
+    setMsgCfg(null);
     try {
-      const { data } = await chatApi.post("/telefonia/recargar", {
-        id_configuracion: sel.id,
-        centavos: Math.round(Number(recarga.dolares) * 100),
-        detalle: "Recarga desde /telefonia",
-      });
-      setMsg3({ tipo: "ok", texto: `Saldo cargado. La conexión ahora tiene ${fmtUSD(data?.data?.saldo_centavos)}.` });
-      cargarCuentas();
+      const { data } = await chatApi.post("/telefonia/instalar", { url: "https://chat.imporfactory.app/api/v1/telefonia/webhook" });
+      const g = data?.data?.grabacion || {};
+      const enc = (g.encendidas || []).join(", ");
+      const err = (g.errores || []).join(" · ");
+      setMsgCfg({ tipo: err && !enc ? "error" : "ok", texto: `Avisos instalados. Grabación encendida en: ${enc || "ninguna"}${err ? `. Fallaron: ${err}` : ""}.` });
+      cargarTodo();
     } catch (err) {
-      setMsg3({ tipo: "error", texto: err?.response?.data?.message || "No se pudo recargar" });
+      setMsgCfg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo instalar" });
+    } finally {
+      setOcupadoCfg(false);
     }
+  };
+  const reanalizar = async () => {
+    const { data } = await chatApi.post("/telefonia/ia/reanalizar", {});
+    setMsgCfg({ tipo: "ok", texto: `IA: reintentadas ${data?.data?.intentadas || 0}, listas ${data?.data?.listas || 0}.` });
+    cargarTodo();
   };
 
   const vinculada = !!maestra?.configurada;
   const instalada = !!maestra?.webhook_url;
-  const minutos = (dolares, tarifa) => {
-    const t = Number(tarifa);
-    return t > 0 ? Math.floor(Number(dolares || 0) / t) : 0;
-  };
+  const totalLlamadas = cuentas.reduce((a, c) => a + Number(c.llamadas || 0), 0);
+  const pendientesIA = (ia?.sin_llave || 0) + (ia?.con_error || 0);
 
   return (
-    <div className="w-full px-4 py-5 sm:px-6 space-y-5">
+    <div className="w-full space-y-4 px-4 py-5 sm:px-6">
       {/* Cabecera */}
-      <header className="rounded-2xl bg-[#0B1426] px-5 py-5 text-white sm:px-7">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-cyan-300">ImporChat · Telefonía por saldo</div>
-        <h1 className="mt-1 text-2xl font-extrabold">Llamadas al celular con Zadarma</h1>
-        <p className="mt-2 max-w-3xl text-sm text-slate-300">
-          Imporfactory compra los minutos en su cuenta de Zadarma y se los vende a cada conexión como saldo. El asesor ve en
-          el chat el botón <b className="text-white">Llamar al celular</b> y un teléfono flotante: al llamar, primero le suena
-          ese teléfono, contesta, y Zadarma marca al cliente mostrándole el número de la tienda.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-4 text-sm">
-          <div className="rounded-lg bg-white/10 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Cuenta Zadarma</div>
-            <div className="font-bold">{vinculada ? "Vinculada" : "Sin vincular"}</div>
+      <header className="rounded-2xl bg-[#0B1426] px-5 py-4 text-white sm:px-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-widest text-cyan-300">ImporChat · Telefonía por saldo</div>
+            <h1 className="mt-0.5 text-xl font-extrabold">Llamadas al celular desde el chat</h1>
+            <p className="mt-1 max-w-2xl text-xs text-slate-300">
+              Imporfactory compra los minutos en Zadarma y los vende a cada conexión como saldo. Cada llamada queda grabada y la IA la resume con la llave de OpenAI de esa conexión.
+            </p>
           </div>
+          <div className={`rounded-lg px-3 py-1.5 text-xs font-bold ${vinculada && instalada ? "bg-emerald-500/20 text-emerald-200" : "bg-amber-500/20 text-amber-200"}`}>
+            {vinculada && instalada ? "Servicio operativo" : "Falta configurar"}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="rounded-lg bg-white/10 px-3 py-2">
             <div className="text-[10px] uppercase tracking-wider text-slate-400">Saldo en Zadarma</div>
-            <div className="font-bold">
-              {maestra?.balance ? `${maestra.balance.balance} ${maestra.balance.currency}` : "—"}
-            </div>
+            <div className="text-lg font-extrabold">{resumen?.saldo_zadarma_centavos != null ? fmtUSD(resumen.saldo_zadarma_centavos) : "—"}</div>
+            <div className="text-[11px] text-slate-400">{diag?.plan?.nombre ? `plan ${diag.plan.nombre}${diag.plan.activo ? "" : " (inactivo)"}` : ""}</div>
           </div>
           <div className="rounded-lg bg-white/10 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Plan de llamadas</div>
-            <div className="font-bold">
-              {diag?.plan?.nombre ? `${diag.plan.nombre === "Standard" ? "Estándar (por segundo)" : diag.plan.nombre}${diag.plan.activo ? "" : " · se activa al recargar"}` : "—"}
-            </div>
-          </div>
-          <div className="rounded-lg bg-white/10 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Extensiones en la central</div>
-            <div className="font-bold">{diag?.central?.numbers?.length ?? "—"}</div>
-          </div>
-          <div className="rounded-lg bg-white/10 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Vendido a clientes</div>
-            <div className="font-bold">
-              {resumen ? `${fmtUSD(resumen.asignado_centavos)} · ${resumen.minutos_vendidos} min · ${cuentas.length} conexiones` : cuentas.length}
-            </div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Vendido a conexiones</div>
+            <div className="text-lg font-extrabold">{resumen ? fmtUSD(resumen.asignado_centavos) : "—"}</div>
+            <div className="text-[11px] text-slate-400">{resumen ? `${resumen.minutos_vendidos} min · ${cuentas.length} conexiones` : ""}</div>
           </div>
           <div className={`rounded-lg px-3 py-2 ${resumen?.cubierto === false ? "bg-rose-500/30" : "bg-white/10"}`}>
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Lo que esos minutos cuestan en Zadarma</div>
-            <div className="font-bold">{resumen?.costo_pendiente_centavos != null ? fmtUSD(resumen.costo_pendiente_centavos) : "—"}</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Costo de esos minutos</div>
+            <div className="text-lg font-extrabold">{resumen?.costo_pendiente_centavos != null ? fmtUSD(resumen.costo_pendiente_centavos) : "—"}</div>
+            <div className="text-[11px] text-slate-400">{resumen?.cubierto === false ? "Zadarma no lo cubre: recarga" : resumen?.cubierto ? "cubierto por el saldo" : ""}</div>
+          </div>
+          <div className="rounded-lg bg-white/10 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Llamadas · análisis IA</div>
+            <div className="text-lg font-extrabold">{totalLlamadas} · {ia?.listas ?? "—"}</div>
+            <div className="text-[11px] text-slate-400">{ia ? `${fmtUSD(ia.costo_centavos)} en OpenAI${pendientesIA ? ` · ${pendientesIA} sin analizar` : ""}` : ""}</div>
           </div>
         </div>
-        {resumen?.cubierto === false ? (
-          <div className="mt-3 rounded-lg border border-rose-300 bg-rose-500/20 px-3 py-2 text-sm">
-            <b>Saldo insuficiente en Zadarma.</b> Los minutos que ya vendiste costarían {fmtUSD(resumen.costo_pendiente_centavos)} y en Zadarma hay {fmtUSD(resumen.saldo_zadarma_centavos)}. Recarga en Zadarma antes de seguir asignando saldo.
-          </div>
-        ) : null}
       </header>
 
-      {/* Tres pasos */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-        {/* Paso 1 */}
-        <Paso n={1} titulo="Vincular la cuenta de Zadarma" hecho={vinculada}>
-          <p className="mb-3 text-sm text-slate-600">
-            Entra a <b>my.zadarma.com → Configuración → Integraciones y API</b>, genera las dos llaves y pégalas aquí. Las
-            probamos con Zadarma al guardar; la secreta queda cifrada en nuestra base.
-          </p>
-          {vinculada ? (
-            <div className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              Llave actual <code className="font-mono">{maestra.user_key}</code>
-              {maestra.secret_last4 ? <> · secreta <code className="font-mono">····{maestra.secret_last4}</code></> : null}
-              {maestra.balance_error ? <div className="mt-1 text-rose-600">Zadarma responde: {maestra.balance_error}</div> : null}
+        {/* Conexiones */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">Conexiones con telefonía</h2>
+              <p className="text-xs text-slate-500">Busca una conexión para darle saldo. En el chat de esa conexión aparece el botón Llamar.</p>
             </div>
-          ) : null}
-          {vinculada && !editarLlaves ? (
-            <button type="button" onClick={() => setEditarLlaves(true)} className={`${btn} w-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
-              <i className="bx bx-edit-alt text-lg" /> Reemplazar llaves
-            </button>
-          ) : (
-          <form onSubmit={guardarLlaves} className="space-y-3">
-            <label className="block text-xs font-semibold text-slate-600">
-              Llave de usuario
-              <input id="tel-user-key" className={`${input} mt-1`} value={form.user_key} onChange={(e) => setForm((f) => ({ ...f, user_key: e.target.value }))} autoComplete="off" placeholder="20 caracteres" />
-            </label>
-            <label className="block text-xs font-semibold text-slate-600">
-              Llave secreta
-              <input id="tel-secret" className={`${input} mt-1`} type="password" value={form.secret} onChange={(e) => setForm((f) => ({ ...f, secret: e.target.value }))} autoComplete="new-password" placeholder="20 caracteres" />
-            </label>
-            <button type="submit" disabled={guardando || !form.user_key || !form.secret} className={`${btn} w-full bg-indigo-600 text-white hover:bg-indigo-700`}>
-              <i className={`bx ${guardando ? "bx-loader-alt bx-spin" : "bx-link"} text-lg`} />
-              {vinculada ? "Guardar nuevas llaves" : "Vincular cuenta"}
-            </button>
-          </form>
-          )}
-          {msg1 ? <Aviso tipo={msg1.tipo}>{msg1.texto}</Aviso> : null}
-        </Paso>
-
-        {/* Paso 2 */}
-        <Paso n={2} titulo="Instalar en Zadarma" hecho={instalada}>
-          <p className="mb-3 text-sm text-slate-600">
-            Con un clic le decimos a Zadarma a dónde avisarnos de cada llamada (para descontar el saldo y dejar el registro
-            en el chat) y encendemos la grabación de la central.
-          </p>
-          <label className="mb-3 block text-xs font-semibold text-slate-600">
-            Dirección pública a la que Zadarma nos avisa
-            <input id="tel-webhook-url" className={`${input} mt-1`} value={urlWebhook} onChange={(e) => setUrlWebhook(e.target.value)} />
-            <span className="mt-1 block font-normal text-slate-500">
-              Debe ser un servidor publicado con esta versión del backend: Zadarma la comprueba antes de aceptarla. Con el backend en tu computador no funciona.
-            </span>
-          </label>
-          <button type="button" onClick={instalar} disabled={instalando || !vinculada || !urlWebhook} className={`${btn} w-full bg-emerald-600 text-white hover:bg-emerald-700`}>
-            <i className={`bx ${instalando ? "bx-loader-alt bx-spin" : "bx-plug"} text-lg`} />
-            {instalada ? "Volver a instalar" : "Instalar"}
-          </button>
-          {instalada ? (
-            <div className="mt-2 text-xs text-slate-500">
-              Instalado{maestra.webhook_instalado_at ? ` el ${new Date(maestra.webhook_instalado_at).toLocaleString("es-EC")}` : ""}.
+            <div className="relative w-full sm:w-80">
+              <input id="tel-buscar" className={input} placeholder="Buscar por id, nombre o teléfono…" value={q} onChange={(e) => setQ(e.target.value)} />
+              {resultados.length ? (
+                <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                  {resultados.map((c) => (
+                    <li key={c.id}>
+                      <button type="button" onClick={() => abrirSaldo(c)} className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50">
+                        <b>#{c.id}</b> {c.nombre_configuracion} <span className="text-slate-400">{tel(c.telefono)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
-          ) : null}
-          {msg2 ? <Aviso tipo={msg2.tipo}>{msg2.texto}</Aviso> : null}
-
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
-            <div className="font-bold">Dos cosas que solo se hacen en Zadarma:</div>
-            <ol className="mt-1 list-decimal space-y-1 pl-5">
-              <li>
-                En <b>Integraciones y API → widget WebRTC</b>, registra los dominios <code>chatcenter.imporfactory.app</code> y <code>localhost</code>. Sin esto el teléfono flotante no aparece.
-              </li>
-              <li>
-                En <b>Mi PBX → Extensiones</b>, crea una extensión por cada asesor que vaya a llamar (100, 101, 102…). Se asignan solas al primer uso.
-              </li>
-            </ol>
           </div>
 
-          {diag?.configurado ? (
-            <div className="mt-4 text-sm text-slate-600">
-              <div className="font-semibold text-slate-800">Central ahora</div>
-              <div>Extensiones: {(diag.central?.numbers || []).join(", ") || diag.central?.error || "ninguna todavía"}</div>
-              <div>
-                Asignadas:{" "}
-                {(diag.extensiones_asignadas || []).length
-                  ? diag.extensiones_asignadas.map((e) => `${e.extension} → asesor ${e.id_sub_usuario}`).join(" · ")
-                  : "ninguna todavía"}
-              </div>
-            </div>
-          ) : null}
-        </Paso>
-
-        {/* Paso 3 */}
-        <Paso n={3} titulo="Dar saldo a una conexión" hecho={cuentas.length > 0}>
-          <p className="mb-3 text-sm text-slate-600">
-            Busca la conexión del cliente, cárgale saldo y define a cuánto le vendes el minuto y con qué número salen sus
-            llamadas. El número debe estar verificado en Zadarma como número propio.
-          </p>
-          <div className="relative">
-            <input id="tel-buscar" className={input} placeholder="Buscar por id, nombre o teléfono…" value={q} onChange={(e) => setQ(e.target.value)} />
-            {resultados.length ? (
-              <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                {resultados.map((c) => (
-                  <li key={c.id}>
-                    <button type="button" onClick={() => elegir(c)} className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50">
-                      <b>#{c.id}</b> {c.nombre_configuracion} <span className="text-slate-400">{tel(c.telefono)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-
-          {sel ? (
-            <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
-              <div className="text-sm font-bold text-slate-900">
-                #{sel.id} {sel.nombre_configuracion} <span className="font-normal text-slate-500">{tel(sel.telefono)}</span>
-              </div>
-              <div className="mt-3 space-y-3">
-                <label className="block text-xs font-semibold text-slate-600">
-                  Precio por minuto que le cobras (USD)
-                  <input className={`${input} mt-1`} value={recarga.tarifa} onChange={(e) => setRecarga((r) => ({ ...r, tarifa: e.target.value }))} inputMode="decimal" />
-                </label>
-                {!costoC ? (
-                  <div className="text-[11px] text-slate-400">Consultando el costo real en Zadarma…</div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-[11px] uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="py-2 pr-3">Conexión</th>
+                  <th className="py-2 pr-3">Saldo</th>
+                  <th className="py-2 pr-3">Precio/min</th>
+                  <th className="py-2 pr-3">Llamadas</th>
+                  <th className="py-2 pr-3">Estado</th>
+                  <th className="py-2 pr-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cuentas.length === 0 ? (
+                  <tr><td colSpan="6" className="py-8 text-center text-slate-400">Ninguna conexión tiene saldo todavía. Usa el buscador.</td></tr>
                 ) : (
-                  <div className={`rounded-lg border px-3 py-2 text-xs ${tarifaC <= costoC ? "border-rose-300 bg-rose-50 text-rose-800" : margenPct < 20 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
-                    <b>Costo real en Zadarma: {fmtUSD(costoC)} por minuto</b> ({costo.descripcion}).{" "}
-                    {tarifaC <= costoC
-                      ? `No es rentable: a ${fmtUSD(tarifaC)} pierdes ${fmtUSD(costoC - tarifaC)} por cada minuto que hable este cliente.`
-                      : `Ganas ${fmtUSD(tarifaC - costoC)} por minuto (margen ${margenPct}%).${margenPct < 20 ? " Es un margen bajo." : ""}`}
-                  </div>
+                  cuentas.map((c) => (
+                    <tr key={c.id_configuracion} className="border-t border-slate-100">
+                      <td className="py-2.5 pr-3">
+                        <div className="font-bold text-slate-900">#{c.id_configuracion} {c.nombre_configuracion || ""}</div>
+                        <div className="text-xs text-slate-400">{tel(c.telefono)}</div>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <div className="font-bold">{fmtUSD(c.saldo_centavos)}</div>
+                        <div className="text-xs text-slate-400">{Math.floor(c.saldo_centavos / c.tarifa_centavos_min)} min</div>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <div>{fmtUSD(c.tarifa_centavos_min)}</div>
+                        <div className="text-xs">
+                          {c.margen_pct == null ? <span className="text-slate-400">—</span> : c.margen_pct < 0 ? <span className="font-semibold text-rose-700">pierdes {fmtUSD(c.costo_centavos_min - c.tarifa_centavos_min)}/min</span> : c.margen_pct === 0 ? <span className="font-semibold text-sky-700">al costo</span> : <span className={c.margen_pct < 20 ? "font-semibold text-amber-700" : "font-semibold text-emerald-700"}>margen {c.margen_pct}%</span>}
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <button type="button" onClick={() => setHist(c)} className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">
+                          <i className="bx bx-history" /> {c.llamadas} · ver
+                        </button>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        {Number(c.activo) === 1 ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">activa</span> : <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-600">apagada</span>}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right">
+                        <div className="inline-flex gap-1">
+                          <button type="button" onClick={() => abrirSaldo({ id: c.id_configuracion, nombre_configuracion: c.nombre_configuracion, telefono: c.telefono })} className={`${btnSuave} px-2 py-1 text-xs`}>
+                            <i className="bx bx-plus-circle" /> Saldo
+                          </button>
+                          <button type="button" onClick={() => alternar(c)} className={`${btnSuave} px-2 py-1 text-xs`} title={Number(c.activo) === 1 ? "Quita el botón Llamar del chat de esta conexión" : "Vuelve a mostrar el botón Llamar"}>
+                            {Number(c.activo) === 1 ? "Apagar" : "Encender"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
-                <label className="block text-xs font-semibold text-slate-600">
-                  Número con el que salen sus llamadas
-                  <input className={`${input} mt-1`} value={recarga.caller_id} onChange={(e) => { setRecarga((r) => ({ ...r, caller_id: e.target.value })); setNumero(null); }} placeholder="593999999999" />
-                </label>
-                <div className={`rounded-lg border px-3 py-2 text-xs ${numero?.verificado ? "border-emerald-200 bg-emerald-50 text-emerald-800" : numero ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-bold">
-                      {numero?.verificado ? "Número verificado en Zadarma: las llamadas salen con él" : numero ? "Número sin verificar: las llamadas salen como desconocido" : "Aún no se ha comprobado este número"}
-                    </span>
-                    <button type="button" onClick={comprobarNumero} disabled={comprobando || !recarga.caller_id} className="rounded-md border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                      <i className={`bx ${comprobando ? "bx-loader-alt bx-spin" : "bx-refresh"}`} /> Comprobar
-                    </button>
-                  </div>
-                  {numero && !numero.verificado ? (
-                    <p className="mt-1">
-                      Para verificarlo: en my.zadarma.com → Configuración → Conexión SIP → Identificador de llamada → Verificar número. Al dueño del número le llega un código por llamada o SMS; te lo dicta, lo escribes, y vuelves a pulsar Comprobar.
-                    </p>
-                  ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Configuración de Imporfactory */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-base font-extrabold text-slate-900">Configuración de Imporfactory</h2>
+          <p className="mb-3 text-xs text-slate-500">Se hace una sola vez. Vale para todas las conexiones.</p>
+
+          <Estado ok={vinculada} titulo="Cuenta de Zadarma" detalle={vinculada ? `Llave ${maestra.user_key}${maestra.secret_last4 ? ` · secreta ····${maestra.secret_last4}` : ""}` : "Pega las llaves de Integraciones y API → Llaves de API."}>
+            {vinculada && !editarLlaves ? (
+              <button type="button" onClick={() => setEditarLlaves(true)} className="mt-1 text-xs font-semibold text-indigo-600 hover:underline">Cambiar llaves</button>
+            ) : (
+              <form onSubmit={guardarLlaves} className="mt-2 space-y-2">
+                <input id="tel-user-key" className={input} placeholder="Llave de usuario (user key)" value={form.user_key} onChange={(e) => setForm((f) => ({ ...f, user_key: e.target.value }))} autoComplete="off" />
+                <input id="tel-secret" className={input} type="password" placeholder="Llave secreta" value={form.secret} onChange={(e) => setForm((f) => ({ ...f, secret: e.target.value }))} autoComplete="off" />
+                <div className="flex gap-2">
+                  <button type="submit" disabled={ocupadoCfg || !form.user_key || !form.secret} className={`${btnPrimario} px-3 py-1.5 text-xs`}>Vincular</button>
+                  {vinculada ? <button type="button" onClick={() => setEditarLlaves(false)} className={`${btnSuave} px-3 py-1.5 text-xs`}>Cancelar</button> : null}
                 </div>
-                <button type="button" onClick={guardarCuenta} className={`${btn} w-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}>
-                  <i className="bx bx-save text-lg" /> Guardar precio y número
-                </button>
-                <label className="block text-xs font-semibold text-slate-600">
-                  Cuánto saldo cargar (USD)
-                  <input className={`${input} mt-1`} value={recarga.dolares} onChange={(e) => setRecarga((r) => ({ ...r, dolares: e.target.value }))} inputMode="decimal" />
-                  <span className="mt-1 block font-normal text-slate-500">
-                    Equivale a unos {minutos(recarga.dolares, recarga.tarifa)} minutos a {`$${Number(recarga.tarifa || 0).toFixed(2)}`} el minuto.
-                  </span>
-                </label>
-                {excedeZadarma ? (
-                  <div className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
-                    <b>Ojo:</b> con esta recarga, los minutos vendidos a tus clientes costarían {fmtUSD(costoTrasRecarga)} en Zadarma y allá solo hay {fmtUSD(resumen.saldo_zadarma_centavos)}. Si todos llaman, las llamadas se cortan. Recarga primero en Zadarma. Puedes continuar igual.
-                  </div>
-                ) : null}
-                <button type="button" onClick={recargarSaldo} className={`${btn} w-full bg-indigo-600 text-white hover:bg-indigo-700`}>
-                  <i className="bx bx-plus-circle text-lg" /> Cargar {fmtUSD(recargaC)}
-                </button>
-              </div>
-              {msg3 ? <Aviso tipo={msg3.tipo}>{msg3.texto}</Aviso> : null}
-            </div>
-          ) : (
-            <div className="mt-3 text-xs text-slate-400">Elige una conexión del buscador o de la tabla de abajo.</div>
-          )}
-        </Paso>
+              </form>
+            )}
+          </Estado>
+
+          <Estado ok={instalada} titulo="Avisos de Zadarma y grabación" detalle={instalada ? `Instalado el ${new Date(maestra.webhook_instalado_at).toLocaleString("es-EC")}. Zadarma nos avisa cada llamada y graba en todas las extensiones.` : "Registra nuestro webhook en Zadarma y enciende la grabación."}>
+            <button type="button" onClick={instalar} disabled={!vinculada || ocupadoCfg} className="mt-1 text-xs font-semibold text-indigo-600 hover:underline disabled:opacity-50">
+              {instalada ? "Volver a instalar (por ejemplo tras crear una extensión)" : "Instalar"}
+            </button>
+          </Estado>
+
+          <Estado ok={(diag?.central?.numbers || []).length > 0} titulo="Central y extensiones" detalle={diag?.central?.numbers?.length ? `Extensiones ${diag.central.numbers.join(", ")}. Se asignan solas a cada asesor al abrir el chat.` : "Crea extensiones en Zadarma (Mi centralita → Extensiones), una por asesor."}>
+            {(diag?.extensiones_asignadas || []).length ? (
+              <div className="mt-1 text-xs text-slate-500">Asignadas: {diag.extensiones_asignadas.map((e) => `${e.extension} → asesor ${e.id_sub_usuario}`).join(" · ")}</div>
+            ) : null}
+          </Estado>
+
+          <Estado ok={true} titulo="Número con el que salen las llamadas" detalle="Lo decide el CallerID del SIP de la central en Zadarma (Configuración → Ajustes SIP). Déjalo en un número comprado a Zadarma: es el único que se muestra siempre igual y con soporte." />
+
+          <Estado ok={!pendientesIA} titulo="Análisis con IA" detalle={ia ? `${ia.listas} llamadas analizadas · ${fmtUSD(ia.costo_centavos)} en OpenAI. Usa la llave de OpenAI de cada conexión (/asistentes).` : "—"}>
+            {pendientesIA ? (
+              <button type="button" onClick={reanalizar} className="mt-1 text-xs font-semibold text-indigo-600 hover:underline">
+                Reintentar {pendientesIA} sin analizar ({ia.sin_llave} sin llave, {ia.con_error} con error)
+              </button>
+            ) : null}
+          </Estado>
+
+          {msgCfg ? <Aviso tipo={msgCfg.tipo}>{msgCfg.texto}</Aviso> : null}
+        </section>
       </div>
 
-      {/* Tabla de conexiones con saldo */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-extrabold text-slate-900">Conexiones con saldo</h2>
-        <p className="mb-3 text-sm text-slate-500">Toca una fila para recargarla o cambiar su precio y número.</p>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2">Conexión</th>
-                <th className="px-3 py-2">Saldo</th>
-                <th className="px-3 py-2">Minutos aprox.</th>
-                <th className="px-3 py-2">Precio/min</th>
-                <th className="px-3 py-2">Margen</th>
-                <th className="px-3 py-2">Sale con</th>
-                <th className="px-3 py-2">Número</th>
-                <th className="px-3 py-2">Llamadas</th>
-                <th className="px-3 py-2">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cuentas.length === 0 ? (
-                <tr>
-                  <td colSpan="9" className="px-3 py-6 text-center text-slate-400">Ninguna conexión tiene saldo todavía.</td>
-                </tr>
-              ) : (
-                cuentas.map((c) => (
-                  <tr
-                    key={c.id_configuracion}
-                    className="cursor-pointer border-t border-slate-100 hover:bg-indigo-50/40"
-                    onClick={() => elegir({ id: c.id_configuracion, nombre_configuracion: c.nombre_configuracion, telefono: c.telefono })}
-                  >
-                    <td className="px-3 py-2">
-                      <b>#{c.id_configuracion}</b> {c.nombre_configuracion || ""}
-                    </td>
-                    <td className="px-3 py-2 font-bold">{fmtUSD(c.saldo_centavos)}</td>
-                    <td className="px-3 py-2">{Math.floor(c.saldo_centavos / c.tarifa_centavos_min)}</td>
-                    <td className="px-3 py-2">{fmtUSD(c.tarifa_centavos_min)}</td>
-                    <td className="px-3 py-2">
-                      {c.margen_pct == null ? <span className="text-slate-400">—</span> : c.margen_pct <= 0 ? <span className="font-bold text-rose-700">pierdes {fmtUSD(c.costo_centavos_min - c.tarifa_centavos_min)}/min</span> : <span className={c.margen_pct < 20 ? "font-semibold text-amber-700" : "font-semibold text-emerald-700"}>{c.margen_pct}%</span>}
-                    </td>
-                    <td className="px-3 py-2">{tel(c.caller_id)}</td>
-                    <td className="px-3 py-2">
-                      {!c.caller_id ? <span className="text-slate-400">—</span> : Number(c.numero_verificado) === 1 ? <span className="font-semibold text-emerald-700">verificado</span> : c.numero_comprobado_at ? <span className="font-semibold text-amber-700">sin verificar</span> : <span className="text-slate-400">sin comprobar</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setHist(c);
-                        }}
-                        className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
-                        title="Ver el historial de llamadas y con qué número salió cada una"
-                      >
-                        <i className="bx bx-history" /> {c.llamadas} · ver
-                      </button>
-                    </td>
-                    <td className="px-3 py-2">
-                      {Number(c.activo) === 1 ? <span className="font-semibold text-emerald-700">activa</span> : <span className="text-slate-400">apagada</span>}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
+      {saldoDe ? <SaldoModal conexion={saldoDe.conexion} cuenta={saldoDe.cuenta} resumen={resumen} onClose={() => setSaldoDe(null)} onDone={cargarTodo} /> : null}
       {hist ? <HistorialModal cuenta={hist} onClose={() => setHist(null)} /> : null}
     </div>
   );
