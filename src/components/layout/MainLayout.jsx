@@ -334,6 +334,7 @@ function MainLayout({ children }) {
       setOpenMenu("productos");
     } else if (
       location.pathname.startsWith("/pedidos") ||
+      location.pathname.startsWith("/novedades-dropi") ||
       location.pathname.startsWith("/shopify/abandonados")
     ) {
       setOpenMenu("ventas");
@@ -660,6 +661,7 @@ function MainLayout({ children }) {
                 onClick={() => toggleMenu("ventas")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   location.pathname.startsWith("/pedidos") ||
+                  location.pathname.startsWith("/novedades-dropi") ||
                   location.pathname.startsWith("/transportadoras") ||
                   location.pathname.startsWith("/shopify/abandonados")
                     ? "bg-gray-200 font-semibold"
@@ -697,6 +699,19 @@ function MainLayout({ children }) {
                   >
                     <i className="bx bx-package text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Pedidos</span>
+                  </a>
+
+                  <a
+                    href="/novedades-dropi"
+                    onClick={(e) => handleNavClick(e, "/novedades-dropi")}
+                    className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                      location.pathname.startsWith("/novedades-dropi")
+                        ? "font-semibold text-blue-600"
+                        : ""
+                    }`}
+                  >
+                    <i className="bx bx-error-circle text-xl text-gray-600 group-hover:text-blue-600"></i>
+                    <span>Novedades</span>
                   </a>
 
                   <a
