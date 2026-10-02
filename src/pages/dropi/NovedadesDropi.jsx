@@ -154,9 +154,309 @@ function FilaCargando() {
   );
 }
 
+/* ───────────────────────── modal solventar ───────────────────────── */
+
+/* Opciones de solución de Dropi (selectValueConfirma). Solo está confirmada
+   la 1 ("Volver a ofrecer", capturada del panel); las demás se agregan
+   cuando sepamos sus value. */
+const OPCIONES_SOLUCION = [{ value: 1, descripcion: "Volver a ofrecer" }];
+
+/* Fecha YYYY-MM-DD en Ecuador, desplazada N días. */
+const fechaEc = (dias = 0) =>
+  new Date(Date.now() - 5 * 3600000 + dias * 86400000)
+    .toISOString()
+    .slice(0, 10);
+
+const fechaLarga = (ymd) => {
+  if (!ymd) return "";
+  const d = new Date(`${ymd}T12:00:00`);
+  return d.toLocaleDateString("es-EC", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+};
+
+/* Respuestas tipo de la base de conocimiento de transportadoras
+   (src/knowledge/knowledge_base_transportadoras.md del back). */
+const PLANTILLAS = [
+  {
+    label: "Sí va a recibir",
+    icono: "bx-check-circle",
+    texto: ({ tel, fecha }) =>
+      `Me he comunicado con el cliente al número ${tel} y me indica que sí va a recibir el pedido el día ${fecha}.`,
+  },
+  {
+    label: "Estará en el domicilio",
+    icono: "bx-home-heart",
+    texto: ({ tel, fecha }) =>
+      `Me he comunicado con el cliente al número ${tel}, me indica que el día ${fecha} ya se encontrará en el domicilio y podrá recibir el pedido.`,
+  },
+  {
+    label: "Tendrá el dinero",
+    icono: "bx-money",
+    texto: ({ tel, fecha }) =>
+      `Me he comunicado con el cliente al número ${tel}, indica que el día ${fecha} estará en el domicilio y ya tendrá el dinero disponible.`,
+  },
+  {
+    label: "Dirección completa",
+    icono: "bx-map-pin",
+    texto: ({ tel, dir }) =>
+      `Me he comunicado con el cliente al número ${tel} y me indica que la dirección es: ${dir || "(sector, calle principal y secundaria, # de casa)"}. Referencia: `,
+  },
+  {
+    label: "Retira en oficina",
+    icono: "bx-store-alt",
+    texto: ({ tel, fecha }) =>
+      `Me he comunicado con el cliente al número ${tel}, comenta que se acercará a la oficina el día ${fecha} a retirar el pedido.`,
+  },
+  {
+    label: "Contactar a otro número",
+    icono: "bx-phone-call",
+    texto: ({ tel, fecha }) =>
+      `Me he comunicado con el cliente al número ${tel} y me indica que se pueden comunicar con él al número (otro número). El día ${fecha} estará en el domicilio esperando el pedido.`,
+  },
+];
+
+function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
+  const [opcion, setOpcion] = useState(OPCIONES_SOLUCION[0].value);
+  const [fecha, setFecha] = useState(fechaEc(1));
+  const [solucion, setSolucion] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  const tel = novedad.cliente?.telefono || "(número)";
+  const dir = [novedad.cliente?.direccion, novedad.cliente?.ciudad]
+    .filter(Boolean)
+    .join(", ");
+
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && !enviando && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, enviando]);
+
+  const enviar = async () => {
+    const texto = solucion.trim();
+    if (texto.length < 10) {
+      Swal.fire({
+        icon: "warning",
+        title: "Falta la solución",
+        text: "Escribe qué se acordó con el cliente (mínimo 10 caracteres).",
+        confirmButtonColor: "#171931",
+      });
+      return;
+    }
+    const op = OPCIONES_SOLUCION.find((o) => o.value === Number(opcion));
+    const ok = await Swal.fire({
+      icon: "question",
+      title: "¿Enviar solución a Dropi?",
+      html: `<p style="font-size:14px">Orden <b>#${novedad.order_id}</b> · ${
+        op.descripcion
+      } el <b>${fechaLarga(fecha)}</b>.</p>
+      <p style="font-size:13px;color:#64748b;margin-top:8px">La transportadora recibirá la solución tal como está escrita.</p>`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, solventar",
+      cancelButtonText: "Revisar",
+      confirmButtonColor: "#171931",
+    });
+    if (!ok.isConfirmed) return;
+
+    setEnviando(true);
+    try {
+      const res = await chatApi.post("dropi_integrations/novedades/solucionar", {
+        id_configuracion: idConfiguracion,
+        order_id: novedad.order_id,
+        solucion: texto,
+        opcion: op,
+        fecha_envio: fecha,
+      });
+      await Swal.fire({
+        icon: "success",
+        title: "Novedad solventada",
+        text: res?.data?.message || "Dropi recibió la solución.",
+        confirmButtonColor: "#171931",
+        timer: 2500,
+      });
+      onSolventada(novedad);
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Dropi no aceptó la solución",
+        text: errMsg(error, "No se pudo solventar la novedad."),
+        confirmButtonColor: "#d33",
+      });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
+      onClick={() => !enviando && onClose()}
+    >
+      <div
+        className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-sky-500" />
+        {/* Cabecera */}
+        <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50">
+            <i className="bx bx-wrench text-2xl text-emerald-600" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-extrabold text-slate-800">
+              Solventar novedad
+            </h2>
+            <p className="text-xs text-slate-500">
+              Orden #{novedad.order_id} · {novedad.cliente?.nombre || "Cliente"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={enviando}
+            className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            title="Cerrar (Esc)"
+          >
+            <i className="bx bx-x text-2xl" />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
+          {/* Novedad reportada */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-600">
+              Novedad reportada
+            </p>
+            <p className="mt-0.5 font-semibold text-amber-900">
+              {novedad.novedad || "—"}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <BadgeTransportadora nombre={novedad.transportadora} />
+              {novedad.cliente?.telefono && (
+                <span className="inline-flex items-center gap-1 text-xs text-amber-800">
+                  <i className="bx bx-phone" />
+                  {novedad.cliente.telefono}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Tipo de solución + fecha */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-[13px] font-semibold text-slate-700">
+                Tipo de solución
+              </span>
+              <select
+                value={opcion}
+                onChange={(e) => setOpcion(Number(e.target.value))}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
+              >
+                {OPCIONES_SOLUCION.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.descripcion}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[13px] font-semibold text-slate-700">
+                Nueva fecha de entrega
+              </span>
+              <input
+                type="date"
+                value={fecha}
+                min={fechaEc(0)}
+                onChange={(e) => setFecha(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
+              />
+            </label>
+          </div>
+
+          {/* Plantillas */}
+          <div>
+            <p className="text-[13px] font-semibold text-slate-700">
+              Respuestas rápidas
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {PLANTILLAS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() =>
+                    setSolucion(p.texto({ tel, dir, fecha: fechaLarga(fecha) }))
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  <i className={`bx ${p.icono} text-sm`} />
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Texto de la solución */}
+          <label className="block">
+            <span className="flex items-center justify-between text-[13px] font-semibold text-slate-700">
+              Solución para la transportadora
+              <span className="text-[11px] font-normal text-slate-400">
+                {solucion.length} caracteres
+              </span>
+            </span>
+            <textarea
+              value={solucion}
+              onChange={(e) => setSolucion(e.target.value)}
+              rows={5}
+              placeholder="Ej.: Me he comunicado con el cliente al número 09…, confirma que mañana estará en el domicilio y recibirá el pedido."
+              className="mt-1 w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 leading-relaxed outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
+            />
+          </label>
+
+          <p className="flex items-start gap-1.5 text-xs text-slate-500">
+            <i className="bx bx-info-circle mt-0.5 text-sm" />
+            Contacta al cliente antes de enviar. Si la solución no es efectiva,
+            la transportadora puede devolver el pedido.
+          </p>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={enviando}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={enviar}
+            disabled={enviando || !solucion.trim()}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
+          >
+            <i className={`bx ${enviando ? "bx-loader-alt bx-spin" : "bx-send"}`} />
+            {enviando ? "Enviando…" : "Solventar en Dropi"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────────────── panel de detalle ───────────────────────── */
 
-function DetalleNovedad({ idConfiguracion, novedad, onClose, onAbrirChat }) {
+function DetalleNovedad({
+  idConfiguracion,
+  novedad,
+  onClose,
+  onAbrirChat,
+  onSolventar,
+  modalAbierto,
+}) {
   const [detalle, setDetalle] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [verJson, setVerJson] = useState(false);
@@ -190,10 +490,12 @@ function DetalleNovedad({ idConfiguracion, novedad, onClose, onAbrirChat }) {
   }, [idConfiguracion, novedad.order_id]);
 
   useEffect(() => {
+    // Con el modal de solventar encima, el Esc es del modal.
+    if (modalAbierto) return undefined;
     const onKey = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, modalAbierto]);
 
   const d = detalle || novedad;
   const estados = [...(detalle?.estados || [])].reverse();
@@ -245,9 +547,17 @@ function DetalleNovedad({ idConfiguracion, novedad, onClose, onAbrirChat }) {
             )}
             <button
               type="button"
+              onClick={() => onSolventar(novedad)}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#171931] transition hover:bg-emerald-50"
+            >
+              <i className="bx bx-wrench text-sm" />
+              Solventar
+            </button>
+            <button
+              type="button"
               onClick={() => onAbrirChat(novedad)}
               disabled={!novedad.has_chat || !novedad.chat_id_cliente}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40"
             >
               <i className="bx bx-message-rounded-dots text-sm" />
               {novedad.has_chat ? "Abrir chat" : "Sin chat"}
@@ -454,6 +764,7 @@ export default function NovedadesDropi() {
   const [hasMore, setHasMore] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [seleccionada, setSeleccionada] = useState(null);
+  const [aSolventar, setASolventar] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [transportadora, setTransportadora] = useState("");
 
@@ -495,6 +806,15 @@ export default function NovedadesDropi() {
     window.open(`/chat/${n.chat_id_cliente}`, "_blank", "noopener,noreferrer");
   }, []);
   const cerrarDetalle = useCallback(() => setSeleccionada(null), []);
+  const cerrarSolventar = useCallback(() => setASolventar(null), []);
+
+  /* Solventada en Dropi: sale de la lista sin esperar a recargar (Dropi puede
+     tardar en dejar de devolverla como pendiente). */
+  const alSolventar = useCallback((n) => {
+    setASolventar(null);
+    setSeleccionada(null);
+    setNovedades((prev) => prev.filter((x) => x.order_id !== n.order_id));
+  }, []);
 
   // Filtros sobre la página cargada (la consulta a Dropi no los soporta).
   const transportadoras = useMemo(
@@ -745,6 +1065,17 @@ export default function NovedadesDropi() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              setASolventar(n);
+                            }}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#171931] px-3.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+                          >
+                            <i className="bx bx-wrench text-sm" />
+                            Solventar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
                               abrirChat(n);
                             }}
                             disabled={!n.has_chat || !n.chat_id_cliente}
@@ -812,6 +1143,17 @@ export default function NovedadesDropi() {
           novedad={seleccionada}
           onClose={cerrarDetalle}
           onAbrirChat={abrirChat}
+          onSolventar={setASolventar}
+          modalAbierto={!!aSolventar}
+        />
+      )}
+
+      {aSolventar && (
+        <ModalSolventar
+          idConfiguracion={idConfiguracion}
+          novedad={aSolventar}
+          onClose={cerrarSolventar}
+          onSolventada={alSolventar}
         />
       )}
     </div>
