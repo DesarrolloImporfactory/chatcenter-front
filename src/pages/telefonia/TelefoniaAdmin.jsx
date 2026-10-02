@@ -389,6 +389,20 @@ export default function TelefoniaAdmin() {
     await chatApi.post("/telefonia/cuenta", { id_configuracion: c.id_configuracion, activo: Number(c.activo) !== 1 });
     cargarTodo();
   };
+  /* Quitar saldo libera cobertura en Zadarma (útil tras pruebas). El
+     navegador no muestra confirm() dentro de la app, así que se pide dos
+     clics: el primero arma el botón, el segundo retira. */
+  const [retirando, setRetirando] = useState(null);
+  const retirar = async (c) => {
+    if (retirando !== c.id_configuracion) {
+      setRetirando(c.id_configuracion);
+      setTimeout(() => setRetirando((r) => (r === c.id_configuracion ? null : r)), 4000);
+      return;
+    }
+    setRetirando(null);
+    await chatApi.post("/telefonia/retirar", { id_configuracion: c.id_configuracion });
+    cargarTodo();
+  };
 
   /* configuración de Imporfactory */
   const [form, setForm] = useState({ user_key: "", secret: "" });
@@ -551,6 +565,16 @@ export default function TelefoniaAdmin() {
                           <button type="button" onClick={() => alternar(c)} className={`${btnSuave} px-2 py-1 text-xs`} title={Number(c.activo) === 1 ? "Quita el botón Llamar del chat de esta conexión" : "Vuelve a mostrar el botón Llamar"}>
                             {Number(c.activo) === 1 ? "Apagar" : "Encender"}
                           </button>
+                          {c.saldo_centavos > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => retirar(c)}
+                              className={`${btn} px-2 py-1 text-xs ${retirando === c.id_configuracion ? "bg-rose-600 text-white hover:bg-rose-700" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+                              title="Deja el saldo en cero y libera esa cobertura en Zadarma"
+                            >
+                              {retirando === c.id_configuracion ? `¿Retirar ${fmtUSD(c.saldo_centavos)}?` : "Retirar"}
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
