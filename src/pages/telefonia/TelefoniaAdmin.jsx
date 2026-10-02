@@ -385,22 +385,24 @@ export default function TelefoniaAdmin() {
     setQ("");
     setResultados([]);
   };
+  /* Apagar quita el botón Llamar del chat Y devuelve el saldo, para que esa
+     conexión deje de comprometer saldo de Zadarma. Se pide dos clics: el
+     primero arma el botón (muestra cuánto se quita), el segundo apaga.
+     Encender la deja activa en cero: luego se le carga saldo. */
+  const [apagando, setApagando] = useState(null);
   const alternar = async (c) => {
-    await chatApi.post("/telefonia/cuenta", { id_configuracion: c.id_configuracion, activo: Number(c.activo) !== 1 });
-    cargarTodo();
-  };
-  /* Quitar saldo libera cobertura en Zadarma (útil tras pruebas). El
-     navegador no muestra confirm() dentro de la app, así que se pide dos
-     clics: el primero arma el botón, el segundo retira. */
-  const [retirando, setRetirando] = useState(null);
-  const retirar = async (c) => {
-    if (retirando !== c.id_configuracion) {
-      setRetirando(c.id_configuracion);
-      setTimeout(() => setRetirando((r) => (r === c.id_configuracion ? null : r)), 4000);
+    if (Number(c.activo) !== 1) {
+      await chatApi.post("/telefonia/cuenta", { id_configuracion: c.id_configuracion, activo: true });
+      cargarTodo();
       return;
     }
-    setRetirando(null);
-    await chatApi.post("/telefonia/retirar", { id_configuracion: c.id_configuracion });
+    if (apagando !== c.id_configuracion) {
+      setApagando(c.id_configuracion);
+      setTimeout(() => setApagando((a) => (a === c.id_configuracion ? null : a)), 4000);
+      return;
+    }
+    setApagando(null);
+    await chatApi.post("/telefonia/apagar", { id_configuracion: c.id_configuracion });
     cargarTodo();
   };
 
@@ -562,19 +564,14 @@ export default function TelefoniaAdmin() {
                           <button type="button" onClick={() => abrirSaldo({ id: c.id_configuracion, nombre_configuracion: c.nombre_configuracion, telefono: c.telefono })} className={`${btnSuave} px-2 py-1 text-xs`}>
                             <i className="bx bx-plus-circle" /> Saldo
                           </button>
-                          <button type="button" onClick={() => alternar(c)} className={`${btnSuave} px-2 py-1 text-xs`} title={Number(c.activo) === 1 ? "Quita el botón Llamar del chat de esta conexión" : "Vuelve a mostrar el botón Llamar"}>
-                            {Number(c.activo) === 1 ? "Apagar" : "Encender"}
+                          <button
+                            type="button"
+                            onClick={() => alternar(c)}
+                            className={`${btn} px-2 py-1 text-xs ${apagando === c.id_configuracion ? "bg-rose-600 text-white hover:bg-rose-700" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+                            title={Number(c.activo) === 1 ? "Quita el botón Llamar del chat y devuelve el saldo (deja de comprometer saldo de Zadarma)" : "Vuelve a activar la telefonía; luego cárgale saldo"}
+                          >
+                            {Number(c.activo) !== 1 ? "Encender" : apagando === c.id_configuracion ? `¿Apagar y quitar ${fmtUSD(c.saldo_centavos)}?` : "Apagar"}
                           </button>
-                          {c.saldo_centavos > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => retirar(c)}
-                              className={`${btn} px-2 py-1 text-xs ${retirando === c.id_configuracion ? "bg-rose-600 text-white hover:bg-rose-700" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
-                              title="Deja el saldo en cero y libera esa cobertura en Zadarma"
-                            >
-                              {retirando === c.id_configuracion ? `¿Retirar ${fmtUSD(c.saldo_centavos)}?` : "Retirar"}
-                            </button>
-                          ) : null}
                         </div>
                       </td>
                     </tr>
