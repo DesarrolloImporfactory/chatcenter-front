@@ -11,6 +11,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import PendingQueue from "./PendingQueue";
+import LlamadasResumen from "./LlamadasResumen";
 import { formatDuration } from "../../utils/parseEventDef";
 import { usePresence } from "../../context/PresenceProvider";
 
@@ -1070,6 +1071,9 @@ export default function AtencionResumen({
           </p>
         ) : null}
       </div>
+
+      {/* ── Llamadas telefónicas (solo si la conexión tiene saldo o ya llamó) ── */}
+      <LlamadasResumen configId={configId} from={dateRange.from} to={dateRange.to} />
     </div>
   );
 }
