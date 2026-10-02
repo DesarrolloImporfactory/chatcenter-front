@@ -233,7 +233,7 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
     try {
       await chatApi.post("/telefonia/cuenta", { id_configuracion: conexion.id, tarifa_centavos_min: tarifaC, activo: true });
       setMsg({ tipo: "ok", texto: `Precio guardado: ${fmtUSD(tarifaC)} por minuto.` });
-      onDone();
+      onDone(null);
     } catch (err) {
       setMsg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo guardar" });
     } finally {
@@ -247,8 +247,12 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
       // El precio se guarda junto con la recarga, para no exigir dos clics.
       await chatApi.post("/telefonia/cuenta", { id_configuracion: conexion.id, tarifa_centavos_min: tarifaC, activo: true });
       const { data } = await chatApi.post("/telefonia/recargar", { id_configuracion: conexion.id, centavos: recargaC, detalle: "Recarga desde /telefonia" });
-      setMsg({ tipo: "ok", texto: `Saldo cargado. La conexión ahora tiene ${fmtUSD(data?.data?.saldo_centavos)} (${Math.floor((data?.data?.saldo_centavos || 0) / tarifaC)} min).` });
-      onDone();
+      /* Se cierra y el aviso va en la página: si el modal quedara abierto
+         con el monto escrito, recalcularía la cobertura como si fuera a
+         cargar OTRA vez lo mismo y mostraría "no se puede cargar" justo
+         después de haber cargado. */
+      onDone(`Saldo cargado a #${conexion.id}: ahora tiene ${fmtUSD(data?.data?.saldo_centavos)} (${Math.floor((data?.data?.saldo_centavos || 0) / tarifaC)} min a ${fmtUSD(tarifaC)}).`);
+      onClose();
     } catch (err) {
       setMsg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo recargar" });
     } finally {
@@ -390,10 +394,21 @@ export default function TelefoniaAdmin() {
      primero arma el botón (muestra cuánto se quita), el segundo apaga.
      Encender la deja activa en cero: luego se le carga saldo. */
   const [apagando, setApagando] = useState(null);
+  const [msgLista, setMsgLista] = useState(null);
+  const terminado = (texto) => {
+    if (texto) setMsgLista({ tipo: "ok", texto });
+    cargarTodo();
+  };
   const alternar = async (c) => {
     if (Number(c.activo) !== 1) {
       await chatApi.post("/telefonia/cuenta", { id_configuracion: c.id_configuracion, activo: true });
-      cargarTodo();
+      terminado(`#${c.id_configuracion} encendida. Cárgale saldo para que pueda llamar.`);
+      return;
+    }
+    // Sin saldo no hay nada que devolver: se apaga de una.
+    if (Number(c.saldo_centavos) <= 0) {
+      await chatApi.post("/telefonia/cuenta", { id_configuracion: c.id_configuracion, activo: false });
+      terminado(`#${c.id_configuracion} apagada.`);
       return;
     }
     if (apagando !== c.id_configuracion) {
@@ -403,7 +418,13 @@ export default function TelefoniaAdmin() {
     }
     setApagando(null);
     await chatApi.post("/telefonia/apagar", { id_configuracion: c.id_configuracion });
-    cargarTodo();
+    terminado(`#${c.id_configuracion} apagada y ${fmtUSD(c.saldo_centavos)} devueltos a la cobertura de Zadarma.`);
+  };
+  /* Una conexión apagada y en cero solo estorba en la lista. Quitarla borra
+     su fila de saldo; el historial de llamadas se conserva. */
+  const quitar = async (c) => {
+    await chatApi.post("/telefonia/cuenta/quitar", { id_configuracion: c.id_configuracion });
+    terminado(`#${c.id_configuracion} quitada de la lista.`);
   };
 
   /* configuración de Imporfactory */
@@ -519,6 +540,7 @@ export default function TelefoniaAdmin() {
             </div>
           </div>
 
+          {msgLista ? <Aviso tipo={msgLista.tipo}>{msgLista.texto}</Aviso> : null}
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">
@@ -568,10 +590,15 @@ export default function TelefoniaAdmin() {
                             type="button"
                             onClick={() => alternar(c)}
                             className={`${btn} px-2 py-1 text-xs ${apagando === c.id_configuracion ? "bg-rose-600 text-white hover:bg-rose-700" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
-                            title={Number(c.activo) === 1 ? "Quita el botón Llamar del chat y devuelve el saldo (deja de comprometer saldo de Zadarma)" : "Vuelve a activar la telefonía; luego cárgale saldo"}
+                            title={Number(c.activo) !== 1 ? "Vuelve a activar la telefonía; luego cárgale saldo" : c.saldo_centavos > 0 ? "Quita el botón Llamar del chat y devuelve el saldo a la cobertura de Zadarma" : "Quita el botón Llamar del chat"}
                           >
-                            {Number(c.activo) !== 1 ? "Encender" : apagando === c.id_configuracion ? `¿Apagar y quitar ${fmtUSD(c.saldo_centavos)}?` : "Apagar"}
+                            {Number(c.activo) !== 1 ? "Encender" : apagando === c.id_configuracion ? `¿Apagar y devolver ${fmtUSD(c.saldo_centavos)}?` : "Apagar"}
                           </button>
+                          {Number(c.activo) !== 1 && Number(c.saldo_centavos) <= 0 ? (
+                            <button type="button" onClick={() => quitar(c)} className={`${btnSuave} px-2 py-1 text-xs`} title="Borra la fila de saldo; el historial de llamadas se conserva">
+                              Quitar
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -628,7 +655,7 @@ export default function TelefoniaAdmin() {
         </section>
       </div>
 
-      {saldoDe ? <SaldoModal conexion={saldoDe.conexion} cuenta={saldoDe.cuenta} resumen={resumen} onClose={() => setSaldoDe(null)} onDone={cargarTodo} /> : null}
+      {saldoDe ? <SaldoModal conexion={saldoDe.conexion} cuenta={saldoDe.cuenta} resumen={resumen} onClose={() => setSaldoDe(null)} onDone={terminado} /> : null}
       {hist ? <HistorialModal cuenta={hist} onClose={() => setHist(null)} /> : null}
     </div>
   );
