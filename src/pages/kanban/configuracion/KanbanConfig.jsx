@@ -1052,6 +1052,19 @@ const KanbanConfig = () => {
     );
   };
 
+  // Cambia el modo de TODAS las acciones agendar_cita de la cuenta.
+  const toggleAgendaAutomatica = async () => {
+    const nuevo = !configKanban.agenda_automatica;
+    await guardarConfigKanban(
+      "agenda_automatica",
+      nuevo,
+      nuevo
+        ? "El bot agendará las citas directo en el calendario"
+        : "El bot dejará solicitudes para que tu equipo confirme",
+    );
+    if (columnaActiva) cargarAcciones(columnaActiva);
+  };
+
   const toggleDropiPrincipal = async () => {
     const esDropi = !!columnaSeleccionada?.es_dropi_principal;
     try {
@@ -2051,6 +2064,64 @@ const KanbanConfig = () => {
                             colorOn="#ca8a04"
                           />
                         </div>
+
+                        {/* Ajuste de toda la cuenta: solo si el tablero agenda citas */}
+                        {configKanban.agenda_automatica !== null &&
+                          configKanban.agenda_automatica !== undefined && (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "10px 14px",
+                                borderRadius: 12,
+                                border: "1px solid rgba(0,0,0,.07)",
+                                background: "#fafafa",
+                                marginTop: 8,
+                                opacity: guardandoConfig ? 0.6 : 1,
+                              }}
+                            >
+                              <div>
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    fontSize: "0.87rem",
+                                    color: "#0f172a",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 7,
+                                  }}
+                                >
+                                  <i
+                                    className="bx bx-calendar-check"
+                                    style={{
+                                      color: configKanban.agenda_automatica
+                                        ? "#ca8a04"
+                                        : "#94a3b8",
+                                    }}
+                                  />
+                                  El bot agenda las citas directo en el
+                                  calendario
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "#64748b",
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  {configKanban.agenda_automatica
+                                    ? "Activado: la cita se crea sola con la disponibilidad real del calendario."
+                                    : "Apagado: el bot deja una solicitud y tu equipo confirma el horario desde el calendario."}
+                                </div>
+                              </div>
+                              <ToggleSwitch
+                                checked={!!configKanban.agenda_automatica}
+                                onChange={toggleAgendaAutomatica}
+                                colorOn="#ca8a04"
+                              />
+                            </div>
+                          )}
                       </div>
                     )}
                     {!esSecundario && (
