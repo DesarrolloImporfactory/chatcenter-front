@@ -156,10 +156,72 @@ function FilaCargando() {
 
 /* ───────────────────────── modal solventar ───────────────────────── */
 
-/* Opciones de solución de Dropi (selectValueConfirma). Solo está confirmada
-   la 1 ("Volver a ofrecer", capturada del panel); las demás se agregan
-   cuando sepamos sus value. */
-const OPCIONES_SOLUCION = [{ value: 1, descripcion: "Volver a ofrecer" }];
+/* Formulario por transportadora, copiado del modal de novedades del panel de
+   Dropi (Ecuador). Cada una pide campos distintos y el panel valida que no
+   vayan vacíos; si faltan, Dropi no la acepta.
+   - Gintracom: tipo de solución (Volver a ofrecer / Ajustar recaudo /
+     Efectuar devolución) + fecha posterior a hoy.
+   - Servientrega: solución + nombre + celular.
+   - Laarcourier: solución + nombre + dirección + celular.
+   - Urbano: solución (+ dirección y referencia si la novedad es de dirección).
+   - Veloces: solución + nombre + dirección + referencia + celular.
+   "Devolver al remitente" existe para todas (botón aparte). */
+const OPCIONES_GINTRACOM = [
+  { value: 1, descripcion: "Volver a ofrecer" },
+  { value: 2, descripcion: "Ajustar recaudo" },
+  { value: 3, descripcion: "Efectuar devolución" },
+];
+
+const URBANO_NOVEDADES_DIRECCION = [
+  "DIRECCION NO EXISTE",
+  "DIRECCION INCOMPLETA",
+  "DESTINO INCORRECTO",
+  "DESCONOCIDO EN EL LUGAR",
+  "DIRECCION INCORRECTA",
+  "DIRECCION INSUFICIENTE",
+];
+
+/* Gintracom manda la novedad como "TEXTO | detalle": el panel compara solo
+   la parte de antes del "|". */
+const novedadBase = (n) =>
+  String(n || "")
+    .split("|")[0]
+    .trim()
+    .toUpperCase();
+
+/* Qué campos pide cada transportadora para esta novedad. */
+function camposPorTransportadora(novedad) {
+  const t = String(novedad.transportadora || "")
+    .toUpperCase()
+    .replace(/\s+/g, "");
+  const nov = novedadBase(novedad.novedad);
+
+  if (t === "GINTRACOM") {
+    return {
+      gintracom: true,
+      direccion:
+        nov === "DIRECCIÓN DE DESTINARIO INCOMPLETA O INCORRECTA Y NO HAY RESPUESTA DEL CLIENTE",
+      // El panel guarda este teléfono en direccionConfirma (así lo lee Dropi).
+      telefonoEnDireccion: nov === "NÚMERO TELEFÓNICO INCORRECTO",
+    };
+  }
+  if (t === "SERVIENTREGA") return { nombre: true, telefono: true };
+  if (t === "LAARCOURIER" || t === "LAAR")
+    return { nombre: true, direccion: true, telefono: true };
+  if (t === "URBANO") {
+    const dir = URBANO_NOVEDADES_DIRECCION.includes(nov);
+    return { direccion: dir, referencia: dir, direccionOpcional: true };
+  }
+  if (t === "VELOCES")
+    return {
+      nombre: true,
+      direccion: true,
+      referencia: true,
+      telefono: true,
+      referenciaObligatoria: true,
+    };
+  return {};
+}
 
 /* Fecha YYYY-MM-DD en Ecuador, desplazada N días. */
 const fechaEc = (dias = 0) =>
@@ -184,19 +246,19 @@ const PLANTILLAS = [
     label: "Sí va a recibir",
     icono: "bx-check-circle",
     texto: ({ tel, fecha }) =>
-      `Me he comunicado con el cliente al número ${tel} y me indica que sí va a recibir el pedido el día ${fecha}.`,
+      `Me he comunicado con el cliente al número ${tel} y me indica que sí va a recibir el pedido${fecha ? ` el día ${fecha}` : ""}.`,
   },
   {
     label: "Estará en el domicilio",
     icono: "bx-home-heart",
     texto: ({ tel, fecha }) =>
-      `Me he comunicado con el cliente al número ${tel}, me indica que el día ${fecha} ya se encontrará en el domicilio y podrá recibir el pedido.`,
+      `Me he comunicado con el cliente al número ${tel}, me indica que ${fecha ? `el día ${fecha}` : "mañana"} ya se encontrará en el domicilio y podrá recibir el pedido.`,
   },
   {
     label: "Tendrá el dinero",
     icono: "bx-money",
     texto: ({ tel, fecha }) =>
-      `Me he comunicado con el cliente al número ${tel}, indica que el día ${fecha} estará en el domicilio y ya tendrá el dinero disponible.`,
+      `Me he comunicado con el cliente al número ${tel}, indica que ${fecha ? `el día ${fecha}` : "mañana"} estará en el domicilio y ya tendrá el dinero disponible.`,
   },
   {
     label: "Dirección completa",
@@ -208,26 +270,53 @@ const PLANTILLAS = [
     label: "Retira en oficina",
     icono: "bx-store-alt",
     texto: ({ tel, fecha }) =>
-      `Me he comunicado con el cliente al número ${tel}, comenta que se acercará a la oficina el día ${fecha} a retirar el pedido.`,
+      `Me he comunicado con el cliente al número ${tel}, comenta que se acercará a la oficina ${fecha ? `el día ${fecha}` : "mañana"} a retirar el pedido.`,
   },
   {
     label: "Contactar a otro número",
     icono: "bx-phone-call",
     texto: ({ tel, fecha }) =>
-      `Me he comunicado con el cliente al número ${tel} y me indica que se pueden comunicar con él al número (otro número). El día ${fecha} estará en el domicilio esperando el pedido.`,
+      `Me he comunicado con el cliente al número ${tel} y me indica que se pueden comunicar con él al número (otro número). ${fecha ? `El día ${fecha}` : "Mañana"} estará en el domicilio esperando el pedido.`,
   },
 ];
 
+const claseInput =
+  "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10";
+
+function Campo({ label, obligatorio, children, ayuda }) {
+  return (
+    <label className="block">
+      <span className="text-[13px] font-semibold text-slate-700">
+        {label}
+        {obligatorio && <span className="text-rose-500"> *</span>}
+      </span>
+      {children}
+      {ayuda && <span className="mt-1 block text-[11px] text-slate-400">{ayuda}</span>}
+    </label>
+  );
+}
+
 function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
-  const [opcion, setOpcion] = useState(OPCIONES_SOLUCION[0].value);
+  const campos = useMemo(() => camposPorTransportadora(novedad), [novedad]);
+  const [opcion, setOpcion] = useState(1);
   const [fecha, setFecha] = useState(fechaEc(1));
   const [solucion, setSolucion] = useState("");
+  const [nombre, setNombre] = useState(novedad.cliente?.nombre || "");
+  const [telefono, setTelefono] = useState(novedad.cliente?.telefono || "");
+  const [direccion, setDireccion] = useState(novedad.cliente?.direccion || "");
+  const [referencia, setReferencia] = useState("");
+  const [recaudo, setRecaudo] = useState(
+    novedad.total !== null && novedad.total !== undefined
+      ? String(novedad.total)
+      : "",
+  );
   const [enviando, setEnviando] = useState(false);
 
-  const tel = novedad.cliente?.telefono || "(número)";
-  const dir = [novedad.cliente?.direccion, novedad.cliente?.ciudad]
-    .filter(Boolean)
-    .join(", ");
+  const esDevolucionGintracom = campos.gintracom && opcion === 3;
+  const pideFecha = campos.gintracom && !esDevolucionGintracom;
+
+  const tel = telefono || novedad.cliente?.telefono || "(número)";
+  const dir = [direccion, novedad.cliente?.ciudad].filter(Boolean).join(", ");
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && !enviando && onClose();
@@ -235,44 +324,25 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, enviando]);
 
-  const enviar = async () => {
-    const texto = solucion.trim();
-    if (texto.length < 10) {
-      Swal.fire({
-        icon: "warning",
-        title: "Falta la solución",
-        text: "Escribe qué se acordó con el cliente (mínimo 10 caracteres).",
-        confirmButtonColor: "#171931",
-      });
-      return;
-    }
-    const op = OPCIONES_SOLUCION.find((o) => o.value === Number(opcion));
-    const ok = await Swal.fire({
-      icon: "question",
-      title: "¿Enviar solución a Dropi?",
-      html: `<p style="font-size:14px">Orden <b>#${novedad.order_id}</b> · ${
-        op.descripcion
-      } el <b>${fechaLarga(fecha)}</b>.</p>
-      <p style="font-size:13px;color:#64748b;margin-top:8px">La transportadora recibirá la solución tal como está escrita.</p>`,
-      showCancelButton: true,
-      confirmButtonText: "Sí, solventar",
-      cancelButtonText: "Revisar",
+  const avisar = (text) =>
+    Swal.fire({
+      icon: "warning",
+      title: "Falta información",
+      text,
       confirmButtonColor: "#171931",
     });
-    if (!ok.isConfirmed) return;
 
+  const enviarADropi = async (body, exito) => {
     setEnviando(true);
     try {
       const res = await chatApi.post("dropi_integrations/novedades/solucionar", {
         id_configuracion: idConfiguracion,
         order_id: novedad.order_id,
-        solucion: texto,
-        opcion: op,
-        fecha_envio: fecha,
+        ...body,
       });
       await Swal.fire({
         icon: "success",
-        title: "Novedad solventada",
+        title: exito,
         text: res?.data?.message || "Dropi recibió la solución.",
         confirmButtonColor: "#171931",
         timer: 2500,
@@ -282,12 +352,92 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
       Swal.fire({
         icon: "error",
         title: "Dropi no aceptó la solución",
-        text: errMsg(error, "No se pudo solventar la novedad."),
+        text: errMsg(error, "No se pudo enviar a Dropi."),
         confirmButtonColor: "#d33",
       });
     } finally {
       setEnviando(false);
     }
+  };
+
+  const devolver = async () => {
+    const ok = await Swal.fire({
+      icon: "warning",
+      title: "¿Devolver el pedido al remitente?",
+      html: `<p style="font-size:14px">La orden <b>#${novedad.order_id}</b> no se volverá a ofrecer: la transportadora la regresa a la bodega.</p>
+      <p style="font-size:13px;color:#be123c;margin-top:8px"><b>No se puede deshacer.</b></p>`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, devolver",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#e11d48",
+      focusCancel: true,
+    });
+    if (!ok.isConfirmed) return;
+    await enviarADropi({ accion: "devolver" }, "Pedido enviado a devolución");
+  };
+
+  const enviar = async () => {
+    if (esDevolucionGintracom) return devolver();
+
+    const texto = solucion.trim();
+    if (texto.length < 10)
+      return avisar("Escribe qué se acordó con el cliente (mínimo 10 caracteres).");
+    if (campos.nombre && !nombre.trim()) return avisar("Falta el nombre de quien recibe.");
+    if (campos.telefono && !telefono.trim()) return avisar("Falta el celular.");
+    if (campos.telefonoEnDireccion && !telefono.trim())
+      return avisar("Falta el nuevo número de teléfono.");
+    if (campos.direccion && !campos.direccionOpcional && !direccion.trim())
+      return avisar("Falta la dirección de entrega.");
+    if (campos.referenciaObligatoria && !referencia.trim())
+      return avisar("Falta la referencia de la dirección.");
+    if (pideFecha && fecha <= fechaEc(0))
+      return avisar("La posible fecha de entrega debe ser posterior a hoy.");
+    if (campos.gintracom && opcion === 2 && !(Number(recaudo) >= 0 && recaudo !== ""))
+      return avisar("Ingresa el nuevo valor a recaudar.");
+
+    const op = OPCIONES_GINTRACOM.find((o) => o.value === opcion);
+    const resumen = campos.gintracom
+      ? `${op.descripcion}${opcion === 2 ? ` por <b>$${Number(recaudo).toFixed(2)}</b>` : ""} · entrega el <b>${fechaLarga(fecha)}</b>`
+      : "Volver a ofrecer";
+    const ok = await Swal.fire({
+      icon: "question",
+      title: "¿Enviar solución a Dropi?",
+      html: `<p style="font-size:14px">Orden <b>#${novedad.order_id}</b> · ${resumen}.</p>
+      <p style="font-size:13px;color:#64748b;margin-top:8px">La transportadora recibirá la solución tal como está escrita.</p>`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, solventar",
+      cancelButtonText: "Revisar",
+      confirmButtonColor: "#171931",
+    });
+    if (!ok.isConfirmed) return;
+
+    // Veloces: el panel junta dirección y referencia en una sola línea.
+    const direccionFinal = campos.telefonoEnDireccion
+      ? telefono.trim()
+      : campos.referenciaObligatoria
+        ? `${direccion.trim()}, ${referencia.trim()}`
+        : campos.direccion
+          ? direccion.trim()
+          : "";
+
+    await enviarADropi(
+      {
+        solucion: texto,
+        nuevo_nombre: campos.nombre ? nombre.trim() : "",
+        nuevo_telefono: campos.telefono ? telefono.trim() : "",
+        nueva_direccion: direccionFinal,
+        datos_adicionales_direccion:
+          campos.referencia && !campos.referenciaObligatoria ? referencia.trim() : "",
+        ...(campos.gintracom
+          ? {
+              opcion: { value: op.value, descripcion: op.descripcion },
+              fecha_envio: fecha,
+              ...(opcion === 2 ? { nuevo_recaudo: Number(recaudo) } : {}),
+            }
+          : {}),
+      },
+      "Novedad solventada",
+    );
   };
 
   return (
@@ -299,7 +449,13 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
         className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-sky-500" />
+        <div
+          className={`h-1 bg-gradient-to-r ${
+            esDevolucionGintracom
+              ? "from-rose-500 via-rose-400 to-orange-400"
+              : "from-emerald-400 via-teal-400 to-sky-500"
+          }`}
+        />
         {/* Cabecera */}
         <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50">
@@ -344,102 +500,247 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
             </div>
           </div>
 
-          {/* Tipo de solución + fecha */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-[13px] font-semibold text-slate-700">
-                Tipo de solución
-              </span>
-              <select
-                value={opcion}
-                onChange={(e) => setOpcion(Number(e.target.value))}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
-              >
-                {OPCIONES_SOLUCION.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.descripcion}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-[13px] font-semibold text-slate-700">
-                Nueva fecha de entrega
-              </span>
-              <input
-                type="date"
-                value={fecha}
-                min={fechaEc(0)}
-                onChange={(e) => setFecha(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
-              />
-            </label>
-          </div>
+          {/* Gintracom: tipo de solución */}
+          {campos.gintracom && (
+            <Campo label="Tipo de solución" obligatorio>
+              <div className="mt-1.5 grid grid-cols-3 gap-2">
+                {OPCIONES_GINTRACOM.map((o) => {
+                  const activa = opcion === o.value;
+                  const roja = o.value === 3;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => setOpcion(o.value)}
+                      className={`rounded-xl border px-2 py-2.5 text-xs font-bold transition ${
+                        activa
+                          ? roja
+                            ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/15"
+                            : "border-[#171931] bg-[#171931] text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {o.descripcion}
+                    </button>
+                  );
+                })}
+              </div>
+            </Campo>
+          )}
 
-          {/* Plantillas */}
-          <div>
-            <p className="text-[13px] font-semibold text-slate-700">
-              Respuestas rápidas
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {PLANTILLAS.map((p) => (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() =>
-                    setSolucion(p.texto({ tel, dir, fecha: fechaLarga(fecha) }))
-                  }
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                >
-                  <i className={`bx ${p.icono} text-sm`} />
-                  {p.label}
-                </button>
-              ))}
+          {esDevolucionGintracom ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-rose-800">
+              <p className="flex items-center gap-1.5 font-bold">
+                <i className="bx bx-error-alt text-lg" />
+                El pedido regresa a la bodega
+              </p>
+              <p className="mt-1 text-xs leading-relaxed">
+                La transportadora deja de intentar la entrega y devuelve el
+                paquete al remitente. Úsalo solo si el cliente ya no quiere el
+                pedido o no hay forma de entregarlo.
+              </p>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Fecha y recaudo (Gintracom) */}
+              {pideFecha && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Campo label="Posible fecha de entrega" obligatorio>
+                    <input
+                      type="date"
+                      value={fecha}
+                      min={fechaEc(1)}
+                      onChange={(e) => setFecha(e.target.value)}
+                      className={claseInput}
+                    />
+                  </Campo>
+                  {opcion === 2 && (
+                    <Campo
+                      label="Nuevo recaudo"
+                      obligatorio
+                      ayuda={`Valor actual: ${fmtMonto(novedad.total)}`}
+                    >
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={recaudo}
+                        onChange={(e) => setRecaudo(e.target.value)}
+                        className={claseInput}
+                      />
+                    </Campo>
+                  )}
+                </div>
+              )}
 
-          {/* Texto de la solución */}
-          <label className="block">
-            <span className="flex items-center justify-between text-[13px] font-semibold text-slate-700">
-              Solución para la transportadora
-              <span className="text-[11px] font-normal text-slate-400">
-                {solucion.length} caracteres
-              </span>
-            </span>
-            <textarea
-              value={solucion}
-              onChange={(e) => setSolucion(e.target.value)}
-              rows={5}
-              placeholder="Ej.: Me he comunicado con el cliente al número 09…, confirma que mañana estará en el domicilio y recibirá el pedido."
-              className="mt-1 w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 leading-relaxed outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
-            />
-          </label>
+              {/* Datos que pide la transportadora */}
+              {(campos.nombre ||
+                campos.telefono ||
+                campos.telefonoEnDireccion ||
+                campos.direccion ||
+                campos.referencia) && (
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    Datos de entrega que pide {novedad.transportadora}
+                  </p>
+                  {campos.nombre && (
+                    <Campo label="Nombre de quien recibe" obligatorio>
+                      <input
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        maxLength={50}
+                        className={claseInput}
+                      />
+                    </Campo>
+                  )}
+                  {(campos.telefono || campos.telefonoEnDireccion) && (
+                    <Campo
+                      label={campos.telefonoEnDireccion ? "Nuevo teléfono" : "Celular"}
+                      obligatorio
+                    >
+                      <input
+                        value={telefono}
+                        onChange={(e) => setTelefono(e.target.value)}
+                        maxLength={15}
+                        inputMode="tel"
+                        className={claseInput}
+                      />
+                    </Campo>
+                  )}
+                  {campos.direccion && (
+                    <Campo
+                      label="Dirección de entrega"
+                      obligatorio={!campos.direccionOpcional}
+                    >
+                      <input
+                        value={direccion}
+                        onChange={(e) => setDireccion(e.target.value)}
+                        maxLength={200}
+                        className={claseInput}
+                      />
+                    </Campo>
+                  )}
+                  {campos.referencia && (
+                    <Campo
+                      label="Referencia de la dirección"
+                      obligatorio={campos.referenciaObligatoria}
+                    >
+                      <input
+                        value={referencia}
+                        onChange={(e) => setReferencia(e.target.value)}
+                        maxLength={150}
+                        placeholder="Ej.: casa esquinera, portón negro"
+                        className={claseInput}
+                      />
+                    </Campo>
+                  )}
+                </div>
+              )}
 
-          <p className="flex items-start gap-1.5 text-xs text-slate-500">
-            <i className="bx bx-info-circle mt-0.5 text-sm" />
-            Contacta al cliente antes de enviar. Si la solución no es efectiva,
-            la transportadora puede devolver el pedido.
-          </p>
+              {/* Plantillas */}
+              <div>
+                <p className="text-[13px] font-semibold text-slate-700">
+                  Respuestas rápidas
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {PLANTILLAS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() =>
+                        setSolucion(
+                          p.texto({
+                            tel,
+                            dir,
+                            fecha: pideFecha ? fechaLarga(fecha) : "",
+                          }),
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                    >
+                      <i className={`bx ${p.icono} text-sm`} />
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Texto de la solución */}
+              <label className="block">
+                <span className="flex items-center justify-between text-[13px] font-semibold text-slate-700">
+                  <span>
+                    {campos.gintracom ? "Observaciones" : "Solución"}
+                    <span className="text-rose-500"> *</span>
+                  </span>
+                  <span className="text-[11px] font-normal text-slate-400">
+                    {solucion.length}/200
+                  </span>
+                </span>
+                <textarea
+                  value={solucion}
+                  onChange={(e) => setSolucion(e.target.value.slice(0, 200))}
+                  rows={4}
+                  placeholder="Ej.: Me he comunicado con el cliente al número 09…, confirma que mañana estará en el domicilio y recibirá el pedido."
+                  className={`${claseInput} resize-none leading-relaxed`}
+                />
+              </label>
+
+              <p className="flex items-start gap-1.5 text-xs text-slate-500">
+                <i className="bx bx-info-circle mt-0.5 text-sm" />
+                Contacta al cliente antes de enviar. Si la solución no es
+                efectiva, la transportadora puede devolver el pedido.
+              </p>
+            </>
+          )}
         </div>
 
         {/* Acciones */}
-        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+        <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+          {!campos.gintracom && (
+            <button
+              type="button"
+              onClick={devolver}
+              disabled={enviando}
+              className="mr-auto inline-flex items-center gap-1 text-xs font-semibold text-rose-600 transition hover:text-rose-700 disabled:opacity-50"
+            >
+              <i className="bx bx-undo text-base" />
+              Devolver al remitente
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
             disabled={enviando}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+            className={`rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 ${
+              campos.gintracom ? "ml-auto" : ""
+            }`}
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={enviar}
-            disabled={enviando || !solucion.trim()}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
+            disabled={enviando || (!esDevolucionGintracom && !solucion.trim())}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 ${
+              esDevolucionGintracom
+                ? "bg-rose-600 hover:bg-rose-700"
+                : "bg-emerald-600 hover:bg-emerald-700"
+            }`}
           >
-            <i className={`bx ${enviando ? "bx-loader-alt bx-spin" : "bx-send"}`} />
-            {enviando ? "Enviando…" : "Solventar en Dropi"}
+            <i
+              className={`bx ${
+                enviando
+                  ? "bx-loader-alt bx-spin"
+                  : esDevolucionGintracom
+                    ? "bx-undo"
+                    : "bx-send"
+              }`}
+            />
+            {enviando
+              ? "Enviando…"
+              : esDevolucionGintracom
+                ? "Devolver pedido"
+                : "Solventar en Dropi"}
           </button>
         </div>
       </div>
