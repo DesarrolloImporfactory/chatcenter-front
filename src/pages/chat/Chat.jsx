@@ -502,8 +502,64 @@ const Chat = () => {
        cuenta. Si no es tuyo, no se abre: ni la conversación ni el panel de
        la derecha. Antes se abría completo y el asesor podía escribirle o
        intentar transferirlo, y ahí recién el backend respondía 403. */
-    const rechazarSiNoEsSuyo = (chat) => {
-      if (puedoAtenderElChatRef.current(chat?.id_encargado)) return false;
+    /* Devuelve el chat si se puede abrir, o null si no.
+     *
+     * Un chat CERRADO lo puede retomar cualquiera de la cuenta: conserva al
+     * encargado que lo atendió, pero ese dueño ya es provisional —si el
+     * cliente vuelve a escribir, el round robin se lo entrega a otro sin
+     * preguntar—. Se pregunta antes de tomarlo y el traspaso queda en el
+     * historial de encargados, con quién lo hizo. */
+    const abrirConPermiso = async (chat) => {
+      if (puedoAtenderElChatRef.current(chat?.id_encargado)) return chat;
+
+      const deQuien = chat?.nombre_encargado
+        ? ` Lo atendió ${chat.nombre_encargado}.`
+        : "";
+
+      if (Number(chat?.chat_cerrado) === 1) {
+        const r = await Swal.fire({
+          icon: "question",
+          title: "Chat cerrado de otro asesor",
+          text: `Este chat está cerrado.${deQuien} ¿Quieres tomarlo para atenderlo tú?`,
+          showCancelButton: true,
+          confirmButtonText: "Tomarlo",
+          cancelButtonText: "Cancelar",
+        });
+
+        if (!r.isConfirmed) {
+          navigate("/chat", { replace: true });
+          return null;
+        }
+
+        try {
+          await chatApi.post(
+            "departamentos_chat_center/asignar_encargado",
+            {
+              id_cliente_chat_center: chat.id,
+              id_encargado: id_sub_usuario_global,
+              id_configuracion,
+            },
+            { silentError: true },
+          );
+          Toast.fire({ icon: "success", title: "El chat ahora es tuyo" });
+          // Tomarlo también lo reabre (lo hace el backend).
+          return {
+            ...chat,
+            id_encargado: id_sub_usuario_global,
+            chat_cerrado: 0,
+            nombre_encargado: nombre_encargado_global ?? chat.nombre_encargado,
+          };
+        } catch (err) {
+          Swal.fire(
+            "No se pudo tomar el chat",
+            err.response?.data?.message || "Intenta de nuevo.",
+            "error",
+          );
+          navigate("/chat", { replace: true });
+          return null;
+        }
+      }
+
       Swal.fire({
         icon: "info",
         title: "Este chat no es tuyo",
@@ -513,12 +569,19 @@ const Chat = () => {
         confirmButtonText: "Entendido",
       });
       navigate("/chat", { replace: true });
-      return true;
+      return null;
     };
 
     if (existente) {
-      if (rechazarSiNoEsSuyo(existente)) return;
-      handleSelectChat(existente);
+      (async () => {
+        const chat = await abrirConPermiso(existente);
+        if (!chat) return;
+        // Si lo acaba de tomar, la fila de la lista queda al día.
+        setMensajesAcumulados((prev) =>
+          prev.map((c) => (String(c.id) === String(chat.id) ? chat : c)),
+        );
+        handleSelectChat(chat);
+      })();
       return;
     }
 
@@ -526,16 +589,17 @@ const Chat = () => {
     (async () => {
       try {
         const { data } = await getChatById(chatId, id_configuracion);
-        if (rechazarSiNoEsSuyo(data.data)) return;
+        const chat = await abrirConPermiso(data.data);
+        if (!chat) return;
         /* Se abre igual (se llega acá desde el kanban, flujos masivos,
            carritos abandonados…), pero solo se agrega a la lista si
            corresponde a la pestaña. Antes entraba cualquier chat, así que en
            «Mis chats» aparecían chats de otros asesores y al transferirlos
            el backend respondía 403. */
-        if (esDeMiListaRef.current(data.data?.id_encargado)) {
-          setMensajesAcumulados((prev) => [data.data, ...prev]);
+        if (esDeMiListaRef.current(chat?.id_encargado)) {
+          setMensajesAcumulados((prev) => [chat, ...prev]);
         }
-        handleSelectChat(data.data);
+        handleSelectChat(chat);
       } catch (err) {
         if (err.response?.status === 404) {
           Swal.fire(
