@@ -1072,8 +1072,9 @@ export default function AtencionResumen({
         ) : null}
       </div>
 
-      {/* ── Llamadas telefónicas (solo si la conexión tiene saldo o ya llamó) ── */}
-      <LlamadasResumen configId={configId} from={dateRange.from} to={dateRange.to} />
+      {/* ── Llamadas telefónicas (solo si la conexión tiene saldo o ya llamó).
+             Tiene su propio filtro de fechas, independiente del de arriba. ── */}
+      <LlamadasResumen configId={configId} />
     </div>
   );
 }

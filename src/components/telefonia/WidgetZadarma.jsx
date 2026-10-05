@@ -73,6 +73,70 @@ export default function WidgetZadarma() {
   const idCfgRef = useRef(null);
   const limpiezaRef = useRef(null);
 
+  /* ── Calidad de red de la llamada ──
+     El teléfono corre en el navegador: si el internet del asesor pierde
+     paquetes, el cliente lo oye entrecortado. Durante la llamada se lee cada
+     5 s el getStats() de la conexión WebRTC del widget y, al colgar, se
+     manda el promedio al back (POST /telefonia/calidad). Así en el historial
+     se ve si un "se entrecorta" fue la red del asesor o la ruta de Zadarma. */
+  const medRef = useRef(null);
+  function cerrarMedicion() {
+    const m = medRef.current;
+    if (!m) return;
+    medRef.current = null;
+    clearInterval(m.timer);
+    if (!m.id || m.muestras < 1) return;
+    const pct = (perdidos, total) => (total > 0 ? Math.max(0, (perdidos / total) * 100) : null);
+    chatApi
+      .post("/telefonia/calidad", {
+        id_llamada: m.id,
+        muestras: m.muestras,
+        perdida_subida_pct: pct(m.subidaPerdidos, m.subidaEnviados),
+        perdida_bajada_pct: pct(m.bajadaPerdidos, m.bajadaPerdidos + m.bajadaRecibidos),
+        jitter_ms: m.jitterN ? (m.jitterSuma / m.jitterN) * 1000 : null,
+        rtt_ms: m.rttN ? (m.rttSuma / m.rttN) * 1000 : null,
+      })
+      .catch(() => {});
+  }
+  function iniciarMedicion(id) {
+    cerrarMedicion();
+    const m = { id: id || null, muestras: 0, subidaPerdidos: 0, subidaEnviados: 0, bajadaPerdidos: 0, bajadaRecibidos: 0, jitterSuma: 0, jitterN: 0, rttSuma: 0, rttN: 0, timer: null };
+    m.timer = setInterval(async () => {
+      try {
+        const pc = window.zdrmWebPhone?.webCallSession?.connection;
+        if (!pc || typeof pc.getStats !== "function") return;
+        const stats = await pc.getStats();
+        let visto = false;
+        stats.forEach((s) => {
+          const audio = (s.kind || s.mediaType) === "audio";
+          if (s.type === "outbound-rtp" && audio) {
+            m.subidaEnviados = s.packetsSent || m.subidaEnviados;
+            visto = true;
+          } else if (s.type === "remote-inbound-rtp" && audio) {
+            // Lo que el otro extremo dice haber perdido de nuestra voz.
+            m.subidaPerdidos = Math.max(0, s.packetsLost || 0);
+            if (typeof s.roundTripTime === "number") {
+              m.rttSuma += s.roundTripTime;
+              m.rttN += 1;
+            }
+          } else if (s.type === "inbound-rtp" && audio) {
+            m.bajadaPerdidos = Math.max(0, s.packetsLost || 0);
+            m.bajadaRecibidos = s.packetsReceived || m.bajadaRecibidos;
+            if (typeof s.jitter === "number") {
+              m.jitterSuma += s.jitter;
+              m.jitterN += 1;
+            }
+            visto = true;
+          }
+        });
+        if (visto) m.muestras += 1;
+      } catch {
+        /* la conexión se cerró entre muestras */
+      }
+    }, 5000);
+    medRef.current = m;
+  }
+
   /* ── Ocultar el teléfono de Zadarma con CSS desde antes de que exista ── */
   useEffect(() => {
     if (document.getElementById("zadarma-oculto-css")) return;
@@ -94,6 +158,7 @@ export default function WidgetZadarma() {
           if (!a) return a;
           if (fase === "en_curso") return { ...a, fase, inicio: Date.now() };
           if (fase === "finalizada") {
+            cerrarMedicion();
             clearTimeout(limpiezaRef.current);
             limpiezaRef.current = setTimeout(() => setLlamada(null), 4000);
             return { ...a, fase };
@@ -129,6 +194,7 @@ export default function WidgetZadarma() {
            está desregistrado (unreg_flag): en ese caso no marca y antes se
            quedaba en "Marcando…" para siempre. Se avisa y se fuerza el
            re-registro en el siguiente intento. */
+        if (typeof r !== "string" && r !== false) iniciarMedicion(meta.id);
         if (typeof r === "string" || r === false) {
           const msg = typeof r === "string" ? r : "El teléfono se desconectó. Vuelve a intentar.";
           if (r === false) registradoRef.current = false;
@@ -147,6 +213,7 @@ export default function WidgetZadarma() {
         } catch {
           /* nada */
         }
+        cerrarMedicion();
         setLlamada((a) => (a ? { ...a, fase: "finalizada" } : a));
         clearTimeout(limpiezaRef.current);
         limpiezaRef.current = setTimeout(() => setLlamada(null), 3000);

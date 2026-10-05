@@ -9,7 +9,9 @@ import { useState } from "react";
 
 export const RESULTADOS = {
   venta_cerrada: ["Venta cerrada", "bg-emerald-100 text-emerald-800"],
+  pendiente_pago: ["Pendiente de pago", "bg-lime-100 text-lime-800"],
   interesado: ["Interesado", "bg-sky-100 text-sky-800"],
+  soporte: ["Soporte", "bg-violet-100 text-violet-800"],
   sin_interes: ["Sin interés", "bg-rose-100 text-rose-800"],
   no_contesto: ["Sin conversación", "bg-slate-100 text-slate-600"],
   reagendar: ["Reagendar", "bg-amber-100 text-amber-800"],
@@ -72,6 +74,12 @@ export function DetalleIA({ l }) {
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Compromisos</div>
             <ul className="list-disc pl-5 text-slate-800">{a.compromisos.map((x, i) => <li key={i}>{x}</li>)}</ul>
+          </div>
+        ) : null}
+        {a.monto_comprometido ? (
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pago comprometido</div>
+            <div className="font-semibold text-lime-800">{a.monto_comprometido}</div>
           </div>
         ) : null}
         {a.siguiente_paso ? (
