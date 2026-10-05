@@ -95,7 +95,13 @@ export default function BotonLlamarTelefono({ selectedChat, id_configuracion, va
       if (!window.telefoniaZadarma?.listo?.()) {
         throw new Error("El teléfono todavía se está conectando. Espera unos segundos y vuelve a intentar.");
       }
-      window.telefoniaZadarma.llamar(d.telefono, { nombre: selectedChat?.nombre_cliente || "", id: d.id });
+      window.telefoniaZadarma.llamar(d.telefono, {
+        nombre: selectedChat?.nombre_cliente || "",
+        id: d.id,
+        // Para el corte por saldo: la llamada se cuelga sola cuando se acaba.
+        saldo_centavos: d.saldo_centavos,
+        tarifa_centavos_min: d.tarifa_centavos_min,
+      });
       onLanzada?.();
     } catch (err) {
       setAviso(err?.response?.data?.message || err?.message || "No se pudo llamar");

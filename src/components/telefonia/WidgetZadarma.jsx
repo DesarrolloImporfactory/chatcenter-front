@@ -79,6 +79,35 @@ export default function WidgetZadarma() {
      5 s el getStats() de la conexión WebRTC del widget y, al colgar, se
      manda el promedio al back (POST /telefonia/calidad). Así en el historial
      se ve si un "se entrecorta" fue la red del asesor o la ruta de Zadarma. */
+  /* ── Corte por saldo ──
+     El saldo se valida al iniciar la llamada, pero una conexión con $0.30
+     podía hablar 20 minutos y quedar en negativo. Al contestar el cliente se
+     calcula cuántos segundos alcanza el saldo: un minuto antes se avisa en
+     el panel y al llegar a cero se cuelga. */
+  const corteRef = useRef(null); // { saldo, tarifa, t1, t2, agotado }
+  function limpiarCorte() {
+    const c = corteRef.current;
+    if (!c) return;
+    clearTimeout(c.t1);
+    clearTimeout(c.t2);
+    c.t1 = null;
+    c.t2 = null;
+  }
+  function programarCorte() {
+    const c = corteRef.current;
+    if (!c || c.t2 || !(c.tarifa > 0) || !(c.saldo >= 0)) return;
+    const maxSeg = Math.floor((c.saldo / c.tarifa) * 60);
+    if (!Number.isFinite(maxSeg)) return;
+    if (maxSeg > 75) {
+      c.t1 = setTimeout(() => setLlamada((a) => (a ? { ...a, aviso: "Queda 1 minuto de saldo. La llamada se cortará sola." } : a)), (maxSeg - 60) * 1000);
+    }
+    c.t2 = setTimeout(() => {
+      c.agotado = true;
+      setLlamada((a) => (a ? { ...a, aviso: "", error: "Se acabó el saldo de llamadas de esta conexión." } : a));
+      window.telefoniaZadarma?.colgar();
+    }, Math.max(1, maxSeg) * 1000);
+  }
+
   const medRef = useRef(null);
   const pruebaRef = useRef(false); // la llamada en pantalla es la prueba de audio
   function cerrarMedicion() {
@@ -164,13 +193,16 @@ export default function WidgetZadarma() {
     const envolver = (nombre, fase) => {
       const orig = typeof w[nombre] === "function" ? w[nombre].bind(w) : null;
       w[nombre] = (...args) => {
+        if (fase === "en_curso" && !pruebaRef.current) programarCorte();
         if (fase === "finalizada") {
           // Fuera del actualizador de estado: cerrarMedicion también actualiza
           // el estado (resultado de la prueba) y no debe ir anidado.
           cerrarMedicion();
+          limpiarCorte();
           clearTimeout(limpiezaRef.current);
           // La prueba de audio no se cierra sola: deja el resultado a la vista.
-          if (!pruebaRef.current) limpiezaRef.current = setTimeout(() => setLlamada(null), 4000);
+          // Si se cortó por saldo, el aviso se queda más tiempo.
+          if (!pruebaRef.current) limpiezaRef.current = setTimeout(() => setLlamada(null), corteRef.current?.agotado ? 10000 : 4000);
         }
         setLlamada((a) => {
           if (!a) return a;
@@ -197,7 +229,12 @@ export default function WidgetZadarma() {
         clearTimeout(limpiezaRef.current);
         setSilenciado(false);
         pruebaRef.current = false;
-        setLlamada({ numero, nombre: meta.nombre || "", fase: "llamando", inicio: null, error: "" });
+        limpiarCorte();
+        corteRef.current =
+          meta.tarifa_centavos_min > 0 && meta.saldo_centavos != null
+            ? { saldo: Number(meta.saldo_centavos), tarifa: Number(meta.tarifa_centavos_min), t1: null, t2: null, agotado: false }
+            : null;
+        setLlamada({ numero, nombre: meta.nombre || "", fase: "llamando", inicio: null, error: "", aviso: "" });
         /* Siempre con "+": sin él, el widget toma el número como nacional y
            le antepone el país de la cuenta. Así "593962803007" salía como
            593593962803007 y Zadarma lo rechazaba ("no ha podido
@@ -228,12 +265,13 @@ export default function WidgetZadarma() {
           /* nada */
         }
         cerrarMedicion();
+        limpiarCorte();
         setLlamada((a) => (a ? { ...a, fase: "finalizada" } : a));
         clearTimeout(limpiezaRef.current);
         /* pruebaRef, no medRef: al colgar, el propio widget ya cerró la
            medición (finishCall) y medRef llega vacío; por eso el panel de la
            prueba se cerraba a los 3 s sin mostrar el resultado. */
-        if (!pruebaRef.current) limpiezaRef.current = setTimeout(() => setLlamada(null), 3000);
+        if (!pruebaRef.current) limpiezaRef.current = setTimeout(() => setLlamada(null), corteRef.current?.agotado ? 10000 : 3000);
       },
       silenciar: (on) => {
         try {
@@ -337,6 +375,8 @@ export default function WidgetZadarma() {
         clearTimeout(limpiezaRef.current);
         setSilenciado(false);
         pruebaRef.current = true;
+        limpiarCorte();
+        corteRef.current = null;
         setLlamada({ numero: "4444", nombre: "Prueba de audio", fase: "llamando", inicio: null, error: "", prueba: true, red: null });
         const r = api.call("4444");
         if (typeof r === "string" || r === false) {
@@ -415,6 +455,11 @@ export default function WidgetZadarma() {
           </div>
         </div>
       </div>
+      {llamada.aviso && fase !== "finalizada" ? (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          <i className="bx bx-time-five" /> {llamada.aviso}
+        </div>
+      ) : null}
       {llamada.prueba && fase !== "finalizada" ? (
         <div className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
           Habla normal unos 15 segundos: vas a escucharte a ti mismo con un pequeño retraso. Si te oyes cortado o robótico, así te oye el cliente. Luego cuelga.
