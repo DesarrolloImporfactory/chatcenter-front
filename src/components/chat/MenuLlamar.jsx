@@ -34,6 +34,7 @@ async function disponibilidad(idCfg) {
 export default function MenuLlamar({ selectedChat, id_configuracion }) {
   const [abierto, setAbierto] = useState(false);
   const [disp, setDisp] = useState(null);
+  const [pruebaMsg, setPruebaMsg] = useState("");
   const ref = useRef(null);
   const esWa = selectedChat?.source === "wa";
   const idCfg = Number(id_configuracion) || null;
@@ -96,6 +97,34 @@ export default function MenuLlamar({ selectedChat, id_configuracion }) {
           ) : null}
           {disp.saldo ? (
             <BotonLlamarTelefono selectedChat={selectedChat} id_configuracion={id_configuracion} variante="menu" onLanzada={() => setAbierto(false)} />
+          ) : null}
+          {disp.saldo ? (
+            /* Prueba de eco de Zadarma (gratis): el asesor se escucha a sí
+               mismo y ve cómo está su red antes de llamar a un cliente. */
+            <button
+              type="button"
+              onClick={async () => {
+                setPruebaMsg("Preparando teléfono…");
+                try {
+                  if (!window.telefoniaZadarma?.probarAudio) throw new Error("Recarga la página para usar la prueba de audio.");
+                  await window.telefoniaZadarma.probarAudio();
+                  setPruebaMsg("");
+                  setAbierto(false);
+                } catch (err) {
+                  setPruebaMsg(err?.message || "No se pudo iniciar la prueba");
+                  setTimeout(() => setPruebaMsg(""), 8000);
+                }
+              }}
+              className="mt-1 flex w-full items-center gap-3 rounded-lg border-t border-slate-100 px-3 py-2 text-left hover:bg-slate-50"
+            >
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600">
+                <i className="bx bx-headphone text-lg" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-800">Probar mi audio</span>
+                <span className="block text-[11px] text-slate-500">{pruebaMsg || "Gratis · te escuchas a ti mismo y mide tu conexión"}</span>
+              </span>
+            </button>
           ) : null}
         </div>
       ) : null}
