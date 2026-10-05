@@ -35,7 +35,7 @@ import {
 const C_CONVERS = "#6366f1"; // conversaciones IA
 const C_CIERRE = "#0d9488"; // cierres / % de cierre
 const C_ORDENES = "#d97706"; // órdenes creadas en Dropi (validado vs C_CIERRE)
-const META_CIERRE = 20; // % de cierre objetivo (benchmark del mercado)
+const META_CIERRE = 25; // % de cierre objetivo, sobre quienes conversaron con el bot
 
 const num = (v) => Number(v || 0).toLocaleString("es-EC");
 const pct = (parte, total) =>
@@ -45,11 +45,21 @@ const pctTxt = (v) =>
     ? "—"
     : `${Number(v).toFixed(1)}%`;
 
-/* Color de estado para % de cierre: rojo <5, ámbar 5-10, verde >10 */
+/* % de cierre = de quienes CONVERSARON con el bot (le respondieron), cuántos
+   confirmaron el pedido. Más de la mitad de quienes escriben por un anuncio
+   nunca contesta: dividir entre todos medía al anuncio, no al bot. Si el
+   backend todavía no manda cierres_respondieron (columna sin migrar), cae al
+   cálculo anterior sobre el total de conversaciones. */
+const pctCierre = (o) =>
+  o && o.cierres_respondieron !== null && o.cierres_respondieron !== undefined
+    ? pct(o.cierres_respondieron, o.convers_respondieron)
+    : pct(o?.cierres_kanban, o?.convers_ia);
+
+/* Color de estado para % de cierre: rojo <10, ámbar 10-20, verde >20 */
 const toneCierre = (v) => {
   if (v === null || v === undefined) return "text-slate-400";
-  if (v < 5) return "text-rose-600";
-  if (v < 10) return "text-amber-600";
+  if (v < 10) return "text-rose-600";
+  if (v < 20) return "text-amber-600";
   return "text-emerald-600";
 };
 
@@ -64,9 +74,9 @@ const AYUDA = {
   conversaciones:
     "Personas distintas a las que el bot les escribió al menos un mensaje en el período. Cada persona cuenta una sola vez por día.",
   cierre:
-    "De cada 100 personas que atendió el bot, cuántas llegaron a 'Generar guía' o más allá en el kanban (guía generada, en tránsito, entregada...). Es la señal del propio asistente e-commerce de que la venta se cerró, tenga o no la cuenta integración con Dropi.",
+    "De cada 100 personas que CONVERSARON con el bot (le respondieron al menos una vez), cuántas confirmaron su pedido. Fórmula: pedidos confirmados de quienes conversaron ÷ personas que conversaron × 100. Ejemplo: si en el período 3.000 personas le respondieron al bot y 510 confirmaron su pedido, el cierre es 17%. No cuenta a quien escribió por el anuncio y nunca contestó: esa venta no la podía cerrar nadie. Un pedido que el bot confirmó y después se canceló sigue contando: el bot sí vendió. El dato sale de los chats del kanban de cada cuenta e-commerce y se recalcula cada madrugada.",
   cierres:
-    "Personas atendidas por el bot cuyo chat llegó al estado 'Generar guía' o a cualquier etapa posterior del tablero (guía generada, en tránsito, entregada, retiro, novedad, devolución). No depende de órdenes Dropi ni del auto-orden.",
+    "Personas atendidas por el bot que confirmaron su pedido: su chat llegó a 'Generar guía' o a cualquier etapa posterior (guía generada, en tránsito, entregada, retiro, novedad, devolución), o el bot confirmó el pedido y luego se canceló. Quien le dijo que no al bot no cuenta. No depende de órdenes Dropi ni del auto-orden.",
   respuesta:
     "De cada 100 personas a las que el bot les escribió, cuántas contestaron algo después del primer mensaje. Si esto está bajo, el problema es el primer mensaje o el interés del cliente, no el cierre.",
   ventas:
@@ -182,7 +192,7 @@ const AYUDA_PASO = {
   "Cliente respondió":
     "De esas personas, las que contestaron algo después del primer mensaje del bot.",
   "Cerró venta (generar guía)":
-    "Personas cuyo chat llegó a 'Generar guía' o más allá en el kanban: la venta se cerró.",
+    "De las personas que respondieron, las que confirmaron su pedido: su chat llegó a 'Generar guía' o más allá en el kanban (o el bot confirmó y luego se canceló). El 'pasó el X%' de esta barra es el % de cierre del bot.",
   Entregadas: "De esos cierres, los chats que ya están en el estado 'Entregada'.",
 };
 
@@ -235,7 +245,7 @@ const serieAChart = (serie) =>
       fecha: String(d.fecha).slice(0, 10),
       convers_ia: Number(d.convers_ia || 0),
       cierres_kanban: cierres,
-      pct_cierre: pct(d.cierres_kanban, d.convers_ia),
+      pct_cierre: pctCierre(d),
       ordenes_total: ordenes,
       auto_creadas: Number(d.auto_creadas || 0),
       sin_orden: Math.max(cierres - ordenes, 0),
@@ -397,8 +407,8 @@ const DetalleCuentaModal = ({ cuenta, rango, onClose }) => {
 
   const a = resumen?.actual || {};
   const p = resumen?.previo || {};
-  const cierreA = pct(a.cierres_kanban, a.convers_ia);
-  const cierreP = pct(p.cierres_kanban, p.convers_ia);
+  const cierreA = pctCierre(a);
+  const cierreP = pctCierre(p);
   const serie = useMemo(() => serieAChart(resumen?.serie), [resumen]);
   const autoC = Number(a.auto_creadas || 0);
 
@@ -547,9 +557,9 @@ const Comparativa = ({ actual, previo, dias }) => {
       grupo: "🤖 Desempeño del bot (esto sí es del bot)",
       label: "% de cierre",
       ayuda:
-        "Cierres ÷ conversaciones. Esta es LA métrica del bot: no depende de cuánto tráfico llegó, mide qué tan bien vende con la gente que le llega. Si esta sube, el bot mejoró aunque haya menos pedidos totales.",
-      a: pct(actual?.cierres_kanban, actual?.convers_ia),
-      p: pct(previo?.cierres_kanban, previo?.convers_ia),
+        "Pedidos confirmados ÷ personas que conversaron con el bot. Esta es LA métrica del bot: no depende de cuánto tráfico llegó ni de cuánta gente escribió y no contestó, mide qué tan bien vende con quien sí le conversa. Si esta sube, el bot mejoró aunque haya menos pedidos totales.",
+      a: pctCierre(actual),
+      p: pctCierre(previo),
       fmt: pctTxt,
       pts: true,
     },
@@ -597,8 +607,8 @@ const Comparativa = ({ actual, previo, dias }) => {
 
   /* Veredicto en una frase: responde la pregunta del título sin que haya
      que interpretar la tabla. Manda el % de cierre; el volumen acompaña. */
-  const cierreA = pct(actual?.cierres_kanban, actual?.convers_ia);
-  const cierreP = pct(previo?.cierres_kanban, previo?.convers_ia);
+  const cierreA = pctCierre(actual);
+  const cierreP = pctCierre(previo);
   let veredicto = null;
   if (cierreA !== null && cierreP !== null) {
     const dPts = cierreA - cierreP;
@@ -840,8 +850,8 @@ function TabSalud() {
     if (!resumen) return null;
     const a = resumen.actual || {};
     const p = resumen.previo || {};
-    const cierreA = pct(a.cierres_kanban, a.convers_ia);
-    const cierreP = pct(p.cierres_kanban, p.convers_ia);
+    const cierreA = pctCierre(a);
+    const cierreP = pctCierre(p);
     const respA = pct(a.convers_respondieron, a.convers_ia);
     const deltaPts = (x, y) => (x !== null && y !== null ? x - y : null);
     const deltaPct = (x, y) =>
@@ -985,7 +995,7 @@ function TabSalud() {
                 {pctTxt(kpis.cierre)}
               </span>
             }
-            sub={`la meta es ${META_CIERRE}%`}
+            sub={`de quienes conversaron con el bot · meta ${META_CIERRE}%`}
             delta={kpis.cierreDelta}
             ayuda={AYUDA.cierre}
           />
@@ -1085,7 +1095,7 @@ function TabSalud() {
 
         <Card
           title="% de cierre por día"
-          subtitle={`Cierres ÷ conversaciones de cada día · la línea punteada es la meta del ${META_CIERRE}%`}
+          subtitle={`Pedidos confirmados ÷ personas que conversaron con el bot cada día · la línea punteada es la meta del ${META_CIERRE}%`}
           ayuda={AYUDA.cierre}
         >
           <div className="h-56">
@@ -1198,7 +1208,7 @@ function TabSalud() {
       {/* Tabla por cuenta (paginada) */}
       <Card
         title="Rendimiento por cuenta"
-        subtitle="% de cierre: 🔴 menos de 5% · 🟡 entre 5 y 10% · 🟢 más de 10% · 'Ver detalle' abre la cuenta: sus indicadores, cierres del bot vs órdenes en Dropi por día y su embudo"
+        subtitle="% de cierre (de quienes conversaron con el bot): 🔴 menos de 10% · 🟡 entre 10 y 20% · 🟢 más de 20% ·'Ver detalle' abre la cuenta: sus indicadores, cierres del bot vs órdenes en Dropi por día y su embudo"
         right={
           <div className="flex items-center gap-2">
             <input
@@ -1478,6 +1488,7 @@ function TabConexiones() {
           label="Negocios"
           value={num(stats.total)}
           sub={`${num(stats.multicanal)} con más de un canal`}
+          ayuda="Total de conexiones (negocios) creadas en la plataforma. Abajo, cuántas tienen más de un canal conectado: WhatsApp, Messenger, Instagram o TikTok."
         />
         <Kpi
           label="WhatsApp conectado"
