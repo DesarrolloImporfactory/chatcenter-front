@@ -28,7 +28,29 @@ async function disponibilidad(idCfg) {
   ]);
   const out = { wa, saldo, at: Date.now() };
   cache.set(idCfg, out);
+  try {
+    localStorage.setItem(CLAVE_RECORDADA(idCfg), JSON.stringify({ wa, saldo }));
+  } catch {
+    // sin localStorage solo se pierde el arranque sin salto
+  }
   return out;
+}
+
+/* Lo último que se supo de esta conexión, sin esperar a la red. La consulta
+   tarda un par de segundos y, hasta que respondía, el botón no existía: al
+   aparecer empujaba al cronómetro y a los interruptores de al lado. Se pinta
+   con lo recordado y la consulta lo corrige si cambió. */
+const CLAVE_RECORDADA = (idCfg) => `menuLlamar:disp:${idCfg}`;
+
+function recordada(idCfg) {
+  const c = cache.get(idCfg);
+  if (c) return c;
+  try {
+    const g = JSON.parse(localStorage.getItem(CLAVE_RECORDADA(idCfg)));
+    return g ? { wa: !!g.wa, saldo: !!g.saldo } : null;
+  } catch {
+    return null;
+  }
 }
 
 export default function MenuLlamar({
@@ -37,15 +59,17 @@ export default function MenuLlamar({
   verEtiqueta = true,
 }) {
   const [abierto, setAbierto] = useState(false);
-  const [disp, setDisp] = useState(null);
   const [pruebaMsg, setPruebaMsg] = useState("");
   const ref = useRef(null);
   const esWa = selectedChat?.source === "wa";
   const idCfg = Number(id_configuracion) || null;
+  const [disp, setDisp] = useState(() =>
+    idCfg && esWa ? recordada(idCfg) : null,
+  );
 
   useEffect(() => {
     let vigente = true;
-    setDisp(null);
+    setDisp(idCfg && esWa ? recordada(idCfg) : null);
     if (!idCfg || !esWa) return undefined;
     disponibilidad(idCfg).then((d) => vigente && setDisp(d));
     return () => {

@@ -72,7 +72,30 @@ const Cabecera = ({
   // Tableros secundarios: el contacto puede estar en una columna de cada uno
   // además de su estado principal. `estadosSecundarios` = { id_tablero: estado_db }.
   const [tablerosKanban, setTablerosKanban] = useState([]);
-  const [estadosSecundarios, setEstadosSecundarios] = useState({});
+  /* Guardado POR CHAT y leído en el render (no vaciado en el efecto): el
+     efecto corre después de pintar, así que vaciar ahí dejaba un cuadro con
+     las etapas del chat anterior bajo el nombre del nuevo y otro cuadro en
+     blanco antes de que llegaran las suyas. Mismo patrón para Asesor/Ciclo. */
+  const [estadosSecundariosPorChat, setEstadosSecundariosPorChat] = useState(
+    {},
+  );
+  const estadosSecundarios = selectedChat?.id
+    ? estadosSecundariosPorChat[selectedChat.id] || {}
+    : {};
+  const setEstadosSecundarios = useCallback(
+    (actualizar) => {
+      const idChat = selectedChat?.id;
+      if (!idChat) return;
+      setEstadosSecundariosPorChat((prev) => ({
+        ...prev,
+        [idChat]:
+          typeof actualizar === "function"
+            ? actualizar(prev[idChat] || {})
+            : actualizar,
+      }));
+    },
+    [selectedChat?.id],
+  );
   useEffect(() => {
     if (!id_configuracion) return;
     chatApi
@@ -88,13 +111,13 @@ const Cabecera = ({
   }, [id_configuracion]);
 
   useEffect(() => {
-    setEstadosSecundarios({});
     if (!selectedChat?.id || !id_configuracion || !tablerosKanban.length)
       return;
+    const idChat = selectedChat.id;
     let vivo = true;
     chatApi
       .post("/clientes_chat_center/estados_tablero_cliente", {
-        id_cliente: selectedChat.id,
+        id_cliente: idChat,
         id_configuracion,
       })
       .then(({ data }) => {
@@ -103,7 +126,7 @@ const Cabecera = ({
         (data?.data || []).forEach((r) => {
           map[r.id_tablero] = r.estado_db;
         });
-        setEstadosSecundarios(map);
+        setEstadosSecundariosPorChat((prev) => ({ ...prev, [idChat]: map }));
       })
       .catch(() => {});
     return () => {
@@ -215,6 +238,12 @@ const Cabecera = ({
   const botEnBarra = escalon >= 1;
   const remarketingEnBarra = escalon >= 2;
   const verTextosPastillas = escalon >= 4;
+
+  const etiquetasAsignadas = (tagList || []).filter((tag) =>
+    tagListAsginadas?.some(
+      (assignedTag) => assignedTag.id_etiqueta === tag.id_etiqueta,
+    ),
+  );
   //Manejo de referencias
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -446,63 +475,48 @@ const Cabecera = ({
   };
 
   const [isHovering, setIsHovering] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(null);
 
-  // Calcular tiempo restante hasta el vencimiento (1 año desde fecha_suscripcion)
+  /* Tiempo restante hasta el vencimiento (1 año desde fecha_suscripcion).
+     Se calcula en el render, no en un efecto: el efecto corre después de
+     pintar y al cambiar de chat dejaba un cuadro con las fechas del chat
+     anterior bajo el nombre del nuevo. El reloj solo marca el "ahora". */
+  const [ahoraSuscripcion, setAhoraSuscripcion] = useState(() => Date.now());
   useEffect(() => {
-    if (!dataPlanes?.fecha_suscripcion) {
-      setTimeRemaining(null);
-      return;
-    }
-
-    const calculateTimeRemaining = () => {
-      const subscriptionDate = new Date(dataPlanes.fecha_suscripcion);
-      const expirationDate = new Date(subscriptionDate);
-      expirationDate.setFullYear(expirationDate.getFullYear() + 1); // 1 año de validez
-
-      const now = new Date();
-      const diff = expirationDate - now;
-
-      // Fechas ya formateadas para pintarlas junto al contador: el asesor de
-      // soporte necesita ver desde cuándo está inscrito y hasta cuándo vale.
-      const fmt = (d) =>
-        d.toLocaleDateString("es-EC", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        });
-      const fechas = {
-        inscritoEl: fmt(subscriptionDate),
-        venceEl: fmt(expirationDate),
-      };
-
-      if (diff <= 0) {
-        setTimeRemaining({ expired: true, ...fechas });
-        return;
-      }
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor(
-        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-      );
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeRemaining({
-        days,
-        hours,
-        minutes,
-        seconds,
-        expired: false,
-        ...fechas,
-      });
-    };
-
-    calculateTimeRemaining();
-    const interval = setInterval(calculateTimeRemaining, 1000);
-
+    if (!dataPlanes?.fecha_suscripcion) return undefined;
+    const interval = setInterval(() => setAhoraSuscripcion(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [dataPlanes?.fecha_suscripcion]);
+
+  const timeRemaining = (() => {
+    if (!dataPlanes?.fecha_suscripcion) return null;
+    const subscriptionDate = new Date(dataPlanes.fecha_suscripcion);
+    const expirationDate = new Date(subscriptionDate);
+    expirationDate.setFullYear(expirationDate.getFullYear() + 1); // 1 año de validez
+
+    const diff = expirationDate - ahoraSuscripcion;
+
+    // Fechas ya formateadas para pintarlas junto al contador: el asesor de
+    // soporte necesita ver desde cuándo está inscrito y hasta cuándo vale.
+    const fmt = (d) =>
+      d.toLocaleDateString("es-EC", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    const fechas = {
+      inscritoEl: fmt(subscriptionDate),
+      venceEl: fmt(expirationDate),
+    };
+
+    if (diff <= 0) return { expired: true, ...fechas };
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return { days, hours, minutes, seconds, expired: false, ...fechas };
+  })();
 
   /* Deja este chat como si el cliente escribiera por primera vez: borra el hilo
      que la IA tiene en OpenAI, devuelve el contacto a la columna de entrada y
@@ -729,19 +743,31 @@ const Cabecera = ({
     };
   }, [opcionesMenuOpen]);
 
-  // Etiquetas custom (Asesor / Ciclo)
-  const [customLabels, setCustomLabels] = useState(null);
+  // Etiquetas custom (Asesor / Ciclo), guardadas por chat (ver
+  // estadosSecundariosPorChat: mismo motivo, evitar el cuadro con datos del
+  // chat anterior y el cuadro en blanco al cambiar de chat).
+  const [customLabelsPorChat, setCustomLabelsPorChat] = useState({});
+  const customLabels = selectedChat?.id
+    ? customLabelsPorChat[selectedChat.id] || null
+    : null;
 
   useEffect(() => {
-    if (!selectedChat?.id) {
-      setCustomLabels(null);
-      return;
-    }
-
+    if (!selectedChat?.id) return;
+    const idChat = selectedChat.id;
+    let vivo = true;
     chatApi
-      .get(`/etiquetas_custom_chat_center/cliente/${selectedChat.id}`)
-      .then(({ data }) => setCustomLabels(data?.data || null))
-      .catch(() => setCustomLabels(null));
+      .get(`/etiquetas_custom_chat_center/cliente/${idChat}`)
+      .then(({ data }) => {
+        if (!vivo) return;
+        setCustomLabelsPorChat((prev) => ({
+          ...prev,
+          [idChat]: data?.data || null,
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
   }, [selectedChat?.id]);
 
   return (
@@ -1506,10 +1532,14 @@ const Cabecera = ({
 
       {/* Sección principal cuando el chat está seleccionado */}
       {selectedChat === null ? (
+        /* Mismo alto que la cabecera de un chat abierto (fila de datos 73 +
+           borde 1 + franja de etiquetas 51). Toda la fila superior del grid
+           toma el alto de esta celda: si no coinciden, al abrir el primer
+           chat saltan también la barra oscura y la lista de la izquierda. */
         <div
           className={`${
             opciones ? "col-span-2 bg-gray-100" : "col-span-3 bg-gray-100"
-          } py-[55px] ${selectedChat === null ? "hidden sm:block" : "block"}`}
+          } min-h-[125px] ${selectedChat === null ? "hidden sm:block" : "block"}`}
         ></div>
       ) : (
         <div
@@ -1602,7 +1632,13 @@ const Cabecera = ({
                         : "SELECCIONE UN CHAT"}
                     </span>
 
-                    <div className="flex flex-wrap gap-1 shrink-0">
+                    {/* Sin wrap: los planes llegan ~1 s después de abrir el
+                        chat y, si saltaban de línea, la cabecera crecía con
+                        ellos. Si no hay sitio se truncan el nombre y (en
+                        angosto) se omiten los chips, que están en el panel
+                        del cliente. */}
+                    {escalon >= 3 && (
+                    <div className="flex gap-1 shrink-0 whitespace-nowrap">
                       {dataPlanes &&
                         typeof dataPlanes === "object" &&
                         Object.keys(dataPlanes).length > 0 &&
@@ -1622,12 +1658,18 @@ const Cabecera = ({
                             </span>
                           ))}
                     </div>
+                    )}
                   </div>
 
                   {/* Línea 2: teléfono · suscripción · estado */}
-                  <div className="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap">
+                  {/* Una sola línea siempre: la cabecera no cambia de alto
+                      cuando llegan los datos de suscripción. Lo que no cabe
+                      (fechas) se recorta y queda en el tooltip; las
+                      pastillas de estado nunca se recortan. */}
+                  <div className="flex items-center gap-2 mt-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
                     {/* Teléfono / ID */}
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] text-slate-500 font-medium">
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[12px] text-slate-500 font-medium">
                       <i className="bx bx-phone text-[12px] text-slate-400" />
                       {selectedChat
                         ? selectedChat.source === "wa"
@@ -1644,7 +1686,7 @@ const Cabecera = ({
                     {timeRemaining && dataPlanes?.fecha_suscripcion && (
                       <>
                         <span
-                          className={`inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold ${
+                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-semibold ${
                             timeRemaining.expired
                               ? "text-rose-600"
                               : timeRemaining.days === 0
@@ -1678,34 +1720,42 @@ const Cabecera = ({
                             contador de días. */}
                         {verTextosPastillas && (
                           <span
-                            className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-slate-500"
+                            className="inline-flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] text-slate-500"
                             title={`Inscrito el ${timeRemaining.inscritoEl} · membresía válida hasta el ${timeRemaining.venceEl}`}
                           >
-                            <i className="bx bx-calendar text-[12px] text-slate-400" />
-                            Inscrito {timeRemaining.inscritoEl}
-                            <span className="text-slate-300">·</span>
-                            {timeRemaining.expired ? "Venció" : "Vence"}{" "}
-                            {timeRemaining.venceEl}
+                            <i className="bx bx-calendar shrink-0 text-[12px] text-slate-400" />
+                            <span className="truncate">
+                              Inscrito {timeRemaining.inscritoEl}
+                              <span className="text-slate-300"> · </span>
+                              {timeRemaining.expired ? "Venció" : "Vence"}{" "}
+                              {timeRemaining.venceEl}
+                            </span>
                           </span>
                         )}
                       </>
                     )}
-
-                    {/* (Sin puntos separadores sueltos: al partirse la línea
-                        quedaban huérfanos al inicio o al final de un renglón.
-                        Las pastillas ya se separan solas con su borde.) */}
+                    </div>
 
                     {/* Pill estado contacto (+ un pill por tablero secundario:
                         quien trabaja con dos embudos ve las dos etapas acá) */}
+                    {/* Las pastillas van en una fila que se recorta
+                        (overflow-hidden) para que nunca se monten sobre el
+                        cronómetro y los botones de la derecha: cada pastilla
+                        acorta su texto con "…" (el completo queda en el
+                        tooltip). El desplegable queda FUERA de esa fila, como
+                        hermano, para que el recorte no lo tape. Con la
+                        cabecera angosta los tableros secundarios se resumen
+                        en una sola pastilla "+N". */}
                     <div
-                      className="relative inline-flex items-center gap-1.5 flex-wrap"
+                      className="relative flex min-w-0 items-center"
                       ref={estadoDropdownRef}
                     >
+                    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setEstadoDropdownOpen((p) => !p)}
                         disabled={loadingEstado}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-0.5 shadow-sm text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
+                        className="inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-0.5 shadow-sm text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
                         title="Cambiar estado del contacto"
                       >
                         {loadingEstado ? (
@@ -1743,7 +1793,28 @@ const Cabecera = ({
                       </button>
 
                       {/* Etapa del contacto en cada tablero secundario */}
-                      {tablerosKanban.map((t) => {
+                      {tablerosKanban.length > 0 && escalon < 4 ? (
+                        <button
+                          type="button"
+                          onClick={() => setEstadoDropdownOpen((p) => !p)}
+                          disabled={loadingEstado}
+                          title={tablerosKanban
+                            .map((t) => {
+                              const col = estadosSecundarios[t.id]
+                                ? estadosKanban.find(
+                                    (c) => c.estado_db === estadosSecundarios[t.id],
+                                  )
+                                : null;
+                              return `${t.nombre}: ${col ? col.nombre : "sin etapa"}`;
+                            })
+                            .join(" · ")}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50/60 px-2 py-0.5 shadow-sm text-[11px] font-semibold text-slate-600 hover:bg-indigo-50 transition disabled:opacity-60"
+                        >
+                          <i className="bx bx-columns text-[11px] text-indigo-400" />
+                          +{tablerosKanban.length}
+                        </button>
+                      ) : (
+                      tablerosKanban.map((t) => {
                         const estadoDb = estadosSecundarios[t.id];
                         const col = estadoDb
                           ? estadosKanban.find((c) => c.estado_db === estadoDb)
@@ -1761,14 +1832,14 @@ const Cabecera = ({
                                 ? `Tablero ${t.nombre}: ${col.nombre} · clic para cambiar`
                                 : `El contacto no está en el tablero ${t.nombre} · clic para agregarlo`
                             }
-                            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 shadow-sm text-[11px] font-semibold transition disabled:opacity-60 ${
+                            className={`inline-flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-0.5 shadow-sm text-[11px] font-semibold transition disabled:opacity-60 ${
                               col
                                 ? "border-indigo-200 bg-indigo-50/60 text-slate-700 hover:bg-indigo-50"
                                 : "border-dashed border-slate-300 bg-white text-slate-400 hover:bg-slate-50"
                             }`}
                           >
-                            <i className="bx bx-columns text-[11px] text-indigo-400" />
-                            <span className="text-slate-500 font-medium">
+                            <i className="bx bx-columns shrink-0 text-[11px] text-indigo-400" />
+                            <span className="truncate max-w-[120px] text-slate-500 font-medium">
                               {t.nombre}:
                             </span>
                             {col ? (
@@ -1785,11 +1856,13 @@ const Cabecera = ({
                                 </span>
                               </>
                             ) : (
-                              <span className="italic">sin etapa</span>
+                              <span className="truncate italic">sin etapa</span>
                             )}
                           </button>
                         );
-                      })}
+                      })
+                      )}
+                    </div>
 
                       {/* Dropdown estados (tu mismo dropdown) */}
                       {estadoDropdownOpen && (
@@ -2183,16 +2256,14 @@ const Cabecera = ({
             </div>
 
             {/* Sección de etiquetas - mejorada */}
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 bg-gradient-to-b from-slate-50/80 to-slate-50 border-t border-slate-200/70">
-              {tagList && tagList.length > 0 ? (
-                tagList
-                  .filter((tag) =>
-                    tagListAsginadas?.some(
-                      (assignedTag) =>
-                        assignedTag.id_etiqueta === tag.id_etiqueta,
-                    ),
-                  )
-                  .map((tag) => {
+            {/* Alto mínimo fijo (una fila de etiquetas) y un solo criterio
+                para el texto vacío. Antes la franja medía distinto según el
+                momento: "Sin etiquetas" mientras cargaba el catálogo, vacía
+                (más baja) al cargar y más alta al llegar las etiquetas; al
+                abrir un chat la cabecera saltaba y empujaba la conversación. */}
+            <div className="flex flex-wrap items-center gap-2 min-h-[51px] px-4 py-2.5 bg-gradient-to-b from-slate-50/80 to-slate-50 border-t border-slate-200/70">
+              {etiquetasAsignadas.length > 0 ? (
+                etiquetasAsignadas.map((tag) => {
                     const color = tag.color_etiqueta || "#64748b";
                     return (
                       <div
@@ -2225,7 +2296,7 @@ const Cabecera = ({
                         </button>
                       </div>
                     );
-                  })
+                })
               ) : (
                 <span className="text-[11px] text-slate-400 italic">
                   Sin etiquetas asignadas

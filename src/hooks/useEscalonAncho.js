@@ -15,8 +15,13 @@ import { useCallback, useRef, useState } from "react";
  *
  * `cortes` debe ser un arreglo estable (constante de módulo), ascendente.
  */
+// Último escalón medido por cada juego de cortes: el elemento se desmonta y
+// se vuelve a montar (p. ej. al cerrar y abrir un chat) y así arranca ya con
+// el diseño correcto en vez de partir del más angosto y corregirse.
+const ultimoEscalon = new Map();
+
 export default function useEscalonAncho(cortes) {
-  const [escalon, setEscalon] = useState(0);
+  const [escalon, setEscalon] = useState(() => ultimoEscalon.get(cortes) ?? 0);
   const observadorRef = useRef(null);
 
   const ref = useCallback(
@@ -25,8 +30,11 @@ export default function useEscalonAncho(cortes) {
       observadorRef.current = null;
       if (!el) return;
 
-      const medir = (ancho) =>
-        setEscalon(cortes.filter((corte) => ancho >= corte).length);
+      const medir = (ancho) => {
+        const nuevo = cortes.filter((corte) => ancho >= corte).length;
+        ultimoEscalon.set(cortes, nuevo);
+        setEscalon(nuevo);
+      };
 
       medir(el.getBoundingClientRect().width);
       if (typeof ResizeObserver === "undefined") return;

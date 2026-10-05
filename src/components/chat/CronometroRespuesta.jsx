@@ -96,17 +96,19 @@ const nivelDe = (minutos) =>
 function Caja({ tema, icono, titulo, etiqueta, extra, title, nivel }) {
   return (
     <div
-      className={`hidden sm:flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border px-2.5 py-1 shadow-sm ${tema.caja}`}
+      className={`hidden sm:flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border px-2.5 py-1 shadow-sm transition-colors duration-300 ${tema.caja}`}
       title={title}
     >
       <span
-        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${tema.icono}`}
+        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-300 ${tema.icono}`}
       >
         <i className={`bx ${icono} text-[14px]`} />
       </span>
+      {/* Ancho mínimo = "0:00": mientras se consulta la apertura se pinta
+          "…" y, sin esto, la caja cambiaba de tamaño al llegar el reloj. */}
       {titulo ? (
         <span
-          className={`text-xs font-semibold tabular-nums ${tema.texto}`}
+          className={`min-w-[1.75rem] text-center text-xs font-semibold tabular-nums transition-colors duration-300 ${tema.texto}`}
           aria-live="off"
         >
           {titulo}
@@ -168,7 +170,13 @@ export default function CronometroRespuesta({
   /* ── Apertura (una consulta por chat + mensaje pendiente) ──
      Hasta que el back responde se muestra "cargando" sin arrancar ningún
      reloj: así a un administrador nunca se le pinta un tiempo propio. */
-  const claveEspera = esperaDesde ? `${idChat}|${esperaDesde.getTime()}` : "";
+  /* Al minuto, no al milisegundo: al abrir el chat la espera sale primero del
+     resumen de la lista y, cuando cargan los mensajes, del último mensaje;
+     las dos horas pueden diferir en fracciones y eso volvía a pedir la
+     apertura y a pintar "…" por segunda vez. */
+  const claveEspera = esperaDesde
+    ? `${idChat}|${Math.floor(esperaDesde.getTime() / 60_000)}`
+    : "";
   const [aperturas, setAperturas] = useState({});
   const pedidasRef = useRef(new Set());
   useEffect(() => {
