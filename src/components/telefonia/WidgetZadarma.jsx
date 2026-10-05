@@ -80,6 +80,7 @@ export default function WidgetZadarma() {
      manda el promedio al back (POST /telefonia/calidad). Así en el historial
      se ve si un "se entrecorta" fue la red del asesor o la ruta de Zadarma. */
   const medRef = useRef(null);
+  const pruebaRef = useRef(false); // la llamada en pantalla es la prueba de audio
   function cerrarMedicion() {
     const m = medRef.current;
     if (!m) return;
@@ -142,7 +143,7 @@ export default function WidgetZadarma() {
       } catch {
         /* la conexión se cerró entre muestras */
       }
-    }, 5000);
+    }, 3000);
     medRef.current = m;
   }
 
@@ -163,16 +164,18 @@ export default function WidgetZadarma() {
     const envolver = (nombre, fase) => {
       const orig = typeof w[nombre] === "function" ? w[nombre].bind(w) : null;
       w[nombre] = (...args) => {
+        if (fase === "finalizada") {
+          // Fuera del actualizador de estado: cerrarMedicion también actualiza
+          // el estado (resultado de la prueba) y no debe ir anidado.
+          cerrarMedicion();
+          clearTimeout(limpiezaRef.current);
+          // La prueba de audio no se cierra sola: deja el resultado a la vista.
+          if (!pruebaRef.current) limpiezaRef.current = setTimeout(() => setLlamada(null), 4000);
+        }
         setLlamada((a) => {
           if (!a) return a;
           if (fase === "en_curso") return { ...a, fase, inicio: Date.now() };
-          if (fase === "finalizada") {
-            cerrarMedicion();
-            clearTimeout(limpiezaRef.current);
-            // La prueba de audio no se cierra sola: deja el resultado a la vista.
-            if (!a.prueba) limpiezaRef.current = setTimeout(() => setLlamada(null), 4000);
-            return { ...a, fase };
-          }
+          if (fase === "finalizada") return { ...a, fase };
           return { ...a, fase };
         });
         return orig ? orig(...args) : undefined;
@@ -193,6 +196,7 @@ export default function WidgetZadarma() {
         engancharEstados();
         clearTimeout(limpiezaRef.current);
         setSilenciado(false);
+        pruebaRef.current = false;
         setLlamada({ numero, nombre: meta.nombre || "", fase: "llamando", inicio: null, error: "" });
         /* Siempre con "+": sin él, el widget toma el número como nacional y
            le antepone el país de la cuenta. Así "593962803007" salía como
@@ -223,11 +227,13 @@ export default function WidgetZadarma() {
         } catch {
           /* nada */
         }
-        const eraPrueba = !!medRef.current?.prueba;
         cerrarMedicion();
         setLlamada((a) => (a ? { ...a, fase: "finalizada" } : a));
         clearTimeout(limpiezaRef.current);
-        if (!eraPrueba) limpiezaRef.current = setTimeout(() => setLlamada(null), 3000);
+        /* pruebaRef, no medRef: al colgar, el propio widget ya cerró la
+           medición (finishCall) y medRef llega vacío; por eso el panel de la
+           prueba se cerraba a los 3 s sin mostrar el resultado. */
+        if (!pruebaRef.current) limpiezaRef.current = setTimeout(() => setLlamada(null), 3000);
       },
       silenciar: (on) => {
         try {
@@ -330,6 +336,7 @@ export default function WidgetZadarma() {
         engancharEstados();
         clearTimeout(limpiezaRef.current);
         setSilenciado(false);
+        pruebaRef.current = true;
         setLlamada({ numero: "4444", nombre: "Prueba de audio", fase: "llamando", inicio: null, error: "", prueba: true, red: null });
         const r = api.call("4444");
         if (typeof r === "string" || r === false) {
