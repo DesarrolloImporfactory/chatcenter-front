@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
+import { useSocket } from "../../context/SocketProvider";
 
 /**
  * Teléfono de Zadarma integrado (telefonía por saldo).
@@ -10,10 +11,14 @@ import chatApi from "../../api/chatcenter";
  * propio panel de llamada, con el mismo estilo que el de WhatsApp. El widget
  * queda debajo solo para el audio y la señalización SIP.
  *
- * Solo se carga si la CONEXIÓN abierta (localStorage.id_configuracion) tiene
- * telefonía activa (GET /telefonia/widget?id_configuracion=…). Al cambiar de
- * conexión se vuelve a consultar; si la nueva no tiene, el teléfono se
- * apaga (se desregistra la extensión).
+ * Se carga BAJO DEMANDA (2026-10-05): solo cuando el asesor pulsa "Con saldo
+ * (celular)" se pide GET /telefonia/widget (que le asigna una extensión de
+ * la central) y se registra el teléfono. Antes se cargaba al abrir el chat
+ * para todo el mundo y, con 2 extensiones y decenas de asesores, saltaba
+ * "no quedan extensiones" a gente que nunca iba a llamar. Mientras está
+ * registrado manda un latido cada 5 min para conservar la extensión; si el
+ * back se la recicla a otro asesor (TELEFONIA_EXTENSION_LIBERADA) se
+ * desregistra y la próxima llamada vuelve a prepararse.
  *
  * Métodos del widget usados (widget-api.min.js): apiWidget.call(numero),
  * .answer(), .finishCall(), .micSwitch('on'|'off'). Estados: se toman
@@ -162,69 +167,92 @@ export default function WidgetZadarma() {
     };
   }, []);
 
-  /* ── Cargar/renovar según la conexión abierta ── */
-  useEffect(() => {
-    let vigente = true;
-    let timer = null;
-
-    const consultar = async () => {
+  /* ── Preparar el teléfono bajo demanda ──
+     Pide la llave y la extensión al back, carga los scripts de Zadarma una
+     sola vez y registra. Si ya está registrado con la misma extensión, no
+     hace nada. Si la extensión cambió (la anterior se recicló), vuelve a
+     construir el widget con la nueva. */
+  const sipRef = useRef(null);
+  const preparandoRef = useRef(null);
+  const preparar = async () => {
+    if (preparandoRef.current) return preparandoRef.current;
+    preparandoRef.current = (async () => {
       const idCfg = Number(localStorage.getItem("id_configuracion")) || null;
-      if (!idCfg) return;
-      try {
-        const { data } = await chatApi.get("/telefonia/widget", { params: { id_configuracion: idCfg } });
-        const d = data?.data || {};
-        if (!vigente) return;
-        if (!d.activo || !d.key || !d.sip) {
-          // Conexión sin telefonía: si el teléfono estaba registrado, se apaga.
-          if (iniciadoRef.current && idCfgRef.current !== idCfg) {
-            try {
-              window.zdrmWPhI?.apiWidget?.unreg?.();
-            } catch {
-              /* nada */
-            }
-          }
-          idCfgRef.current = idCfg;
-          return;
-        }
-        for (const src of SCRIPTS) await cargarScript(src);
-        if (!vigente || typeof window.zadarmaWidgetFn !== "function") return;
-        if (!iniciadoRef.current) {
-          window.zadarmaWidgetFn(d.key, d.sip, "rounded", "es", true, { right: "10px", bottom: "5px" });
-          iniciadoRef.current = true;
-          setTimeout(engancharEstados, 1500);
-          console.log("[telefonia] teléfono listo (oculto), extensión", d.extension);
-        } else if (idCfgRef.current !== idCfg) {
-          try {
-            window.zdrmWPhI?.apiWidget?.reg?.();
-          } catch {
-            /* nada */
-          }
-        }
-        idCfgRef.current = idCfg;
-      } catch (err) {
-        console.warn("[telefonia] teléfono no disponible:", err?.response?.data?.message || err.message);
+      if (!idCfg) throw new Error("No hay una conexión abierta.");
+      const { data } = await chatApi.get("/telefonia/widget", { params: { id_configuracion: idCfg } });
+      const d = data?.data || {};
+      if (!d.activo || !d.key || !d.sip) {
+        throw new Error(d.motivo || "Esta conexión no tiene telefonía por saldo.");
       }
-    };
-
-    consultar();
-    timer = setInterval(consultar, RENOVAR_MS);
-    // Cambio de conexión dentro de la app: Chat.jsx guarda id_configuracion
-    // en localStorage; se revisa al volver a la pestaña y cada minuto.
-    const alVolver = () => {
-      if (document.visibilityState === "visible") consultar();
-    };
-    const cada = setInterval(() => {
-      const idCfg = Number(localStorage.getItem("id_configuracion")) || null;
-      if (idCfg && idCfg !== idCfgRef.current) consultar();
-    }, 60_000);
-    document.addEventListener("visibilitychange", alVolver);
-    return () => {
-      vigente = false;
-      clearInterval(timer);
-      clearInterval(cada);
-      document.removeEventListener("visibilitychange", alVolver);
-    };
+      for (const src of SCRIPTS) await cargarScript(src);
+      if (typeof window.zadarmaWidgetFn !== "function") throw new Error("No se pudo cargar el teléfono de Zadarma.");
+      if (iniciadoRef.current && sipRef.current === d.sip) {
+        try {
+          window.zdrmWPhI?.apiWidget?.reg?.();
+        } catch {
+          /* nada */
+        }
+        return d;
+      }
+      if (iniciadoRef.current) {
+        // Extensión distinta: se desregistra la vieja y se reconstruye.
+        try {
+          window.zdrmWPhI?.apiWidget?.unreg?.();
+        } catch {
+          /* nada */
+        }
+        document.querySelectorAll(".zdrm-webphone-wrapper, .zdrm-phone").forEach((n) => n.remove());
+        if (window.zdrmWPhI) window.zdrmWPhI.__imporchat = false;
+      }
+      window.zadarmaWidgetFn(d.key, d.sip, "rounded", "es", true, { right: "10px", bottom: "5px" });
+      iniciadoRef.current = true;
+      sipRef.current = d.sip;
+      idCfgRef.current = idCfg;
+      setTimeout(engancharEstados, 1500);
+      console.log("[telefonia] teléfono listo (oculto), extensión", d.extension);
+      // El widget tarda un momento en registrar la extensión.
+      await new Promise((r) => setTimeout(r, 1500));
+      return d;
+    })();
+    try {
+      return await preparandoRef.current;
+    } finally {
+      preparandoRef.current = null;
+    }
+  };
+  useEffect(() => {
+    if (window.telefoniaZadarma) window.telefoniaZadarma.preparar = preparar;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ── Latido: mientras el teléfono esté registrado, cada 5 min se avisa al
+     back que sigue en uso (conserva la extensión y renueva la llave). ── */
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!iniciadoRef.current || document.visibilityState !== "visible") return;
+      const idCfg = idCfgRef.current;
+      if (idCfg) chatApi.get("/telefonia/widget", { params: { id_configuracion: idCfg } }).catch(() => {});
+    }, 5 * 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ── El back recicló mi extensión a otro asesor: me desregistro. ── */
+  const { socket } = useSocket() || {};
+  useEffect(() => {
+    if (!socket) return undefined;
+    const h = () => {
+      if (!iniciadoRef.current) return;
+      try {
+        window.zdrmWPhI?.apiWidget?.unreg?.();
+      } catch {
+        /* nada */
+      }
+      sipRef.current = null;
+      console.log("[telefonia] la extensión se asignó a otro asesor; se volverá a preparar al llamar");
+    };
+    socket.on("TELEFONIA_EXTENSION_LIBERADA", h);
+    return () => socket.off("TELEFONIA_EXTENSION_LIBERADA", h);
+  }, [socket]);
 
   if (!llamada) return null;
 
