@@ -77,6 +77,15 @@ export default function BotonLlamarTelefono({ selectedChat, id_configuracion, va
     setOcupado(true);
     setAviso("");
     try {
+      /* El teléfono se prepara aquí, no al abrir el chat: así solo ocupa
+         una extensión de Zadarma quien de verdad llama. Si no hay ninguna
+         libre, el motivo se ve en este mismo botón. */
+      if (!window.telefoniaZadarma?.preparar) {
+        throw new Error("El teléfono no está disponible en esta pantalla. Recarga la página.");
+      }
+      setAviso("Preparando teléfono…");
+      await window.telefoniaZadarma.preparar();
+      setAviso("");
       const { data } = await chatApi.post("/telefonia/llamar", {
         id_configuracion: idCfg,
         id_cliente_chat_center: idChat,
