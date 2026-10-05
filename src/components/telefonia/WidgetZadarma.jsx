@@ -79,14 +79,53 @@ export default function WidgetZadarma() {
      5 s el getStats() de la conexión WebRTC del widget y, al colgar, se
      manda el promedio al back (POST /telefonia/calidad). Así en el historial
      se ve si un "se entrecorta" fue la red del asesor o la ruta de Zadarma. */
+  /* ── Corte por saldo ──
+     El saldo se valida al iniciar la llamada, pero una conexión con $0.30
+     podía hablar 20 minutos y quedar en negativo. Al contestar el cliente se
+     calcula cuántos segundos alcanza el saldo: un minuto antes se avisa en
+     el panel y al llegar a cero se cuelga. */
+  const corteRef = useRef(null); // { saldo, tarifa, t1, t2, agotado }
+  function limpiarCorte() {
+    const c = corteRef.current;
+    if (!c) return;
+    clearTimeout(c.t1);
+    clearTimeout(c.t2);
+    c.t1 = null;
+    c.t2 = null;
+  }
+  function programarCorte() {
+    const c = corteRef.current;
+    if (!c || c.t2 || !(c.tarifa > 0) || !(c.saldo >= 0)) return;
+    const maxSeg = Math.floor((c.saldo / c.tarifa) * 60);
+    if (!Number.isFinite(maxSeg)) return;
+    if (maxSeg > 75) {
+      c.t1 = setTimeout(() => setLlamada((a) => (a ? { ...a, aviso: "Queda 1 minuto de saldo. La llamada se cortará sola." } : a)), (maxSeg - 60) * 1000);
+    }
+    c.t2 = setTimeout(() => {
+      c.agotado = true;
+      setLlamada((a) => (a ? { ...a, aviso: "", error: "Se acabó el saldo de llamadas de esta conexión." } : a));
+      window.telefoniaZadarma?.colgar();
+    }, Math.max(1, maxSeg) * 1000);
+  }
+
   const medRef = useRef(null);
+  const pruebaRef = useRef(false); // la llamada en pantalla es la prueba de audio
   function cerrarMedicion() {
     const m = medRef.current;
     if (!m) return;
     medRef.current = null;
     clearInterval(m.timer);
-    if (!m.id || m.muestras < 1) return;
     const pct = (perdidos, total) => (total > 0 ? Math.max(0, (perdidos / total) * 100) : null);
+    if (m.prueba) {
+      // Prueba de eco: el resultado se le muestra al asesor en el panel.
+      const perdida = Math.max(pct(m.subidaPerdidos, m.subidaEnviados) || 0, pct(m.bajadaPerdidos, m.bajadaPerdidos + m.bajadaRecibidos) || 0);
+      const jitter = m.jitterN ? (m.jitterSuma / m.jitterN) * 1000 : 0;
+      const rtt = m.rttN ? (m.rttSuma / m.rttN) * 1000 : 0;
+      const nivel = m.muestras < 1 ? "sin_datos" : perdida > 5 || jitter > 60 || rtt > 500 ? "mala" : perdida > 2 || jitter > 30 || rtt > 300 ? "regular" : "buena";
+      setLlamada((a) => (a ? { ...a, red: { nivel, perdida, jitter, rtt } } : a));
+      return;
+    }
+    if (!m.id || m.muestras < 1) return;
     chatApi
       .post("/telefonia/calidad", {
         id_llamada: m.id,
@@ -98,9 +137,9 @@ export default function WidgetZadarma() {
       })
       .catch(() => {});
   }
-  function iniciarMedicion(id) {
+  function iniciarMedicion(id, prueba = false) {
     cerrarMedicion();
-    const m = { id: id || null, muestras: 0, subidaPerdidos: 0, subidaEnviados: 0, bajadaPerdidos: 0, bajadaRecibidos: 0, jitterSuma: 0, jitterN: 0, rttSuma: 0, rttN: 0, timer: null };
+    const m = { id: id || null, prueba, muestras: 0, subidaPerdidos: 0, subidaEnviados: 0, bajadaPerdidos: 0, bajadaRecibidos: 0, jitterSuma: 0, jitterN: 0, rttSuma: 0, rttN: 0, timer: null };
     m.timer = setInterval(async () => {
       try {
         const pc = window.zdrmWebPhone?.webCallSession?.connection;
@@ -133,7 +172,7 @@ export default function WidgetZadarma() {
       } catch {
         /* la conexión se cerró entre muestras */
       }
-    }, 5000);
+    }, 3000);
     medRef.current = m;
   }
 
@@ -154,15 +193,21 @@ export default function WidgetZadarma() {
     const envolver = (nombre, fase) => {
       const orig = typeof w[nombre] === "function" ? w[nombre].bind(w) : null;
       w[nombre] = (...args) => {
+        if (fase === "en_curso" && !pruebaRef.current) programarCorte();
+        if (fase === "finalizada") {
+          // Fuera del actualizador de estado: cerrarMedicion también actualiza
+          // el estado (resultado de la prueba) y no debe ir anidado.
+          cerrarMedicion();
+          limpiarCorte();
+          clearTimeout(limpiezaRef.current);
+          // La prueba de audio no se cierra sola: deja el resultado a la vista.
+          // Si se cortó por saldo, el aviso se queda más tiempo.
+          if (!pruebaRef.current) limpiezaRef.current = setTimeout(() => setLlamada(null), corteRef.current?.agotado ? 10000 : 4000);
+        }
         setLlamada((a) => {
           if (!a) return a;
           if (fase === "en_curso") return { ...a, fase, inicio: Date.now() };
-          if (fase === "finalizada") {
-            cerrarMedicion();
-            clearTimeout(limpiezaRef.current);
-            limpiezaRef.current = setTimeout(() => setLlamada(null), 4000);
-            return { ...a, fase };
-          }
+          if (fase === "finalizada") return { ...a, fase };
           return { ...a, fase };
         });
         return orig ? orig(...args) : undefined;
@@ -183,7 +228,13 @@ export default function WidgetZadarma() {
         engancharEstados();
         clearTimeout(limpiezaRef.current);
         setSilenciado(false);
-        setLlamada({ numero, nombre: meta.nombre || "", fase: "llamando", inicio: null, error: "" });
+        pruebaRef.current = false;
+        limpiarCorte();
+        corteRef.current =
+          meta.tarifa_centavos_min > 0 && meta.saldo_centavos != null
+            ? { saldo: Number(meta.saldo_centavos), tarifa: Number(meta.tarifa_centavos_min), t1: null, t2: null, agotado: false }
+            : null;
+        setLlamada({ numero, nombre: meta.nombre || "", fase: "llamando", inicio: null, error: "", aviso: "" });
         /* Siempre con "+": sin él, el widget toma el número como nacional y
            le antepone el país de la cuenta. Así "593962803007" salía como
            593593962803007 y Zadarma lo rechazaba ("no ha podido
@@ -214,9 +265,13 @@ export default function WidgetZadarma() {
           /* nada */
         }
         cerrarMedicion();
+        limpiarCorte();
         setLlamada((a) => (a ? { ...a, fase: "finalizada" } : a));
         clearTimeout(limpiezaRef.current);
-        limpiezaRef.current = setTimeout(() => setLlamada(null), 3000);
+        /* pruebaRef, no medRef: al colgar, el propio widget ya cerró la
+           medición (finishCall) y medRef llega vacío; por eso el panel de la
+           prueba se cerraba a los 3 s sin mostrar el resultado. */
+        if (!pruebaRef.current) limpiezaRef.current = setTimeout(() => setLlamada(null), corteRef.current?.agotado ? 10000 : 3000);
       },
       silenciar: (on) => {
         try {
@@ -305,7 +360,34 @@ export default function WidgetZadarma() {
     }
   };
   useEffect(() => {
-    if (window.telefoniaZadarma) window.telefoniaZadarma.preparar = preparar;
+    if (window.telefoniaZadarma) {
+      window.telefoniaZadarma.preparar = preparar;
+      /* Prueba de audio: marca al eco de Zadarma (4444, gratis y sin "+":
+         es un número interno). El asesor habla y se oye a sí mismo; al
+         colgar, el panel le dice cómo estuvo su red. No crea llamada en el
+         back ni gasta saldo. Sirve para separar "mi internet/micrófono"
+         de "la ruta hacia el cliente". */
+      window.telefoniaZadarma.probarAudio = async () => {
+        await preparar();
+        const api = window.zdrmWPhI?.apiWidget;
+        if (!api) throw new Error("El teléfono no está listo. Vuelve a intentar.");
+        engancharEstados();
+        clearTimeout(limpiezaRef.current);
+        setSilenciado(false);
+        pruebaRef.current = true;
+        limpiarCorte();
+        corteRef.current = null;
+        setLlamada({ numero: "4444", nombre: "Prueba de audio", fase: "llamando", inicio: null, error: "", prueba: true, red: null });
+        const r = api.call("4444");
+        if (typeof r === "string" || r === false) {
+          const msg = typeof r === "string" ? r : "El teléfono se desconectó. Vuelve a intentar.";
+          if (r === false) registradoRef.current = false;
+          setLlamada((a) => (a ? { ...a, fase: "finalizada", error: msg } : a));
+          throw new Error(msg);
+        }
+        iniciarMedicion(null, true);
+      };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -366,13 +448,39 @@ export default function WidgetZadarma() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold text-slate-900">{llamada.nombre || `+${llamada.numero}`}</div>
-          <div className="truncate text-xs text-slate-500">+{llamada.numero} · llamada por saldo</div>
+          <div className="truncate text-xs text-slate-500">{llamada.prueba ? "Gratis · no gasta saldo" : `+${llamada.numero} · llamada por saldo`}</div>
           <div className={`mt-0.5 text-[11px] font-semibold ${enCurso ? "text-sky-700" : "text-slate-600"}`}>
             <i className={`bx ${enCurso ? "bx-phone" : fase === "finalizada" ? "bx-phone-off" : "bx-phone-outgoing bx-tada"}`} /> {texto}
             {enCurso && llamada.inicio ? <> · <Cronometro desde={llamada.inicio} /></> : null}
           </div>
         </div>
       </div>
+      {llamada.aviso && fase !== "finalizada" ? (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          <i className="bx bx-time-five" /> {llamada.aviso}
+        </div>
+      ) : null}
+      {llamada.prueba && fase !== "finalizada" ? (
+        <div className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+          Habla normal unos 15 segundos: vas a escucharte a ti mismo con un pequeño retraso. Si te oyes cortado o robótico, así te oye el cliente. Luego cuelga.
+        </div>
+      ) : null}
+      {llamada.prueba && fase === "finalizada" && llamada.red ? (
+        <div className={`mt-3 rounded-lg px-3 py-2 text-xs ${llamada.red.nivel === "mala" ? "bg-rose-50 text-rose-800" : llamada.red.nivel === "regular" ? "bg-amber-50 text-amber-800" : llamada.red.nivel === "buena" ? "bg-emerald-50 text-emerald-800" : "bg-slate-50 text-slate-600"}`}>
+          {llamada.red.nivel === "sin_datos" ? (
+            "La prueba fue muy corta para medir. Repítela y habla al menos 15 segundos."
+          ) : (
+            <>
+              <b>Tu conexión: {llamada.red.nivel}.</b> Pérdida {llamada.red.perdida.toFixed(1)}% · variación {Math.round(llamada.red.jitter)} ms · latencia {Math.round(llamada.red.rtt)} ms.
+              <div className="mt-1">
+                {llamada.red.nivel === "buena"
+                  ? "Si te escuchaste claro, tu equipo y tu internet están bien: un entrecortado con un cliente sería de la línea de ese cliente o de la operadora."
+                  : "Con esta conexión los clientes te van a oír entrecortado. Prueba con cable de red o más cerca del router, cierra descargas y videollamadas, y repite la prueba."}
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
       <div className="mt-3 flex gap-2">
         {fase !== "finalizada" ? (
           <>
