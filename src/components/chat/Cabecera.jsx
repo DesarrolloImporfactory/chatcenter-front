@@ -12,6 +12,7 @@ import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
 import CronometroRespuesta from "./CronometroRespuesta";
 import useCasosAcceso from "../../hooks/useCasosAcceso";
+import useEscalonAncho from "../../hooks/useEscalonAncho";
 import MenuLlamar from "./MenuLlamar";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
 
@@ -22,6 +23,20 @@ import { puedeAccederCalendario } from "../../utils/accesoCalendario";
    pantalla y el menú parecía un formulario. */
 const ITEM_MENU =
   "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
+
+/* Anchos (px) de la cabecera del chat abierto a partir de los cuales entra
+   cada cosa. Se mide la cabecera, no la ventana: con el panel del cliente
+   abierto o con zoom la ventana no cambia pero la cabecera se achica, y antes
+   la columna de acciones aplastaba al nombre y partía la línea de estados.
+   Lo que no entra no desaparece: los interruptores pasan al menú de tres
+   puntos y los textos quedan en el tooltip. */
+const CORTES_CABECERA = [
+  560, // 1: interruptor Bot IA en la barra (antes va en el menú)
+  720, // 2: interruptor Remarketing en la barra
+  860, // 3: etiqueta corta del cronómetro ("Responde ya")
+  1180, // 4: textos de las pastillas (Llamar, Bot IA…) y fechas de membresía
+  1400, // 5: cuánto lleva esperando el cliente, junto al cronómetro
+];
 
 const Cabecera = ({
   userData,
@@ -196,6 +211,10 @@ const Cabecera = ({
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
   const casosAcceso = useCasosAcceso();
+  const [cabeceraChatRef, escalon] = useEscalonAncho(CORTES_CABECERA);
+  const botEnBarra = escalon >= 1;
+  const remarketingEnBarra = escalon >= 2;
+  const verTextosPastillas = escalon >= 4;
   //Manejo de referencias
   const sliderRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -1499,7 +1518,10 @@ const Cabecera = ({
           } ${selectedChat === null ? "hidden sm:block" : "block"}`}
         >
           {/* Encabezado del chat seleccionado */}
-          <div className="border-b border-slate-200/70 bg-white">
+          <div
+            ref={cabeceraChatRef}
+            className="border-b border-slate-200/70 bg-white"
+          >
             <div className="flex items-center justify-between gap-3 px-4 py-3">
               {/* ─── Lado izquierdo: avatar + info ─── */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1603,9 +1625,9 @@ const Cabecera = ({
                   </div>
 
                   {/* Línea 2: teléfono · suscripción · estado */}
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <div className="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap">
                     {/* Teléfono / ID */}
-                    <span className="inline-flex items-center gap-1 text-[12px] text-slate-500 font-medium">
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] text-slate-500 font-medium">
                       <i className="bx bx-phone text-[12px] text-slate-400" />
                       {selectedChat
                         ? selectedChat.source === "wa"
@@ -1621,9 +1643,8 @@ const Cabecera = ({
                     {/* Suscripción */}
                     {timeRemaining && dataPlanes?.fecha_suscripcion && (
                       <>
-                        <span className="text-slate-300">·</span>
                         <span
-                          className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                          className={`inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold ${
                             timeRemaining.expired
                               ? "text-rose-600"
                               : timeRemaining.days === 0
@@ -1632,11 +1653,11 @@ const Cabecera = ({
                                   ? "text-yellow-600"
                                   : "text-emerald-600"
                           }`}
-                          title={
+                          title={`${
                             timeRemaining.expired
                               ? "Suscripción vencida"
                               : `Vence en ${timeRemaining.days} día(s)`
-                          }
+                          } · inscrito el ${timeRemaining.inscritoEl} · válida hasta el ${timeRemaining.venceEl}`}
                         >
                           <i
                             className={`bx ${
@@ -1652,22 +1673,27 @@ const Cabecera = ({
                               : `${timeRemaining.days}d`}
                         </span>
 
-                        {/* Inscripción y vencimiento de la membresía */}
-                        <span
-                          className="inline-flex items-center gap-1 text-[11px] text-slate-500"
-                          title={`Inscrito el ${timeRemaining.inscritoEl} · membresía válida hasta el ${timeRemaining.venceEl}`}
-                        >
-                          <i className="bx bx-calendar text-[12px] text-slate-400" />
-                          Inscrito {timeRemaining.inscritoEl}
-                          <span className="text-slate-300">·</span>
-                          {timeRemaining.expired ? "Venció" : "Vence"}{" "}
-                          {timeRemaining.venceEl}
-                        </span>
+                        {/* Inscripción y vencimiento de la membresía: solo con
+                            la cabecera ancha; si no, van en el tooltip del
+                            contador de días. */}
+                        {verTextosPastillas && (
+                          <span
+                            className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-slate-500"
+                            title={`Inscrito el ${timeRemaining.inscritoEl} · membresía válida hasta el ${timeRemaining.venceEl}`}
+                          >
+                            <i className="bx bx-calendar text-[12px] text-slate-400" />
+                            Inscrito {timeRemaining.inscritoEl}
+                            <span className="text-slate-300">·</span>
+                            {timeRemaining.expired ? "Venció" : "Vence"}{" "}
+                            {timeRemaining.venceEl}
+                          </span>
+                        )}
                       </>
                     )}
 
-                    {/* Separador */}
-                    <span className="text-slate-300">·</span>
+                    {/* (Sin puntos separadores sueltos: al partirse la línea
+                        quedaban huérfanos al inicio o al final de un renglón.
+                        Las pastillas ya se separan solas con su borde.) */}
 
                     {/* Pill estado contacto (+ un pill por tablero secundario:
                         quien trabaja con dos embudos ve las dos etapas acá) */}
@@ -1871,52 +1897,68 @@ const Cabecera = ({
                   chatMessages={chatMessages}
                   selectedChat={selectedChat}
                   id_configuracion={id_configuracion}
+                  nivel={escalon >= 5 ? 2 : escalon >= 3 ? 1 : 0}
                 />
                 {/* Un solo icono "Llamar": por WhatsApp (gratis) o al celular
                     con saldo (Zadarma). Cada opción sale solo si aplica. */}
                 <MenuLlamar
                   selectedChat={selectedChat}
                   id_configuracion={id_configuracion}
+                  verEtiqueta={verTextosPastillas}
                 />
-                {/* Bot IA */}
-                <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 shadow-sm">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100">
-                    <i className="bx bx-bot text-[14px] text-emerald-700" />
-                  </span>
-                  <span className="text-xs font-medium text-slate-600 hidden lg:inline">
-                    Bot IA
-                  </span>
-                  <SwitchBot
-                    botActivo={selectedChat.bot_openia === 1}
-                    onToggle={() =>
-                      handleChangeChatBotOpenia(
-                        selectedChat.bot_openia === 1 ? 0 : 1,
-                      )
-                    }
-                  />
-                </div>
+                {/* Bot IA (si no cabe, el interruptor va en el menú ⋮) */}
+                {botEnBarra && (
+                  <div
+                    className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 py-1 shadow-sm"
+                    title="Bot IA en este chat"
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100">
+                      <i className="bx bx-bot text-[14px] text-emerald-700" />
+                    </span>
+                    {verTextosPastillas && (
+                      <span className="text-xs font-medium text-slate-600">
+                        Bot IA
+                      </span>
+                    )}
+                    <SwitchBot
+                      botActivo={selectedChat.bot_openia === 1}
+                      onToggle={() =>
+                        handleChangeChatBotOpenia(
+                          selectedChat.bot_openia === 1 ? 0 : 1,
+                        )
+                      }
+                    />
+                  </div>
+                )}
 
-                {/* Remarketing */}
-                <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 shadow-sm">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-amber-100">
-                    <i className="bx bx-bell text-[14px] text-amber-700" />
-                  </span>
-                  <span className="text-xs font-medium text-slate-600 hidden lg:inline">
-                    Remarketing
-                  </span>
-                  <RemarketingSwitch
-                    remarketingActivo={selectedChat.enviar_remarketing === 1}
-                    onToggle={() =>
-                      handleChangeRemarketing(
-                        selectedChat.enviar_remarketing === 1 ? 0 : 1,
-                      )
-                    }
-                  />
-                </div>
+                {/* Remarketing (ídem) */}
+                {remarketingEnBarra && (
+                  <div
+                    className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 py-1 shadow-sm"
+                    title="Remarketing a este contacto"
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-amber-100">
+                      <i className="bx bx-bell text-[14px] text-amber-700" />
+                    </span>
+                    {verTextosPastillas && (
+                      <span className="text-xs font-medium text-slate-600">
+                        Remarketing
+                      </span>
+                    )}
+                    <RemarketingSwitch
+                      remarketingActivo={selectedChat.enviar_remarketing === 1}
+                      onToggle={() =>
+                        handleChangeRemarketing(
+                          selectedChat.enviar_remarketing === 1 ? 0 : 1,
+                        )
+                      }
+                    />
+                  </div>
+                )}
 
                 {/* Menú tres puntos */}
                 <div
-                  className="relative inline-block text-left"
+                  className="relative inline-block shrink-0 text-left"
                   ref={menuOpcionesRef}
                 >
                   <button
@@ -1959,14 +2001,24 @@ const Cabecera = ({
                         className="pointer-events-none absolute -top-1.5 right-6 h-3 w-3 rotate-45 bg-white border-t border-l border-slate-200/70"
                       />
 
-                      {/* ─── Automatizaciones (solo móvil) ─── */}
-                      <div className="sm:hidden px-1 pt-1 pb-2">
+                      {/* ─── Automatizaciones: los interruptores que no
+                          cupieron en la barra (móvil, zoom o panel del cliente
+                          abierto). Remarketing es el primero en pasar acá. ─── */}
+                      <div
+                        className={`px-1 pt-1 pb-2 ${
+                          remarketingEnBarra ? "hidden" : ""
+                        }`}
+                      >
                         <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                           Automatizaciones
                         </p>
 
                         {/* Bot IA */}
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+                        <div
+                          className={`items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors ${
+                            botEnBarra ? "hidden" : "flex"
+                          }`}
+                        >
                           <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
                             <i className="bx bx-bot text-base text-emerald-700" />
                           </span>
@@ -2004,7 +2056,11 @@ const Cabecera = ({
                         </div>
                       </div>
 
-                      <hr className="sm:hidden my-1.5 border-slate-200/70" />
+                      <hr
+                        className={`my-1.5 border-slate-200/70 ${
+                          remarketingEnBarra ? "hidden" : ""
+                        }`}
+                      />
 
                       {/* Acciones del chat. Antes cada una traía su cuadrito de
                           color de 32px y un separador: cuatro opciones ocupaban
@@ -2110,7 +2166,7 @@ const Cabecera = ({
                 <button
                   onClick={handleOpciones}
                   className="
-          inline-flex items-center justify-center
+          shrink-0 inline-flex items-center justify-center
           w-9 h-9 rounded-lg
           border border-slate-200 bg-white
           text-slate-700 shadow-sm

@@ -100,7 +100,8 @@ export default function BotonLlamarTelefono({ selectedChat, id_configuracion, va
         id: d.id,
         // Para el corte por saldo: la llamada se cuelga sola cuando se acaba.
         saldo_centavos: d.saldo_centavos,
-        tarifa_centavos_min: d.tarifa_centavos_min,
+        // El precio depende del destino (México cuesta 12 veces menos que Ecuador).
+        tarifa_centavos_min: d.tarifa_destino_centavos_min || d.tarifa_centavos_min,
       });
       onLanzada?.();
     } catch (err) {

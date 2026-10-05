@@ -84,24 +84,45 @@ const nivelDe = (minutos) =>
       : "ok";
 
 /* Mismo molde que las pastillas "Bot IA" y "Llamar" de la cabecera: icono en
-   cajita de 24px + una sola línea de texto pequeño. Solo cambia el color. */
-function Caja({ tema, icono, titulo, detalle, title }) {
+   cajita de 24px + una sola línea de texto pequeño. Solo cambia el color.
+
+   Tres niveles de detalle, del que nunca se quita al que primero se va:
+     titulo   → el reloj. Siempre visible.
+     etiqueta → dos o tres palabras ("Responde ya"). Si la cabecera tiene sitio.
+     extra    → cuánto espera el cliente. Solo con la cabecera bien ancha.
+   Lo que no entra queda en el tooltip (title). La caja nunca se parte en dos
+   líneas ni empuja al resto: quien decide qué cabe es la Cabecera, que mide
+   su ancho real (ver hooks/useEscalonAncho). */
+function Caja({ tema, icono, titulo, etiqueta, extra, title, nivel }) {
   return (
     <div
-      className={`hidden sm:flex items-center gap-2 rounded-lg border px-2.5 py-1 shadow-sm ${tema.caja}`}
+      className={`hidden sm:flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border px-2.5 py-1 shadow-sm ${tema.caja}`}
       title={title}
     >
       <span
-        className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${tema.icono}`}
+        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${tema.icono}`}
       >
         <i className={`bx ${icono} text-[14px]`} />
       </span>
-      <span className={`text-xs font-semibold tabular-nums ${tema.texto}`} aria-live="off">
-        {titulo}
-      </span>
-      {detalle ? (
-        <span className={`text-xs font-medium hidden lg:inline ${tema.texto} opacity-80`}>
-          · {detalle}
+      {titulo ? (
+        <span
+          className={`text-xs font-semibold tabular-nums ${tema.texto}`}
+          aria-live="off"
+        >
+          {titulo}
+        </span>
+      ) : null}
+      {etiqueta && nivel >= 1 ? (
+        <span className={`text-xs font-medium ${tema.texto} opacity-80`}>
+          {titulo ? "· " : ""}
+          {etiqueta}
+        </span>
+      ) : null}
+      {extra && nivel >= 2 ? (
+        <span
+          className={`max-w-[190px] truncate text-xs font-medium ${tema.texto} opacity-70`}
+        >
+          · {extra}
         </span>
       ) : null}
     </div>
@@ -112,6 +133,8 @@ export default function CronometroRespuesta({
   chatMessages,
   selectedChat,
   id_configuracion,
+  // 0 = solo el reloj · 1 = + etiqueta corta · 2 = + espera del cliente
+  nivel = 2,
 }) {
   const activo =
     alertasSinRespuestaActivas(id_configuracion) && !!selectedChat?.id;
@@ -206,17 +229,13 @@ export default function CronometroRespuesta({
 
   if (!esperaDesde) {
     return (
-      <div
-        className="hidden sm:flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 shadow-sm"
+      <Caja
+        tema={TEMAS.ok}
+        icono="bx-check-double"
+        etiqueta="Al día"
         title="El cliente no está esperando respuesta"
-      >
-        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100">
-          <i className="bx bx-check-double text-[14px] text-emerald-700" />
-        </span>
-        <span className="text-xs font-semibold text-emerald-700 hidden lg:inline">
-          Al día
-        </span>
-      </div>
+        nivel={nivel}
+      />
     );
   }
 
@@ -229,8 +248,9 @@ export default function CronometroRespuesta({
         tema={TEMAS.neutro}
         icono="bx-timer"
         titulo="…"
-        detalle={espera}
+        extra={espera}
         title="Consultando quién abrió este chat"
+        nivel={nivel}
       />
     );
   }
@@ -238,7 +258,9 @@ export default function CronometroRespuesta({
   const horario = apertura.horario || HORARIO_DEFAULT;
   // Fuera de horario el reloj no avanza: el último minuto no suma.
   const enHorario = segundosHabiles(ahora - 60_000, ahora, horario) > 0;
-  const pausa = enHorario ? "" : " · fuera de horario, reloj en pausa";
+  const pausa = enHorario
+    ? ""
+    : " Ahora está fuera del horario de atención: el reloj está en pausa.";
 
   /* ── Observador (administrador leyendo un chat ajeno) ── */
   if (apertura.estado === "observador") {
@@ -248,13 +270,14 @@ export default function CronometroRespuesta({
           tema={TEMAS.neutro}
           icono="bx-hourglass"
           titulo="Sin abrir"
-          detalle={`Ningún asesor ha abierto este chat · ${espera}`}
+          extra={espera}
           title={`Nadie del equipo ha abierto este chat desde que el cliente escribió. Como administrador no se te cuenta tiempo. El cliente escribió hace ${formatEspera(minutosCliente)}.`}
+          nivel={nivel}
         />
       );
     }
     const seg = segundosHabiles(apertura.abierto.getTime(), ahora, horario);
-    const nivel = nivelDe(seg / 60);
+    const urgencia = nivelDe(seg / 60);
     const quien = primerNombre(
       apertura.quienAbrio?.nombre || apertura.encargado?.nombre,
     );
@@ -265,13 +288,15 @@ export default function CronometroRespuesta({
         Number(apertura.quienAbrio.id_sub_usuario);
     return (
       <Caja
-        tema={TEMAS[nivel]}
+        tema={TEMAS[urgencia]}
         icono="bx-timer"
         titulo={formatoReloj(seg)}
-        detalle={`${quien} lleva el chat abierto sin responder · ${espera}${pausa}`}
-        title={`Estás viendo el reloj de ${apertura.quienAbrio?.nombre || "el asesor"}${
+        etiqueta={enHorario ? `${quien}, sin responder` : `${quien}, en pausa`}
+        extra={espera}
+        title={`${apertura.quienAbrio?.nombre || "El asesor"}${
           esEncargado ? " (encargado del chat)" : ""
-        }. A ti no se te cuenta tiempo: entraste como administrador a leer un chat ajeno. Solo cuenta dentro del horario de atención.`}
+        } lleva ${formatoReloj(seg)} con el chat abierto sin responder. El cliente escribió hace ${formatEspera(minutosCliente)}. A ti no se te cuenta tiempo: entraste como administrador a leer un chat ajeno. Solo cuenta dentro del horario de atención.${pausa}`}
+        nivel={nivel}
       />
     );
   }
@@ -282,20 +307,23 @@ export default function CronometroRespuesta({
     ahora,
     horario,
   );
-  const nivel = nivelDe(seg / 60);
-  const etiqueta =
-    nivel === "critico"
+  const urgencia = nivelDe(seg / 60);
+  const etiqueta = !enHorario
+    ? "En pausa"
+    : urgencia === "critico"
       ? "¡Te estás demorando!"
-      : nivel === "advertencia"
+      : urgencia === "advertencia"
         ? "Responde ya"
-        : "Tu tiempo en este chat";
+        : "Tu tiempo";
   return (
     <Caja
-      tema={TEMAS[nivel]}
+      tema={TEMAS[urgencia]}
       icono="bx-timer"
       titulo={formatoReloj(seg)}
-      detalle={`${etiqueta} · ${espera}${pausa}`}
-      title={`Llevas ${formatoReloj(seg)} de horario de atención con este chat abierto sin responder. El cliente escribió hace ${formatEspera(minutosCliente)}.`}
+      etiqueta={etiqueta}
+      extra={espera}
+      title={`Llevas ${formatoReloj(seg)} de horario de atención con este chat abierto sin responder. El cliente escribió hace ${formatEspera(minutosCliente)}.${pausa}`}
+      nivel={nivel}
     />
   );
 }

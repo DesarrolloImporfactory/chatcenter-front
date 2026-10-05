@@ -31,7 +31,11 @@ async function disponibilidad(idCfg) {
   return out;
 }
 
-export default function MenuLlamar({ selectedChat, id_configuracion }) {
+export default function MenuLlamar({
+  selectedChat,
+  id_configuracion,
+  verEtiqueta = true,
+}) {
   const [abierto, setAbierto] = useState(false);
   const [disp, setDisp] = useState(null);
   const [pruebaMsg, setPruebaMsg] = useState("");
@@ -68,12 +72,12 @@ export default function MenuLlamar({ selectedChat, id_configuracion }) {
   if (!esWa || !selectedChat?.id || !disp || (!disp.wa && !disp.saldo)) return null;
 
   return (
-    <div ref={ref} className="relative hidden sm:block">
+    <div ref={ref} className="relative hidden sm:block shrink-0">
       {/* Mismo molde que la pastilla "Bot IA" de al lado */}
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
-        className={`flex items-center gap-2 rounded-lg border px-2.5 py-1 shadow-sm transition ${
+        className={`flex items-center gap-2 whitespace-nowrap rounded-lg border px-2.5 py-1 shadow-sm transition ${
           abierto ? "border-sky-300 bg-sky-50" : "border-slate-200 bg-white hover:bg-slate-50"
         }`}
         title="Llamar al cliente"
@@ -83,7 +87,10 @@ export default function MenuLlamar({ selectedChat, id_configuracion }) {
         <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-sky-100">
           <i className="bx bx-phone-call text-[14px] text-sky-700" />
         </span>
-        <span className="text-xs font-medium text-slate-600 hidden lg:inline">Llamar</span>
+        {/* La cabecera decide si cabe el texto (mide su ancho real) */}
+        {verEtiqueta && (
+          <span className="text-xs font-medium text-slate-600">Llamar</span>
+        )}
         <i className={`bx bx-chevron-down text-[14px] text-slate-400 transition ${abierto ? "rotate-180" : ""}`} />
       </button>
 
