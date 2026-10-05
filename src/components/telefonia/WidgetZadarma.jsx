@@ -125,11 +125,16 @@ export default function WidgetZadarma() {
            realizarse"). Con el "+" lo marca tal cual, en internacional. */
         const internacional = `+${String(numero).replace(/\D/g, "")}`;
         const r = api.call(internacional);
-        if (typeof r === "string") {
-          // el widget devuelve texto de error cuando no puede marcar
-          setLlamada((a) => (a ? { ...a, fase: "finalizada", error: r } : a));
+        /* call() devuelve texto cuando hay error, y `false` cuando el widget
+           está desregistrado (unreg_flag): en ese caso no marca y antes se
+           quedaba en "Marcando…" para siempre. Se avisa y se fuerza el
+           re-registro en el siguiente intento. */
+        if (typeof r === "string" || r === false) {
+          const msg = typeof r === "string" ? r : "El teléfono se desconectó. Vuelve a intentar.";
+          if (r === false) registradoRef.current = false;
+          setLlamada((a) => (a ? { ...a, fase: "finalizada", error: msg } : a));
           limpiezaRef.current = setTimeout(() => setLlamada(null), 6000);
-          throw new Error(r);
+          throw new Error(msg);
         }
       },
       colgar: () => {
@@ -173,6 +178,7 @@ export default function WidgetZadarma() {
      hace nada. Si la extensión cambió (la anterior se recicló), vuelve a
      construir el widget con la nueva. */
   const sipRef = useRef(null);
+  const registradoRef = useRef(false); // la extensión está registrada en el widget
   const preparandoRef = useRef(null);
   const preparar = async () => {
     if (preparandoRef.current) return preparandoRef.current;
@@ -187,10 +193,20 @@ export default function WidgetZadarma() {
       for (const src of SCRIPTS) await cargarScript(src);
       if (typeof window.zadarmaWidgetFn !== "function") throw new Error("No se pudo cargar el teléfono de Zadarma.");
       if (iniciadoRef.current && sipRef.current === d.sip) {
-        try {
-          window.zdrmWPhI?.apiWidget?.reg?.();
-        } catch {
-          /* nada */
+        /* OJO: reg() SIN argumento rompe el teléfono. En widget-api.min.js
+           reg(e) hace options.username = e; con undefined, la siguiente
+           llamada pide los parámetros de registro con sip=undefined y no
+           marca (sin error). Así fallaba la segunda llamada de cada asesor
+           el 2026-10-05. Solo se re-registra si nos desregistramos antes, y
+           siempre con el login SIP. */
+        if (!registradoRef.current) {
+          try {
+            window.zdrmWPhI?.apiWidget?.reg?.(d.sip);
+          } catch {
+            /* nada */
+          }
+          registradoRef.current = true;
+          await new Promise((r) => setTimeout(r, 1500));
         }
         return d;
       }
@@ -206,6 +222,7 @@ export default function WidgetZadarma() {
       }
       window.zadarmaWidgetFn(d.key, d.sip, "rounded", "es", true, { right: "10px", bottom: "5px" });
       iniciadoRef.current = true;
+      registradoRef.current = true;
       sipRef.current = d.sip;
       idCfgRef.current = idCfg;
       setTimeout(engancharEstados, 1500);
@@ -248,6 +265,7 @@ export default function WidgetZadarma() {
         /* nada */
       }
       sipRef.current = null;
+      registradoRef.current = false;
       console.log("[telefonia] la extensión se asignó a otro asesor; se volverá a preparar al llamar");
     };
     socket.on("TELEFONIA_EXTENSION_LIBERADA", h);
