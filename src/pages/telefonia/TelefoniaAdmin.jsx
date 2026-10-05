@@ -159,7 +159,10 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
     >
       <div className="space-y-4 px-5 py-4">
         <div>
-          <label htmlFor="tel-tarifa" className="block text-xs font-semibold text-slate-600">Precio por minuto que le cobras (USD)</label>
+          <label htmlFor="tel-tarifa" className="block text-xs font-semibold text-slate-600">Precio por minuto a celulares de su país (USD)</label>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Define el margen. Cada llamada se descuenta por lo que costó de verdad en Zadarma con ese margen, vaya al país que vaya: al costo, el saldo de la conexión y el de Zadarma bajan a la par.
+          </p>
           <div className="mt-1 flex gap-2">
             <input id="tel-tarifa" className={input} value={tarifa} onChange={(e) => setTarifa(e.target.value)} inputMode="decimal" />
             {costoC ? (
