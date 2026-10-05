@@ -95,7 +95,7 @@ export default function BotonLlamarTelefono({ selectedChat, id_configuracion, va
       if (!window.telefoniaZadarma?.listo?.()) {
         throw new Error("El teléfono todavía se está conectando. Espera unos segundos y vuelve a intentar.");
       }
-      window.telefoniaZadarma.llamar(d.telefono, { nombre: selectedChat?.nombre_cliente || "" });
+      window.telefoniaZadarma.llamar(d.telefono, { nombre: selectedChat?.nombre_cliente || "", id: d.id });
       onLanzada?.();
     } catch (err) {
       setAviso(err?.response?.data?.message || err?.message || "No se pudo llamar");
