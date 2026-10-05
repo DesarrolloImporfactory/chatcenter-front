@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
-import { ResumenIACelda, DetalleIA } from "../../components/telefonia/ResumenLlamadaIA";
+import TablaLlamadas from "../../components/telefonia/TablaLlamadas";
 
 /**
  * /telefonia — Telefonía por saldo con Zadarma. Solo super administrador y
@@ -23,24 +23,6 @@ import { ResumenIACelda, DetalleIA } from "../../components/telefonia/ResumenLla
  */
 const fmtUSD = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 const tel = (t) => (t ? `+${String(t).replace(/^\+/, "")}` : "—");
-const fmtFecha = (v) => {
-  if (!v) return "—";
-  const d = new Date(String(v).includes("T") ? v : `${String(v).replace(" ", "T")}-05:00`);
-  return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString("es-EC", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-};
-const fmtSeg = (s) => {
-  const n = Number(s) || 0;
-  return n < 60 ? `${n} s` : `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")} min`;
-};
-const ESTADOS = {
-  answered: ["contestada", "text-emerald-700"],
-  no_answer: ["no contestaron", "text-amber-700"],
-  busy: ["ocupado", "text-amber-700"],
-  cancel: ["colgó antes", "text-slate-500"],
-  failed: ["falló", "text-rose-700"],
-  ringing: ["timbrando", "text-sky-700"],
-  pedida: ["marcando", "text-sky-700"],
-};
 
 const input =
   "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
@@ -85,116 +67,35 @@ function Modal({ titulo, subtitulo, onClose, ancho = "max-w-lg", children }) {
 
 /* ── Historial de llamadas de una conexión ───────────────────────────── */
 function HistorialModal({ cuenta, onClose }) {
-  const [page, setPage] = useState(1);
-  const [datos, setDatos] = useState({ data: [], total: 0, limit: 20 });
+  const [llamadas, setLlamadas] = useState([]);
+  const [total, setTotal] = useState(0);
   const [cargando, setCargando] = useState(false);
-  const [escuchando, setEscuchando] = useState(null);
-  const [detalle, setDetalle] = useState(null);
   useEffect(() => {
     let vigente = true;
     setCargando(true);
-    setEscuchando(null);
+    // Se traen hasta 500 de una vez; la tabla filtra y pagina en el navegador.
     chatApi
-      .get("/telefonia/admin/historial", { params: { id_configuracion: cuenta.id_configuracion, page, limit: 20 } })
-      .then(({ data }) => vigente && setDatos({ data: data?.data || [], total: data?.total || 0, limit: data?.limit || 20 }))
-      .catch(() => vigente && setDatos({ data: [], total: 0, limit: 20 }))
+      .get("/telefonia/admin/historial", { params: { id_configuracion: cuenta.id_configuracion, page: 1, limit: 500 } })
+      .then(({ data }) => {
+        if (!vigente) return;
+        setLlamadas(data?.data || []);
+        setTotal(data?.total || 0);
+      })
+      .catch(() => vigente && setLlamadas([]))
       .finally(() => vigente && setCargando(false));
     return () => {
       vigente = false;
     };
-  }, [cuenta.id_configuracion, page]);
-  const paginas = Math.max(1, Math.ceil(datos.total / datos.limit));
+  }, [cuenta.id_configuracion]);
   return (
     <Modal
       titulo={`Llamadas de #${cuenta.id_configuracion} ${cuenta.nombre_configuracion || ""}`}
-      subtitulo={`${datos.total} llamada${datos.total === 1 ? "" : "s"} · saldo ${fmtUSD(cuenta.saldo_centavos)} · "Salió con" es el número que Zadarma reporta haber enviado en cada llamada`}
+      subtitulo={`${total} llamada${total === 1 ? "" : "s"} en total${total > 500 ? " (se muestran las 500 más recientes)" : ""} · saldo ${fmtUSD(cuenta.saldo_centavos)} · "Salió con" es el número que Zadarma reporta haber enviado`}
       onClose={onClose}
       ancho="max-w-6xl"
     >
-      <div className="overflow-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="sticky top-0 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-2">Fecha</th>
-              <th className="px-4 py-2">Asesor</th>
-              <th className="px-4 py-2">Cliente</th>
-              <th className="px-4 py-2">Salió con</th>
-              <th className="px-4 py-2">Estado</th>
-              <th className="px-4 py-2">Duración</th>
-              <th className="px-4 py-2">Costo</th>
-              <th className="px-4 py-2">Grabación</th>
-              <th className="px-4 py-2">Resumen IA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cargando && datos.data.length === 0 ? (
-              <tr><td colSpan="9" className="px-4 py-8 text-center text-slate-400">Cargando…</td></tr>
-            ) : datos.data.length === 0 ? (
-              <tr><td colSpan="9" className="px-4 py-8 text-center text-slate-400">Esta conexión todavía no ha hecho llamadas.</td></tr>
-            ) : (
-              datos.data.map((l) => {
-                const [txt, cls] = ESTADOS[l.estado] || [l.estado, "text-slate-600"];
-                return (
-                  <Fragment key={l.id}>
-                    <tr className="border-t border-slate-100 align-top">
-                      <td className="whitespace-nowrap px-4 py-2 text-xs">{fmtFecha(l.inicio_at)}</td>
-                      <td className="px-4 py-2 text-xs">
-                        {l.asesor || `Asesor ${l.id_sub_usuario}`} <span className="text-slate-400">ext {l.extension}</span>
-                      </td>
-                      <td className="px-4 py-2 text-xs">
-                        <div className="font-medium text-slate-800">{l.cliente || "—"}</div>
-                        <div className="text-slate-500">{tel(l.telefono_cliente)}</div>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-2 text-xs font-semibold">
-                        {l.caller_id ? tel(l.caller_id) : <span className="font-normal text-slate-400">sin dato</span>}
-                      </td>
-                      <td className={`whitespace-nowrap px-4 py-2 text-xs font-semibold ${cls}`}>{txt}</td>
-                      <td className="whitespace-nowrap px-4 py-2 text-xs">{l.estado === "answered" ? fmtSeg(l.duracion_seg) : "—"}</td>
-                      <td className="px-4 py-2 text-xs">{l.costo_centavos ? fmtUSD(l.costo_centavos) : "—"}</td>
-                      <td className="px-4 py-2 text-xs">
-                        {l.grabacion_url ? (
-                          escuchando === l.id ? (
-                            <div className="flex items-center gap-2">
-                              <audio controls autoPlay src={l.grabacion_url} className="h-8 w-52" />
-                              <a href={l.grabacion_url} download className="text-slate-500 hover:underline" title="Guardar el archivo en tu PC">descargar</a>
-                            </div>
-                          ) : (
-                            <button type="button" onClick={() => setEscuchando(l.id)} className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
-                              <i className="bx bx-play-circle" /> escuchar
-                            </button>
-                          )
-                        ) : Number(l.grabada) === 1 ? (
-                          <span className="text-slate-400">procesando</span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="max-w-xs px-4 py-2">
-                        <ResumenIACelda l={l} abierto={detalle === l.id} onToggle={() => setDetalle((d) => (d === l.id ? null : l.id))} />
-                      </td>
-                    </tr>
-                    {detalle === l.id && l.ia_estado === "listo" ? (
-                      <tr className="bg-slate-50">
-                        <td colSpan="9" className="px-4 py-3"><DetalleIA l={l} /></td>
-                      </tr>
-                    ) : null}
-                  </Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-sm">
-        <span className="text-slate-500">Página {page} de {paginas}</span>
-        <div className="flex gap-2">
-          <button type="button" disabled={page <= 1 || cargando} onClick={() => setPage((p) => p - 1)} className={btnSuave}>
-            <i className="bx bx-chevron-left" /> Anterior
-          </button>
-          <button type="button" disabled={page >= paginas || cargando} onClick={() => setPage((p) => p + 1)} className={btnSuave}>
-            Siguiente <i className="bx bx-chevron-right" />
-          </button>
-        </div>
+      <div className="overflow-auto px-5 py-4">
+        <TablaLlamadas llamadas={llamadas} porPagina={15} mostrarSalioCon cargando={cargando} />
       </div>
     </Modal>
   );
