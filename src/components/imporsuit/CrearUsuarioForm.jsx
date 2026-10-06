@@ -6,6 +6,7 @@ import {
   getCursosDisponibles,
   getPlantillasCorreo,
   registrarVenta,
+  cuerpoVenta,
   asignarEtiquetasVenta,
   ROLES_ASIGNABLES,
   PAQUETES,
@@ -62,7 +63,18 @@ export function CrearUsuarioForm({
    */
   const [modo, setModo] = useState("paquetes");
   const esVenta = modo === "ventas";
-  const ventaForm = useVentaForm(esVenta);
+  /**
+   * «Registro normal» CON datos de la venta: es el registro para nosotros.
+   * Guarda lo mismo que una venta (cartera, deuda, pago, tipo de pago) y
+   * cuenta en «Ventas por closer», pero no avisa a Make ni manda la encuesta.
+   *
+   * Encendido por defecto al crear un usuario nuevo; apagado cuando sólo se
+   * están ajustando paquetes de uno que ya existe. Se puede apagar para dar
+   * un acceso que no es una venta (cortesías, personal interno).
+   */
+  const [conVenta, setConVenta] = useState(!yaExiste);
+  const ventaInterna = !esVenta && conVenta;
+  const ventaForm = useVentaForm(esVenta || conVenta);
 
   const [form, setForm] = useState(() => ({
     nombre: clienteExistente?.nombre_users ?? nombreInicial ?? "",
@@ -180,6 +192,7 @@ export function CrearUsuarioForm({
       idCloser: ventaForm.venta.idCloser,
       pasarela: ventaForm.venta.pasarela,
       referencia: ventaForm.venta.referencia,
+      modalidad: ventaForm.venta.modalidad,
       imagenesUrls: ventaForm.venta.imagenesUrls,
       rol: form.rol ? Number(form.rol) : 16,
       etiquetaAsesor: ventaForm.venta.etiquetaAsesor,
@@ -274,7 +287,7 @@ export function CrearUsuarioForm({
     if (!form.telefono.trim()) return toast.error("Ingresa el teléfono");
     if (!esVenta && !form.rol) return toast.error("Selecciona un rol");
 
-    if (esVenta) {
+    if (esVenta || ventaInterna) {
       const errorVenta = ventaForm.validar();
       if (errorVenta) return toast.error(errorVenta);
     }
@@ -303,7 +316,65 @@ export function CrearUsuarioForm({
         cursos: Array.from(cursosSel),
         // Siempre explícito: "0" = no enviar, "<id>" = esa plantilla.
         id_plantilla: idPlantillaActiva,
+        // Registro interno de la venta: mismo cuerpo que «Venta (ya pagó)».
+        venta: ventaInterna
+          ? cuerpoVenta({
+              nombre: form.nombre,
+              correo: form.correo,
+              telefono: form.telefono,
+              pais: ventaForm.venta.pais,
+              idProducto: ventaForm.venta.idProducto,
+              montoTotal: ventaForm.venta.montoTotal,
+              montoPagado: ventaForm.venta.montoPagado || 0,
+              cuotas: ventaForm.venta.cuotas,
+              fechaCompra: ventaForm.venta.fechaCompra,
+              idCloser: ventaForm.venta.idCloser,
+              pasarela: ventaForm.venta.pasarela,
+              referencia: ventaForm.venta.referencia,
+              modalidad: ventaForm.venta.modalidad,
+              imagenesUrls: ventaForm.venta.imagenesUrls,
+              rol: Number(form.rol),
+              etiquetaAsesor: ventaForm.venta.etiquetaAsesor,
+              etiquetaCiclo: ventaForm.venta.etiquetaCiclo,
+              // La bienvenida la manda el registro, según los paquetes.
+              enviarWhatsapp: false,
+            })
+          : undefined,
       });
+
+      // Resultado de la venta interna. El usuario ya quedó creado: si el cobro
+      // falló hay que decirlo fuerte, porque las métricas quedarían sin él.
+      if (ventaInterna) {
+        const v = resultado?.venta;
+        if (Number(v?.status) === 200) {
+          toast.success("Venta registrada para las métricas");
+          if (v.data && !v.data.pago_registrado) {
+            Swal.fire({
+              icon: "warning",
+              title: "La venta se guardó, pero el pago NO",
+              text: v.data.pago_error ?? "Regístralo a mano desde la cartera.",
+            });
+          }
+          if (ventaForm.venta.etiquetaAsesor || ventaForm.venta.etiquetaCiclo) {
+            try {
+              await asignarEtiquetasVenta({
+                correo: form.correo,
+                telefono: form.telefono,
+                asesor: ventaForm.venta.etiquetaAsesor,
+                ciclo: ventaForm.venta.etiquetaCiclo,
+              });
+            } catch (error) {
+              console.error("No se pudieron asignar las etiquetas de ImporChat:", error);
+            }
+          }
+        } else {
+          await Swal.fire({
+            icon: "error",
+            title: "El usuario se guardó, pero la venta NO",
+            text: v?.message ?? "No se recibió respuesta del registro de la venta.",
+          });
+        }
+      }
 
       const existia =
         resultado?.title === "Usuario existente" ||
@@ -458,6 +529,35 @@ export function CrearUsuarioForm({
           </div>
 
           {esVenta && <VentaFields form={ventaForm} disabled={submitting} />}
+
+          {/* Registro normal: los mismos datos de la venta, para las métricas
+              propias. No avisa a Make. */}
+          {!esVenta && (
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${
+                conVenta ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={conVenta}
+                onChange={(e) => setConVenta(e.target.checked)}
+                disabled={submitting}
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-emerald-600"
+              />
+              <span>
+                <span className="block font-semibold text-gray-800">
+                  Registrar los datos de la venta
+                </span>
+                <span className="mt-0.5 block text-[11px] text-gray-500">
+                  Para nuestras métricas de ventas: producto, closer, montos y
+                  tipo de pago. No avisa a Make. Apágalo si este acceso no es
+                  una venta.
+                </span>
+              </span>
+            </label>
+          )}
+          {ventaInterna && <VentaFields form={ventaForm} disabled={submitting} interno />}
 
           {/* Paquetes y cursos solo en el modo normal: en una venta los define
               el producto vendido. */}

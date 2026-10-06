@@ -108,6 +108,14 @@ export async function crearUsuarioFull(payload, { signal } = {}) {
     body.id_plantilla = Number(payload.id_plantilla);
   }
 
+  // Datos de la venta para las métricas internas (opcional). Es el cuerpo que
+  // arma `cuerpoVenta`: el back registra cartera, deuda y pago, pero NO avisa
+  // a Make ni dispara la encuesta. Si no valida, rechaza el alta entera antes
+  // de crear al usuario.
+  if (payload.venta) {
+    body.venta = payload.venta;
+  }
+
   const { data } = await imporsuitApi.post(
     "/Carterachat/crear_cliente",
     body,

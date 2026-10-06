@@ -32,6 +32,7 @@ export {
 export {
   getCatalogosVenta,
   registrarVenta,
+  cuerpoVenta,
   asignarEtiquetasVenta,
 } from "./ventas.service";
 

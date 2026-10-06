@@ -57,6 +57,15 @@ export async function getCatalogosVenta({ signal } = {}) {
       email: String(c.email_users ?? ""),
     })),
     pasarelas: Array.isArray(data?.pasarelas) ? data.pasarelas : [],
+    // Tipo de pago: reserva / pago parcial / pago total. El back las manda
+    // como { valor: etiqueta }; el fallback cubre un back sin desplegar.
+    modalidades: Object.entries(
+      data?.modalidades ?? {
+        reserva: "Reserva",
+        parcial: "Pago parcial",
+        total: "Pago total",
+      },
+    ).map(([value, label]) => ({ value, label: String(label) })),
     // Etiquetas de ImporChat (asesor / ciclo), ya deduplicadas entre las dos
     // configuraciones por el back.
     etiquetas: {
@@ -80,7 +89,24 @@ export async function getCatalogosVenta({ signal } = {}) {
  *   webhook:{enviado, error}}>}
  */
 export async function registrarVenta(payload, { signal } = {}) {
-  const body = {
+  const { data } = await imporsuitApi.post(
+    "/Carterachat/registrar_venta",
+    cuerpoVenta(payload),
+    { signal },
+  );
+  return unwrap(data);
+}
+
+/**
+ * Cuerpo de una venta tal como lo espera el back (`VentaModel::normalizar`).
+ *
+ * Lo comparten los dos modos del alta:
+ *   · «Venta (ya pagó)»  → `registrarVenta`, que además avisa a Make.
+ *   · «Registro normal»  → viaja dentro de `crearUsuarioFull({ venta })` y
+ *     queda sólo para las métricas internas (sin Make ni encuesta).
+ */
+export function cuerpoVenta(payload) {
+  return {
     nombre: String(payload.nombre ?? "").trim(),
     correo: String(payload.correo ?? "").trim(),
     telefono: String(payload.telefono ?? "").trim(),
@@ -93,6 +119,8 @@ export async function registrarVenta(payload, { signal } = {}) {
     id_closer: Number(payload.idCloser ?? 0),
     pasarela: payload.pasarela,
     referencia: payload.referencia || "",
+    // reserva | parcial | total: lo declara el agente y va a las métricas.
+    modalidad_pago: payload.modalidad || "",
     // Comprobantes ya subidos a S3: al back solo viajan las URLs.
     imagenes_urls: Array.isArray(payload.imagenesUrls) ? payload.imagenesUrls : [],
     rol: Number(payload.rol ?? 16),
@@ -114,13 +142,6 @@ export async function registrarVenta(payload, { signal } = {}) {
         ? Number(payload.idPlantilla)
         : 0,
   };
-
-  const { data } = await imporsuitApi.post(
-    "/Carterachat/registrar_venta",
-    body,
-    { signal },
-  );
-  return unwrap(data);
 }
 
 /** Asigna desde el API de ChatCenter una vez creados los chats de la venta. */
