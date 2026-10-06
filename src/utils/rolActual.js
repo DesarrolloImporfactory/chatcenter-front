@@ -23,3 +23,11 @@ export const esRolVentas = () => getRolActual() === "ventas";
 
 // Gestiona usuarios, departamentos y facturación de la cuenta.
 export const esAdministrador = () => getRolActual() === "administrador";
+
+// Descargar conversaciones en Excel (un chat desde /chat, o todos los mensajes
+// de una conexión desde /conexiones): el administrador de la cuenta y soporte
+// interno. Ni ventas ni admin_limitado. Espejo del restrictToRoles de
+// /clientes_chat_center/exportar_chat_xlsx y
+// /configuraciones/exportar_mensajes_xlsx.
+export const puedeExportarChat = () =>
+  ["administrador", "super_administrador"].includes(getRolActual());

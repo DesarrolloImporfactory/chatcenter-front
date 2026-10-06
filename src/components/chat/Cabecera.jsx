@@ -17,6 +17,7 @@ import MenuLlamar from "./MenuLlamar";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
+import { puedeExportarChat } from "../../utils/rolActual";
 
 /* Un solo estilo para los ítems del menú. Antes cada uno repetía sus clases y
    traía un cuadrito de color de 32px: cuatro opciones ocupaban casi media
@@ -585,6 +586,76 @@ const Cabecera = ({
     } finally {
       setReiniciandoIA(false);
       setConfirmarReinicio(false);
+    }
+  };
+
+  /* Descarga la conversación del chat abierto en Excel. El archivo lo arma el
+     back (trae la conversación completa, no solo lo que hay cargado en
+     pantalla) y es también quien niega por rol: esconder el botón a ventas es
+     solo para no ofrecer algo que va a responder 403. */
+  const [exportandoChat, setExportandoChat] = useState(false);
+
+  const handleExportarChat = async () => {
+    if (!selectedChat?.id || exportandoChat) return;
+
+    setExportandoChat(true);
+    try {
+      const response = await chatApi.post(
+        "/clientes_chat_center/exportar_chat_xlsx",
+        { chatId: selectedChat.id },
+        { responseType: "blob", timeout: 120000 },
+      );
+
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+      );
+      const link = document.createElement("a");
+      link.href = url;
+
+      const quien = String(
+        selectedChat.nombre_cliente || selectedChat.celular_cliente || "",
+      )
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      const hoy = new Date().toLocaleDateString("en-CA"); // AAAA-MM-DD
+      link.download = `chat_${quien || selectedChat.id}_${hoy}.xlsx`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setOpcionesMenuOpen(false);
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Conversación descargada",
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+      });
+    } catch (e) {
+      // Con responseType blob el error del back también llega como blob.
+      let mensaje = e?.response?.data?.message;
+      if (e?.response?.data instanceof Blob) {
+        try {
+          mensaje = JSON.parse(await e.response.data.text())?.message;
+        } catch {
+          mensaje = null;
+        }
+      }
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo exportar",
+        text: mensaje || "Intenta de nuevo",
+      });
+    } finally {
+      setExportandoChat(false);
     }
   };
 
@@ -2166,6 +2237,31 @@ const Cabecera = ({
                         <i className="bx bx-plus text-[17px] text-slate-500" />
                         <span className="flex-1 truncate">Crear etiqueta</span>
                       </button>
+
+                      {/* Solo administradores: un asesor de ventas no se
+                          lleva la conversación en un archivo. El back lo
+                          niega igual aunque alguien fuerce la petición. */}
+                      {puedeExportarChat() && (
+                        <button
+                          role="menuitem"
+                          onClick={handleExportarChat}
+                          disabled={exportandoChat}
+                          className={`${ITEM_MENU} disabled:opacity-60`}
+                        >
+                          <i
+                            className={`bx ${
+                              exportandoChat
+                                ? "bx-loader-alt animate-spin"
+                                : "bx-download"
+                            } text-[17px] text-slate-500`}
+                          />
+                          <span className="flex-1 truncate">
+                            {exportandoChat
+                              ? "Generando Excel…"
+                              : "Exportar conversación"}
+                          </span>
+                        </button>
+                      )}
 
                       <hr className="my-1.5 border-slate-200/70" />
 
