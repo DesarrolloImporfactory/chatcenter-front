@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { addNumberThunk } from "../../store/slices/number.slice";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { useDispatch } from "react-redux";
 import { jwtDecode } from "jwt-decode";
@@ -26,6 +26,10 @@ import { useMemo } from "react";
 import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 import { useAlertasSinRespuesta } from "../../hooks/useAlertasSinRespuesta";
 import ModalChatsSinRespuesta from "../../components/chat/ModalChatsSinRespuesta";
+import {
+  asignarmeChat,
+  LINEAS_AUTOASIGNACION_COTIZACION,
+} from "../../services/imporsuit";
 
 const Chat = () => {
   const formatFecha = (fechaISO) => {
@@ -499,6 +503,13 @@ const Chat = () => {
   /* 2️⃣  cuando ya hay chats */
   const { chatId } = useParams();
 
+  /* Código de la cotización cuando se llega desde «Ir al chat» de Imporsuit
+     (/abrir-chat/…?cot=, ver AbrirChat). En una referencia: el efecto de
+     abajo no debe volver a ejecutarse porque cambie el state de la ruta. */
+  const location = useLocation();
+  const desdeCotizacionRef = useRef(null);
+  desdeCotizacionRef.current = location.state?.desdeCotizacion ?? null;
+
   useEffect(() => {
     if (!chatId || !id_configuracion) return;
 
@@ -563,6 +574,69 @@ const Chat = () => {
           Swal.fire(
             "No se pudo tomar el chat",
             err.response?.data?.message || "Intenta de nuevo.",
+            "error",
+          );
+          navigate("/chat", { replace: true });
+          return null;
+        }
+      }
+
+      /* Chat ABIERTO de un compañero, pero se llega desde una cotización de
+         Imporsuit (pedido 2026-10-06): en las líneas de Imporfactory el
+         asesor se lo puede asignar. Es la transferencia normal —historial,
+         aviso en el chat y refresco en vivo—; el socket valida que trabaje
+         en esta línea (puedeAutoasignarseEnLinea). */
+      const cot = desdeCotizacionRef.current;
+      if (
+        cot &&
+        LINEAS_AUTOASIGNACION_COTIZACION.includes(Number(id_configuracion))
+      ) {
+        const r = await Swal.fire({
+          icon: "question",
+          title: "¿Asignarte este chat?",
+          text: `Este chat lo atiende ${
+            chat?.nombre_encargado || "otro asesor"
+          }. Para escribirle por la cotización ${cot} tienes que asignártelo: quedará en tu bandeja y se avisa en el chat.`,
+          showCancelButton: true,
+          confirmButtonText: "Asignármelo y abrir",
+          cancelButtonText: "Cancelar",
+        });
+
+        if (!r.isConfirmed) {
+          navigate("/chat", { replace: true });
+          return null;
+        }
+
+        try {
+          const { data } = await chatApi.post(
+            "/departamentos_chat_center/listar_por_usuario",
+            { id_sub_usuario: id_sub_usuario_global },
+            { silentError: true },
+          );
+          const departamento = (Array.isArray(data?.data) ? data.data : []).find(
+            (d) => Number(d.id_configuracion) === Number(id_configuracion),
+          );
+          if (!departamento) {
+            throw new Error("No estás en ningún departamento de esta línea.");
+          }
+
+          await asignarmeChat({
+            idCliente: chat.id,
+            idConfiguracion: id_configuracion,
+            idDepartamento: departamento.id_departamento,
+            motivo: `Cotización ${cot} (desde Imporsuit)`,
+          });
+          Toast.fire({ icon: "success", title: "El chat ahora es tuyo" });
+          return {
+            ...chat,
+            id_encargado: id_sub_usuario_global,
+            chat_cerrado: 0,
+            nombre_encargado: nombre_encargado_global ?? chat.nombre_encargado,
+          };
+        } catch (err) {
+          Swal.fire(
+            "No se pudo asignar el chat",
+            err.response?.data?.message || err.message || "Intenta de nuevo.",
             "error",
           );
           navigate("/chat", { replace: true });

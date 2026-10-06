@@ -114,6 +114,7 @@ import Dropiboard from "./pages/dropi/Dropiboard";
 import SelectorHerramienta from "./pages/selectorHerramienta/selectorHerramienta";
 import ForgotPassword from "./pages/login/ForgotPassword";
 import SsoLanding from "./pages/sso/SsoLanding";
+import AbrirChat from "./pages/chat/AbrirChat";
 import RutaNoEncontrada from "./pages/shared/RutaNoEncontrada";
 import EncuestasView from "./pages/encuestas/EncuestasView";
 import Adsboard from "./components/metaAsd/Adsboard";
@@ -225,6 +226,11 @@ function App() {
 
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/chat/:chatId" element={<Chat />} />
+                {/* Enlace directo desde Imporsuit: fija la conexión y abre el chat */}
+                <Route
+                  path="/abrir-chat/:linea/:chatId"
+                  element={<AbrirChat />}
+                />
 
                 {/*administrador-pruebas se renombra y pasa a produccion*/}
                 <Route
