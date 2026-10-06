@@ -9,7 +9,11 @@ import Swal from "sweetalert2";
 import { useNavigate, useLocation } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import chatApi from "../../api/chatcenter";
-import { esRolVentas, esAdministrador } from "../../utils/rolActual";
+import {
+  esRolVentas,
+  esAdministrador,
+  puedeExportarChat,
+} from "../../utils/rolActual";
 import botImage from "../../assets/bot.png";
 import RankingTiendas from "./RankingTiendas";
 import ResumenConexionHeader from "./ResumenConexionHeader";
@@ -1494,14 +1498,17 @@ const Conexiones = () => {
                 <option value="openai">OpenAI sin saldo</option>
                 <option value="meta">Pago en Meta Business con problema</option>
               </select>
-              <button
-                type="button"
-                onClick={() => setShowExportModal(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#171931] bg-white ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 transition whitespace-nowrap"
-              >
-                <i className="bx bx-download text-lg" />
-                Exportar mensajes
-              </button>
+              {/* Solo administradores: el back responde 403 a los demás. */}
+              {puedeExportarChat() && (
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(true)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#171931] bg-white ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 transition whitespace-nowrap"
+                >
+                  <i className="bx bx-download text-lg" />
+                  Exportar mensajes
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap mt-3">
