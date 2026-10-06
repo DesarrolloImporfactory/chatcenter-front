@@ -158,6 +158,9 @@ const INITIAL_VENTA = {
   pais: "EC",
   idProducto: "",
   montoTotal: "",
+  // Qué fue lo que entró: reserva, pago parcial o pago total. Va atado a las
+  // cuotas (ver `setCampo`): pago total = de contado.
+  modalidad: "total",
   cuotas: "1",
   montoPagado: "",
   fechaCompra: hoyISO(),
@@ -216,6 +219,7 @@ export function useVentaForm(activo) {
     productos: [],
     closers: [],
     pasarelas: [],
+    modalidades: [],
     etiquetas: { asesores: [], ciclos: [] },
     closerPorDefecto: 0,
   });
@@ -260,6 +264,23 @@ export function useVentaForm(activo) {
       // descuadre y ahorra teclear el mismo número dos veces.
       if (name === "cuotas" && Number(value) === 1) next.montoPagado = next.montoTotal;
       if (name === "montoTotal" && Number(next.cuotas) === 1) next.montoPagado = value;
+
+      // Tipo de pago y cuotas dicen lo mismo de dos maneras, así que se mueven
+      // juntos: «pago total» es de contado; reserva y parcial dejan saldo, o
+      // sea al menos 2 cuotas. Sin esto el back rechaza la combinación.
+      if (name === "modalidad") {
+        if (value === "total") {
+          next.cuotas = "1";
+          next.montoPagado = next.montoTotal;
+        } else if (Number(next.cuotas) === 1) {
+          next.cuotas = "2";
+          next.montoPagado = "";
+        }
+      }
+      if (name === "cuotas") {
+        if (Number(value) === 1) next.modalidad = "total";
+        else if (next.modalidad === "total") next.modalidad = "parcial";
+      }
       return next;
     });
   };
@@ -329,6 +350,7 @@ export function useVentaForm(activo) {
       return "Adjunta el comprobante del pago";
 
     if (!venta.idProducto) return "Selecciona el producto vendido";
+    if (!venta.modalidad) return "Selecciona el tipo de pago";
     if (!venta.pais) return "Selecciona el país";
     if (!venta.idCloser) return "Selecciona el closer que cerró la venta";
     if (!venta.pasarela) return "Selecciona la pasarela de pago";
@@ -349,7 +371,12 @@ export function useVentaForm(activo) {
   return { venta, setCampo, catalogos, cargando, errorCatalogos, plan, validar };
 }
 
-export function VentaFields({ form, disabled }) {
+/**
+ * `interno`: el bloque se usa en el «Registro normal», sólo para las métricas
+ * propias. No avisa a Make y la bienvenida la manda el registro del usuario
+ * según los paquetes marcados, así que el interruptor de WhatsApp no aplica.
+ */
+export function VentaFields({ form, disabled, interno = false }) {
   const { venta, setCampo, catalogos, cargando, errorCatalogos, plan } = form;
 
   const productoSel = catalogos.productos.find(
@@ -360,7 +387,14 @@ export function VentaFields({ form, disabled }) {
   return (
     <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-emerald-800">Datos de la venta</p>
+        <p className="text-sm font-bold text-emerald-800">
+          Datos de la venta
+          {interno && (
+            <span className="ml-2 rounded border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+              Solo métricas internas
+            </span>
+          )}
+        </p>
         {cargando && (
           <span className="text-xs text-gray-500">Cargando catálogos…</span>
         )}
@@ -449,6 +483,28 @@ export function VentaFields({ form, disabled }) {
             placeholder="0.00"
             disabled={disabled}
           />
+        </Field>
+
+        <Field label="Tipo de pago">
+          <select
+            className={inputCls}
+            value={venta.modalidad}
+            onChange={(e) => setCampo("modalidad", e.target.value)}
+            disabled={disabled}
+          >
+            {(catalogos.modalidades ?? []).map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-[11px] text-gray-500">
+            {venta.modalidad === "total"
+              ? "Pagó todo: queda de contado"
+              : venta.modalidad === "reserva"
+                ? "Seña para apartar el cupo: el saldo queda por cobrar"
+                : "Abono de un plan de pagos"}
+          </span>
         </Field>
 
         <Field label="Cuotas">
@@ -553,8 +609,15 @@ export function VentaFields({ form, disabled }) {
       {/* Bienvenida por WhatsApp + alta del hilo en ImporChat. Mismo
           interruptor que el panel: en una recompra el chat ya existe y el
           agente puede querer saltárselo. */}
+      {interno && (
+        <p className="mt-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-600">
+          Se registran la cartera, la deuda y el pago para las métricas de ventas.{" "}
+          <strong>No se avisa a Make</strong> ni se envía la encuesta. La bienvenida
+          sale según los paquetes que marques abajo.
+        </p>
+      )}
       <label
-        className={`mt-3 flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${
+        className={`mt-3 ${interno ? "hidden" : "flex"} cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${
           venta.enviarWhatsapp
             ? "border-emerald-300 bg-emerald-50"
             : "border-gray-200 bg-white"
