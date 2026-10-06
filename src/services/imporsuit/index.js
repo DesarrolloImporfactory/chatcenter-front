@@ -44,6 +44,15 @@ export {
 export { listarAuditoria } from "./auditoria.service";
 
 export {
+  prepararFacturaDeuda,
+  emitirFacturaDeuda,
+  consultarFacturaDeuda,
+  getDatosFacturacion,
+  guardarDatosFacturacion,
+  consultarRucSri,
+} from "./facturacion.service";
+
+export {
   getCotizacionesIA,
   analizarCotizacionIA,
   getBandejaIA,
