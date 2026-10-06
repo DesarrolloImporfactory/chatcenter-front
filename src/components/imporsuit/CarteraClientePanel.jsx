@@ -13,6 +13,7 @@ import { CrearUsuarioForm } from "./CrearUsuarioForm";
 import { AgregarDeudaForm } from "./AgregarDeudaForm";
 import { RegistrarPagoForm } from "./RegistrarPagoForm";
 import { SubirComprobanteForm } from "./SubirComprobanteForm";
+import { FacturarDeudaModal } from "./FacturarDeudaModal";
 
 const MONEY = new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" });
 const fmt$ = (n) => MONEY.format(Number(n ?? 0));
@@ -277,6 +278,7 @@ export function CarteraClientePanel({
               onEliminar={onEliminar}
               onEditar={onEditar}
               onReenviar={onReenviar}
+              onFacturar={(d) => setModal({ factura: d })}
             />
           )}
         </>
@@ -307,6 +309,14 @@ export function CarteraClientePanel({
           onSaved={() => recargar()}
         />
       )}
+      {modal?.factura && (
+        <FacturarDeudaModal
+          deuda={modal.factura}
+          onClose={() => setModal(null)}
+          // El botón de la tarjeta pasa de «Facturar» a «Facturada».
+          onChanged={recargar}
+        />
+      )}
       {modal?.comprobante && (
         <SubirComprobanteForm
           deuda={modal.comprobante.deuda}
@@ -333,7 +343,7 @@ function porFechaCreacionDesc(a, b) {
   return Number(b.id_cpp) - Number(a.id_cpp);
 }
 
-function DeudasTable({ deudas, cargando, onAgregar, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar }) {
+function DeudasTable({ deudas, cargando, onAgregar, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar, onFacturar }) {
   const [openId, setOpenId] = useState(null);
   const [filtro, setFiltro] = useState(null); // null = automático
   const [page, setPage] = useState(1);
@@ -430,6 +440,7 @@ function DeudasTable({ deudas, cargando, onAgregar, onPagar, onSubirComprobante,
                 onEliminar={onEliminar}
                 onEditar={onEditar}
                 onReenviar={onReenviar}
+                onFacturar={onFacturar}
               />
             );
           })}
@@ -481,7 +492,41 @@ function FiltroBtn({ active, disabled, onClick, children }) {
   );
 }
 
-function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar }) {
+/**
+ * Factura electrónica de la deuda. Aparece cuando está pagada completa: cada
+ * deuda —o cada cuota— lleva su propia factura. Las deudas de una cotización
+ * no se facturan acá (van juntas desde Imporfactory, con otro emisor).
+ */
+function BotonFactura({ d, onClick }) {
+  const factura = d.factura;
+  const pagada =
+    Number(d.estado) !== 2 && Number(d.monto_original) > 0 && Number(d.monto_pendiente) <= 0;
+  if (d.id_cotizacion || (!pagada && !factura)) return null;
+
+  if (factura && factura.estado !== "emitiendo") {
+    return (
+      <button
+        onClick={onClick}
+        className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
+        title={`Factura ${factura.numero}`}
+      >
+        <i className={`bx ${factura.estado === "autorizada" ? "bx-check-shield" : "bx-loader-alt bx-spin"}`} />{" "}
+        Facturada
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1 rounded-md border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[11px] font-bold text-cyan-700 hover:bg-cyan-100"
+      title={factura ? "La emisión anterior quedó sin respuesta: revísala" : "Emitir la factura electrónica de esta deuda"}
+    >
+      <i className="bx bx-receipt" /> {factura ? "Revisar factura" : "Facturar"}
+    </button>
+  );
+}
+
+function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar, onFacturar }) {
   const estadoTxt = ESTADO_DEUDA[Number(d.estado)] ?? "Pendiente";
   const estadoCls =
     Number(d.estado) === 1
@@ -540,6 +585,7 @@ function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, on
             Pagos ({pagos.length}) {isOpen ? "▲" : "▼"}
           </button>
         )}
+        {onFacturar && <BotonFactura d={d} onClick={() => onFacturar(d)} />}
         {onEditar && (
           <button
             onClick={() => onEditar(d)}
