@@ -89,6 +89,15 @@ export const CHECKLIST_CONFIGS_HABILITADAS = [265];
 export const IA_CONFIGS_HABILITADAS = [265];
 export const IA_AGENTES_HABILITADOS = [377];
 
+/**
+ * Líneas donde un asesor puede asignarse el chat abierto de un compañero
+ * cuando llega desde el botón «Ir al chat» de una cotización de Imporsuit
+ * (/abrir-chat/…?cot=). Espejo de LINEAS_AUTOASIGNACION del socket
+ * (`src/utils/historialEncargados.js`), que es quien lo valida de verdad.
+ *   242 = Ventas · 265 = Soporte Importaciones
+ */
+export const LINEAS_AUTOASIGNACION_COTIZACION = [242, 265];
+
 /** Estado de una deuda (cuenta_por_pagar.estado). */
 export const ESTADO_DEUDA = {
   0: "Pendiente",

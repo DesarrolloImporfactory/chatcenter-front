@@ -78,6 +78,94 @@ const money = (v) => {
   return Number.isFinite(n) ? currency.format(n) : "—";
 };
 
+/* ── Precios escritos en el mensaje fijo y en las respuestas rápidas ──
+   Esos textos se guardan tal cual. Si después cambia el precio o un combo en
+   el paso 1, aquí se detecta y se avisa para que el negocio lo corrija. El
+   backend igual rehace las líneas de precio del mensaje fijo al guardar el
+   producto y al enviarlo (refrescarPreciosMensaje), pero las respuestas
+   rápidas y los precios escritos en prosa NO se corrigen solos. */
+const aNum = (v) => {
+  const n = Number(String(v ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
+const fmtPrecioMsg = (v) => {
+  const n = aNum(v);
+  if (n === null) return "";
+  return Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2).replace(".", ",")}`;
+};
+const RE_LINEA_PRECIO =
+  /^\s*(?:\S{1,8}\s+)?(\d{1,3})\s+por\s+\$\s?(\d[\d.,]*)\s*$/u;
+const EMOJIS_COMBO = ["🔥", "💥", "🎁", "⭐"];
+
+// [{cantidad, precio}] vigentes: la unidad y los combos válidos del catálogo.
+const preciosDelCatalogo = (producto, combos) => {
+  const lista = [];
+  const unidad = aNum(producto?.precio);
+  if (unidad && unidad > 0) lista.push({ cantidad: 1, precio: unidad });
+  for (const c of combos || []) {
+    const cantidad = aNum(c?.cantidad);
+    const precio = aNum(c?.precio);
+    if (cantidad > 1 && precio > 0) lista.push({ cantidad, precio });
+  }
+  return lista;
+};
+const firmaPrecios = (lista) =>
+  lista.map((x) => `${x.cantidad}:${Number(x.precio).toFixed(2)}`).join("|");
+
+// Líneas "N por $X" del mensaje que ya no coinciden con el catálogo
+// ([] = está al día o no tiene líneas con esa forma).
+const lineasPrecioDesfasadas = (texto, vigentes) => {
+  const halladas = String(texto || "")
+    .split("\n")
+    .map((l) => l.match(RE_LINEA_PRECIO))
+    .filter(Boolean)
+    .map((m) => ({ cantidad: Number(m[1]), precio: aNum(m[2]) }));
+  if (!halladas.length || !vigentes.length) return [];
+  return firmaPrecios(halladas) === firmaPrecios(vigentes) ? [] : halladas;
+};
+
+// Mismo criterio que el backend: rehace SOLO las líneas de precio.
+const actualizarPreciosDelMensaje = (texto, vigentes) => {
+  const lineas = String(texto || "").split("\n");
+  const idx = lineas
+    .map((l, i) => (RE_LINEA_PRECIO.test(l) ? i : -1))
+    .filter((i) => i >= 0);
+  if (!idx.length || !vigentes.length) return texto;
+  let k = 0;
+  const nuevas = vigentes.map((v) =>
+    v.cantidad === 1
+      ? `💵 1 por ${fmtPrecioMsg(v.precio)}`
+      : `${EMOJIS_COMBO[Math.min(k++, EMOJIS_COMBO.length - 1)]} ${v.cantidad} por ${fmtPrecioMsg(v.precio)}`,
+  );
+  const quitar = new Set(idx);
+  const resto = lineas.filter((_, i) => !quitar.has(i));
+  resto.splice(idx[0], 0, ...nuevas);
+  return resto.join("\n");
+};
+
+// Precios mencionados en un texto libre que no existen en el catálogo.
+const preciosAjenos = (texto, vigentes) => {
+  const validos = new Set(vigentes.map((v) => Number(v.precio).toFixed(2)));
+  const hallados = String(texto || "").match(/\$\s?\d+(?:[.,]\d{1,2})?/g) || [];
+  return [
+    ...new Set(
+      hallados
+        .map((h) => aNum(h.replace(/[$\s]/g, "")))
+        .filter((n) => n !== null && !validos.has(n.toFixed(2)))
+        .map((n) => fmtPrecioMsg(n)),
+    ),
+  ];
+};
+
+/* Aviso ámbar reutilizable (precio del catálogo ≠ precio escrito). */
+const AvisoPrecio = ({ children, accion }) => (
+  <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-900">
+    <i className="bx bx-error-circle text-amber-500 text-[17px] mt-px shrink-0" />
+    <div className="flex-1 leading-relaxed">{children}</div>
+    {accion}
+  </div>
+);
+
 /* ── piezas de UI ── */
 const inputCls =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13.5px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition";
@@ -650,6 +738,30 @@ export default function WizardProductoModal({
   ).length;
   const activoEnVivo = Boolean(form.wizard_completado) && Boolean(form.activo);
 
+  /* Precio del catálogo (paso 1) contra lo que quedó escrito en el mensaje
+     fijo y en las respuestas rápidas. En servicios el mensaje no lleva
+     líneas "N por $X", así que no aplica. */
+  const esFisico = form.tipo_venta !== "servicio";
+  const preciosVigentes = esFisico
+    ? preciosDelCatalogo(producto, combosValidos)
+    : [];
+  const mensajeDesfasado = lineasPrecioDesfasadas(
+    form.mensaje_inicial,
+    preciosVigentes,
+  );
+  const faqsDesfasadas = preciosVigentes.length
+    ? form.respuestas_rapidas
+        .filter((f) => f && f.activa !== 0 && f.respuesta)
+        .map((f) => ({
+          pregunta: f.pregunta,
+          ajenos: preciosAjenos(f.respuesta, preciosVigentes),
+        }))
+        .filter((x) => x.ajenos.length)
+    : [];
+  const textoVigentes = preciosVigentes
+    .map((v) => `${v.cantidad} por ${fmtPrecioMsg(v.precio)}`)
+    .join(" · ");
+
   // Selector de la línea de envío y pago: opciones de un clic + campo libre.
   const presetsEnvio =
     PRESETS_ENVIO[form.tipo_venta === "servicio" ? "servicio" : "producto"];
@@ -806,6 +918,52 @@ export default function WizardProductoModal({
                   </span>
                 ) : null}
               </div>
+              {/* El precio vive en dos lugares: aquí (catálogo) y escrito en
+                  los textos del bot. Se avisa SIEMPRE que al cambiarlo aquí
+                  hay que revisarlo allá, y con detalle si ya hay un desfase. */}
+              {mensajeDesfasado.length || faqsDesfasadas.length ? (
+                <AvisoPrecio
+                  accion={
+                    <button
+                      type="button"
+                      onClick={() => setStep(mensajeDesfasado.length ? 3 : 2)}
+                      className="shrink-0 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11.5px] font-semibold px-3 py-1.5 whitespace-nowrap"
+                    >
+                      Ir a corregirlo
+                    </button>
+                  }
+                >
+                  {mensajeDesfasado.length ? (
+                    <>
+                      <strong>
+                        El mensaje final (paso 3) tiene precios distintos a los
+                        de tu catálogo.
+                      </strong>{" "}
+                      Aquí tienes {textoVigentes}. Corrígelo para que tus
+                      clientes reciban el precio correcto.
+                    </>
+                  ) : (
+                    <>
+                      <strong>
+                        Una respuesta rápida (paso 2) menciona un monto que no
+                        es un precio de tu catálogo.
+                      </strong>{" "}
+                      Aquí tienes {textoVigentes}. Revisa que lo escrito ahí
+                      siga vigente.
+                    </>
+                  )}
+                </AvisoPrecio>
+              ) : (
+                <div className="flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-3.5 py-2 text-[12px] text-indigo-900">
+                  <i className="bx bx-info-circle text-indigo-400 text-[16px] mt-px shrink-0" />
+                  <span>
+                    Si cambias el <strong>precio</strong> o los{" "}
+                    <strong>combos</strong>, revisa también el paso 2 (respuestas
+                    rápidas) y el paso 3 (mensaje final): si escribiste ahí un
+                    precio a mano, tienes que actualizarlo también.
+                  </span>
+                </div>
+              )}
               <ProductoModal
                 key={`${producto.id}-${producto.fecha_actualizacion || ""}`}
                 open
@@ -1241,6 +1399,28 @@ export default function WizardProductoModal({
                 </div>
               </div>
 
+              {faqsDesfasadas.length ? (
+                <AvisoPrecio>
+                  <strong>
+                    Revisa los montos de tus respuestas rápidas.
+                  </strong>{" "}
+                  Tu catálogo dice {textoVigentes}, y estas respuestas
+                  mencionan un monto distinto. Si es un precio que ya cambiaste
+                  en el paso 1, corrígelo aquí también (estas respuestas no se
+                  actualizan solas):
+                  <ul className="mt-1 list-disc pl-4">
+                    {faqsDesfasadas.map((f, i) => (
+                      <li key={i}>
+                        <span className="font-medium">
+                          {f.pregunta || "Respuesta sin título"}
+                        </span>
+                        : {f.ajenos.join(", ")}
+                      </li>
+                    ))}
+                  </ul>
+                </AvisoPrecio>
+              ) : null}
+
               <Card>
                 <RespuestasRapidasEditor
                   value={form.respuestas_rapidas}
@@ -1399,6 +1579,40 @@ export default function WizardProductoModal({
                     ) : null
                   }
                 >
+                  {mensajeDesfasado.length ? (
+                    <div className="mb-2.5">
+                      <AvisoPrecio
+                        accion={
+                          <button
+                            type="button"
+                            onClick={() =>
+                              set({
+                                mensaje_inicial: actualizarPreciosDelMensaje(
+                                  form.mensaje_inicial,
+                                  preciosVigentes,
+                                ),
+                              })
+                            }
+                            className="shrink-0 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11.5px] font-semibold px-3 py-1.5 whitespace-nowrap"
+                          >
+                            Actualizar precios
+                          </button>
+                        }
+                      >
+                        <strong>
+                          Este mensaje tiene precios distintos a los de tu
+                          catálogo.
+                        </strong>{" "}
+                        Aquí dice{" "}
+                        {mensajeDesfasado
+                          .map(
+                            (m) => `${m.cantidad} por ${fmtPrecioMsg(m.precio)}`,
+                          )
+                          .join(" · ")}{" "}
+                        y en el paso 1 tienes {textoVigentes}.
+                      </AvisoPrecio>
+                    </div>
+                  ) : null}
                   <textarea
                     value={form.mensaje_inicial}
                     onChange={(e) => set({ mensaje_inicial: e.target.value })}

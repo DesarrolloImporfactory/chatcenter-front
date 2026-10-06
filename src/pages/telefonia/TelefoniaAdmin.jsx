@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
-import TablaLlamadas from "../../components/telefonia/TablaLlamadas";
+import LlamadasResumen from "../../components/dashboard/LlamadasResumen";
 
 /**
  * /telefonia — Telefonía por saldo con Zadarma. Solo super administrador y
@@ -65,37 +65,27 @@ function Modal({ titulo, subtitulo, onClose, ancho = "max-w-lg", children }) {
   );
 }
 
-/* ── Historial de llamadas de una conexión ───────────────────────────── */
+/* ── Historial de llamadas de una conexión ─────────────────────────────
+   El mismo panel que ve el administrador de la conexión en su dashboard
+   (filtro de fechas, tarjetas, comparación por asesor, tabla con
+   seguimiento), más la columna "Salió con". */
 function HistorialModal({ cuenta, onClose }) {
-  const [llamadas, setLlamadas] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [cargando, setCargando] = useState(false);
-  useEffect(() => {
-    let vigente = true;
-    setCargando(true);
-    // Se traen hasta 500 de una vez; la tabla filtra y pagina en el navegador.
-    chatApi
-      .get("/telefonia/admin/historial", { params: { id_configuracion: cuenta.id_configuracion, page: 1, limit: 500 } })
-      .then(({ data }) => {
-        if (!vigente) return;
-        setLlamadas(data?.data || []);
-        setTotal(data?.total || 0);
-      })
-      .catch(() => vigente && setLlamadas([]))
-      .finally(() => vigente && setCargando(false));
-    return () => {
-      vigente = false;
-    };
-  }, [cuenta.id_configuracion]);
   return (
     <Modal
       titulo={`Llamadas de #${cuenta.id_configuracion} ${cuenta.nombre_configuracion || ""}`}
-      subtitulo={`${total} llamada${total === 1 ? "" : "s"} en total${total > 500 ? " (se muestran las 500 más recientes)" : ""} · saldo ${fmtUSD(cuenta.saldo_centavos)} · "Salió con" es el número que Zadarma reporta haber enviado`}
+      subtitulo={'"Salió con" es el número que Zadarma reporta haber enviado en cada llamada'}
       onClose={onClose}
       ancho="max-w-6xl"
     >
       <div className="overflow-auto px-5 py-4">
-        <TablaLlamadas llamadas={llamadas} porPagina={15} mostrarSalioCon cargando={cargando} />
+        <LlamadasResumen
+          configId={cuenta.id_configuracion}
+          endpoint="/telefonia/admin/historial"
+          mostrarSalioCon
+          ocultarSiInactiva={false}
+          enMarco={false}
+          porPagina={12}
+        />
       </div>
     </Modal>
   );
@@ -169,7 +159,10 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
     >
       <div className="space-y-4 px-5 py-4">
         <div>
-          <label htmlFor="tel-tarifa" className="block text-xs font-semibold text-slate-600">Precio por minuto que le cobras (USD)</label>
+          <label htmlFor="tel-tarifa" className="block text-xs font-semibold text-slate-600">Precio por minuto a celulares de su país (USD)</label>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Define el margen. Cada llamada se descuenta por lo que costó de verdad en Zadarma con ese margen, vaya al país que vaya: al costo, el saldo de la conexión y el de Zadarma bajan a la par.
+          </p>
           <div className="mt-1 flex gap-2">
             <input id="tel-tarifa" className={input} value={tarifa} onChange={(e) => setTarifa(e.target.value)} inputMode="decimal" />
             {costoC ? (

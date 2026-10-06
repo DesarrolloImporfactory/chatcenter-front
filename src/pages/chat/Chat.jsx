@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { addNumberThunk } from "../../store/slices/number.slice";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { useDispatch } from "react-redux";
 import { jwtDecode } from "jwt-decode";
@@ -26,6 +26,10 @@ import { useMemo } from "react";
 import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 import { useAlertasSinRespuesta } from "../../hooks/useAlertasSinRespuesta";
 import ModalChatsSinRespuesta from "../../components/chat/ModalChatsSinRespuesta";
+import {
+  asignarmeChat,
+  LINEAS_AUTOASIGNACION_COTIZACION,
+} from "../../services/imporsuit";
 
 const Chat = () => {
   const formatFecha = (fechaISO) => {
@@ -115,6 +119,10 @@ const Chat = () => {
   const [searchTermEtiqueta, setSearchTermEtiqueta] = useState("");
 
   const [selectedChat, setSelectedChat] = useState(null);
+  // Chat abierto en este momento, para que las respuestas tardías de un chat
+  // anterior no pisen al actual.
+  const selectedChatRef = useRef(selectedChat);
+  selectedChatRef.current = selectedChat;
 
   const [chatMessages, setChatMessages] = useState([]);
 
@@ -200,6 +208,12 @@ const Chat = () => {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   const [dataPlanes, setDataPlanes] = useState(null);
+  /* Planes (paquetes) ya vistos, por chat. Llegan con GET_CHATS_BOX ~1 s
+     después de abrir el chat y la cabecera cambia de alto con ellos: al
+     cambiar de chat se veían los del anterior, luego nada y luego los
+     nuevos (la cabecera subía y bajaba). Con la caché, al volver a un chat
+     salen de una; la respuesta del socket los refresca. */
+  const planesPorChatRef = useRef({});
 
   const [isMetaCommandActive, setIsMetaCommandActive] = useState(false);
   const [metaTemplateSearchTerm, setMetaTemplateSearchTerm] = useState("");
@@ -489,6 +503,13 @@ const Chat = () => {
   /* 2️⃣  cuando ya hay chats */
   const { chatId } = useParams();
 
+  /* Código de la cotización cuando se llega desde «Ir al chat» de Imporsuit
+     (/abrir-chat/…?cot=, ver AbrirChat). En una referencia: el efecto de
+     abajo no debe volver a ejecutarse porque cambie el state de la ruta. */
+  const location = useLocation();
+  const desdeCotizacionRef = useRef(null);
+  desdeCotizacionRef.current = location.state?.desdeCotizacion ?? null;
+
   useEffect(() => {
     if (!chatId || !id_configuracion) return;
 
@@ -553,6 +574,69 @@ const Chat = () => {
           Swal.fire(
             "No se pudo tomar el chat",
             err.response?.data?.message || "Intenta de nuevo.",
+            "error",
+          );
+          navigate("/chat", { replace: true });
+          return null;
+        }
+      }
+
+      /* Chat ABIERTO de un compañero, pero se llega desde una cotización de
+         Imporsuit (pedido 2026-10-06): en las líneas de Imporfactory el
+         asesor se lo puede asignar. Es la transferencia normal —historial,
+         aviso en el chat y refresco en vivo—; el socket valida que trabaje
+         en esta línea (puedeAutoasignarseEnLinea). */
+      const cot = desdeCotizacionRef.current;
+      if (
+        cot &&
+        LINEAS_AUTOASIGNACION_COTIZACION.includes(Number(id_configuracion))
+      ) {
+        const r = await Swal.fire({
+          icon: "question",
+          title: "¿Asignarte este chat?",
+          text: `Este chat lo atiende ${
+            chat?.nombre_encargado || "otro asesor"
+          }. Para escribirle por la cotización ${cot} tienes que asignártelo: quedará en tu bandeja y se avisa en el chat.`,
+          showCancelButton: true,
+          confirmButtonText: "Asignármelo y abrir",
+          cancelButtonText: "Cancelar",
+        });
+
+        if (!r.isConfirmed) {
+          navigate("/chat", { replace: true });
+          return null;
+        }
+
+        try {
+          const { data } = await chatApi.post(
+            "/departamentos_chat_center/listar_por_usuario",
+            { id_sub_usuario: id_sub_usuario_global },
+            { silentError: true },
+          );
+          const departamento = (Array.isArray(data?.data) ? data.data : []).find(
+            (d) => Number(d.id_configuracion) === Number(id_configuracion),
+          );
+          if (!departamento) {
+            throw new Error("No estás en ningún departamento de esta línea.");
+          }
+
+          await asignarmeChat({
+            idCliente: chat.id,
+            idConfiguracion: id_configuracion,
+            idDepartamento: departamento.id_departamento,
+            motivo: `Cotización ${cot} (desde Imporsuit)`,
+          });
+          Toast.fire({ icon: "success", title: "El chat ahora es tuyo" });
+          return {
+            ...chat,
+            id_encargado: id_sub_usuario_global,
+            chat_cerrado: 0,
+            nombre_encargado: nombre_encargado_global ?? chat.nombre_encargado,
+          };
+        } catch (err) {
+          Swal.fire(
+            "No se pudo asignar el chat",
+            err.response?.data?.message || err.message || "Intenta de nuevo.",
             "error",
           );
           navigate("/chat", { replace: true });
@@ -649,6 +733,11 @@ const Chat = () => {
 
   /* abrir modal asignar etiquetas */
   const [tagListAsginadas, setTagListAsginadas] = useState([]);
+  /* Etiquetas asignadas ya vistas, por chat. Se cargan en un efecto (después
+     de pintar), así que al cambiar de chat se pintaba un cuadro con las
+     etiquetas del chat anterior bajo el nombre del nuevo. Con la caché, al
+     seleccionar se ponen de una las del chat (o ninguna) en el mismo render. */
+  const tagsAsignadasPorChatRef = useRef({});
 
   const [isAsignarEtiquetaModalOpen, setIsAsignarEtiquetaModalOpen] =
     useState(false);
@@ -662,11 +751,12 @@ const Chat = () => {
   };
 
   const fetchTagsAsginadas = async () => {
+    const idChat = selectedChat.id;
     try {
       const response = await chatApi.post(
         "/etiquetas_asignadas/obtenerEtiquetasAsignadas",
         {
-          id_cliente_chat_center: selectedChat.id,
+          id_cliente_chat_center: idChat,
         },
       );
 
@@ -678,7 +768,11 @@ const Chat = () => {
         );
       }
 
-      setTagListAsginadas(data.etiquetasAsignadas); // <- nombre correcto desde tu backend
+      const asignadas = data.etiquetasAsignadas || [];
+      tagsAsignadasPorChatRef.current[idChat] = asignadas;
+      // Si mientras tanto se abrió otro chat, la respuesta ya no es de este.
+      if (String(selectedChatRef.current?.id) !== String(idChat)) return;
+      setTagListAsginadas(asignadas); // <- nombre correcto desde tu backend
     } catch (error) {
       console.error("Error fetching etiquetas asignadas:", error);
     }
@@ -701,11 +795,14 @@ const Chat = () => {
 
       const isAssigned = result.asignado;
 
-      setTagListAsginadas((prev) =>
+      const aplicar = (prev) =>
         isAssigned
           ? [...prev, { id_etiqueta: idEtiqueta }]
-          : prev.filter((tag) => tag.id_etiqueta !== idEtiqueta),
+          : prev.filter((tag) => tag.id_etiqueta !== idEtiqueta);
+      tagsAsignadasPorChatRef.current[idClienteChat] = aplicar(
+        tagsAsignadasPorChatRef.current[idClienteChat] || [],
       );
+      setTagListAsginadas(aplicar);
     } catch (error) {
       console.error("Error en toggleTagAssignment:", error);
       Toast.fire({ icon: "error", title: "Error al asignar etiqueta" });
@@ -2022,6 +2119,10 @@ const Chat = () => {
     setFulfillment(null);
     setTotal_directo(null);
 
+    // En el mismo render que el chat nuevo, sus etiquetas (o ninguna):
+    // nunca un cuadro con las del chat anterior.
+    setTagListAsginadas(tagsAsignadasPorChatRef.current[chat?.id] || []);
+    setDataPlanes(planesPorChatRef.current[chat?.id] || []);
     setSelectedChat(chat);
 
     // OJO: aquí NO se toca activeChannel. Ese estado es el filtro de canal
@@ -3093,7 +3194,7 @@ const Chat = () => {
       id_configuracion,
     });
 
-    setDataPlanes([]);
+    setDataPlanes(planesPorChatRef.current[selectedChat.id] || []);
 
     /* Este listener es PERMANENTE mientras el chat esté abierto: recibe la
        carga inicial y también cada refresco que se pide cuando llega o se
@@ -3103,7 +3204,9 @@ const Chat = () => {
        el historial cargado y movía el scroll). */
     let esCargaInicial = true;
     const handleChatBoxResponse = (data) => {
-      setDataPlanes(data?.[0]?.paquetes || []);
+      const paquetes = data?.[0]?.paquetes || [];
+      planesPorChatRef.current[selectedChat.id] = paquetes;
+      setDataPlanes(paquetes);
       if (!esCargaInicial && fusionarSiLeeHistorial(data)) return;
       if (esCargaInicial) marcarSeguirAbajo(); // chat recién abierto
       esCargaInicial = false;
