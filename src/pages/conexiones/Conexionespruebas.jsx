@@ -17,6 +17,7 @@ import CrearConfiguracionModalWhatsappBusiness from "../admintemplates/CrearConf
 import GuiaCoexistenciaModal from "./Modales/GuiaCoexistenciaModal";
 import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
+import { puedeExportarChat } from "../../utils/rolActual";
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useEffect : () => {};
@@ -1299,14 +1300,17 @@ const Conexiones = () => {
                 <option value="conectado">Conectado</option>
                 <option value="pendiente">Pendiente</option>
               </select>
-              <button
-                type="button"
-                onClick={() => setShowExportModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#171931] bg-white ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 transition whitespace-nowrap"
-              >
-                <i className="bx bx-download text-lg" />
-                Exportar mensajes
-              </button>
+              {/* Solo administradores: el back responde 403 a los demás. */}
+              {puedeExportarChat() && (
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#171931] bg-white ring-1 ring-slate-200 hover:bg-slate-50 hover:ring-slate-300 transition whitespace-nowrap"
+                >
+                  <i className="bx bx-download text-lg" />
+                  Exportar mensajes
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap mt-3">
