@@ -17,6 +17,17 @@ import { MetricasRespuesta } from "./asistenteMetricas";
 
 const WA_SUPPORT_NUMBER = "593998979214";
 
+// Cuenta "Soporte Importaciones Expertos": el bot responde por la cartera
+// de importaciones del ERP, no por guías ni productos.
+const ID_CONFIG_SOPORTE = 265;
+
+const SUGERENCIAS_SOPORTE = [
+  { icon: "bx-trending-up", texto: "¿Cuáles son mis mejores oportunidades comerciales?" },
+  { icon: "bx-package", texto: "¿Cuántas cargas marítimas pendientes hay?" },
+  { icon: "bx-error-circle", texto: "¿Tengo clientes molestos?" },
+  { icon: "bx-bar-chart-alt-2", texto: "Dame un resumen de mi cartera" },
+];
+
 // Sin conexión elegida: arranque del negocio (módulo 1 y 2 del curso).
 const SUGERENCIAS_GENERAL = [
   { icon: "bxl-whatsapp", texto: "¿Cómo conecto mi número a WhatsApp Business?" },
@@ -243,6 +254,7 @@ export default function FloatingSupportChat({
   // Modo general: sin conexión elegida (o forzado desde la pantalla de
   // conexiones, donde localStorage puede tener un id viejo).
   const general = forzarGeneral || !idConf;
+  const soporteImportaciones = !general && idConf === ID_CONFIG_SOPORTE;
 
   const isLeft = position === "left";
   const sideClass = isLeft ? "left-6" : "right-6";
@@ -338,7 +350,13 @@ export default function FloatingSupportChat({
   const preguntadas = new Set(
     messages.filter((m) => m.role === "user").map((m) => m.content),
   );
-  const sugerencias = (general ? SUGERENCIAS_GENERAL : SUGERENCIAS).filter(
+  const sugerencias = (
+    general
+      ? SUGERENCIAS_GENERAL
+      : soporteImportaciones
+        ? SUGERENCIAS_SOPORTE
+        : SUGERENCIAS
+  ).filter(
     (s) => !preguntadas.has(s.texto),
   );
 
@@ -418,7 +436,9 @@ export default function FloatingSupportChat({
           <p className="mt-0.5 text-[11.5px] text-slate-500">
             {general
               ? "Te guío para crear tus cuentas y configurar ImporChat."
-              : "Pregúntame por tus guías, pedidos y ventas."}
+              : soporteImportaciones
+                ? "Pregúntame por tu cartera: oportunidades, cargas y clientes."
+                : "Pregúntame por tus guías, pedidos y ventas."}
           </p>
         </div>
 
@@ -536,7 +556,9 @@ export default function FloatingSupportChat({
             <span>
               {general
                 ? "Videos y guías oficiales de Imporfactory"
-                : "Datos sincronizados de Dropi y Aliclik"}
+                : soporteImportaciones
+                  ? "Datos del ERP de importaciones"
+                  : "Datos sincronizados de Dropi y Aliclik"}
             </span>
             <button
               type="button"
