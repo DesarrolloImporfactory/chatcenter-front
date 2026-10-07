@@ -1,4 +1,9 @@
-// src/components/productos/ProductosView.jsx
+// src/pages/productos/ProductosView.jsx
+// Catálogo de productos con el wizard del bot integrado. Es la vista clásica
+// (misma tabla, mismos botones y modales) más una columna "Mensaje fijo" que
+// dice si el producto ya tiene configurado su primer mensaje y respuestas
+// rápidas. Un producto sin configurar sigue el flujo actual con IA; uno
+// configurado sale con el paquete fijo.
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
@@ -6,10 +11,12 @@ import Swal from "sweetalert2";
 import Header from "../Header/pageHeader";
 import { useDropi } from "../../context/DropiContext";
 import ImportarProductosDropi from "./modales/ImportarProductosDropi";
+import ImportarProductosAliclik from "./modales/ImportarProductosAliclik";
 import CargaMasivaModal from "./modales/CargaMasivaModal";
 import ProductoModal from "./modales/ProductoModal";
 import ImportarDesdeEnlaceModal from "./modales/ImportarDesdeEnlaceModal";
 import SyncDropiSwitches from "./SyncDropiSwitches";
+import WizardProductoModal from "./wizard/WizardProductoModal";
 
 /* ─────────────────────────────────────────────────────────────
    Helpers
@@ -34,28 +41,63 @@ const esPrivado = (p) =>
   p.is_private === 1 ||
   p.is_private === true;
 
+const fechaCorta = (v) => {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-EC", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
+};
+
+const haceCuanto = (v) => {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "—";
+  const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (dias <= 0) return "hoy";
+  if (dias === 1) return "ayer";
+  if (dias < 30) return `hace ${dias} días`;
+  if (dias < 365)
+    return `hace ${Math.floor(dias / 30)} mes${dias >= 60 ? "es" : ""}`;
+  return fechaCorta(v);
+};
+
+const estadoBot = (w) => {
+  if (!w) return "sin";
+  if (w.wizard_completado && w.activo) return "ok";
+  if (w.wizard_completado && !w.activo) return "pausado";
+  return "borrador";
+};
+
 /* ─────────────────────────────────────────────────────────────
    Main
 ───────────────────────────────────────────────────────────── */
 const ProductosView = () => {
   const navigate = useNavigate();
-  const { isDropiLinked } = useDropi();
+  const { isDropiLinked, isAliclikLinked } = useDropi();
 
   const [productos, setProductos] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  // Cuenta proveedora (tablero de proveeduría): el formulario de producto
-  // presenta los combos como "Precios por cantidad" y explica cómo los cobra el bot.
+  // Cuenta proveedora: el formulario de producto muestra los combos como
+  // "Precios por cantidad" y explica cómo los cobra el bot.
   const [esProveedor, setEsProveedor] = useState(false);
+  const [categorias, setCategorias] = useState([]);
+  const [wizards, setWizards] = useState({}); // id_producto -> estado wizard
   const [loading, setLoading] = useState(true);
+  const [iaDisponible, setIaDisponible] = useState(false);
+  const [nombreNegocio, setNombreNegocio] = useState("Tu negocio");
 
-  /* Modal producto */
+  /* Modal producto (el clásico) */
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
-  /* Importar desde una publicación ya existente. Sirve a cualquier catálogo:
-     el anuncio de un portal inmobiliario o la página de un proveedor. Lo que
-     cambia según el rubro de la cuenta es QUÉ campos se extraen —eso lo decide
-     el backend—, no si la función está disponible. */
+  /* Wizard del bot */
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardProducto, setWizardProducto] = useState(null);
+
+  /* Importar desde enlace */
   const [importOpen, setImportOpen] = useState(false);
   const [borradorImportado, setBorradorImportado] = useState(null);
 
@@ -73,16 +115,28 @@ const ProductosView = () => {
   const [dropiProducts, setDropiProducts] = useState([]);
   const dropiPageSize = 12;
 
+  /* Aliclik */
+  const [aliclikModalOpen, setAliclikModalOpen] = useState(false);
+  const [aliclikLoading, setAliclikLoading] = useState(false);
+  const [aliclikSearch, setAliclikSearch] = useState("");
+  const [aliclikPage, setAliclikPage] = useState(1);
+  const [aliclikProducts, setAliclikProducts] = useState([]);
+  const [aliclikTotal, setAliclikTotal] = useState(0);
+  const aliclikPageSize = 12;
+
   /* Filtros + paginación */
   const [search, setSearch] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroBot, setFiltroBot] = useState("");
   const [sort, setSort] = useState({ key: "nombre", dir: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 10;
 
   /* ── Fetch ── */
-  const fetchData = async () => {
+  /* silencioso: refresca los datos sin mostrar el esqueleto (las filas se
+     quedan en pantalla y se actualizan). Se usa al cerrar el modal con cambios. */
+  const fetchData = async ({ silencioso = false } = {}) => {
     const idc = localStorage.getItem("id_configuracion");
     if (!idc) {
       Swal.fire({ icon: "error", title: "Falta configuración" });
@@ -93,18 +147,28 @@ const ProductosView = () => {
       return;
     }
     try {
-      setLoading(true);
-      const [prodRes, catRes] = await Promise.all([
+      if (!silencioso) setLoading(true);
+      const [prodRes, catRes, wizRes] = await Promise.all([
         chatApi.post("/productos/listarProductos", {
           id_configuracion: parseInt(idc),
         }),
         chatApi.post("/categorias/listarCategorias", {
           id_configuracion: parseInt(idc),
         }),
+        chatApi.post(
+          "/producto-wizard/listar",
+          { id_configuracion: parseInt(idc) },
+          { silentError: true },
+        ),
       ]);
       setProductos(prodRes.data.data || []);
       setEsProveedor(Boolean(prodRes.data?.es_proveedor));
       setCategorias(catRes.data.data || []);
+      const mapa = {};
+      for (const p of wizRes?.data?.data || []) {
+        if (p.wizard) mapa[p.id] = p.wizard;
+      }
+      setWizards(mapa);
     } catch {
       Swal.fire({ icon: "error", title: "Error al cargar productos" });
     } finally {
@@ -114,6 +178,19 @@ const ProductosView = () => {
 
   useEffect(() => {
     fetchData();
+    const idc = parseInt(localStorage.getItem("id_configuracion"));
+    chatApi
+      .post(
+        "openai_assistants/info_asistentes",
+        { id_configuracion: idc },
+        { silentError: true },
+      )
+      .then(({ data }) => {
+        setIaDisponible(Boolean(data?.data?.api_key_openai));
+        const n = data?.data?.nombre_bot || data?.data?.ventas?.nombre_bot;
+        if (n) setNombreNegocio(String(n));
+      })
+      .catch(() => setIaDisponible(false));
   }, []); // eslint-disable-line
 
   /* ── catMap ── */
@@ -130,7 +207,7 @@ const ProductosView = () => {
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: "asc" },
+        : { key, dir: key === "fecha_creacion" ? "desc" : "asc" },
     );
 
   /* ── Lista filtrada y ordenada ── */
@@ -140,7 +217,8 @@ const ProductosView = () => {
     if (q)
       data = data.filter((p) => {
         const dropiId =
-          p.external_source === "DROPI" && p.external_id != null
+          (p.external_source === "DROPI" || p.external_source === "ALICLIK") &&
+          p.external_id != null
             ? String(p.external_id).toLowerCase()
             : "";
         return (
@@ -155,23 +233,47 @@ const ProductosView = () => {
       );
     if (filtroTipo)
       data = data.filter((p) => normalizaTipo(p.tipo) === filtroTipo);
+    if (filtroBot) {
+      data = data.filter((p) => {
+        const e = estadoBot(wizards[p.id]);
+        if (filtroBot === "ok") return e === "ok";
+        if (filtroBot === "sin") return e === "sin" || e === "borrador";
+        return true;
+      });
+    }
 
     data.sort((a, b) => {
       const dir = sort.dir === "asc" ? 1 : -1;
-      const va =
-        sort.key === "precio"
-          ? Number(a.precio || 0)
-          : (a[sort.key] ?? "").toString().toLowerCase();
-      const vb =
-        sort.key === "precio"
-          ? Number(b.precio || 0)
-          : (b[sort.key] ?? "").toString().toLowerCase();
+      let va;
+      let vb;
+      if (sort.key === "precio") {
+        va = Number(a.precio || 0);
+        vb = Number(b.precio || 0);
+      } else if (sort.key === "fecha_creacion") {
+        va = new Date(a.fecha_creacion || 0).getTime();
+        vb = new Date(b.fecha_creacion || 0).getTime();
+      } else if (sort.key === "bot") {
+        const orden = { ok: 0, pausado: 1, borrador: 2, sin: 3 };
+        va = orden[estadoBot(wizards[a.id])];
+        vb = orden[estadoBot(wizards[b.id])];
+      } else {
+        va = (a[sort.key] ?? "").toString().toLowerCase();
+        vb = (b[sort.key] ?? "").toString().toLowerCase();
+      }
       if (va < vb) return -1 * dir;
       if (va > vb) return 1 * dir;
       return 0;
     });
     return data;
-  }, [productos, search, filtroCategoria, filtroTipo, sort]);
+  }, [
+    productos,
+    wizards,
+    search,
+    filtroCategoria,
+    filtroTipo,
+    filtroBot,
+    sort,
+  ]);
 
   const totalPages = Math.max(
     1,
@@ -184,7 +286,12 @@ const ProductosView = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filtroCategoria, filtroTipo]);
+  }, [search, filtroCategoria, filtroTipo, filtroBot]);
+
+  const totalConfigurados = useMemo(
+    () => productos.filter((p) => estadoBot(wizards[p.id]) === "ok").length,
+    [productos, wizards],
+  );
 
   /* ── Delete ── */
   const handleDelete = async (p) => {
@@ -214,6 +321,12 @@ const ProductosView = () => {
     }
   };
 
+  /* ── Wizard ── */
+  const abrirWizard = (p) => {
+    setWizardProducto(p);
+    setWizardOpen(true);
+  };
+
   /* ── Dropi ── */
   const fetchDropiProducts = async (reset = false) => {
     setDropiLoading(true);
@@ -239,12 +352,95 @@ const ProductosView = () => {
 
   useEffect(() => {
     if (dropiModalOpen) fetchDropiProducts(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dropiModalOpen]);
+
+  /* ── Aliclik ──
+     Su catálogo pagina de verdad (~2.300 productos) y solo se puede filtrar
+     por nombre: no hay búsqueda por id ni por EAN. Por eso el modal trae
+     controles de página, a diferencia del de Dropi. */
+  const fetchAliclikProducts = async (pagina = 1) => {
+    setAliclikLoading(true);
+    try {
+      const idc = Number(localStorage.getItem("id_configuracion"));
+      const { data } = await chatApi.post("/productos/listarProductosAliclik", {
+        id_configuracion: idc,
+        page: pagina,
+        limit: aliclikPageSize,
+        search: aliclikSearch,
+      });
+      setAliclikProducts(data?.data?.objects || []);
+      setAliclikTotal(Number(data?.data?.count || 0));
+      setAliclikPage(pagina);
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al listar Aliclik",
+        text:
+          e?.response?.data?.message ||
+          "No se pudo leer el catálogo de Aliclik.",
+      });
+    } finally {
+      setAliclikLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (aliclikModalOpen) fetchAliclikProducts(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aliclikModalOpen]);
+
+  const importarAliclik = async (producto) => {
+    const idc = Number(localStorage.getItem("id_configuracion"));
+    const nVar = producto?.skus?.length || 0;
+    const { isConfirmed } = await Swal.fire({
+      title: `¿Importar "${producto.nombre}"?`,
+      text:
+        nVar > 1
+          ? `Se traen sus ${nVar} variantes. Al terminar se abre la configuración del bot para ese producto.`
+          : "Al terminar se abre la configuración del bot para ese producto.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, importar",
+    });
+    if (!isConfirmed) return;
+    try {
+      const { data } = await chatApi.post(
+        "/productos/importarProductoAliclik",
+        {
+          id_configuracion: idc,
+          aliclik_product_id: producto.id,
+          // Solo es una pista para que el backend lo ubique rápido dentro
+          // del catálogo: los datos que se guardan los relee de Aliclik.
+          nombre: producto.nombre,
+        },
+      );
+      Swal.fire({
+        icon: data?.alreadyImported ? "info" : "success",
+        title: data?.alreadyImported
+          ? "Ya estaba importado"
+          : "Producto importado",
+        timer: 1400,
+        showConfirmButton: false,
+      });
+      setAliclikModalOpen(false);
+      await fetchData();
+      const nuevo = data?.data;
+      if (nuevo?.id) abrirWizard({ id: nuevo.id, nombre: nuevo.nombre });
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "Error al importar",
+        text: e?.response?.data?.message || undefined,
+      });
+    }
+  };
 
   const importarDropi = async (dropiId) => {
     const idc = Number(localStorage.getItem("id_configuracion"));
     const { isConfirmed } = await Swal.fire({
       title: `¿Importar producto con ID #${dropiId}?`,
+      text: "Al terminar se abre la configuración del bot para ese producto.",
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, importar",
@@ -264,7 +460,10 @@ const ProductosView = () => {
         showConfirmButton: false,
       });
       setDropiModalOpen(false);
-      fetchData();
+      await fetchData();
+      // El wizard se abre solo con el producto recién importado.
+      const nuevo = data?.data;
+      if (nuevo?.id) abrirWizard({ id: nuevo.id, nombre: nuevo.nombre });
     } catch {
       Swal.fire({ icon: "error", title: "Error al importar" });
     }
@@ -275,7 +474,7 @@ const ProductosView = () => {
     <th
       onClick={() => handleSort(k)}
       className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500
-        cursor-pointer select-none hover:text-slate-700 transition-colors
+        cursor-pointer select-none hover:text-slate-700 transition-colors whitespace-nowrap
         ${center ? "text-center" : "text-left"}`}
     >
       <span className="inline-flex items-center gap-1">
@@ -295,9 +494,9 @@ const ProductosView = () => {
     </th>
   );
 
-  /* ── Header actions ── */
+  /* ── Header actions (los mismos de la vista clásica) ── */
   const headerActions = (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap md:flex-nowrap gap-2 shrink-0">
       {isDropiLinked === true && (
         <button
           onClick={() => {
@@ -307,27 +506,39 @@ const ProductosView = () => {
             setDropiModalOpen(true);
           }}
           className="inline-flex items-center gap-2 bg-[#eb6e1b] hover:bg-[#d3661e]
-            text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+            text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap"
         >
           <i className="bx bx-import text-base" />
           Importar desde Dropi
         </button>
       )}
-      {/* Sirve para cualquier catálogo: un anuncio de portal inmobiliario o la
-          página de un proveedor. Lo que cambia según el rubro es qué campos se
-          extraen, no si la función existe. */}
+      {isAliclikLinked === true && (
+        <button
+          onClick={() => {
+            setAliclikSearch("");
+            setAliclikProducts([]);
+            setAliclikPage(1);
+            setAliclikModalOpen(true);
+          }}
+          className="inline-flex items-center gap-2 bg-[#7c3aed] hover:bg-[#6d28d9]
+            text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap"
+        >
+          <i className="bx bx-import text-base" />
+          Importar desde Aliclik
+        </button>
+      )}
       <button
         onClick={() => setImportOpen(true)}
         className="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400
-          text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+          text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap"
       >
         <i className="bx bx-link-external text-base" />
-        Importar desde enlace
+        Desde enlace
       </button>
       <button
         onClick={() => navigate("/catalogos")}
         className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20
-          border border-white/20 text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+          border border-white/20 text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap"
       >
         <i className="bx bx-layout text-base" />
         Catálogos
@@ -335,7 +546,7 @@ const ProductosView = () => {
       <button
         onClick={() => setIsOpenMasivo(true)}
         className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400
-          text-white px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+          text-white px-3 py-2 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap"
       >
         <i className="bx bx-upload text-base" />
         Carga masiva
@@ -346,20 +557,13 @@ const ProductosView = () => {
           setModalOpen(true);
         }}
         className="inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50
-          px-3.5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+          px-3 py-2 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap"
       >
         <i className="bx bx-plus text-base" />
         Agregar
       </button>
     </div>
   );
-
-  const headerStats = [
-    { label: "Total productos", value: productos.length },
-    { label: "Categorías", value: categorias.length },
-    { label: "Filtrados", value: listaProcesada.length },
-    { label: "Página", value: `${currentPage}/${totalPages}` },
-  ];
 
   /* ═════════════════════════════════════════
      RENDER
@@ -372,20 +576,18 @@ const ProductosView = () => {
       >
         <Header
           title="Productos"
-          subtitle="Administra tu catálogo de productos y servicios disponibles."
+          subtitle="Catálogo y configuración del bot por producto."
           actions={headerActions}
-          stats={headerStats}
-          className="bg-[#171931]"
         />
 
         {/* Filters */}
         <div className="px-5 py-3.5 border-b border-slate-100">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <div className="relative flex-1 max-w-sm">
               <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
               <input
                 type="text"
-                placeholder="Buscar por nombre o descripción o ID Dropi…"
+                placeholder="Buscar por nombre, descripción o ID Dropi"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -395,7 +597,7 @@ const ProductosView = () => {
                   focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none transition"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <select
                 value={filtroCategoria}
                 onChange={(e) => setFiltroCategoria(e.target.value)}
@@ -419,10 +621,54 @@ const ProductosView = () => {
                 <option value="producto">Producto</option>
                 <option value="servicio">Servicio</option>
               </select>
+              <select
+                value={filtroBot}
+                onChange={(e) => setFiltroBot(e.target.value)}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm
+                  focus:ring-2 focus:ring-indigo-200 outline-none"
+                title="Estado del mensaje fijo del bot"
+              >
+                <option value="">Bot: todos</option>
+                <option value="ok">Bot: con mensaje fijo</option>
+                <option value="sin">Bot: sin configurar</option>
+              </select>
+              <select
+                value={`${sort.key}:${sort.dir}`}
+                onChange={(e) => {
+                  const [key, dir] = e.target.value.split(":");
+                  setSort({ key, dir });
+                }}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm
+                  focus:ring-2 focus:ring-indigo-200 outline-none"
+                title="Ordenar"
+              >
+                <option value="nombre:asc">Nombre A–Z</option>
+                <option value="nombre:desc">Nombre Z–A</option>
+                <option value="fecha_creacion:desc">Más recientes</option>
+                <option value="fecha_creacion:asc">Más antiguos</option>
+                <option value="precio:asc">Precio: menor a mayor</option>
+                <option value="precio:desc">Precio: mayor a menor</option>
+                <option value="bot:asc">Mensaje fijo activo primero</option>
+              </select>
             </div>
-            <div className="ml-auto text-xs text-slate-400 hidden sm:block">
-              {listaProcesada.length} resultado
-              {listaProcesada.length !== 1 ? "s" : ""}
+            <div className="ml-auto text-xs text-slate-500 hidden sm:flex items-center gap-3 whitespace-nowrap">
+              <span>
+                <strong className="text-slate-700">{productos.length}</strong>{" "}
+                producto{productos.length !== 1 ? "s" : ""}
+              </span>
+              <span className="text-slate-300">·</span>
+              <span>
+                <strong className="text-emerald-600">
+                  {totalConfigurados}
+                </strong>{" "}
+                con mensaje fijo
+              </span>
+              {listaProcesada.length !== productos.length && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span>{listaProcesada.length} en el filtro</span>
+                </>
+              )}
             </div>
           </div>
           {isDropiLinked === true && (
@@ -434,7 +680,6 @@ const ProductosView = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {/* Loading skeleton */}
           {loading && (
             <div className="p-5 space-y-2">
               {[...Array(6)].map((_, i) => (
@@ -446,7 +691,6 @@ const ProductosView = () => {
             </div>
           )}
 
-          {/* Empty state */}
           {!loading && listaProcesada.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center py-20 gap-5">
               <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
@@ -457,12 +701,12 @@ const ProductosView = () => {
                   Sin resultados
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
-                  {search || filtroCategoria || filtroTipo
+                  {search || filtroCategoria || filtroTipo || filtroBot
                     ? "Ajusta los filtros para ver más resultados."
                     : "Crea tu primer producto para empezar."}
                 </p>
               </div>
-              {!search && !filtroCategoria && !filtroTipo && (
+              {!search && !filtroCategoria && !filtroTipo && !filtroBot && (
                 <button
                   onClick={() => {
                     setEditingProduct(null);
@@ -477,12 +721,11 @@ const ProductosView = () => {
             </div>
           )}
 
-          {/* Table */}
           {!loading && listaProcesada.length > 0 && (
             <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-slate-200 bg-slate-50">
                     <SortTh k="id">#</SortTh>
                     <SortTh k="nombre">Producto</SortTh>
                     <SortTh k="precio" center>
@@ -503,6 +746,8 @@ const ProductosView = () => {
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-left">
                       Stock / Dropi
                     </th>
+                    <SortTh k="fecha_creacion">Creado</SortTh>
+                    <SortTh k="bot">Mensaje fijo</SortTh>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center">
                       Acciones
                     </th>
@@ -511,10 +756,12 @@ const ProductosView = () => {
                 <tbody>
                   {paginated.map((p, idx) => {
                     const priv = esPrivado(p);
+                    const w = wizards[p.id];
+                    const estado = estadoBot(w);
                     return (
                       <tr
                         key={p.id}
-                        className={`border-b border-slate-50 hover:bg-indigo-50/25 transition-colors
+                        className={`group border-b border-slate-100 transition-colors hover:bg-indigo-50/40 hover:shadow-[inset_3px_0_0_#4f46e5]
                           ${idx % 2 !== 0 ? "bg-slate-50/30" : ""}`}
                       >
                         <td className="px-4 py-3.5 text-xs text-slate-400 font-mono w-12">
@@ -524,17 +771,24 @@ const ProductosView = () => {
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             <div
-                              className="w-9 h-9 rounded-xl overflow-hidden bg-slate-100 flex items-center
-                              justify-center flex-shrink-0 ring-1 ring-slate-200"
+                              className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 flex items-center
+                              justify-center flex-shrink-0 ring-1 ring-slate-200 cursor-zoom-in transition-transform group-hover:scale-105 group-hover:ring-indigo-300"
+                              onClick={() =>
+                                p.imagen_url &&
+                                setModalImagen({
+                                  abierta: true,
+                                  url: p.imagen_url,
+                                })
+                              }
                             >
                               {p.imagen_url ? (
                                 <img
                                   src={p.imagen_url}
                                   alt=""
-                                  className="w-9 h-9 object-cover"
+                                  className="w-12 h-12 object-cover"
                                 />
                               ) : (
-                                <i className="bx bx-package text-slate-300 text-lg" />
+                                <i className="bx bx-package text-slate-300 text-xl" />
                               )}
                             </div>
                             <div className="min-w-0">
@@ -542,9 +796,6 @@ const ProductosView = () => {
                                 <span className="font-semibold text-slate-800 text-sm truncate max-w-[240px]">
                                   {p.nombre}
                                 </span>
-                                {/* Se vende en varias opciones: importa verlo
-                                    de un vistazo, porque el bot preguntará la
-                                    variedad y el pedido viaja con su ID. */}
                                 {Number(p.es_variable) === 1 && (
                                   <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
                                     <i className="bx bx-palette text-[11px]" />
@@ -588,7 +839,7 @@ const ProductosView = () => {
                           </div>
                           {p.precio_proveedor != null &&
                             Number(p.precio_proveedor) > 0 && (
-                              <div className="text-[10.5px] text-slate-400 font-medium mt-0.5">
+                              <div className="text-[10.5px] text-slate-400 font-medium mt-0.5 whitespace-nowrap">
                                 Costo{" "}
                                 {currency.format(Number(p.precio_proveedor))}
                               </div>
@@ -653,10 +904,19 @@ const ProductosView = () => {
                             {p.stock != null && (
                               <span
                                 className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${
-                                  Number(p.stock) > 0
-                                    ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200"
-                                    : "bg-slate-100 text-slate-400 ring-1 ring-slate-200"
+                                  Number(p.stock) <= 0
+                                    ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200"
+                                    : Number(p.stock) <= 5
+                                      ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                      : "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200"
                                 }`}
+                                title={
+                                  Number(p.stock) <= 0
+                                    ? "Sin stock: el bot no debería ofrecerlo"
+                                    : Number(p.stock) <= 5
+                                      ? "Quedan pocas unidades"
+                                      : "En stock"
+                                }
                               >
                                 <i
                                   className="bx bx-box"
@@ -667,14 +927,19 @@ const ProductosView = () => {
                                   : "Sin stock"}
                               </span>
                             )}
-                            {p.external_source === "DROPI" &&
+                            {(p.external_source === "DROPI" ||
+                              p.external_source === "ALICLIK") &&
                               p.external_id != null && (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit bg-orange-50 text-orange-500 ring-1 ring-orange-200">
                                   <i
                                     className="bx bx-barcode"
                                     style={{ fontSize: 10 }}
                                   />
-                                  ID Dropi #{p.external_id}
+                                  ID{" "}
+                                  {p.external_source === "ALICLIK"
+                                    ? "Aliclik"
+                                    : "Dropi"}{" "}
+                                  #{p.external_id}
                                   <button
                                     type="button"
                                     title="Copiar ID"
@@ -714,16 +979,89 @@ const ProductosView = () => {
                           </div>
                         </td>
 
+                        <td
+                          className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap"
+                          title={fechaCorta(p.fecha_creacion)}
+                        >
+                          {haceCuanto(p.fecha_creacion)}
+                        </td>
+
+                        {/* Estado del bot para este producto */}
                         <td className="px-4 py-3.5">
-                          <div className="flex items-center justify-center gap-2">
+                          {w && estado !== "sin" && (
+                            <div
+                              className="flex items-center gap-1 mb-1.5"
+                              title="Media · Mensaje · Respuestas rápidas"
+                            >
+                              {[
+                                w.n_imagenes + w.n_videos > 0,
+                                w.tiene_mensaje,
+                                w.n_respuestas_rapidas > 0,
+                              ].map((ok, k) => (
+                                <span
+                                  key={k}
+                                  className={`h-1.5 w-6 rounded-full ${
+                                    ok
+                                      ? estado === "ok"
+                                        ? "bg-emerald-500"
+                                        : "bg-slate-400"
+                                      : "bg-slate-200"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          {estado === "ok" && (
+                            <div className="flex flex-col gap-1">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200 w-fit">
+                                <i className="bx bx-check-circle" />
+                                Activo
+                              </span>
+                              <span className="text-[10.5px] text-slate-400 whitespace-nowrap">
+                                {w.n_imagenes} img · {w.n_videos} video ·{" "}
+                                {w.n_respuestas_rapidas} respuestas
+                              </span>
+                            </div>
+                          )}
+                          {estado === "pausado" && (
+                            <div className="flex flex-col gap-1">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 bg-slate-100 text-slate-600 ring-slate-200 w-fit">
+                                <i className="bx bx-pause-circle" />
+                                Pausado
+                              </span>
+                              <span className="text-[10.5px] text-slate-400">
+                                Usa el flujo con IA
+                              </span>
+                            </div>
+                          )}
+                          {estado === "borrador" && (
+                            <div className="flex flex-col gap-1">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 bg-amber-50 text-amber-700 ring-amber-200 w-fit">
+                                <i className="bx bx-edit" />
+                                Borrador
+                              </span>
+                              <span className="text-[10.5px] text-slate-400">
+                                Sin activar
+                              </span>
+                            </div>
+                          )}
+                          {estado === "sin" && (
+                            <span className="text-xs text-slate-400">
+                              Sin configurar
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                             <button
-                              onClick={() => {
-                                setEditingProduct(p);
-                                setModalOpen(true);
-                              }}
-                              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg
-                                border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50
-                                hover:text-indigo-700 text-slate-600 font-medium transition-colors"
+                              onClick={() => abrirWizard(p)}
+                              title="Editar el producto y configurar el bot"
+                              className={`inline-flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-colors ${
+                                estado === "sin"
+                                  ? "bg-[#171931] text-white hover:bg-[#242a52]"
+                                  : "border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700"
+                              }`}
                             >
                               <i className="bx bx-edit-alt text-sm" />
                               Editar
@@ -825,40 +1163,53 @@ const ProductosView = () => {
         onClose={() => setImportOpen(false)}
         onImportado={(borrador, meta) => {
           setEditingProduct(null);
-          /* El aviso viaja con el borrador para que el formulario lo muestre
-             como un banner suyo. Un popup encima del formulario aparecería
-             detrás del fondo borroso y habría que cerrarlo para poder leerlo. */
           setBorradorImportado({ ...borrador, aviso: meta?.aviso || null });
           setModalOpen(true);
         }}
       />
 
-      {/* ══ ProductoModal ══ */}
+      {/* ══ ProductoModal (el clásico) ══ */}
       <ProductoModal
         open={modalOpen}
         borradorInicial={borradorImportado}
         onClose={() => {
           setModalOpen(false);
           setEditingProduct(null);
-          // El borrador es de un solo uso: si queda, el próximo "Agregar"
-          // abriría el formulario con el inmueble anterior ya escrito.
           setBorradorImportado(null);
         }}
         editingProduct={editingProduct}
         categorias={categorias}
         onCategoriasChange={setCategorias}
-        /* Respaldo para deducir si la cuenta es de productos o de servicios
-           cuando el asistente de ventas todavía no lo tiene definido. */
         productosExistentes={productos}
         esProveedor={esProveedor}
         onSaved={fetchData}
       />
 
-      {/* ══ Carga Masiva — extraído a ./modales/CargaMasivaModal.jsx ══ */}
+      {/* ══ Carga masiva ══ */}
       <CargaMasivaModal
         open={isOpenMasivo}
         onClose={() => setIsOpenMasivo(false)}
         onSuccess={fetchData}
+      />
+
+      {/* ══ Wizard del bot ══ */}
+      <WizardProductoModal
+        open={wizardOpen}
+        idProducto={wizardProducto?.id}
+        iaDisponible={iaDisponible}
+        nombreNegocio={nombreNegocio}
+        categorias={categorias}
+        onCategoriasChange={setCategorias}
+        productosExistentes={productos}
+        esProveedor={esProveedor}
+        onClose={(r) => {
+          setWizardOpen(false);
+          setWizardProducto(null);
+          // Solo se recarga si el modal guardó algo; y sin esqueleto, para que
+          // el listado no "desaparezca".
+          if (r?.cambios) fetchData({ silencioso: true });
+        }}
+        onSaved={() => {}}
       />
 
       {/* ══ Imagen zoom modal ══ */}
@@ -890,6 +1241,27 @@ const ProductosView = () => {
         loading={dropiLoading}
         products={dropiProducts}
         onImport={importarDropi}
+      />
+
+      {/* ══ Importar Aliclik ══ */}
+      <ImportarProductosAliclik
+        open={aliclikModalOpen}
+        onClose={() => {
+          setAliclikModalOpen(false);
+          setAliclikSearch("");
+          setAliclikProducts([]);
+          setAliclikPage(1);
+        }}
+        search={aliclikSearch}
+        setSearch={setAliclikSearch}
+        onSearch={() => fetchAliclikProducts(1)}
+        loading={aliclikLoading}
+        products={aliclikProducts}
+        page={aliclikPage}
+        onPrevPage={() => fetchAliclikProducts(Math.max(1, aliclikPage - 1))}
+        onNextPage={() => fetchAliclikProducts(aliclikPage + 1)}
+        hasNextPage={aliclikPage * aliclikPageSize < aliclikTotal}
+        onImport={importarAliclik}
       />
     </div>
   );

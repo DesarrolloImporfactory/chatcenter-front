@@ -1,4 +1,4 @@
-// src/pages/productos2/wizard/WizardProductoModal.jsx
+// src/pages/productos/wizard/WizardProductoModal.jsx
 // Un solo modal por producto, en 3 pasos:
 //   1 · Producto      → el formulario completo del catálogo (ProductoModal
 //                       incrustado): nombre, precio, combos, stock, variedades,
@@ -13,7 +13,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
-import ProductoModal from "../../productos/modales/ProductoModal";
+import ProductoModal from "../modales/ProductoModal";
 import WaPreview from "./WaPreview";
 import MediaManager from "./MediaManager";
 import RespuestasRapidasEditor from "./RespuestasRapidasEditor";
