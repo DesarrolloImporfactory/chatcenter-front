@@ -154,6 +154,69 @@ function FilaCargando() {
   );
 }
 
+/* Lo que dice nuestro registro de esta orden: si es reincidencia, cuántas
+   veces se volvió a ofrecer y si la tiene que ver un asesor. */
+function BadgesRegistro({ registro }) {
+  if (!registro) return null;
+  const { numero, veces_ofrecida: veces, requiere_asesor: asesor } = registro;
+  if (!(numero > 1) && !veces && !asesor) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {numero > 1 && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+          <i className="bx bx-revision" />
+          {numero}ª novedad
+        </span>
+      )}
+      {veces > 0 && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+          Ofrecida {veces} {veces === 1 ? "vez" : "veces"}
+        </span>
+      )}
+      {asesor && (
+        <span
+          title={registro.motivo_asesor || "Debe gestionarla un asesor"}
+          className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700"
+        >
+          <i className="bx bx-user-voice" />
+          Requiere asesor
+        </span>
+      )}
+    </div>
+  );
+}
+
+const ESTADOS_REGISTRO = {
+  pendiente: { label: "Pendiente", clase: "bg-amber-100 text-amber-700" },
+  solventada: { label: "Solución enviada", clase: "bg-sky-100 text-sky-700" },
+  en_ruta: { label: "Se volvió a ofrecer", clase: "bg-indigo-100 text-indigo-700" },
+  cerrada: { label: "Cerrada", clase: "bg-slate-100 text-slate-600" },
+};
+const RESULTADOS_REGISTRO = {
+  entregada: { label: "Entregada", clase: "bg-emerald-100 text-emerald-700" },
+  devolucion: { label: "Devuelta", clase: "bg-rose-100 text-rose-700" },
+  cancelada: { label: "Cancelada", clase: "bg-slate-200 text-slate-600" },
+  indemnizada: { label: "Indemnizada", clase: "bg-slate-200 text-slate-600" },
+  nueva_novedad: { label: "Volvió a novedad", clase: "bg-rose-100 text-rose-700" },
+};
+const TIPOS_SOLUCION = {
+  volver_a_ofrecer: "Volver a ofrecer",
+  ajustar_recaudo: "Ajustar recaudo",
+  devolucion: "Devolución",
+  externa: "Gestionada fuera de ChatCenter",
+};
+const EVENTOS_REGISTRO = {
+  detectada: { icono: "bx-error", color: "text-amber-500" },
+  reincidencia: { icono: "bx-revision", color: "text-rose-500" },
+  sugerencia_ia: { icono: "bx-bot", color: "text-violet-500" },
+  solventada: { icono: "bx-send", color: "text-emerald-600" },
+  devolucion: { icono: "bx-undo", color: "text-rose-600" },
+  solventada_externa: { icono: "bx-transfer", color: "text-slate-500" },
+  en_ruta: { icono: "bxs-truck", color: "text-indigo-500" },
+  cerrada: { icono: "bx-check-double", color: "text-slate-500" },
+  error_dropi: { icono: "bx-x-circle", color: "text-rose-500" },
+};
+
 /* ───────────────────────── modal solventar ───────────────────────── */
 
 /* Formulario por transportadora, copiado del modal de novedades del panel de
@@ -311,6 +374,41 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
       : "",
   );
   const [enviando, setEnviando] = useState(false);
+  // Sugerencia de la IA (modo sugerencia: rellena el formulario, no envía).
+  const [ia, setIa] = useState(null);
+  const [pensando, setPensando] = useState(false);
+  const [usoIA, setUsoIA] = useState(false);
+
+  const sugerirConIA = async () => {
+    setPensando(true);
+    try {
+      const res = await chatApi.post("dropi_integrations/novedades/sugerir", {
+        id_configuracion: idConfiguracion,
+        order_id: novedad.order_id,
+      });
+      const s = res?.data?.data || null;
+      setIa(s);
+      if (s?.decision === "proponer" && s.solucion) {
+        setSolucion(s.solucion);
+        setUsoIA(true);
+        if (s.fecha_entrega && s.fecha_entrega > fechaEc(0)) setFecha(s.fecha_entrega);
+        if (s.nombre) setNombre(s.nombre);
+        if (s.telefono) setTelefono(s.telefono);
+        if (s.direccion) setDireccion(s.direccion);
+        if (s.referencia) setReferencia(s.referencia);
+        if (campos.gintracom) setOpcion(1);
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo generar la sugerencia",
+        text: errMsg(error, "Intenta de nuevo en un momento."),
+        confirmButtonColor: "#d33",
+      });
+    } finally {
+      setPensando(false);
+    }
+  };
 
   const esDevolucionGintracom = campos.gintracom && opcion === 3;
   const pideFecha = campos.gintracom && !esDevolucionGintracom;
@@ -338,6 +436,13 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
       const res = await chatApi.post("dropi_integrations/novedades/solucionar", {
         id_configuracion: idConfiguracion,
         order_id: novedad.order_id,
+        // Para el registro de novedades (historial y reincidencias).
+        transportadora: novedad.transportadora,
+        novedad: novedad.novedad,
+        guia: novedad.guia,
+        sugerida_por_ia: usoIA,
+        // Si el asesor cambió el texto que propuso la IA (mide qué tan bien acierta).
+        ia_editada: usoIA && solucion.trim() !== (ia?.solucion || ""),
         ...body,
       });
       await Swal.fire({
@@ -498,6 +603,128 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                 </span>
               )}
             </div>
+          </div>
+
+          {/* Reincidencia: ya se ofreció y volvió a novedad */}
+          {novedad.registro?.requiere_asesor && (
+            <div className="flex items-start gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-3 text-violet-900">
+              <i className="bx bx-user-voice mt-0.5 text-lg" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide">
+                  Gestión de asesor
+                </p>
+                <p className="text-xs leading-relaxed">
+                  {novedad.registro.motivo_asesor ||
+                    "Esta novedad debe revisarla un asesor antes de ofrecerla otra vez."}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* IA en modo sugerencia */}
+          <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="grid h-8 w-8 place-items-center rounded-lg bg-violet-50">
+                  <i className="bx bx-bot text-lg text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-bold text-slate-800">
+                    Sugerencia de la IA
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Lee el chat con el cliente y propone la respuesta. Tú la
+                    revisas y la envías.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={sugerirConIA}
+                disabled={pensando || enviando}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:opacity-50"
+              >
+                <i className={`bx ${pensando ? "bx-loader-alt bx-spin" : "bx-magic-wand"}`} />
+                {pensando ? "Leyendo el chat…" : ia ? "Volver a sugerir" : "Sugerir"}
+              </button>
+            </div>
+
+            {ia && (
+              <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-bold ${
+                      ia.decision === "proponer"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : ia.decision === "pedir_datos"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-rose-100 text-rose-700"
+                    }`}
+                  >
+                    {ia.decision === "proponer"
+                      ? "Propone volver a ofrecer"
+                      : ia.decision === "pedir_datos"
+                        ? "Falta respuesta del cliente"
+                        : "Recomienda que lo vea un asesor"}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                    Confianza {ia.confianza}
+                  </span>
+                  {!ia.tiene_chat && (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                      Sin conversación en ChatCenter
+                    </span>
+                  )}
+                </div>
+                {ia.motivo && <p className="text-slate-700">{ia.motivo}</p>}
+                {(ia.avisos || []).map((a, i) => (
+                  <p key={i} className="flex items-start gap-1 text-rose-700">
+                    <i className="bx bx-error-circle mt-0.5" />
+                    {a}
+                  </p>
+                ))}
+                {ia.decision === "proponer" && (
+                  <p className="text-emerald-700">
+                    <i className="bx bx-check" /> Rellené el formulario con la
+                    propuesta. Revísala antes de enviar.
+                  </p>
+                )}
+                {ia.mensaje_para_cliente && (
+                  <div className="rounded-lg bg-slate-50 p-2.5">
+                    <p className="mb-1 font-bold text-slate-600">
+                      Mensaje sugerido para el cliente
+                    </p>
+                    <p className="whitespace-pre-wrap text-slate-700">
+                      {ia.mensaje_para_cliente}
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => copiar(ia.mensaje_para_cliente)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100"
+                      >
+                        <i className="bx bx-copy" /> Copiar
+                      </button>
+                      {novedad.has_chat && novedad.chat_id_cliente && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            window.open(
+                              `/chat/${novedad.chat_id_cliente}`,
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-1 font-semibold text-white hover:bg-emerald-600"
+                        >
+                          <i className="bx bx-message-rounded-dots" /> Abrir chat
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Gintracom: tipo de solución */}
@@ -990,6 +1217,65 @@ function DetalleNovedad({
                 )}
               </section>
 
+              {/* Lo que registró ChatCenter de este pedido */}
+              {(detalle?.total_novedades > 1 ||
+                detalle?.veces_ofrecida > 0 ||
+                detalle?.registro?.eventos?.length > 0) && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Historial de la novedad
+                    </h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          detalle.total_novedades > 1
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {detalle.total_novedades || 1}{" "}
+                        {detalle.total_novedades > 1 ? "novedades" : "novedad"} en
+                        este pedido
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        Ofrecido {detalle.veces_ofrecida || 0}{" "}
+                        {detalle.veces_ofrecida === 1 ? "vez" : "veces"}
+                      </span>
+                    </div>
+                  </div>
+                  {detalle.registro?.eventos?.length ? (
+                    <ul className="space-y-2.5">
+                      {detalle.registro.eventos.map((e) => {
+                        const ev = EVENTOS_REGISTRO[e.evento] || {
+                          icono: "bx-dots-horizontal-rounded",
+                          color: "text-slate-400",
+                        };
+                        return (
+                          <li key={e.id} className="flex items-start gap-2.5">
+                            <i className={`bx ${ev.icono} mt-0.5 text-lg ${ev.color}`} />
+                            <div className="min-w-0">
+                              <p className="text-slate-800">{e.descripcion || e.evento}</p>
+                              <p className="text-xs text-slate-500">
+                                {fmtFecha(e.created_at)}
+                                {e.nombre_usuario ? ` · ${e.nombre_usuario}` : ""}
+                                {e.origen === "ia" ? " · IA" : ""}
+                              </p>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      ChatCenter empezó a registrar este pedido ahora; las
+                      gestiones anteriores están arriba, tal como las guarda
+                      Dropi.
+                    </p>
+                  )}
+                </section>
+              )}
+
               {/* Historial de estados (más reciente arriba) */}
               {estados.length > 0 && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -1056,6 +1342,242 @@ function DetalleNovedad({
   );
 }
 
+/* ───────────────────────── pestaña historial ───────────────────────── */
+
+const FILTROS_REGISTRO = [
+  { id: "", label: "Todas" },
+  { id: "requiere_asesor", label: "Requieren asesor" },
+  { id: "pendiente", label: "Pendientes" },
+  { id: "solventada", label: "Solución enviada" },
+  { id: "en_ruta", label: "Se volvió a ofrecer" },
+  { id: "cerrada", label: "Cerradas" },
+];
+
+function RegistroNovedades({ idConfiguracion }) {
+  const [filas, setFilas] = useState([]);
+  const [resumen, setResumen] = useState(null);
+  const [disponible, setDisponible] = useState(true);
+  const [estado, setEstado] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [cargando, setCargando] = useState(false);
+
+  useEffect(() => {
+    if (!idConfiguracion) return undefined;
+    let cancelado = false;
+    setCargando(true);
+    chatApi
+      .post("dropi_integrations/novedades/registro", {
+        id_configuracion: idConfiguracion,
+        estado,
+        page,
+        page_size: PAGE_SIZE,
+      })
+      .then((res) => {
+        if (cancelado) return;
+        const d = res?.data?.data || {};
+        setFilas(Array.isArray(d.rows) ? d.rows : []);
+        setTotal(Number(d.total) || 0);
+        setResumen(d.resumen || null);
+        setDisponible(d.disponible !== false);
+      })
+      .catch((error) => {
+        if (cancelado) return;
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: errMsg(error, "No se pudo cargar el historial."),
+          confirmButtonColor: "#d33",
+        });
+      })
+      .finally(() => {
+        if (!cancelado) setCargando(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [idConfiguracion, estado, page]);
+
+  if (!disponible) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white px-6 py-14 text-center shadow-sm">
+        <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-slate-100">
+          <i className="bx bx-data text-3xl text-slate-400" />
+        </div>
+        <p className="font-bold text-slate-700">
+          El historial todavía no está activado
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          Falta crear las tablas del registro de novedades en la base de datos.
+        </p>
+      </div>
+    );
+  }
+
+  const r = resumen || {};
+  const cerradas = (r.entregadas || 0) + (r.devueltas || 0) + (r.sin_efecto || 0);
+  const efectividad = cerradas
+    ? `${Math.round(((r.entregadas || 0) / cerradas) * 100)}%`
+    : "—";
+  const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  return (
+    <>
+      <p className="mb-2 text-xs text-slate-500">Últimos 30 días</p>
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Kpi icono="bx-error" color="bg-amber-50 text-amber-500" valor={r.total || 0} label="Novedades registradas" />
+        <Kpi icono="bx-user-voice" color="bg-violet-50 text-violet-600" valor={r.requieren_asesor || 0} label="Requieren asesor" />
+        <Kpi icono="bx-revision" color="bg-rose-50 text-rose-500" valor={r.reincidencias || 0} label="Reincidencias" />
+        <Kpi icono="bx-check-circle" color="bg-emerald-50 text-emerald-600" valor={r.entregadas || 0} label="Entregadas tras la novedad" />
+        <Kpi icono="bx-trending-up" color="bg-sky-50 text-sky-600" valor={efectividad} label="Efectividad de las soluciones" />
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {FILTROS_REGISTRO.map((f) => (
+          <button
+            key={f.id || "todas"}
+            type="button"
+            onClick={() => {
+              setEstado(f.id);
+              setPage(1);
+            }}
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              estado === f.id
+                ? "border-[#171931] bg-[#171931] text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="border-b border-slate-100 bg-slate-50/80 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Pedido</th>
+                <th className="px-4 py-3">Novedad</th>
+                <th className="px-4 py-3">Transportadora</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Solución</th>
+                <th className="px-4 py-3">Fechas</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {cargando && !filas.length ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                    Cargando historial…
+                  </td>
+                </tr>
+              ) : !filas.length ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-14 text-center">
+                    <p className="font-bold text-slate-700">Sin registros</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Las novedades se registran a medida que Dropi las reporta.
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filas.map((f) => {
+                  const est = ESTADOS_REGISTRO[f.estado] || ESTADOS_REGISTRO.pendiente;
+                  const resu = RESULTADOS_REGISTRO[f.resultado];
+                  return (
+                    <tr key={f.id} className="align-top">
+                      <td className="px-4 py-3.5">
+                        <p className="font-bold text-slate-800">#{f.dropi_order_id}</p>
+                        <p className="font-mono text-xs text-slate-500">
+                          {f.shipping_guide || "Sin guía"}
+                        </p>
+                      </td>
+                      <td className="max-w-[240px] px-4 py-3.5">
+                        <p className="line-clamp-2 font-medium text-amber-700">
+                          {f.novedad || "—"}
+                        </p>
+                        <BadgesRegistro
+                          registro={{
+                            numero: f.numero,
+                            veces_ofrecida: 0,
+                            requiere_asesor:
+                              Number(f.requiere_asesor) === 1 && f.estado !== "cerrada",
+                            motivo_asesor: f.motivo_asesor,
+                          }}
+                        />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <BadgeTransportadora nombre={f.transportadora} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${est.clase}`}>
+                          {est.label}
+                        </span>
+                        {resu && (
+                          <span className={`ml-1 inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${resu.clase}`}>
+                            {resu.label}
+                          </span>
+                        )}
+                      </td>
+                      <td className="max-w-[260px] px-4 py-3.5 text-xs">
+                        {f.tipo_solucion ? (
+                          <>
+                            <p className="font-semibold text-slate-700">
+                              {TIPOS_SOLUCION[f.tipo_solucion] || f.tipo_solucion}
+                              {f.solventada_por === "ia" ? " · IA" : ""}
+                            </p>
+                            {f.solucion && (
+                              <p className="line-clamp-2 text-slate-500">{f.solucion}</p>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-slate-400">Sin solución</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-500">
+                        <p>Detectada: {fmtFecha(f.detectada_at)}</p>
+                        {f.solventada_at && <p>Solución: {fmtFecha(f.solventada_at)}</p>}
+                        {f.cerrada_at && <p>Cierre: {fmtFecha(f.cerrada_at)}</p>}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm">
+          <span className="text-slate-500">
+            Página <span className="font-semibold text-slate-800">{page}</span> de{" "}
+            {totalPaginas} · {total} registros
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || cargando}
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              <i className="bx bx-chevron-left" />
+              Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= totalPaginas || cargando}
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              Siguiente
+              <i className="bx bx-chevron-right" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ───────────────────────── vista principal ───────────────────────── */
 
 export default function NovedadesDropi() {
@@ -1068,6 +1590,8 @@ export default function NovedadesDropi() {
   const [aSolventar, setASolventar] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [transportadora, setTransportadora] = useState("");
+  const [soloAsesor, setSoloAsesor] = useState(false);
+  const [tab, setTab] = useState("pendientes");
 
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
@@ -1130,6 +1654,7 @@ export default function NovedadesDropi() {
     const q = busqueda.trim().toLowerCase();
     return novedades.filter((n) => {
       if (transportadora && n.transportadora !== transportadora) return false;
+      if (soloAsesor && !n.registro?.requiere_asesor) return false;
       if (!q) return true;
       return [
         n.order_id,
@@ -1142,13 +1667,14 @@ export default function NovedadesDropi() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [novedades, busqueda, transportadora]);
+  }, [novedades, busqueda, transportadora, soloAsesor]);
 
   const kpis = useMemo(
     () => ({
       total: novedades.length,
       conChat: novedades.filter((n) => n.has_chat).length,
       viejas: novedades.filter((n) => horasDesde(n.updated_at) >= 24).length,
+      asesor: novedades.filter((n) => n.registro?.requiere_asesor).length,
     }),
     [novedades],
   );
@@ -1185,8 +1711,33 @@ export default function NovedadesDropi() {
         </div>
       </div>
 
+      {/* Pestañas */}
+      <div className="mb-5 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        {[
+          { id: "pendientes", label: "Pendientes", icono: "bx-error-circle" },
+          { id: "historial", label: "Historial", icono: "bx-history" },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              tab === t.id
+                ? "bg-[#171931] text-white"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <i className={`bx ${t.icono}`} />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "historial" && <RegistroNovedades idConfiguracion={idConfiguracion} />}
+
+      <div className={tab === "pendientes" ? "" : "hidden"}>
       {/* KPIs */}
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
           icono="bx-error"
           color="bg-amber-50 text-amber-500"
@@ -1204,6 +1755,12 @@ export default function NovedadesDropi() {
           color="bg-rose-50 text-rose-500"
           valor={kpis.viejas}
           label="Llevan más de 24 h"
+        />
+        <Kpi
+          icono="bx-user-voice"
+          color="bg-violet-50 text-violet-600"
+          valor={kpis.asesor}
+          label="Requieren asesor"
         />
       </div>
 
@@ -1236,6 +1793,18 @@ export default function NovedadesDropi() {
             ))}
           </div>
         )}
+        <button
+          type="button"
+          onClick={() => setSoloAsesor((v) => !v)}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+            soloAsesor
+              ? "border-violet-600 bg-violet-600 text-white"
+              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+          }`}
+        >
+          <i className="bx bx-user-voice" />
+          Requieren asesor
+        </button>
       </div>
 
       {/* Tabla */}
@@ -1310,6 +1879,7 @@ export default function NovedadesDropi() {
                             {hace(n.updated_at)}
                           </span>
                         )}
+                        <BadgesRegistro registro={n.registro} />
                       </td>
                       <td className="px-4 py-3.5">
                         <BadgeTransportadora nombre={n.transportadora} />
@@ -1436,6 +2006,8 @@ export default function NovedadesDropi() {
             </button>
           </div>
         </div>
+      </div>
+
       </div>
 
       {seleccionada && (
