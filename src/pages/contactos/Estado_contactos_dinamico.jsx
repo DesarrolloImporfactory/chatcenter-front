@@ -17,6 +17,10 @@ import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import KanbanFiltros from "../kanban/configuracion/KanbanFiltros";
+import IncidenciasContacto, {
+  TIPOS_CASO,
+  ESTADO_CASO,
+} from "./modales/IncidenciasContacto";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -138,8 +142,35 @@ const Estado_contactos = () => {
   const [loadingPlantillas, setLoadingPlantillas] = useState(false);
   const [guardandoRemarketing, setGuardandoRemarketing] = useState(false);
 
+  // Incidencias: contacto cuya bitácora está abierta en el modal
+  const [incidenciasDe, setIncidenciasDe] = useState(null);
+
   const scrollLockRef = useRef({});
   const LIMIT = 20;
+
+  /* Lo que se agrega o borra en el modal se refleja en la tarjeta sin
+     recargar el tablero. En "Todos" el mismo contacto puede estar en varias
+     columnas: se actualiza en todas. */
+  const actualizarIncidencias = useCallback((idCliente, resumen) => {
+    setBoardData((prev) => {
+      const next = {};
+      Object.entries(prev).forEach(([k, col]) => {
+        const items = col?.items || [];
+        const toca = items.some((x) => String(x.id) === String(idCliente));
+        next[k] = toca
+          ? {
+              ...col,
+              items: items.map((x) =>
+                String(x.id) === String(idCliente)
+                  ? { ...x, incidencias: resumen }
+                  : x,
+              ),
+            }
+          : col;
+      });
+      return next;
+    });
+  }, []);
 
   const getColumnKeysVisibles = useCallback(() => {
     if (!columnasVisibles) return kanbanColumnas.map((c) => c.estado_db);
@@ -978,6 +1009,147 @@ const Estado_contactos = () => {
       </div>
     );
 
+    /* Incidencias: la bitácora del panel derecho de /chat. Las cuentas que no
+       la usan no reciben nada y la tarjeta queda igual. Si hay, se pinta la
+       última (quién, cuándo, cuántas) y el clic abre la bitácora completa sin
+       salir del tablero. */
+    const inc = contacto.incidencias;
+    const ultima = inc?.ultima;
+    const casoUltima = ultima?.tipo ? TIPOS_CASO[ultima.tipo] : null;
+    const estadoUltima = casoUltima ? ESTADO_CASO[ultima.estado] : null;
+    const casoAbierto = casoUltima && ultima.estado !== "resuelto";
+    const haceInc = ultima ? tiempoRelativo(ultima.created_at) : null;
+    const bloqueIncidencia = inc && ultima && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIncidenciasDe(contacto);
+        }}
+        title="Ver todas las incidencias"
+        className="kanban-incidencia"
+        style={{
+          marginTop: 8,
+          width: "100%",
+          textAlign: "left",
+          cursor: "pointer",
+          borderRadius: 8,
+          padding: "6px 8px",
+          border: casoAbierto
+            ? `1px solid ${casoUltima.border}`
+            : "1px solid rgba(6,182,212,.25)",
+          background: casoAbierto ? casoUltima.bg : "rgba(6,182,212,.06)",
+          fontFamily: "inherit",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: "0.62rem",
+            fontWeight: 700,
+            color: casoAbierto ? casoUltima.color : "#0e7490",
+            textTransform: "uppercase",
+            letterSpacing: ".04em",
+          }}
+        >
+          <i
+            className={`bx ${casoAbierto ? casoUltima.icon : "bx-notepad"}`}
+            style={{ fontSize: 12, flexShrink: 0 }}
+          />
+          <span style={{ flexShrink: 0 }}>
+            {casoUltima ? casoUltima.badge : "Incidencia"}
+          </span>
+          {estadoUltima && (
+            <span
+              style={{
+                textTransform: "none",
+                letterSpacing: 0,
+                fontWeight: 600,
+                color: estadoUltima.color,
+              }}
+            >
+              · {estadoUltima.txt}
+            </span>
+          )}
+          {inc.total > 1 && (
+            <span
+              title={`${inc.total} incidencias registradas`}
+              style={{
+                marginLeft: "auto",
+                minWidth: 18,
+                height: 16,
+                padding: "0 5px",
+                borderRadius: 999,
+                background: casoAbierto ? casoUltima.color : "#0e7490",
+                color: "#fff",
+                fontSize: "0.6rem",
+                display: "inline-grid",
+                placeItems: "center",
+                letterSpacing: 0,
+              }}
+            >
+              {inc.total}
+            </span>
+          )}
+        </div>
+        <p
+          style={{
+            margin: "3px 0 0",
+            fontSize: "0.72rem",
+            lineHeight: 1.3,
+            color: "#1e293b",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            wordBreak: "break-word",
+          }}
+        >
+          {ultima.descripcion}
+        </p>
+        <p
+          style={{
+            margin: "3px 0 0",
+            fontSize: "0.64rem",
+            color: "#64748b",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {ultima.autor_nombre}
+          {haceInc ? ` · ${haceInc === "ahora" ? "ahora" : `hace ${haceInc}`}` : ""}
+        </p>
+      </button>
+    );
+
+    // Sin incidencias: un acceso discreto para registrar la primera
+    const btnNuevaIncidencia = !ultima && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIncidenciasDe(contacto);
+        }}
+        title="Registrar incidencia"
+        className="kanban-incidencia-add"
+        style={{
+          border: "none",
+          background: "transparent",
+          padding: 0,
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          color: "#94a3b8",
+          flexShrink: 0,
+        }}
+      >
+        <i className="bx bx-notepad" style={{ fontSize: 15 }} />
+      </button>
+    );
+
     return (
       <div
         key={contacto.id}
@@ -1073,6 +1245,7 @@ const Estado_contactos = () => {
 
         {badgeHuerfano}
         {chipsRow}
+        {bloqueIncidencia}
         {badgeMembresia}
 
         {/* Pie: actividad en su propia línea y Abrir a lo ancho — no
@@ -1086,7 +1259,21 @@ const Estado_contactos = () => {
             alignItems: "flex-start",
           }}
         >
-          {tiempoSpan}
+          {(tiempoSpan || btnNuevaIncidencia) && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 6,
+                width: "100%",
+                minWidth: 0,
+              }}
+            >
+              <div style={{ minWidth: 0, overflow: "hidden" }}>{tiempoSpan}</div>
+              {btnNuevaIncidencia}
+            </div>
+          )}
           {btnAbrir}
           {btnQuitarTablero}
         </div>
@@ -1814,6 +2001,18 @@ const Estado_contactos = () => {
         </DragDropContext>
       </div>
 
+      {/* Incidencias del contacto (bitácora completa, sin abrir el chat) */}
+      {incidenciasDe && (
+        <IncidenciasContacto
+          contacto={incidenciasDe}
+          idConfiguracion={id_configuracion}
+          onClose={() => setIncidenciasDe(null)}
+          onChange={(resumen) =>
+            actualizarIncidencias(incidenciasDe.id, resumen)
+          }
+        />
+      )}
+
       {/* Modal Remarketing */}
       {showModalRemarketing && (
         <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
@@ -1915,6 +2114,11 @@ const Estado_contactos = () => {
         .kanban-contact-card:hover .kanban-copy{opacity:1}
         .kanban-btn-abrir:hover{background:#4f46e5 !important;color:#fff !important;border-color:#4f46e5 !important}
         .kanban-btn-abrir:active{transform:scale(.97)}
+        .kanban-incidencia{transition:box-shadow .15s,transform .15s}
+        .kanban-incidencia:hover{box-shadow:0 2px 8px rgba(6,182,212,.18);transform:translateY(-1px)}
+        .kanban-incidencia-add{opacity:0;transition:opacity .12s,color .12s}
+        .kanban-contact-card:hover .kanban-incidencia-add{opacity:1}
+        .kanban-incidencia-add:hover{color:#0e7490 !important}
       `}</style>
     </div>
   );

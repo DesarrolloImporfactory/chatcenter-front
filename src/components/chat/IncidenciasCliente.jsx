@@ -3,8 +3,9 @@ import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import LineaTiempoCaso from "./LineaTiempoCaso";
 
-// Frases rápidas que rellenan el texto (editable después).
-const CHIPS = [
+// Frases rápidas que rellenan el texto (editable después). Las usa también el
+// modal de incidencias del kanban (pages/contactos/modales/IncidenciasContacto).
+export const CHIPS = [
   "No contestó",
   "Número equivocado",
   "Se escribió por WhatsApp",
