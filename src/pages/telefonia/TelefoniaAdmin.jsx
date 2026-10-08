@@ -98,16 +98,51 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
   const [costo, setCosto] = useState(null);
   const [msg, setMsg] = useState(null);
   const [ocupado, setOcupado] = useState(false);
+  /* Saldo compartido (2026-10-08): un dueño con varias conexiones no tiene
+     que repartir el saldo entre ellas; esta conexión puede usar la bolsa de
+     otra conexión del mismo dueño (titular). Las recargas y los consumos
+     se asientan en la titular; el precio por minuto es el de la titular. */
+  const titularActual = Number(cuenta?.id_configuracion_saldo) || null;
+  const [titular, setTitular] = useState(titularActual ? String(titularActual) : "");
+  const [compartibles, setCompartibles] = useState(null); // { data, seguidoras }
   useEffect(() => {
     let vigente = true;
     chatApi
       .get("/telefonia/costo", { params: { id_configuracion: conexion.id } })
       .then(({ data }) => vigente && setCosto(data?.data || null))
       .catch(() => vigente && setCosto(null));
+    chatApi
+      .get("/telefonia/cuenta/compartibles", { params: { id_configuracion: conexion.id } })
+      .then(({ data }) => vigente && setCompartibles({ data: data?.data || [], seguidoras: Number(data?.seguidoras) || 0 }))
+      .catch(() => vigente && setCompartibles({ data: [], seguidoras: 0 }));
     return () => {
       vigente = false;
     };
   }, [conexion.id]);
+  const comparte = !!titularActual;
+  const titularInfo = comparte ? compartibles?.data?.find((c) => Number(c.id) === titularActual) || null : null;
+  /* Lo elegido en el selector (guardado o todavía no) y si cambió respecto a
+     lo guardado: con eso se decide qué se enseña y qué botón va al pie. */
+  const elegido = titular ? compartibles?.data?.find((c) => Number(c.id) === Number(titular)) || null : null;
+  const pendiente = (titular || "") !== (titularActual ? String(titularActual) : "");
+  const guardarCompartir = async () => {
+    setOcupado(true);
+    setMsg(null);
+    try {
+      const { data } = await chatApi.post("/telefonia/cuenta", { id_configuracion: conexion.id, id_configuracion_saldo: titular ? Number(titular) : null, activo: true });
+      const t = data?.data?.compartido?.trasladado_centavos || 0;
+      onDone(
+        titular
+          ? `#${conexion.id} ahora usa el saldo de #${titular}${t ? ` (se trasladaron ${fmtUSD(t)} que tenía propios)` : ""}. Las llamadas de las dos descuentan de la misma bolsa.`
+          : `#${conexion.id} vuelve a tener saldo propio (arranca en cero: cárgale).`,
+      );
+      onClose();
+    } catch (err) {
+      setMsg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo guardar" });
+    } finally {
+      setOcupado(false);
+    }
+  };
 
   const tarifaC = Math.round(Number(tarifa || 0) * 100);
   const costoC = costo?.centavos_min || 0;
@@ -142,7 +177,13 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
          con el monto escrito, recalcularía la cobertura como si fuera a
          cargar OTRA vez lo mismo y mostraría "no se puede cargar" justo
          después de haber cargado. */
-      onDone(`Saldo cargado a #${conexion.id}: ahora tiene ${fmtUSD(data?.data?.saldo_centavos)} (${Math.floor((data?.data?.saldo_centavos || 0) / tarifaC)} min a ${fmtUSD(tarifaC)}).`);
+      const bolsa = data?.data?.id_configuracion_saldo;
+      const tarifaBolsa = Number(data?.data?.tarifa_centavos_min) || tarifaC;
+      onDone(
+        bolsa
+          ? `Saldo cargado a la bolsa compartida de #${bolsa} (la usa #${conexion.id}): ahora tiene ${fmtUSD(data?.data?.saldo_centavos)} (${Math.floor((data?.data?.saldo_centavos || 0) / tarifaBolsa)} min a ${fmtUSD(tarifaBolsa)}).`
+          : `Saldo cargado a #${conexion.id}: ahora tiene ${fmtUSD(data?.data?.saldo_centavos)} (${Math.floor((data?.data?.saldo_centavos || 0) / tarifaC)} min a ${fmtUSD(tarifaC)}).`,
+      );
       onClose();
     } catch (err) {
       setMsg({ tipo: "error", texto: err?.response?.data?.message || "No se pudo recargar" });
@@ -154,10 +195,57 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
   return (
     <Modal
       titulo={`#${conexion.id} ${conexion.nombre_configuracion || ""}`}
-      subtitulo={`${tel(conexion.telefono)}${cuenta ? ` · saldo actual ${fmtUSD(cuenta.saldo_centavos)}` : " · todavía sin telefonía"}`}
+      subtitulo={`${tel(conexion.telefono)}${cuenta ? (comparte ? ` · usa el saldo de #${titularActual}: ${fmtUSD(cuenta.saldo_centavos)}` : ` · saldo actual ${fmtUSD(cuenta.saldo_centavos)}`) : " · todavía sin telefonía"}`}
       onClose={onClose}
     >
       <div className="space-y-4 px-5 py-4">
+        <div>
+          <label htmlFor="tel-titular" className="block text-xs font-semibold text-slate-600">De dónde sale el saldo</label>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Si el dueño tiene varias conexiones, pueden usar una sola bolsa: las llamadas de todas descuentan del mismo saldo y no hay que repartirlo.
+          </p>
+          <div className="mt-1 flex gap-2">
+            <select
+              id="tel-titular"
+              className={input}
+              value={titular}
+              onChange={(e) => setTitular(e.target.value)}
+              disabled={!compartibles || compartibles.seguidoras > 0}
+            >
+              <option value="">Saldo propio de esta conexión</option>
+              {(compartibles?.data || []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  Compartir el saldo de #{c.id} {c.nombre_configuracion || ""} ({fmtUSD(c.saldo_centavos)}, {fmtUSD(c.tarifa_centavos_min)}/min)
+                </option>
+              ))}
+            </select>
+          </div>
+          {compartibles && compartibles.seguidoras > 0 ? (
+            <div className="mt-1 text-[11px] text-sky-700">Otras {compartibles.seguidoras} conexión(es) usan el saldo de esta: es la titular de la bolsa y no puede compartir de otra.</div>
+          ) : compartibles && !compartibles.data.length && !comparte ? (
+            <div className="mt-1 text-[11px] text-slate-400">El dueño no tiene otra conexión con telefonía. Dale saldo a la otra primero y luego comparte desde aquí.</div>
+          ) : null}
+          {comparte && compartibles && !titularInfo ? (
+            <div className="mt-1 text-[11px] text-amber-700">La titular #{titularActual} ya no aparece entre las compartibles; vuelve a saldo propio o elige otra.</div>
+          ) : null}
+        </div>
+
+        {/* Con una titular elegida no hay nada más que decidir: ni precio ni
+            recarga (son de la bolsa). Solo se enseña qué va a usar. */}
+        {titular ? (
+          <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+            {elegido ? (
+              <>
+                Usará el saldo de <b>#{elegido.id} {elegido.nombre_configuracion || ""}</b>: <b>{fmtUSD(elegido.saldo_centavos)}</b> (unos {elegido.tarifa_centavos_min > 0 ? Math.floor(elegido.saldo_centavos / elegido.tarifa_centavos_min) : 0} min a {fmtUSD(elegido.tarifa_centavos_min)}/min).
+                {" "}Las recargas y el precio se manejan en #{elegido.id}; las dos conexiones descuentan de ahí.
+              </>
+            ) : (
+              <>Usará el saldo de #{titular}.</>
+            )}
+          </div>
+        ) : null}
+
+        {titular || pendiente ? null : (
         <div>
           <label htmlFor="tel-tarifa" className="block text-xs font-semibold text-slate-600">Precio por minuto a celulares de su país (USD)</label>
           <p className="mt-0.5 text-[11px] text-slate-500">
@@ -186,7 +274,9 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
             )}
           </div>
         </div>
+        )}
 
+        {titular || pendiente ? null : (
         <div>
           <label htmlFor="tel-monto" className="block text-xs font-semibold text-slate-600">Saldo a cargar (USD)</label>
           <input id="tel-monto" className={`${input} mt-1`} value={dolares} onChange={(e) => setDolares(e.target.value)} inputMode="decimal" />
@@ -200,14 +290,26 @@ function SaldoModal({ conexion, cuenta, resumen, onClose, onDone }) {
             </div>
           ) : null}
         </div>
+        )}
 
         {msg ? <Aviso tipo={msg.tipo}>{msg.texto}</Aviso> : null}
       </div>
       <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-3">
-        <button type="button" onClick={guardarPrecio} disabled={ocupado || tarifaC <= 0} className={btnSuave}>Guardar solo el precio</button>
-        <button type="button" onClick={cargar} disabled={ocupado || excede || recargaC <= 0 || tarifaC <= 0} className={btnPrimario}>
-          <i className="bx bx-plus-circle" /> Cargar {fmtUSD(recargaC)}
-        </button>
+        {pendiente ? (
+          /* Cambió de dónde sale el saldo: un solo botón, sin precio ni monto. */
+          <button type="button" onClick={guardarCompartir} disabled={ocupado || !compartibles || compartibles.seguidoras > 0} className={btnPrimario}>
+            <i className="bx bx-link" /> {titular ? `Usar el saldo de #${titular}` : "Volver a saldo propio"}
+          </button>
+        ) : titular ? (
+          <button type="button" onClick={onClose} className={btnSuave}>Cerrar</button>
+        ) : (
+          <>
+            <button type="button" onClick={guardarPrecio} disabled={ocupado || tarifaC <= 0} className={btnSuave}>Guardar solo el precio</button>
+            <button type="button" onClick={cargar} disabled={ocupado || excede || recargaC <= 0 || tarifaC <= 0} className={btnPrimario}>
+              <i className="bx bx-plus-circle" /> Cargar {fmtUSD(recargaC)}
+            </button>
+          </>
+        )}
       </div>
     </Modal>
   );
@@ -299,8 +401,9 @@ export default function TelefoniaAdmin() {
       terminado(`#${c.id_configuracion} encendida. Cárgale saldo para que pueda llamar.`);
       return;
     }
-    // Sin saldo no hay nada que devolver: se apaga de una.
-    if (Number(c.saldo_centavos) <= 0) {
+    // Sin saldo propio no hay nada que devolver: se apaga de una. (Una que
+    // comparte muestra el saldo de la titular, pero ese no es suyo.)
+    if (Number(c.saldo_centavos) <= 0 || c.id_configuracion_saldo) {
       await chatApi.post("/telefonia/cuenta", { id_configuracion: c.id_configuracion, activo: false });
       terminado(`#${c.id_configuracion} apagada.`);
       return;
@@ -460,6 +563,15 @@ export default function TelefoniaAdmin() {
                       <td className="py-2.5 pr-3">
                         <div className="font-bold">{fmtUSD(c.saldo_centavos)}</div>
                         <div className="text-xs text-slate-400">{Math.floor(c.saldo_centavos / c.tarifa_centavos_min)} min</div>
+                        {c.id_configuracion_saldo ? (
+                          <div className="mt-0.5 inline-block rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800" title={`Las llamadas de #${c.id_configuracion} descuentan del saldo de #${c.id_configuracion_saldo}`}>
+                            <i className="bx bx-link" /> comparte con #{c.id_configuracion_saldo} {c.nombre_titular || ""}
+                          </div>
+                        ) : Number(c.seguidoras) > 0 ? (
+                          <div className="mt-0.5 inline-block rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800" title="Otras conexiones del mismo dueño descuentan de este saldo">
+                            <i className="bx bx-link" /> lo usan {c.seguidoras} conexión(es) más
+                          </div>
+                        ) : null}
                       </td>
                       <td className="py-2.5 pr-3">
                         <div>{fmtUSD(c.tarifa_centavos_min)}</div>
@@ -484,7 +596,7 @@ export default function TelefoniaAdmin() {
                             type="button"
                             onClick={() => alternar(c)}
                             className={`${btn} px-2 py-1 text-xs ${apagando === c.id_configuracion ? "bg-rose-600 text-white hover:bg-rose-700" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
-                            title={Number(c.activo) !== 1 ? "Vuelve a activar la telefonía; luego cárgale saldo" : c.saldo_centavos > 0 ? "Quita el botón Llamar del chat y devuelve el saldo a la cobertura de Zadarma" : "Quita el botón Llamar del chat"}
+                            title={Number(c.activo) !== 1 ? (c.id_configuracion_saldo ? "Vuelve a activar la telefonía; usa el saldo compartido" : "Vuelve a activar la telefonía; luego cárgale saldo") : c.saldo_centavos > 0 && !c.id_configuracion_saldo ? "Quita el botón Llamar del chat y devuelve el saldo a la cobertura de Zadarma" : "Quita el botón Llamar del chat (el saldo compartido sigue en la titular)"}
                           >
                             {Number(c.activo) !== 1 ? "Encender" : apagando === c.id_configuracion ? `¿Apagar y devolver ${fmtUSD(c.saldo_centavos)}?` : "Apagar"}
                           </button>

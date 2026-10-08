@@ -1,4 +1,4 @@
-// src/pages/productos2/wizard/FlujoVentaEditor.jsx
+// src/pages/productos/wizard/FlujoVentaEditor.jsx
 // "Embudo manual": el flujo de venta por pasos del producto.
 // Cada paso encadena con el anterior: "si el cliente responde X a la pregunta
 // anterior, se envía este mensaje tal cual" — copys exactos, casi sin IA.

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import chatApi from "../../../api/chatcenter";
 import Swal from "sweetalert2";
+import IdExternoProducto from "./IdExternoProducto";
 
 /* ─────────────────────────────────────────────────────────────
    Defaults
@@ -2046,6 +2047,17 @@ const ProductoModal = ({
                       })}
                     </div>
                   </div>
+
+                  {/* Id del producto en el proveedor (Dropi/Aliclik). Solo al
+                      editar un producto importado: se cambia aquí mismo, con
+                      historial, en vez de reimportar y rehacer todo. Va con su
+                      propio endpoint, no con el guardado del formulario. */}
+                  {editingProduct && (
+                    <IdExternoProducto
+                      producto={editingProduct}
+                      onCambiado={() => onSaved?.()}
+                    />
+                  )}
 
                   {/* Unidades: solo para productos. Un servicio no se agota.
                       Y si el producto vino de Dropi, el stock NO se edita a

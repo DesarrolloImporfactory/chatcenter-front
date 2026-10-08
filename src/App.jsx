@@ -24,7 +24,6 @@ import ListaPlanes from "./pages/planes/listaPlanes";
 
 // Páginas de gestión
 import Productos from "./pages/productos/ProductosView";
-import Productos2 from "./pages/productos2/Productos2View";
 import CampaniasView from "./pages/campanias/CampaniasView";
 import AdminAvisosView from "./pages/adminAvisos/AdminAvisosView";
 import MiPerfilView from "./pages/miPerfil/MiPerfilView";
@@ -757,19 +756,8 @@ function App() {
                   }
                 />
 
-                {/* La vista nueva (bot por producto) es el listado principal.
-                    La vieja queda en /productos-antiguo, fuera del menú. */}
                 <Route
                   path="/productos"
-                  element={
-                    <MainLayout>
-                      <Productos2 />
-                    </MainLayout>
-                  }
-                />
-
-                <Route
-                  path="/productos-antiguo"
                   element={
                     <MainLayout>
                       <Productos />

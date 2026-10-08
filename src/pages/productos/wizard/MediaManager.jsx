@@ -1,4 +1,4 @@
-// src/pages/productos2/wizard/MediaManager.jsx
+// src/pages/productos/wizard/MediaManager.jsx
 // El paquete de media del primer mensaje: hasta 3 imágenes y 1 video. La foto
 // y el video del producto (catálogo) son siempre las primeras piezas —llegan
 // por `fijos` y se cambian en el paso Producto—; aquí solo se agregan imágenes
