@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import "./styles/header.css";
 import AppSwitcher from "./AppSwitcher";
+import CampanaNotificaciones from "./CampanaNotificaciones";
 import { globalLogout } from "../../utils/globalLogout";
 
 const Logo =
@@ -85,6 +86,9 @@ const Header = ({ menuButtonRef, onToggleSlider }) => {
         <div className="ml-auto flex items-center gap-4" ref={menuRef}>
           {user?.id ? (
             <>
+              {/* Notificaciones internas */}
+              <CampanaNotificaciones />
+
               {/* Nombre + Rol */}
               <div className="hidden sm:flex flex-col text-end">
                 <span className="text-sm font-semibold">

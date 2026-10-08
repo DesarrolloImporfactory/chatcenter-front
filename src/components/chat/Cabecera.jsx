@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom"; // al inicio
+import CampanaNotificaciones from "../shared/CampanaNotificaciones";
 import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 // Asistente de la cuenta: diseño "Lienzo" con métricas del "Tablero". La variante Tablero pura está en ../layout/AsistenteCuentaTablero
@@ -870,6 +871,9 @@ const Cabecera = ({
 
         {/* Nombre de usuario y foto */}
         <div className="flex items-center gap-3">
+          {/* Notificaciones internas */}
+          <CampanaNotificaciones />
+
           <div className="text-end leading-tight">
             <span className="block text-white font-semibold text-[15px]">
               {localStorage.getItem("nombre_configuracion") ?? "Tony Plaza"}

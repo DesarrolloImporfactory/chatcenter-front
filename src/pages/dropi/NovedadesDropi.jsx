@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
+import { useLocation } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 
 /* Novedades Dropi pendientes por solucionar.
@@ -1592,6 +1593,19 @@ export default function NovedadesDropi() {
   const [transportadora, setTransportadora] = useState("");
   const [soloAsesor, setSoloAsesor] = useState(false);
   const [tab, setTab] = useState("pendientes");
+  const location = useLocation();
+
+  /* La campana de notificaciones enlaza a /novedades-dropi?orden=123: se
+     muestra la pestaña de pendientes filtrada por ese pedido. */
+  useEffect(() => {
+    const orden = new URLSearchParams(location.search).get("orden");
+    if (orden) {
+      setTab("pendientes");
+      setSoloAsesor(false);
+      setTransportadora("");
+      setBusqueda(orden);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     const idc = localStorage.getItem("id_configuracion");
