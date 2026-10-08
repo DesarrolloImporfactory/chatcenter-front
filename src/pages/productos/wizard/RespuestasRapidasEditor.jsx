@@ -1,4 +1,4 @@
-// src/pages/productos2/wizard/RespuestasRapidasEditor.jsx
+// src/pages/productos/wizard/RespuestasRapidasEditor.jsx
 // Editor de las respuestas quemadas del producto: pregunta, respuesta y las
 // palabras clave que la identifican. Trae un probador que consulta al backend
 // la misma función que usa el bot en vivo ("¿qué haría con este mensaje?").

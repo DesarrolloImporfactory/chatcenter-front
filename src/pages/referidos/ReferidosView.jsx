@@ -22,10 +22,10 @@ import chatApi from "../../api/chatcenter";
    ============================================================
 
    LA REGLA QUE ESTA PANTALLA TIENE QUE DEJAR OBVIA
-   La comisión NO arranca el primer mes: arranca en el ciclo 3, porque el mes 1
-   se vende a $5 y el mes 2 apenas recupera ese subsidio. Si no se explica bien,
-   el referidor trae gente, ve $0 durante dos meses y asume que el sistema está
-   roto. Por eso cada cifra lleva su tooltip, cada referido dice en qué fecha
+   La comisión NO arranca el primer mes: arranca en el ciclo 2, porque el mes 1
+   se vende a $5 con cupón (hasta el 2026-10-07 arrancaba en el 3). Si no se
+   explica bien, el referidor trae gente, ve $0 el primer mes y asume que el
+   sistema está roto. Por eso cada cifra lleva su tooltip, cada referido dice en qué fecha
    empieza a rendir, y las dos formas de cobrar están explicadas en su propia
    tarjeta en vez de en dos botones sueltos.
 
@@ -919,7 +919,7 @@ export default function ReferidosView() {
   }, [data?.referidos]);
 
   /* "Sin plan activo" se evalúa PRIMERO: quien no está pagando no pertenece a
-     ninguna de las otras dos categorías, haya llegado al ciclo 3 o no. */
+     ninguna de las otras dos categorías, haya llegado al ciclo 2 o no. */
   const embudo = useMemo(() => {
     const rs = data?.referidos || [];
     return {
@@ -1156,7 +1156,7 @@ export default function ReferidosView() {
               </h1>
               <p className="mt-1 text-white/55 text-[13px] leading-snug max-w-3xl">
                 Comparte tu enlace. Cada persona que se registre y permanezca te
-                genera comisión mensual a partir de su tercer mes pagado, y la
+                genera comisión mensual a partir de su segundo mes pagado, y la
                 sigues cobrando mientras siga siendo cliente.
               </p>
 
@@ -1211,7 +1211,7 @@ export default function ReferidosView() {
           {/* ═══════════ Cómo funciona ═══════════
               Va ANTES de las cifras a propósito: sin las reglas delante, los
               números de abajo no significan nada —un "$0.00 en espera" solo se
-              entiende si antes leíste que la comisión arranca en el mes 3—. */}
+              entiende si antes leíste que la comisión arranca en el mes 2—. */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-2 mb-4">
               <i className="bx bx-book-open text-lg text-slate-400" />
@@ -1230,13 +1230,13 @@ export default function ReferidosView() {
                 },
                 {
                   n: 2,
-                  titulo: "Sus dos primeros meses",
+                  titulo: "Su primer mes",
                   texto:
-                    "No generan comisión, y tampoco quedan acumulados: son los meses en que su plan tiene precio promocional.",
+                    "No genera comisión, y tampoco queda acumulado: es el mes en que su plan tiene precio promocional.",
                 },
                 {
                   n: 3,
-                  titulo: "Desde su tercer mes",
+                  titulo: "Desde su segundo mes",
                   texto:
                     "Recibes el 25% de cada mensualidad que pague, sin límite de tiempo: mientras siga siendo cliente, sigues cobrando.",
                 },
@@ -1330,7 +1330,7 @@ export default function ReferidosView() {
               }
               color={C.bien}
               icon="bx-line-chart"
-              ayuda="Comisión mensual que alcanzarías una vez que todos tus referidos activos superen su tercer mes pagado. No es saldo disponible: es la proyección de tu ingreso recurrente si todos mantienen su plan."
+              ayuda="Comisión mensual que alcanzarías una vez que todos tus referidos activos superen su primer mes pagado. No es saldo disponible: es la proyección de tu ingreso recurrente si todos mantienen su plan."
               destacado
             />
             <Kpi
@@ -1338,7 +1338,7 @@ export default function ReferidosView() {
               valor={data.referidos.length}
               detalle={`${embudo.comisionando} generan comisión`}
               icon="bx-group"
-              ayuda="Personas registradas mediante tu enlace o provenientes de tu comunidad. No todas generan comisión: deben tener un plan activo y haber superado su tercer mes pagado."
+              ayuda="Personas registradas mediante tu enlace o provenientes de tu comunidad. No todas generan comisión: deben tener un plan activo y haber superado su primer mes pagado."
             />
           </div>
 
@@ -1622,7 +1622,7 @@ export default function ReferidosView() {
                   <Vacio
                     icon="bx-line-chart"
                     titulo="Sin comisiones registradas"
-                    texto="Se registrarán cuando tu primer referido alcance su tercer mes"
+                    texto="Se registrarán cuando tu primer referido alcance su segundo mes"
                   />
                 )}
               </div>
@@ -1684,7 +1684,7 @@ export default function ReferidosView() {
             <Panel
               icon="bx-pie-chart-alt-2"
               title="Estado de tus referidos"
-              subtitle="La comisión arranca en el tercer mes pagado"
+              subtitle="La comisión arranca en el segundo mes pagado"
             >
               {data.referidos.length ? (
                 <Dona {...embudo} />
@@ -1852,10 +1852,11 @@ export default function ReferidosView() {
                                 </span>
                               ) : (
                                 <div>
-                                  {/* Barra de 3 pasos: la forma más corta de
+                                  {/* Barra de 2 pasos (mes 1 sin comisión, mes
+                                      2 ya comisiona): la forma más corta de
                                       explicar por qué este referido aún da $0 */}
                                   <div className="flex gap-1 mb-1">
-                                    {[0, 1, 2].map((i) => (
+                                    {[0, 1].map((i) => (
                                       <span
                                         key={i}
                                         className="h-1.5 w-6 rounded-full"

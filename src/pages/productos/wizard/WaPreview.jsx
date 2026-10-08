@@ -1,4 +1,4 @@
-// src/pages/productos2/wizard/WaPreview.jsx
+// src/pages/productos/wizard/WaPreview.jsx
 // Simulación de WhatsApp dentro de un teléfono: el mensaje del cliente, el
 // paquete de media (hasta 3 imágenes + 1 video), el mensaje fijo y, si se
 // pasan, turnos extra (cliente/bot) para ilustrar lo que sigue. Presentacional.
