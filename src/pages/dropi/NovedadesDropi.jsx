@@ -260,6 +260,10 @@ function camposPorTransportadora(novedad) {
     .replace(/\s+/g, "");
   const nov = novedadBase(novedad.novedad);
 
+  // Solo Ecuador está verificado: en otros países la misma transportadora
+  // pide otros campos (y el back lo rechaza igual).
+  if (novedad.pais && novedad.pais !== "EC") return { noSoportada: true };
+
   if (t === "GINTRACOM") {
     return {
       gintracom: true,
@@ -284,7 +288,9 @@ function camposPorTransportadora(novedad) {
       telefono: true,
       referenciaObligatoria: true,
     };
-  return {};
+  // Transportadora sin formulario copiado del panel de Dropi: no se envía
+  // nada desde aquí para no registrar una solución con el formato equivocado.
+  return { noSoportada: true };
 }
 
 /* Fecha YYYY-MM-DD en Ecuador, desplazada N días. */
@@ -684,12 +690,25 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                     {a}
                   </p>
                 ))}
-                {ia.decision === "proponer" && (
-                  <p className="text-emerald-700">
-                    <i className="bx bx-check" /> Rellené el formulario con la
-                    propuesta. Revísala antes de enviar.
-                  </p>
-                )}
+                {ia.decision === "proponer" &&
+                  (campos.noSoportada ? (
+                    <div className="rounded-lg bg-emerald-50 p-2.5 text-emerald-800">
+                      <p className="mb-1 font-bold">Solución sugerida</p>
+                      <p className="whitespace-pre-wrap">{ia.solucion}</p>
+                      <button
+                        type="button"
+                        onClick={() => copiar(ia.solucion)}
+                        className="mt-2 inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-white px-2 py-1 font-semibold text-emerald-700 hover:bg-emerald-100"
+                      >
+                        <i className="bx bx-copy" /> Copiar para pegar en Dropi
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-emerald-700">
+                      <i className="bx bx-check" /> Rellené el formulario con la
+                      propuesta. Revísala antes de enviar.
+                    </p>
+                  ))}
                 {ia.mensaje_para_cliente && (
                   <div className="rounded-lg bg-slate-50 p-2.5">
                     <p className="mb-1 font-bold text-slate-600">
@@ -756,7 +775,23 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
             </Campo>
           )}
 
-          {esDevolucionGintracom ? (
+          {campos.noSoportada ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-slate-700">
+              <p className="flex items-center gap-1.5 font-bold">
+                <i className="bx bx-info-circle text-lg text-slate-500" />
+                Esta novedad se solventa desde Dropi
+              </p>
+              <p className="mt-1 text-xs leading-relaxed">
+                Todavía no tenemos el formulario de{" "}
+                <b>{novedad.transportadora || "esta transportadora"}</b>
+                {novedad.pais && novedad.pais !== "EC" ? " para este país" : ""}:
+                cada transportadora pide datos distintos y enviar los
+                equivocados puede registrar una solución errónea. Puedes usar
+                la sugerencia de la IA y el mensaje para el cliente, y cargar
+                la solución en el panel de Dropi.
+              </p>
+            </div>
+          ) : esDevolucionGintracom ? (
             <div className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-rose-800">
               <p className="flex items-center gap-1.5 font-bold">
                 <i className="bx bx-error-alt text-lg" />
@@ -924,7 +959,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
 
         {/* Acciones */}
         <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
-          {!campos.gintracom && (
+          {!campos.gintracom && !campos.noSoportada && (
             <button
               type="button"
               onClick={devolver}
@@ -940,7 +975,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
             onClick={onClose}
             disabled={enviando}
             className={`rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 ${
-              campos.gintracom ? "ml-auto" : ""
+              campos.gintracom || campos.noSoportada ? "ml-auto" : ""
             }`}
           >
             Cancelar
@@ -948,7 +983,11 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
           <button
             type="button"
             onClick={enviar}
-            disabled={enviando || (!esDevolucionGintracom && !solucion.trim())}
+            disabled={
+              enviando ||
+              campos.noSoportada ||
+              (!esDevolucionGintracom && !solucion.trim())
+            }
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 ${
               esDevolucionGintracom
                 ? "bg-rose-600 hover:bg-rose-700"
