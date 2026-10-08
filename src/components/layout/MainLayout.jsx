@@ -1054,8 +1054,8 @@ function MainLayout({ children }) {
               >
                 <div className="ml-10 flex flex-col py-2">
                   {/* Campañas: centro de campañas Meta (lanzador + reglas
-                      automáticas). Piloto por id_configuracion — ver
-                      CAMPANIAS_PILOTO. */}
+                      automáticas). Abierto a todos; CAMPANIAS_PILOTO vacío
+                      (si se llena, vuelve a ser piloto por id_configuracion). */}
                   {(CAMPANIAS_PILOTO.length === 0 ||
                     CAMPANIAS_PILOTO.includes(
                       Number(localStorage.getItem("id_configuracion")),

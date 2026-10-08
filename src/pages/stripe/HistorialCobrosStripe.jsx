@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 
@@ -30,8 +37,17 @@ const ESTADO = {
   },
 };
 
+const fmtNumero = (n) =>
+  Number(n || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 const fmtMonto = (monto, moneda) =>
-  `${String(moneda || "usd").toUpperCase()} ${Number(monto || 0).toFixed(2)}`;
+  `${String(moneda || "usd").toUpperCase()} ${fmtNumero(monto)}`;
+
+const plural = (n, singular, pluralTxt) =>
+  `${n || 0} ${n === 1 ? singular : pluralTxt}`;
 
 const fmtFecha = (d) => {
   if (!d) return "—";
@@ -79,11 +95,279 @@ function Tarjeta({ titulo, valor, sub, color }) {
   );
 }
 
+/**
+ * Tarjeta de dinero: una cifra por moneda. Una cuenta puede cobrar en USD y
+ * en MXN a la vez, y sumarlos en un solo número no significa nada, así que
+ * cada moneda va en su propia línea con su conteo al lado.
+ * `items` = [{ moneda, monto, n }]; `unidad` = ["pagado", "pagados"].
+ */
+function TarjetaMontos({ titulo, items, unidad, color, monedaVacia }) {
+  const lista = items.length
+    ? items
+    : [{ moneda: monedaVacia || "usd", monto: 0, n: 0 }];
+  const varias = lista.length > 1;
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">
+        {titulo}
+      </p>
+      {varias ? (
+        <ul className="mt-1 space-y-1">
+          {lista.map((it) => (
+            <li
+              key={it.moneda}
+              className="flex items-baseline justify-between gap-2"
+            >
+              <span className={`text-lg font-extrabold leading-tight ${color}`}>
+                <span className="text-[11px] font-semibold text-gray-400 mr-1 align-middle">
+                  {String(it.moneda).toUpperCase()}
+                </span>
+                {fmtNumero(it.monto)}
+              </span>
+              <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                {plural(it.n, unidad[0], unidad[1])}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          <p className={`text-2xl font-extrabold mt-1 ${color}`}>
+            {fmtMonto(lista[0].monto, lista[0].moneda)}
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {plural(lista[0].n, unidad[0], unidad[1])}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Acciones disponibles para un cobro según su estado. Las usan el menú de
+ * tres puntos (escritorio) y la fila de botones de la tarjeta (móvil), así
+ * las dos vistas ofrecen exactamente lo mismo.
+ */
+function accionesDe(row, { ocupado, copiar, verificar, anular }) {
+  const lista = [
+    {
+      key: "copiar",
+      label: "Copiar enlace de pago",
+      icon: "bx-link",
+      onClick: () => copiar(row.url_pago),
+    },
+  ];
+  if (row.estado === "pendiente") {
+    lista.push({
+      key: "verificar",
+      label: ocupado === row.id ? "Consultando…" : "¿Ya pagó?",
+      icon: "bx-refresh",
+      disabled: ocupado === row.id,
+      onClick: () => verificar(row),
+    });
+  }
+  if (row.estado === "pagado" && row.url_pdf) {
+    lista.push({
+      key: "recibo",
+      label: "Ver recibo",
+      icon: "bxs-file-pdf",
+      href: row.url_pdf,
+    });
+  }
+  if (row.estado === "pendiente") {
+    lista.push({
+      key: "anular",
+      label: "Anular cobro",
+      icon: "bxs-x-circle",
+      peligro: true,
+      disabled: ocupado === row.id,
+      onClick: () => anular(row),
+    });
+  }
+  return lista;
+}
+
+/**
+ * Menú de tres puntos que se pinta en un portal con position: fixed. La
+ * tabla vive dentro de un contenedor con overflow-x-auto y un menú absoluto
+ * quedaba recortado/escondido debajo de la tabla; con el portal flota sobre
+ * todo y se acomoda arriba cuando no cabe abajo.
+ */
+function MenuAcciones({ acciones }) {
+  const [abierto, setAbierto] = useState(false);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+  const ANCHO = 208;
+
+  const cerrar = useCallback(() => setAbierto(false), []);
+
+  useLayoutEffect(() => {
+    if (!abierto || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    const alto = menuRef.current?.offsetHeight || 0;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const cabeAbajo = r.bottom + 6 + alto <= vh - 8;
+    const top = cabeAbajo ? r.bottom + 6 : Math.max(8, r.top - 6 - alto);
+    const left = Math.max(8, Math.min(r.right - ANCHO, vw - ANCHO - 8));
+    setPos({ top, left });
+  }, [abierto]);
+
+  useEffect(() => {
+    if (!abierto) return;
+    const onDown = (e) => {
+      if (
+        btnRef.current?.contains(e.target) ||
+        menuRef.current?.contains(e.target)
+      )
+        return;
+      cerrar();
+    };
+    const onKey = (e) => e.key === "Escape" && cerrar();
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown, { passive: true });
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", cerrar, true);
+    window.addEventListener("resize", cerrar);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", cerrar, true);
+      window.removeEventListener("resize", cerrar);
+    };
+  }, [abierto, cerrar]);
+
+  const itemCls = (a) =>
+    `flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs hover:bg-slate-50 disabled:opacity-50 ${
+      a.peligro ? "text-red-600 hover:bg-red-50" : "text-slate-700"
+    }`;
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-200/60 transition"
+        title="Más acciones"
+        aria-label="Más acciones"
+        aria-haspopup="menu"
+        aria-expanded={abierto}
+      >
+        <i className="bx bx-dots-vertical-rounded text-[18px]" />
+      </button>
+      {abierto &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{
+              position: "fixed",
+              top: pos?.top ?? -9999,
+              left: pos?.left ?? -9999,
+              width: ANCHO,
+              zIndex: 1000,
+            }}
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-slate-900/5"
+          >
+            {acciones.map((a, i) => (
+              <React.Fragment key={a.key}>
+                {a.peligro && i > 0 && (
+                  <div className="my-1 h-px bg-slate-100" />
+                )}
+                {a.href ? (
+                  <a
+                    href={a.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    role="menuitem"
+                    className={itemCls(a)}
+                    onClick={cerrar}
+                  >
+                    <i className={`bx ${a.icon} text-sm text-slate-500`} />
+                    {a.label}
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={a.disabled}
+                    className={itemCls(a)}
+                    onClick={() => {
+                      cerrar();
+                      a.onClick();
+                    }}
+                  >
+                    <i
+                      className={`bx ${a.icon} text-sm ${a.peligro ? "" : "text-slate-500"}`}
+                    />
+                    {a.label}
+                  </button>
+                )}
+              </React.Fragment>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+/** Botón redondo verde que abre el chat del contacto (acción primaria). */
+function BotonChat({ row }) {
+  return (
+    <button
+      type="button"
+      disabled={!row.id_cliente_chat_center}
+      onClick={() =>
+        window.open(
+          `/chat/${row.id_cliente_chat_center}`,
+          "_blank",
+          "noopener,noreferrer",
+        )
+      }
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-200 transition disabled:opacity-40"
+      title="Abrir chat"
+      aria-label="Abrir chat"
+    >
+      <i className="bx bxs-chat text-[18px]" />
+    </button>
+  );
+}
+
+/** Chip de estado con la fecha del cambio debajo (pagado / anulado). */
+function ChipEstado({ row }) {
+  const ui = ESTADO[row.estado] || ESTADO.pendiente;
+  const fecha =
+    row.estado === "pagado"
+      ? row.pagado_at
+      : row.estado === "anulado"
+        ? row.anulado_at
+        : null;
+  return (
+    <div>
+      <span
+        className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${ui.cls}`}
+      >
+        <i className={`bx ${ui.icon}`} />
+        {ui.label}
+      </span>
+      {fecha && (
+        <div className="text-[11px] text-gray-500 mt-0.5">{fmtFecha(fecha)}</div>
+      )}
+    </div>
+  );
+}
+
 export default function HistorialCobrosStripe({
   id_configuracion,
   moneda = "usd",
 }) {
   const [estado, setEstado] = useState("");
+  const [monedaFiltro, setMonedaFiltro] = useState("");
   const [desde, setDesde] = useState(haceDias(30));
   const [hasta, setHasta] = useState(hoy());
   const [q, setQ] = useState("");
@@ -93,6 +377,8 @@ export default function HistorialCobrosStripe({
 
   const [rows, setRows] = useState([]);
   const [totales, setTotales] = useState(null);
+  // Monedas que la cuenta ha usado alguna vez (viene del back sin filtro).
+  const [monedas, setMonedas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [ocupado, setOcupado] = useState(null);
 
@@ -109,6 +395,7 @@ export default function HistorialCobrosStripe({
         params: {
           id_configuracion,
           estado: estado || undefined,
+          moneda: monedaFiltro || undefined,
           desde: desde || undefined,
           hasta: hasta || undefined,
           q: qDebounced || undefined,
@@ -118,13 +405,14 @@ export default function HistorialCobrosStripe({
       });
       setRows(res?.data?.data || []);
       setTotales(res?.data?.totales || null);
+      if (Array.isArray(res?.data?.monedas)) setMonedas(res.data.monedas);
     } catch {
       setRows([]);
       setTotales(null);
     } finally {
       setLoading(false);
     }
-  }, [id_configuracion, estado, desde, hasta, qDebounced, page]);
+  }, [id_configuracion, estado, monedaFiltro, desde, hasta, qDebounced, page]);
 
   useEffect(() => {
     cargar();
@@ -132,13 +420,7 @@ export default function HistorialCobrosStripe({
 
   useEffect(() => {
     setPage(1);
-  }, [estado, desde, hasta, qDebounced]);
-
-  // Cierra el menú de tres puntos (<details>) de la fila antes de actuar.
-  const cerrarMenu = (e) => {
-    const d = e?.currentTarget?.closest?.("details");
-    if (d) d.removeAttribute("open");
-  };
+  }, [estado, monedaFiltro, desde, hasta, qDebounced]);
 
   const copiar = (url) => {
     if (url && navigator?.clipboard)
@@ -189,28 +471,70 @@ export default function HistorialCobrosStripe({
 
   const t = totales || {};
   const totalPaginas = Math.max(1, Math.ceil((t.total || 0) / LIMIT));
-  const monedaTot = rows[0]?.moneda || moneda;
+  const porMoneda = Array.isArray(t.por_moneda) ? t.por_moneda : [];
+  const monedaVacia = monedaFiltro || moneda;
+  // Las tarjetas de dinero solo listan monedas con movimiento en ese estado.
+  const cobrado = porMoneda
+    .filter((m) => m.pagados > 0 || m.monto_pagado > 0)
+    .map((m) => ({ moneda: m.moneda, monto: m.monto_pagado, n: m.pagados }));
+  const porCobrar = porMoneda
+    .filter((m) => m.pendientes > 0 || m.monto_pendiente > 0)
+    .map((m) => ({
+      moneda: m.moneda,
+      monto: m.monto_pendiente,
+      n: m.pendientes,
+    }));
+  const variasMonedas = monedas.length > 1;
 
   return (
     <div className="space-y-5">
+      {/* Selector de moneda: solo si la cuenta cobra en más de una. Filtra
+          tarjetas y tabla a la vez; "Todas" muestra cada moneda por separado. */}
+      {variasMonedas && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <span className="text-xs font-semibold text-gray-600">Moneda</span>
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {["", ...monedas].map((m) => {
+              const activo = monedaFiltro === m;
+              return (
+                <button
+                  key={m || "todas"}
+                  type="button"
+                  onClick={() => setMonedaFiltro(m)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
+                    activo
+                      ? "bg-[#171931] text-white shadow-sm"
+                      : "text-gray-600 hover:bg-white"
+                  }`}
+                >
+                  {m ? m.toUpperCase() : "Todas"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Totales del filtro */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Tarjeta
+        <TarjetaMontos
           titulo="Cobrado"
-          valor={fmtMonto(t.monto_pagado, monedaTot)}
-          sub={`${t.pagados || 0} cobro${t.pagados === 1 ? "" : "s"} pagado${t.pagados === 1 ? "" : "s"}`}
+          items={cobrado}
+          unidad={["cobro pagado", "cobros pagados"]}
           color="text-emerald-700"
+          monedaVacia={monedaVacia}
         />
-        <Tarjeta
+        <TarjetaMontos
           titulo="Por cobrar"
-          valor={fmtMonto(t.monto_pendiente, monedaTot)}
-          sub={`${t.pendientes || 0} pendiente${t.pendientes === 1 ? "" : "s"}`}
+          items={porCobrar}
+          unidad={["pendiente", "pendientes"]}
           color="text-amber-700"
+          monedaVacia={monedaVacia}
         />
         <Tarjeta
           titulo="Enlaces enviados"
           valor={t.total || 0}
-          sub={`${t.anulados || 0} anulado${t.anulados === 1 ? "" : "s"}`}
+          sub={plural(t.anulados, "anulado", "anulados")}
         />
         <Tarjeta
           titulo="Asesores que cobran"
@@ -274,6 +598,7 @@ export default function HistorialCobrosStripe({
               type="button"
               onClick={() => {
                 setEstado("");
+                setMonedaFiltro("");
                 setDesde(haceDias(30));
                 setHasta(hoy());
                 setQ("");
@@ -294,199 +619,202 @@ export default function HistorialCobrosStripe({
         </div>
       </div>
 
-      {/* Tabla */}
+      {/* Listado: tarjetas en móvil, tabla desde md. Las dos usan los
+          mismos helpers (ChipEstado, BotonChat, accionesDe) para que no se
+          desincronicen. */}
       <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
-              <tr>
-                <th className="text-left px-4 py-2.5 font-semibold">Fecha</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Cliente</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Motivo</th>
-                <th className="text-right px-4 py-2.5 font-semibold">Monto</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Estado</th>
-                <th className="text-left px-4 py-2.5 font-semibold">
-                  Enviado por
-                </th>
-                <th className="text-right px-4 py-2.5 font-semibold">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    Cargando…
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    No hay cobros con ese filtro. Los asesores los crean desde
-                    el botón + del chat.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => {
-                  const ui = ESTADO[r.estado] || ESTADO.pendiente;
-                  const nombre =
-                    [r.nombre_cliente, r.apellido_cliente]
-                      .filter(Boolean)
-                      .join(" ") || "—";
-                  return (
-                    <tr key={r.id} className="border-t hover:bg-gray-50/60">
-                      <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
-                        {fmtFecha(r.created_at)}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <div className="font-semibold text-gray-800">
+        {loading && rows.length === 0 ? (
+          <div className="px-4 py-10 text-center text-gray-500">Cargando…</div>
+        ) : rows.length === 0 ? (
+          <div className="px-4 py-10 text-center text-gray-500">
+            No hay cobros con ese filtro. Los asesores los crean desde el
+            botón + del chat.
+          </div>
+        ) : (
+          <>
+            {/* Móvil: una tarjeta por cobro con las acciones a la vista */}
+            <ul className="md:hidden divide-y divide-gray-100">
+              {rows.map((r) => {
+                const nombre =
+                  [r.nombre_cliente, r.apellido_cliente]
+                    .filter(Boolean)
+                    .join(" ") || "—";
+                const acciones = accionesDe(r, {
+                  ocupado,
+                  copiar,
+                  verificar,
+                  anular,
+                });
+                return (
+                  <li key={r.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-800 truncate">
                           {nombre}
                         </div>
                         <div className="text-xs text-gray-500">
                           {r.celular_cliente || ""}
                         </div>
-                      </td>
-                      <td
-                        className="px-4 py-2.5 text-gray-700 max-w-[260px] truncate"
-                        title={r.concepto}
-                      >
-                        {r.concepto}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-bold text-gray-900 whitespace-nowrap">
-                        {fmtMonto(r.monto, r.moneda)}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${ui.cls}`}
-                        >
-                          <i className={`bx ${ui.icon}`} />
-                          {ui.label}
-                        </span>
-                        {r.estado === "pagado" && (
-                          <div className="text-[11px] text-gray-500 mt-0.5">
-                            {fmtFecha(r.pagado_at)}
-                          </div>
-                        )}
-                        {r.estado === "anulado" && (
-                          <div className="text-[11px] text-gray-500 mt-0.5">
-                            {fmtFecha(r.anulado_at)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-700">
-                        {r.origen === "bot" ? "Bot" : r.asesor || "—"}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {/* Mismos botones que la tabla de contactos: chat
-                            verde como acción primaria y un menú de tres
-                            puntos con el resto. */}
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              r.id_cliente_chat_center &&
-                              window.open(
-                                `/chat/${r.id_cliente_chat_center}`,
-                                "_blank",
-                                "noopener,noreferrer",
-                              )
-                            }
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-200 transition"
-                            title="Abrir chat"
-                            aria-label="Abrir chat"
-                          >
-                            <i className="bx bxs-chat text-[18px]" />
-                          </button>
-
-                          <div className="relative">
-                            <details className="group">
-                              <summary
-                                className="list-none inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-200/60 transition"
-                                title="Más acciones"
-                                aria-label="Más acciones"
-                              >
-                                <i className="bx bx-dots-vertical-rounded text-[18px]" />
-                              </summary>
-
-                              <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-slate-900/5">
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50"
-                                  onClick={(e) => {
-                                    cerrarMenu(e);
-                                    copiar(r.url_pago);
-                                  }}
-                                >
-                                  <i className="bx bx-link text-sm text-slate-500" />
-                                  Copiar enlace de pago
-                                </button>
-
-                                {r.estado === "pendiente" && (
-                                  <button
-                                    type="button"
-                                    disabled={ocupado === r.id}
-                                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                                    onClick={(e) => {
-                                      cerrarMenu(e);
-                                      verificar(r);
-                                    }}
-                                  >
-                                    <i className="bx bx-refresh text-sm text-slate-500" />
-                                    {ocupado === r.id
-                                      ? "Consultando…"
-                                      : "¿Ya pagó?"}
-                                  </button>
-                                )}
-
-                                {r.estado === "pagado" && r.url_pdf && (
-                                  <a
-                                    href={r.url_pdf}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50"
-                                    onClick={cerrarMenu}
-                                  >
-                                    <i className="bx bxs-file-pdf text-sm text-slate-500" />
-                                    Ver recibo
-                                  </a>
-                                )}
-
-                                {r.estado === "pendiente" && (
-                                  <>
-                                    <div className="my-1 h-px bg-slate-100" />
-                                    <button
-                                      type="button"
-                                      disabled={ocupado === r.id}
-                                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                                      onClick={(e) => {
-                                        cerrarMenu(e);
-                                        anular(r);
-                                      }}
-                                    >
-                                      <i className="bx bxs-x-circle text-sm" />
-                                      Anular cobro
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </details>
-                          </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-extrabold text-gray-900 whitespace-nowrap">
+                          {fmtMonto(r.monto, r.moneda)}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        <div className="text-[11px] text-gray-500">
+                          {fmtFecha(r.created_at)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {r.concepto && (
+                      <p className="text-sm text-gray-700 line-clamp-2">
+                        {r.concepto}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3">
+                      <ChipEstado row={r} />
+                      <span className="text-xs text-gray-500 truncate">
+                        {r.origen === "bot" ? "Bot" : r.asesor || "—"}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <BotonChat row={r} />
+                      {acciones.map((a) =>
+                        a.href ? (
+                          <a
+                            key={a.key}
+                            href={a.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 h-9 px-3 rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            <i className={`bx ${a.icon} text-sm`} />
+                            {a.label}
+                          </a>
+                        ) : (
+                          <button
+                            key={a.key}
+                            type="button"
+                            disabled={a.disabled}
+                            onClick={a.onClick}
+                            className={`inline-flex items-center gap-1 h-9 px-3 rounded-full border text-xs font-semibold disabled:opacity-50 ${
+                              a.peligro
+                                ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            <i className={`bx ${a.icon} text-sm`} />
+                            {a.label}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Escritorio: tabla. "Motivo" y "Enviado por" solo desde lg
+                para que en tablet no se apriete. */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-600">
+                  <tr>
+                    <th className="text-left px-4 py-2.5 font-semibold whitespace-nowrap">
+                      Fecha
+                    </th>
+                    <th className="text-left px-4 py-2.5 font-semibold">
+                      Cliente
+                    </th>
+                    <th className="hidden lg:table-cell text-left px-4 py-2.5 font-semibold">
+                      Motivo
+                    </th>
+                    <th className="text-right px-4 py-2.5 font-semibold">
+                      Monto
+                    </th>
+                    <th className="text-left px-4 py-2.5 font-semibold">
+                      Estado
+                    </th>
+                    <th className="hidden lg:table-cell text-left px-4 py-2.5 font-semibold whitespace-nowrap">
+                      Enviado por
+                    </th>
+                    <th className="text-right px-4 py-2.5 font-semibold">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const nombre =
+                      [r.nombre_cliente, r.apellido_cliente]
+                        .filter(Boolean)
+                        .join(" ") || "—";
+                    const acciones = accionesDe(r, {
+                      ocupado,
+                      copiar,
+                      verificar,
+                      anular,
+                    });
+                    return (
+                      <tr key={r.id} className="border-t hover:bg-gray-50/60">
+                        <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
+                          {fmtFecha(r.created_at)}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="font-semibold text-gray-800">
+                            {nombre}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {r.celular_cliente || ""}
+                          </div>
+                          {/* En tablet, motivo y asesor se muestran aquí
+                              porque sus columnas están ocultas */}
+                          <div className="lg:hidden text-xs text-gray-500 mt-0.5 max-w-[220px] truncate">
+                            {r.concepto}
+                            {r.concepto ? " · " : ""}
+                            {r.origen === "bot" ? "Bot" : r.asesor || "—"}
+                          </div>
+                        </td>
+                        <td
+                          className="hidden lg:table-cell px-4 py-2.5 text-gray-700 max-w-[260px] truncate"
+                          title={r.concepto}
+                        >
+                          {r.concepto}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-bold text-gray-900 whitespace-nowrap">
+                          {variasMonedas ? (
+                            <>
+                              <span className="inline-block text-[10px] font-semibold text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 mr-1.5 align-middle">
+                                {String(r.moneda || "usd").toUpperCase()}
+                              </span>
+                              {fmtNumero(r.monto)}
+                            </>
+                          ) : (
+                            fmtMonto(r.monto, r.moneda)
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <ChipEstado row={r} />
+                        </td>
+                        <td className="hidden lg:table-cell px-4 py-2.5 text-gray-700">
+                          {r.origen === "bot" ? "Bot" : r.asesor || "—"}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center justify-end gap-2">
+                            <BotonChat row={r} />
+                            <MenuAcciones acciones={acciones} />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         {/* Paginación: 15 por página, siempre visible, con el total real */}
         {rows.length > 0 && (

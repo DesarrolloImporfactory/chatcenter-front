@@ -12,11 +12,12 @@ import Header from "../Header/pageHeader";
  * Mismo marco que las demás vistas de MainLayout (ej. Productos): tarjeta
  * blanca + PageHeader compartido.
  *
- * Piloto: visible solo para las conexiones de la lista hasta abrirlo a todos
- * (el ítem del menú usa el mismo gate).
+ * Abierto a todas las cuentas desde 2026-10-08 (permisos de Meta aprobados).
+ * CAMPANIAS_PILOTO vacío = visible para todos; si hay que volver a cerrarlo,
+ * se listan aquí los id_configuracion y el ítem del menú usa el mismo gate.
  */
 
-export const CAMPANIAS_PILOTO = [610, 10, 822];
+export const CAMPANIAS_PILOTO = [];
 
 const CampaniasView = () => {
   const idConfiguracion =

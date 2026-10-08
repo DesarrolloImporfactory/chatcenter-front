@@ -1527,8 +1527,8 @@ const Cabecera = ({
               style={{ maxHeight: openMenu === "productos" ? "280px" : "0px" }}
             >
               <div className="ml-10 flex flex-col py-2">
-                {/* Campañas: centro de campañas Meta (piloto por
-                    id_configuracion — ver CAMPANIAS_PILOTO) */}
+                {/* Campañas: centro de campañas Meta. Abierto a todos;
+                    CAMPANIAS_PILOTO vacío (si se llena, vuelve a ser piloto) */}
                 {(CAMPANIAS_PILOTO.length === 0 ||
                   CAMPANIAS_PILOTO.includes(
                     Number(localStorage.getItem("id_configuracion")),
