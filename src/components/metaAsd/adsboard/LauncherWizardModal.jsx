@@ -679,12 +679,47 @@ const LauncherWizardModal = ({
     return nuevas.length;
   };
 
-  // ── Carga rápida de exclusiones ──
+  /* Igual que agregarExcluirVarias pero para las zonas incluidas. Si una ya
+     estaba excluida, se saca de ahí (no puede estar en las dos). */
+  const agregarLugaresVarios = (lista) => {
+    const yaEstan = new Set(form.geo.lugares.map((x) => x.key));
+    const nuevas = [];
+    for (const l of lista || []) {
+      if (!l?.key || yaEstan.has(String(l.key))) continue;
+      yaEstan.add(String(l.key));
+      nuevas.push({
+        key: String(l.key),
+        name: l.name,
+        type: l.type,
+        country_code: l.country_code || null,
+      });
+    }
+    if (!nuevas.length) return 0;
+    const keys = new Set(nuevas.map((x) => x.key));
+    setGeo({
+      lugares: [...form.geo.lugares, ...nuevas].slice(0, MAX_ZONAS),
+      excluir: (form.geo.excluir || []).filter((x) => !keys.has(String(x.key))),
+    });
+    return nuevas.length;
+  };
+
+  // ── Carga rápida de zonas (incluidas o excluidas) ──
   // México excluye decenas de zonas sin cobertura: buscarlas una por una en
   // cada plantilla nueva era lo que más demoraba. Tres atajos: pegar una
   // lista (o subir .txt/.csv) que el backend resuelve contra Meta en lote,
   // listas guardadas reutilizables, y copiar las de la última plantilla.
   const [excluirMasivoOpen, setExcluirMasivoOpen] = useState(false);
+  // El mismo panel sirve para las dos listas: "excluir" o "incluir".
+  const [masivoDestino, setMasivoDestino] = useState("excluir");
+  const esIncluir = masivoDestino === "incluir";
+  const paisMasivo = esIncluir ? paisBase : paisExcluir;
+  const agregarVariasDestino = (lista) =>
+    esIncluir ? agregarLugaresVarios(lista) : agregarExcluirVarias(lista);
+  const abrirMasivo = (destino) => {
+    setMasivoDestino(destino);
+    setExcluirRevision(null);
+    setExcluirMasivoOpen(true);
+  };
   const [excluirTexto, setExcluirTexto] = useState("");
   const [excluirResolviendo, setExcluirResolviendo] = useState(false);
   // Resultado de la búsqueda en lote, para que el cliente REVISE qué se va
@@ -729,14 +764,18 @@ const LauncherWizardModal = ({
     try {
       const { data } = await chatApi.post(
         "/meta_ads/launcher/geo/resolver",
-        { id_configuracion, pais: paisExcluir, nombres },
+        { id_configuracion, pais: paisMasivo, nombres },
         { silentError: true, timeout: 120000 },
       );
       if (!data?.success) {
         throw new Error(data?.message || "No se pudo buscar la lista.");
       }
+      // Al incluir, una zona excluida no cuenta como repetida: se mueve.
       const yaKeys = new Set(
-        [...form.geo.excluir, ...form.geo.lugares].map((x) => String(x.key)),
+        (esIncluir
+          ? form.geo.lugares
+          : [...form.geo.excluir, ...form.geo.lugares]
+        ).map((x) => String(x.key)),
       );
       const encontrados = (data.data.encontrados || []).map((z) => {
         const repetida = yaKeys.has(String(z.key));
@@ -779,10 +818,12 @@ const LauncherWizardModal = ({
       ...excluirRevision.encontrados.filter((z) => z.marcada),
       ...excluirRevision.ambiguas.map((a) => a.elegida).filter(Boolean),
     ];
-    const n = agregarExcluirVarias(zonas);
+    const n = agregarVariasDestino(zonas);
     cerrarMasivo();
     setExcluirTexto("");
-    toastZonas(`${n} zona${n === 1 ? "" : "s"} excluida${n === 1 ? "" : "s"}`);
+    toastZonas(
+      `${n} zona${n === 1 ? "" : "s"} ${esIncluir ? "agregada" : "excluida"}${n === 1 ? "" : "s"}`,
+    );
   };
 
   const marcarEncontrada = (key, marcada) =>
@@ -838,24 +879,32 @@ const LauncherWizardModal = ({
     if (step === 2) cargarGeoListas();
   }, [step, cargarGeoListas]);
 
-  const aplicarGeoLista = (id) => {
+  // destino: "excluir" (por defecto) o "incluir".
+  const aplicarGeoLista = (id, destino = "excluir") => {
     const lista = geoListas.find((l) => String(l.id) === String(id));
     if (!lista) return;
-    const n = agregarExcluirVarias(lista.lugares);
+    const incluir = destino === "incluir";
+    const n = incluir
+      ? agregarLugaresVarios(lista.lugares)
+      : agregarExcluirVarias(lista.lugares);
+    const verbo = incluir ? "agregada" : "excluida";
     toastZonas(
       n
-        ? `${n} zona${n === 1 ? "" : "s"} de «${lista.nombre}» excluida${n === 1 ? "" : "s"}`
-        : `Las zonas de «${lista.nombre}» ya estaban excluidas`,
+        ? `${n} zona${n === 1 ? "" : "s"} de «${lista.nombre}» ${verbo}${n === 1 ? "" : "s"}`
+        : `Las zonas de «${lista.nombre}» ya estaban ${verbo}s`,
     );
   };
 
-  const guardarComoLista = async () => {
-    if (!form.geo.excluir.length) return;
+  const guardarComoLista = async (destino = "excluir") => {
+    const zonas = destino === "incluir" ? form.geo.lugares : form.geo.excluir;
+    const pais = destino === "incluir" ? paisBase : paisExcluir;
+    if (!zonas.length) return;
     const { value: nombre } = await Swal.fire({
       title: "Guardar zonas como lista",
-      text: `Se guardarán ${form.geo.excluir.length} zonas de ${paisLabel(paisExcluir)} para reutilizarlas en otras plantillas.`,
+      text: `Se guardarán ${zonas.length} zonas de ${paisLabel(pais)} para reutilizarlas en otras plantillas.`,
       input: "text",
-      inputPlaceholder: "Ej: Zonas sin cobertura",
+      inputPlaceholder:
+        destino === "incluir" ? "Ej: Zonas con cobertura" : "Ej: Zonas sin cobertura",
       inputValidator: (v) => (!String(v || "").trim() ? "Escribe un nombre" : null),
       showCancelButton: true,
       confirmButtonText: "Guardar",
@@ -869,8 +918,8 @@ const LauncherWizardModal = ({
         {
           id_configuracion,
           nombre: String(nombre).trim(),
-          pais: paisExcluir,
-          lugares: form.geo.excluir,
+          pais,
+          lugares: zonas,
         },
         { silentError: true },
       );
@@ -938,6 +987,38 @@ const LauncherWizardModal = ({
     }
     return null;
   }, [plantillas, form.id, form.geo.excluir.length, paisExcluir]);
+
+  // Lo mismo para las zonas incluidas (modo provincias/ciudades).
+  const sugerenciaIncluir = useMemo(() => {
+    if (form.geo.lugares.length) return null;
+    for (const p of plantillas || []) {
+      if (p.id === form.id) continue;
+      let g = null;
+      try {
+        g = p.geo_json ? JSON.parse(p.geo_json) : null;
+      } catch {
+        g = null;
+      }
+      const lug = Array.isArray(g?.lugares) ? g.lugares : [];
+      if (!lug.length) continue;
+      const paisesP = Array.isArray(g?.paises)
+        ? g.paises
+        : String(p.paises || "").split(",");
+      if (!paisesP.includes(paisBase)) continue;
+      return { nombre: p.nombre, lugares: lug };
+    }
+    return null;
+  }, [plantillas, form.id, form.geo.lugares.length, paisBase]);
+
+  const sugerenciaMasivo = esIncluir
+    ? sugerenciaIncluir && {
+        nombre: sugerenciaIncluir.nombre,
+        zonas: sugerenciaIncluir.lugares,
+      }
+    : sugerenciaExcluir && {
+        nombre: sugerenciaExcluir.nombre,
+        zonas: sugerenciaExcluir.excluir,
+      };
 
   const togglePais = (code) => {
     const quitando = form.geo.paises.includes(code);
@@ -1928,6 +2009,69 @@ const LauncherWizardModal = ({
                           />
                         </div>
                       </div>
+                      {/* Carga rápida de zonas incluidas: mismos atajos que
+                          las excluidas (lista pegada/archivo, listas
+                          guardadas, copiar de otra plantilla) */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => abrirMasivo("incluir")}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition"
+                          title="Escribe o pega tu lista completa de zonas"
+                        >
+                          <i className="bx bx-list-plus text-base" />
+                          Agregar varias de una vez
+                        </button>
+                        {geoListas.length > 0 && (
+                          <select
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value === "__eliminar") eliminarGeoLista();
+                              else if (e.target.value)
+                                aplicarGeoLista(e.target.value, "incluir");
+                            }}
+                          >
+                            <option value="">Usar lista guardada…</option>
+                            {geoListas.map((l) => (
+                              <option key={l.id} value={l.id}>
+                                {l.nombre} ({l.lugares.length})
+                                {l.global ? " · sugerida" : ""}
+                              </option>
+                            ))}
+                            {geoListas.some((l) => !l.global) && (
+                              <option value="__eliminar">Eliminar una lista…</option>
+                            )}
+                          </select>
+                        )}
+                        {form.geo.lugares.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => guardarComoLista("incluir")}
+                            className={toolBtnCls(false)}
+                            title="Guarda estas zonas para reutilizarlas en otras plantillas"
+                          >
+                            <i className="bx bx-bookmark-plus" />
+                            Guardar como lista
+                          </button>
+                        )}
+                        {sugerenciaIncluir && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const n = agregarLugaresVarios(sugerenciaIncluir.lugares);
+                              toastZonas(`${n} zona${n === 1 ? "" : "s"} copiada${n === 1 ? "" : "s"}`);
+                            }}
+                            className={toolBtnCls(false)}
+                            title={`Copiar las zonas de "${sugerenciaIncluir.nombre}"`}
+                          >
+                            <i className="bx bx-copy" />
+                            Copiar de «{sugerenciaIncluir.nombre.slice(0, 26)}
+                            {sugerenciaIncluir.nombre.length > 26 ? "…" : ""}» (
+                            {sugerenciaIncluir.lugares.length})
+                          </button>
+                        )}
+                      </div>
                       {/* Resultados en línea como chips seleccionables — sin
                           dropdown flotante que obligue a scrollear */}
                       {geoQ.trim().length >= 2 && (
@@ -1968,7 +2112,16 @@ const LauncherWizardModal = ({
                         </div>
                       )}
                       {form.geo.lugares.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+                          <button
+                            type="button"
+                            onClick={() => setGeo({ lugares: [] })}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white ring-1 ring-indigo-200 text-indigo-600 text-[11px] font-semibold hover:bg-indigo-50"
+                            title="Quitar todas las zonas agregadas"
+                          >
+                            <i className="bx bx-eraser" />
+                            Quitar todas ({form.geo.lugares.length})
+                          </button>
                           {form.geo.lugares.map((l) => (
                             <span
                               key={l.key}
@@ -2049,10 +2202,7 @@ const LauncherWizardModal = ({
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setExcluirRevision(null);
-                          setExcluirMasivoOpen(true);
-                        }}
+                        onClick={() => abrirMasivo("excluir")}
                         className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-sm transition shrink-0"
                         title="Escribe o pega tu lista completa de zonas"
                       >
@@ -2091,7 +2241,7 @@ const LauncherWizardModal = ({
                       {form.geo.excluir.length > 0 && (
                         <button
                           type="button"
-                          onClick={guardarComoLista}
+                          onClick={() => guardarComoLista("excluir")}
                           className={toolBtnCls(false)}
                           title="Guarda estas zonas para reutilizarlas en otras plantillas"
                         >
@@ -3028,16 +3178,22 @@ const LauncherWizardModal = ({
           <div className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
             <div className="bg-[#171931] text-white px-5 py-3.5 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-500/30 grid place-items-center">
-                  <i className="bx bx-minus-circle" />
+                <div
+                  className={`w-8 h-8 rounded-lg grid place-items-center ${esIncluir ? "bg-indigo-500/30" : "bg-rose-500/30"}`}
+                >
+                  <i className={`bx ${esIncluir ? "bx-map-pin" : "bx-minus-circle"}`} />
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold leading-tight">
-                    Agregar varias zonas para excluir
+                    {esIncluir
+                      ? "Agregar varias zonas donde mostrar"
+                      : "Agregar varias zonas para excluir"}
                   </h3>
                   <p className="text-[10px] text-white/60">
-                    {paisLabel(paisExcluir)} · el anuncio NO se mostrará en
-                    estas zonas
+                    {paisLabel(paisMasivo)} ·{" "}
+                    {esIncluir
+                      ? "el anuncio se mostrará SOLO en estas zonas"
+                      : "el anuncio NO se mostrará en estas zonas"}
                   </p>
                 </div>
               </div>
@@ -3064,7 +3220,11 @@ const LauncherWizardModal = ({
                       className="flex-1 min-h-[260px] w-full rounded-xl border border-slate-200 px-3.5 py-3 text-sm text-slate-700 leading-7 focus:outline-none focus:ring-2 focus:ring-rose-300"
                       value={excluirTexto}
                       onChange={(e) => setExcluirTexto(e.target.value)}
-                      placeholder={"Chiapas\nOaxaca\nGuerrero\nCancún"}
+                      placeholder={
+                        esIncluir
+                          ? "Pichincha\nGuayas\nCuenca\nManta"
+                          : "Chiapas\nOaxaca\nGuerrero\nCancún"
+                      }
                     />
                     <div className="flex items-center justify-between mt-2">
                       <p className="text-[11px] text-slate-500">
@@ -3109,7 +3269,8 @@ const LauncherWizardModal = ({
                         </li>
                         <li>
                           Pulsa <strong>Buscar zonas</strong>: las ubicamos en
-                          Meta y te mostramos cuáles son antes de excluirlas.
+                          Meta y te mostramos cuáles son antes de{" "}
+                          {esIncluir ? "agregarlas" : "excluirlas"}.
                         </li>
                       </ol>
                     </div>
@@ -3132,7 +3293,7 @@ const LauncherWizardModal = ({
                           value=""
                           onChange={(e) => {
                             if (!e.target.value) return;
-                            aplicarGeoLista(e.target.value);
+                            aplicarGeoLista(e.target.value, masivoDestino);
                             cerrarMasivo();
                           }}
                         >
@@ -3145,11 +3306,11 @@ const LauncherWizardModal = ({
                           ))}
                         </select>
                       )}
-                      {sugerenciaExcluir && (
+                      {sugerenciaMasivo && (
                         <button
                           type="button"
                           onClick={() => {
-                            const n = agregarExcluirVarias(sugerenciaExcluir.excluir);
+                            const n = agregarVariasDestino(sugerenciaMasivo.zonas);
                             cerrarMasivo();
                             toastZonas(`${n} zona${n === 1 ? "" : "s"} copiada${n === 1 ? "" : "s"}`);
                           }}
@@ -3157,8 +3318,8 @@ const LauncherWizardModal = ({
                         >
                           <i className="bx bx-copy text-base text-slate-400 shrink-0" />
                           <span className="min-w-0 truncate">
-                            Copiar las {sugerenciaExcluir.excluir.length} de «
-                            {sugerenciaExcluir.nombre}»
+                            Copiar las {sugerenciaMasivo.zonas.length} de «
+                            {sugerenciaMasivo.nombre}»
                           </span>
                         </button>
                       )}
@@ -3200,13 +3361,15 @@ const LauncherWizardModal = ({
                               z.repetida
                                 ? "bg-slate-50 ring-slate-100 text-slate-400"
                                 : z.marcada
-                                  ? "bg-rose-50 ring-rose-200"
+                                  ? esIncluir
+                                    ? "bg-indigo-50 ring-indigo-200"
+                                    : "bg-rose-50 ring-rose-200"
                                   : "bg-white ring-slate-200"
                             }`}
                           >
                             <input
                               type="checkbox"
-                              className="accent-rose-600"
+                              className={esIncluir ? "accent-indigo-600" : "accent-rose-600"}
                               disabled={z.repetida}
                               checked={z.marcada}
                               onChange={(e) => marcarEncontrada(z.key, e.target.checked)}
@@ -3238,7 +3401,8 @@ const LauncherWizardModal = ({
                         {excluirRevision.ambiguas.length})
                       </p>
                       <p className="text-[10px] text-amber-700 mb-2.5">
-                        Si no eliges ninguna, esa zona no se excluye.
+                        Si no eliges ninguna, esa zona no se{" "}
+                        {esIncluir ? "agrega" : "excluye"}.
                       </p>
                       <div className="space-y-2.5">
                         {excluirRevision.ambiguas.map((a) => (
@@ -3303,8 +3467,9 @@ const LauncherWizardModal = ({
                       </div>
                       <p className="text-[10px] text-rose-600 mt-2">
                         Revisa que el nombre esté bien escrito y que pertenezca
-                        a {paisLabel(paisExcluir)}. Puedes excluir las demás
-                        ahora y buscar estas después.
+                        a {paisLabel(paisMasivo)}. Puedes{" "}
+                        {esIncluir ? "agregar" : "excluir"} las demás ahora y
+                        buscar estas después.
                       </p>
                     </section>
                   )}
@@ -3326,7 +3491,7 @@ const LauncherWizardModal = ({
                     type="button"
                     disabled={!zonasDetectadas.length || excluirResolviendo}
                     onClick={() => resolverZonas(zonasDetectadas)}
-                    className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow transition disabled:opacity-50"
+                    className={`inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow transition disabled:opacity-50 ${esIncluir ? "bg-indigo-600 hover:bg-indigo-700" : "bg-rose-600 hover:bg-rose-700"}`}
                   >
                     {excluirResolviendo ? (
                       <>
@@ -3356,10 +3521,11 @@ const LauncherWizardModal = ({
                     type="button"
                     disabled={!totalAplicar}
                     onClick={aplicarRevision}
-                    className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow transition disabled:opacity-50"
+                    className={`inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow transition disabled:opacity-50 ${esIncluir ? "bg-indigo-600 hover:bg-indigo-700" : "bg-rose-600 hover:bg-rose-700"}`}
                   >
-                    <i className="bx bx-minus-circle" />
-                    Excluir {totalAplicar} zona{totalAplicar === 1 ? "" : "s"}
+                    <i className={`bx ${esIncluir ? "bx-plus-circle" : "bx-minus-circle"}`} />
+                    {esIncluir ? "Agregar" : "Excluir"} {totalAplicar} zona
+                    {totalAplicar === 1 ? "" : "s"}
                   </button>
                 </>
               )}
