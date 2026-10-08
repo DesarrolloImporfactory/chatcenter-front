@@ -746,7 +746,7 @@ function App() {
                 />
 
                 {/* Centro de campañas Meta: lanzador + reglas automáticas
-                    (piloto por id_configuracion, ver CAMPANIAS_PILOTO). */}
+                    (abierto a todos; CAMPANIAS_PILOTO vacío). */}
                 <Route
                   path="/anuncios"
                   element={
