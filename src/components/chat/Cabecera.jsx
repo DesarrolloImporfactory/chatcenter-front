@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 // Asistente de la cuenta: diseño "Lienzo" con métricas del "Tablero". La variante Tablero pura está en ../layout/AsistenteCuentaTablero
 import FloatingSupportChat from "../layout/FloatingSupportChat";
 import CarteraHeaderBadges from "../imporsuit/CarteraHeaderBadges";
+import ImporchatHeaderBadges from "../imporchat/ImporchatHeaderBadges";
 import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
@@ -13,7 +14,6 @@ import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
 import CronometroRespuesta from "./CronometroRespuesta";
 import useCasosAcceso from "../../hooks/useCasosAcceso";
-import useRecuperacionAcceso from "../../hooks/useRecuperacionAcceso";
 import useEscalonAncho from "../../hooks/useEscalonAncho";
 import MenuLlamar from "./MenuLlamar";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
@@ -237,8 +237,6 @@ const Cabecera = ({
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
   const casosAcceso = useCasosAcceso();
-  // «Recuperación de clientes»: asesores elegidos por el super admin (hooks/useRecuperacionAcceso).
-  const recuperacionAcceso = useRecuperacionAcceso();
   const [cabeceraChatRef, escalon] = useEscalonAncho(CORTES_CABECERA);
   const botEnBarra = escalon >= 1;
   const remarketingEnBarra = escalon >= 2;
@@ -998,27 +996,6 @@ const Cabecera = ({
 
           {/* Seguimiento de casos (Escalamientos / Oportunidades): solo a
               quien el back le da acceso (hooks/useCasosAcceso). */}
-          {/* Recuperación de clientes: asesores elegidos por el super admin. */}
-          {recuperacionAcceso && (
-            <a
-              href="/recuperacion"
-              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
-                location.pathname === "/recuperacion"
-                  ? "bg-gray-200 font-semibold"
-                  : ""
-              }`}
-              onClick={(e) => {
-                e.preventDefault();
-                goTo("/recuperacion");
-                setSliderOpen(false);
-              }}
-            >
-              <i className="bx bx-support text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">
-                Recuperación de clientes
-              </span>
-            </a>
-          )}
           {casosAcceso && (
             <a
               href="/seguimiento-casos"
@@ -2475,6 +2452,14 @@ const Cabecera = ({
               {/* Antigüedad del cliente + deuda pendiente (cartera Imporsuit,
                   solo en la config de ventas) */}
               <CarteraHeaderBadges
+                selectedChat={selectedChat}
+                idConfiguracion={id_configuracion}
+              />
+
+              {/* Cuenta ImporChat del contacto resumida (embudo de recuperación,
+                  plan, vencimiento, conexiones, caso y último seguimiento).
+                  Solo soporte/ventas: 242, 251, 265. */}
+              <ImporchatHeaderBadges
                 selectedChat={selectedChat}
                 idConfiguracion={id_configuracion}
               />

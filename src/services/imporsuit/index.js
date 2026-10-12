@@ -62,6 +62,13 @@ export {
   restaurarCotizacionIA,
 } from "./cotizacionesIA.service";
 
+export {
+  getCotizacionesDelChat,
+  pedirCotizacion,
+  responderCotizacion,
+  REGLAS_COTIZACION_DEFAULT,
+} from "./cotizacionChat.service";
+
 export { getActorChatcenter, setCarteraCtx, getCarteraCtx } from "./actor";
 
 export {
@@ -73,6 +80,7 @@ export {
   TIPOS_VENTA,
   CARTERA_CONFIGS_HABILITADAS,
   CHECKLIST_CONFIGS_HABILITADAS,
+  COTIZACION_CONFIGS_HABILITADAS,
   IA_CONFIGS_HABILITADAS,
   IA_AGENTES_HABILITADOS,
   LINEAS_AUTOASIGNACION_COTIZACION,
