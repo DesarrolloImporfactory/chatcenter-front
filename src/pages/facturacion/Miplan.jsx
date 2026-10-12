@@ -531,6 +531,26 @@ const MiPlan = () => {
 
       throw new Error("No se recibió URL de pago.");
     } catch (e) {
+      const data = e?.response?.data || {};
+      // 409 del backend: ya hay suscripción. Con la renovación rebotada se
+      // paga la factura abierta; crear otra sub terminaba en doble cobro.
+      if (data.code === "PAGO_PENDIENTE" || data.code === "SUSCRIPCION_VIVA") {
+        const url = data.pago_pendiente?.hosted_invoice_url || null;
+        const r = await Swal.fire({
+          icon: "warning",
+          title:
+            data.code === "PAGO_PENDIENTE" ? "Pago pendiente" : "Plan vigente",
+          text: data.message || "Ya tiene una suscripción.",
+          showCancelButton: Boolean(url),
+          confirmButtonText: url ? "Pagar ahora" : "Entendido",
+          cancelButtonText: "Cerrar",
+        });
+        if (r.isConfirmed && url) {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+        obtenerPlanActivo();
+        return;
+      }
       console.error(e);
       Swal.fire("Error", "No se pudo iniciar la renovación.", "error");
     }

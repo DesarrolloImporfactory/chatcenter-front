@@ -774,10 +774,43 @@ const PlanesView = () => {
       }
       await Swal.fire("Error", "No se recibió URL de pago.", "error");
     } catch (error) {
+      const data = error?.response?.data || {};
+      // El backend no abre checkout a quien ya tiene suscripción (409):
+      // con la renovación rebotada manda la factura abierta (pagarla
+      // reactiva la cuenta); con una sub vigente el cambio va por
+      // "Cambiar a este plan". Crear otra sub aquí terminaba en doble cobro.
+      if (data.code === "PAGO_PENDIENTE") {
+        const url = data.pago_pendiente?.hosted_invoice_url || null;
+        const monto = Number(data.pago_pendiente?.monto || 0) / 100;
+        const r = await Swal.fire({
+          icon: "warning",
+          title: "Pago pendiente",
+          html: `<div style="text-align:left;line-height:1.5;font-size:14px;"><p style="margin:0 0 10px">No pudimos cobrar su última renovación${
+            monto > 0 ? ` (<b>USD ${monto.toFixed(2)}</b>)` : ""
+          }.</p><p style="margin:0">Pague esa factura para reactivar su cuenta: no hace falta contratar de nuevo.</p></div>`,
+          showCancelButton: true,
+          confirmButtonText: url ? "Pagar ahora" : "Ir a Mi plan",
+          cancelButtonText: "Cerrar",
+        });
+        if (r.isConfirmed) {
+          if (url) window.open(url, "_blank", "noopener,noreferrer");
+          else navigate("/plan");
+        }
+        return;
+      }
+      if (data.code === "SUSCRIPCION_VIVA") {
+        await Swal.fire(
+          "Ya tiene un plan vigente",
+          data.message || 'Use "Cambiar a este plan" para cambiarlo.',
+          "info",
+        );
+        await refreshPlanActual();
+        return;
+      }
       await Swal.fire({
         icon: "error",
         title: "Error",
-        text: error?.response?.data?.message || "No se pudo procesar.",
+        text: data.message || "No se pudo procesar.",
       });
     } finally {
       setLoading(false);
