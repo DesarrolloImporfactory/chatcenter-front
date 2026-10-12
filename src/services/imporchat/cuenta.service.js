@@ -13,7 +13,8 @@ import chatApi from "../../api/chatcenter";
  */
 
 /** id_configuracion donde se muestra la sección (espejo del back). */
-export const IMPORCHAT_CONFIGS_HABILITADAS = [251, 265];
+// 242 = ImporFactory Ventas: desde el 12-10-2026 también da seguimiento a cuentas.
+export const IMPORCHAT_CONFIGS_HABILITADAS = [242, 251, 265];
 
 /**
  * @returns {Promise<{encontrado:boolean, coincidencia?:string, detalle?:string,
