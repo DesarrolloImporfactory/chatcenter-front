@@ -8,6 +8,7 @@ import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
 import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
 import AnalisisIAImporsuitSection from "../imporsuit/AnalisisIAImporsuitSection";
 import ImporchatCuentaSection from "../imporchat/ImporchatCuentaSection";
+import CotizacionChatSection from "../imporsuit/CotizacionChatSection";
 
 export default function BasicClientPanel({
   selectedChat,
@@ -167,6 +168,12 @@ export default function BasicClientPanel({
 
         {/* Cuenta Imporchat del cliente (soporte: 251 / 265) */}
         <ImporchatCuentaSection
+          selectedChat={selectedChat}
+          idConfiguracion={id_configuracion}
+        />
+
+        {/* Solicitud de cotización a pricing (265): se despliega aquí mismo */}
+        <CotizacionChatSection
           selectedChat={selectedChat}
           idConfiguracion={id_configuracion}
         />

@@ -12,6 +12,7 @@ import OrderDetail from "./OrderDetail";
 import EncuestasCliente from "./EncuestasCliente";
 import CarteraImporsuitSection from "../imporsuit/CarteraImporsuitSection";
 import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
+import CotizacionChatSection from "../imporsuit/CotizacionChatSection";
 
 import AliclikOrdersSection from "./AliclikOrdersSection";
 
@@ -510,6 +511,12 @@ export default function DropshipperClientPanel(props) {
 
         {/* ===== Checklist del alumno (solo lectura) ===== */}
         <ChecklistImporsuitSection
+          selectedChat={selectedChat}
+          idConfiguracion={id_configuracion}
+        />
+
+        {/* ===== Solicitud de cotización a pricing (265), inline ===== */}
+        <CotizacionChatSection
           selectedChat={selectedChat}
           idConfiguracion={id_configuracion}
         />
