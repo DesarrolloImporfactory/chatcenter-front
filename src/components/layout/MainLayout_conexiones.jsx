@@ -9,6 +9,7 @@ import FloatingSupportChat from "./FloatingSupportChat";
 import { globalLogout } from "../../utils/globalLogout";
 import chatApi from "../../api/chatcenter";
 import WhatsAppCaptureModal from "../../pages/selectorHerramienta/modales/WhatsAppCaptureModal";
+import useRecuperacionAcceso from "../../hooks/useRecuperacionAcceso";
 
 // Rutas que siguen disponibles aunque el plan no esté activo: sin ellas el
 // usuario quedaría encerrado, sin forma de pagar ni de pedir ayuda.
@@ -20,6 +21,7 @@ const RUTAS_SIN_PLAN = new Set([
   "/tutoriales",
   "/referidos",
   "/mi-perfil",
+  "/recuperacion",
 ]);
 
 function MainLayout({ children }) {
@@ -120,6 +122,10 @@ function MainLayout({ children }) {
 
   const role = userData?.role || localStorage.getItem("user_role");
   const isSuperAdmin = role === "super_administrador";
+  // «Recuperación de clientes»: lo decide el back (asesores elegidos por el
+  // super admin). Es la entrada de los asesores de la conexión de soporte,
+  // que son `ventas` de otra cuenta y aterrizan en este layout.
+  const recuperacionAcceso = useRecuperacionAcceso();
   const isGestorClientes = role === "gestor_clientes";
   const puedePanelUsuarios = isSuperAdmin || isGestorClientes;
   // Dueño de la cuenta: gestiona usuarios, departamentos y facturación. Un
@@ -312,6 +318,16 @@ function MainLayout({ children }) {
                 path="/codigos_promocionales_admin"
                 icon="bx-purchase-tag"
                 label="Códigos Promo"
+              />
+            )}
+
+            {/* Recuperación de clientes: asesores elegidos por el super admin
+                en /dashboard_admin?tab=recuperacion → Asesores. */}
+            {recuperacionAcceso && (
+              <NavBtn
+                path="/recuperacion"
+                icon="bx-support"
+                label="Recuperación de clientes"
               />
             )}
 

@@ -23,8 +23,12 @@ const toLocalDate = (d) => {
   return dt.toISOString().slice(0, 10);
 };
 
+// Resultados agrupados para el <select> (los sin grupo van sueltos arriba/abajo).
+const GRUPOS_RESULTADO = [...new Set(RESULTADOS.map((r) => r.grupo).filter(Boolean))];
+
 export default function FormSeguimiento({
   id_usuario,
+  cliente_nombre = null,
   seguimiento,
   onClose,
   onSaved,
@@ -59,11 +63,18 @@ export default function FormSeguimiento({
   }, [onClose]);
 
   const muestraMotivo = tipo === "cancelacion" || tipo === "retencion";
+  // Promesa de pago: la fecha es obligatoria y se guarda en proximo_contacto.
+  // Así entra a la Agenda de recuperación y se marca vencida si pasa sin pago.
+  const esPromesa = resultado === "promesa_pago";
 
   const submit = async (e) => {
     e.preventDefault();
     if (!contenido.trim()) {
-      toast.error("El contenido es requerido");
+      toast.error("Escribe qué se habló con el cliente");
+      return;
+    }
+    if (esPromesa && !proximo) {
+      toast.error("Indica para qué fecha prometió pagar");
       return;
     }
 
@@ -128,8 +139,11 @@ export default function FormSeguimiento({
               {isEdit ? "Editar seguimiento" : "Nuevo seguimiento"}
             </div>
             <h2 className="text-lg font-extrabold mt-0.5">
-              Cliente #{id_usuario}
+              {cliente_nombre || `Cliente #${id_usuario}`}
             </h2>
+            {cliente_nombre && (
+              <div className="text-[11px] opacity-80">Cliente #{id_usuario}</div>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -186,20 +200,62 @@ export default function FormSeguimiento({
             {/* Resultado */}
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1.5">
-                Resultado
+                ¿Qué pasó? <span className="text-slate-400 normal-case">(resultado del contacto)</span>
               </label>
               <select
                 value={resultado}
                 onChange={(e) => setResultado(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-cyan-500"
               >
-                {RESULTADOS.map((r) => (
+                {RESULTADOS.filter((r) => !r.grupo).map((r) => (
                   <option key={r.value} value={r.value}>
                     {r.label}
                   </option>
                 ))}
+                {GRUPOS_RESULTADO.map((g) => (
+                  <optgroup key={g} label={g}>
+                    {RESULTADOS.filter((r) => r.grupo === g).map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Con esto se arman las métricas del equipo: cuántos contestan, cuántos prometen pagar y
+                cuántos se recuperan. Elige siempre uno.
+              </p>
             </div>
+
+            {/* Promesa de pago: fecha obligatoria */}
+            {esPromesa && (
+              <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider">
+                  <i className="bx bx-handshake text-base" />
+                  Promesa de pago
+                  <span className="ml-auto text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    Fecha requerida
+                  </span>
+                </div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
+                  ¿Para qué fecha prometió pagar? <span className="text-emerald-700">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={proximo}
+                  onChange={(e) => setProximo(e.target.value)}
+                  required
+                  className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500 bg-white ${
+                    !proximo ? "border-emerald-400" : "border-slate-300"
+                  }`}
+                />
+                <p className="text-[11px] text-emerald-800">
+                  Ese día el cliente aparece en la <b>Agenda</b> de recuperación como promesa. Si llega la fecha y
+                  no pagó, se marca <b>vencida</b> para que lo vuelvas a contactar.
+                </p>
+              </div>
+            )}
 
             {/* Asunto */}
             <div>
@@ -300,14 +356,17 @@ export default function FormSeguimiento({
               </div>
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1.5">
-                  Próximo contacto{" "}
-                  <span className="text-slate-400 normal-case">(opcional)</span>
+                  {esPromesa ? "Fecha prometida de pago" : "Próximo contacto"}{" "}
+                  <span className="text-slate-400 normal-case">
+                    {esPromesa ? "(la misma de arriba)" : "(opcional · entra a la Agenda)"}
+                  </span>
                 </label>
                 <input
                   type="date"
                   value={proximo}
                   onChange={(e) => setProximo(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-cyan-500"
+                  disabled={esPromesa}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-cyan-500 disabled:bg-slate-50 disabled:text-slate-500"
                 />
               </div>
             </div>

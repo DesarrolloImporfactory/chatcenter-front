@@ -38,6 +38,7 @@ import AdminDashboard from "./components/admin/dashboard/AdminDashboard";
 import AuditoriaCarteraView from "./pages/auditoria/AuditoriaCarteraView";
 import SeguimientoIA from "./pages/seguimientoIA/SeguimientoIA";
 import SeguimientoCasos from "./pages/seguimientoCasos/SeguimientoCasos";
+import RecuperacionView from "./pages/recuperacion/RecuperacionView";
 import TutorialesView from "./pages/tutoriales/TutorialesView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
@@ -654,6 +655,18 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <AdminDashboard />
+                    </MainLayout_conexiones>
+                  }
+                />
+                {/* Recuperación de clientes: asesores elegidos por el super admin
+                    (GET /recuperacion/acceso). Sin permiso, el panel lo dice y
+                    vuelve a /chat. El super admin tiene el mismo panel en
+                    /dashboard_admin?tab=recuperacion. */}
+                <Route
+                  path="/recuperacion"
+                  element={
+                    <MainLayout_conexiones>
+                      <RecuperacionView />
                     </MainLayout_conexiones>
                   }
                 />
