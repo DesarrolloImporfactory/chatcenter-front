@@ -33,6 +33,12 @@ export const TIPOS_SEGUIMIENTO = [
     color: "emerald",
   },
   {
+    value: "cobro",
+    label: "Gestión de cobro",
+    icon: "bx-credit-card",
+    color: "amber",
+  },
+  {
     value: "otro",
     label: "Otro",
     icon: "bx-dots-horizontal-rounded",
@@ -44,18 +50,23 @@ export const TIPO_MAP = Object.fromEntries(
   TIPOS_SEGUIMIENTO.map((t) => [t.value, t]),
 );
 
+// `grupo` ordena el selector del formulario para que el asesor encuentre rápido
+// qué pasó. «promesa_pago» exige fecha: va en «Próximo contacto» y el embudo
+// de recuperación la muestra como promesa (vencida si pasa sin pago).
 export const RESULTADOS = [
-  { value: "sin_resultado", label: "— Sin clasificar" },
-  { value: "contactado_exitoso", label: "✓ Conversó exitosamente" },
-  { value: "no_contesto", label: "☎ No contestó" },
-  { value: "numero_invalido", label: "✗ Número inválido" },
-  { value: "interesado", label: "⭐ Interesado" },
-  { value: "no_interesado", label: "◯ No interesado" },
-  { value: "retenido", label: "🛡 Retenido (no cancela)" },
-  { value: "convertido", label: "💳 Convertido (capturó tarjeta)" },
-  { value: "cancelado", label: "✗ Confirmó cancelación" },
-  { value: "programar_seguimiento", label: "⏰ Programar otro contacto" },
-  { value: "otro", label: "... Otro (escribir manualmente)" },
+  { value: "sin_resultado", label: "— Sin clasificar", grupo: "" },
+  { value: "contactado_exitoso", label: "✓ Conversó conmigo", grupo: "Contacto" },
+  { value: "no_contesto", label: "☎ No contestó / no respondió", grupo: "Contacto" },
+  { value: "numero_invalido", label: "✗ Número inválido o equivocado", grupo: "Contacto" },
+  { value: "programar_seguimiento", label: "⏰ Quedamos en hablar otro día", grupo: "Contacto" },
+  { value: "promesa_pago", label: "🤝 Prometió pagar en una fecha", grupo: "Resultado comercial" },
+  { value: "pago_confirmado", label: "💰 Pagó / regularizó su cuenta", grupo: "Resultado comercial" },
+  { value: "retenido", label: "🛡 Retenido (ya no cancela)", grupo: "Resultado comercial" },
+  { value: "convertido", label: "💳 Convertido (capturó tarjeta)", grupo: "Resultado comercial" },
+  { value: "interesado", label: "⭐ Interesado, falta cerrar", grupo: "Resultado comercial" },
+  { value: "no_interesado", label: "◯ No le interesa", grupo: "Resultado comercial" },
+  { value: "cancelado", label: "✗ Confirmó que cancela", grupo: "Resultado comercial" },
+  { value: "otro", label: "... Otro (lo explico en la nota)", grupo: "" },
 ];
 
 export const MOTIVOS_CANCELACION = [

@@ -13,6 +13,7 @@ import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
 import CronometroRespuesta from "./CronometroRespuesta";
 import useCasosAcceso from "../../hooks/useCasosAcceso";
+import useRecuperacionAcceso from "../../hooks/useRecuperacionAcceso";
 import useEscalonAncho from "../../hooks/useEscalonAncho";
 import MenuLlamar from "./MenuLlamar";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
@@ -236,6 +237,8 @@ const Cabecera = ({
   const [sliderOpen, setSliderOpen] = useState(false);
   const [openProductos, setOpenProductos] = useState(false);
   const casosAcceso = useCasosAcceso();
+  // «Recuperación de clientes»: asesores elegidos por el super admin (hooks/useRecuperacionAcceso).
+  const recuperacionAcceso = useRecuperacionAcceso();
   const [cabeceraChatRef, escalon] = useEscalonAncho(CORTES_CABECERA);
   const botEnBarra = escalon >= 1;
   const remarketingEnBarra = escalon >= 2;
@@ -875,9 +878,25 @@ const Cabecera = ({
           <CampanaNotificaciones />
 
           <div className="text-end leading-tight">
-            <span className="block text-white font-semibold text-[15px]">
-              {localStorage.getItem("nombre_configuracion") ?? "Tony Plaza"}
-            </span>
+            {/* Nombre de la conexión. Si no está en localStorage es que se
+                llegó al chat sin pasar por Conexiones (enlace directo o un
+                botón que olvidó guardarla): se dice explícito en vez de un
+                nombre de relleno que confunde. */}
+            {localStorage.getItem("nombre_configuracion") ? (
+              <span className="block text-white font-semibold text-[15px]">
+                {localStorage.getItem("nombre_configuracion")}
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-amber-200 font-semibold text-[13px]"
+                title="No se guardó el nombre de la conexión al entrar al chat. Vuelve a Conexiones y elige la conexión."
+              >
+                <i className="bx bx-error-circle" />
+                Conexión sin nombre
+                {localStorage.getItem("id_configuracion") &&
+                  ` · #${localStorage.getItem("id_configuracion")}`}
+              </span>
+            )}
 
             {/* Encargado - destacado */}
             <span className="inline-flex items-center justify-end mt-1">
@@ -979,6 +998,27 @@ const Cabecera = ({
 
           {/* Seguimiento de casos (Escalamientos / Oportunidades): solo a
               quien el back le da acceso (hooks/useCasosAcceso). */}
+          {/* Recuperación de clientes: asesores elegidos por el super admin. */}
+          {recuperacionAcceso && (
+            <a
+              href="/recuperacion"
+              className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
+                location.pathname === "/recuperacion"
+                  ? "bg-gray-200 font-semibold"
+                  : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                goTo("/recuperacion");
+                setSliderOpen(false);
+              }}
+            >
+              <i className="bx bx-support text-2xl mr-3 text-gray-600 group-hover:text-blue-600"></i>
+              <span className="text-lg text-gray-700 group-hover:text-blue-600">
+                Recuperación de clientes
+              </span>
+            </a>
+          )}
           {casosAcceso && (
             <a
               href="/seguimiento-casos"

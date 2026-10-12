@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import PageShell from "../../layout/PageShell";
 import chatApi from "../../../api/chatcenter";
@@ -14,10 +14,27 @@ import Crecimiento from "./sections/Crecimiento";
 import EvolucionChart from "./sections/EvolucionChart";
 import PlanesTable from "./sections/PlanesTable";
 import CancelacionesTable from "./sections/CancelacionesTable";
+import CobrosTab from "./sections/CobrosTab";
+import RecuperacionPanel from "../../../pages/recuperacion/RecuperacionPanel";
 import ClienteListDrawer from "./ClienteListDrawer";
+
+// Pestañas: cada una carga solo lo suyo (Cobros consulta Stripe en vivo)
+const TABS = [
+  { id: "resumen", label: "Resumen", icon: "bx-dollar-circle" },
+  { id: "cobros", label: "Cobros reales", icon: "bx-wallet" },
+  { id: "clientes", label: "Clientes", icon: "bx-group" },
+  { id: "historico", label: "Histórico y planes", icon: "bx-line-chart" },
+  { id: "cancelaciones", label: "Cancelaciones", icon: "bx-user-x" },
+  { id: "recuperacion", label: "Recuperación", icon: "bx-support" },
+];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = TABS.some((t) => t.id === searchParams.get("tab"))
+    ? searchParams.get("tab")
+    : "resumen";
+  const setTab = (id) => setSearchParams({ tab: id }, { replace: true });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [resumen, setResumen] = useState(null);
@@ -62,8 +79,8 @@ export default function AdminDashboard() {
     fetchAll();
   }, [fetchAll]);
   useEffect(() => {
-    fetchCancel(mesCancel);
-  }, [mesCancel, fetchCancel]);
+    if (tab === "cancelaciones") fetchCancel(mesCancel);
+  }, [tab, mesCancel, fetchCancel]);
 
   const recalcular = async () => {
     setRefreshing(true);
@@ -169,16 +186,7 @@ export default function AdminDashboard() {
     : null;
   const totalDistribucion = distribucion.reduce((s, x) => s + x.value, 0);
 
-  if (loading || !resumen) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <i className="bx bx-loader-alt bx-spin text-5xl text-cyan-600" />
-          <p className="mt-3 text-slate-500">Cargando dashboard…</p>
-        </div>
-      </div>
-    );
-  }
+  const cargando = loading || !resumen;
 
   return (
     <PageShell>
@@ -187,41 +195,94 @@ export default function AdminDashboard() {
         <HeaderBar
           resumen={resumen}
           refreshing={refreshing}
-          onRecalcular={recalcular}
+          onRecalcular={
+            tab === "cobros" || tab === "recuperacion" ? null : recalcular
+          }
           diasComp={diasComp}
           setDiasComp={setDiasComp}
           fechaHoy={fechaHoy}
           fechaRef={fechaRef}
-        />
-        <Glosario
-          open={glosarioOpen}
-          onToggle={() => setGlosarioOpen(!glosarioOpen)}
-        />
-        <IngresosKpis resumen={resumen} />
-        <PipelineFunnel resumen={resumen} onOpenDrawer={openDrawer} />
-        <Distribucion
-          resumen={resumen}
-          distribucion={distribucion}
-          totalDistribucion={totalDistribucion}
-          onOpenDrawer={openDrawer}
-        />
-        <Crecimiento resumen={resumen} onOpenDrawer={openDrawer} />
-        <EvolucionChart serieChart={serieChart} indiceCorte={indiceCorte} />
-        <PlanesTable
-          planes={resumen.desglose_planes || []}
-          mrrStripe={resumen.mrr_stripe}
-        />
-        <CancelacionesTable
-          rows={cancelaciones}
-          mesCancel={mesCancel}
-          setMesCancel={setMesCancel}
-          navigate={navigate}
+          mostrarPeriodo={tab === "resumen" || tab === "clientes"}
         />
 
-        <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200">
-          Snapshot diario · 23:55 America/Guayaquil · Comparativa con:{" "}
-          {fmtDate(resumen.referencia_delta)}
-        </footer>
+        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 -mt-2">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition ${
+                tab === t.id
+                  ? "border-cyan-600 text-cyan-700"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <i className={`bx ${t.icon} text-base`} />
+              {t.label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === "cobros" ? (
+          <CobrosTab />
+        ) : tab === "recuperacion" ? (
+          <RecuperacionPanel />
+        ) : cargando ? (
+          <div className="py-20 text-center">
+            <i className="bx bx-loader-alt bx-spin text-5xl text-cyan-600" />
+            <p className="mt-3 text-slate-500">Cargando dashboard…</p>
+          </div>
+        ) : (
+          <>
+            <Glosario
+              open={glosarioOpen}
+              onToggle={() => setGlosarioOpen(!glosarioOpen)}
+            />
+            {tab === "resumen" && (
+              <>
+                <IngresosKpis resumen={resumen} />
+                <PipelineFunnel resumen={resumen} onOpenDrawer={openDrawer} />
+              </>
+            )}
+            {tab === "clientes" && (
+              <>
+                <Distribucion
+                  resumen={resumen}
+                  distribucion={distribucion}
+                  totalDistribucion={totalDistribucion}
+                  onOpenDrawer={openDrawer}
+                />
+                <Crecimiento resumen={resumen} onOpenDrawer={openDrawer} />
+              </>
+            )}
+            {tab === "historico" && (
+              <>
+                <EvolucionChart
+                  serieChart={serieChart}
+                  indiceCorte={indiceCorte}
+                />
+                <PlanesTable
+                  planes={resumen.desglose_planes || []}
+                  mrrStripe={resumen.mrr_stripe}
+                />
+              </>
+            )}
+            {tab === "cancelaciones" && (
+              <CancelacionesTable
+                rows={cancelaciones}
+                mesCancel={mesCancel}
+                setMesCancel={setMesCancel}
+                navigate={navigate}
+              />
+            )}
+          </>
+        )}
+
+        {tab !== "cobros" && tab !== "recuperacion" && resumen && (
+          <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200">
+            Snapshot diario · 23:55 America/Guayaquil · Comparativa con:{" "}
+            {fmtDate(resumen.referencia_delta)}
+          </footer>
+        )}
       </div>
 
       {drawer.open && (

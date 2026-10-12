@@ -9,6 +9,7 @@ export default function HeaderBar({
   setDiasComp,
   fechaHoy,
   fechaRef,
+  mostrarPeriodo = true,
 }) {
   const navigate = useNavigate();
   return (
@@ -22,17 +23,19 @@ export default function HeaderBar({
             Salud del negocio
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Métricas en vivo · {num(resumen.total_registros_bd)} registros en la
-            base de datos
+            Métricas en vivo
+            {resumen &&
+              ` · ${num(resumen.total_registros_bd)} registros en la base de datos`}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate("/admin/usuarios")}
+            onClick={() => navigate("/usuarios_admin")}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-slate-700 ring-1 ring-slate-200 font-semibold text-sm hover:bg-slate-100 transition"
           >
             <i className="bx bx-list-ul" /> Panel de usuarios
           </button>
+          {onRecalcular && (
           <button
             onClick={onRecalcular}
             disabled={refreshing}
@@ -43,9 +46,11 @@ export default function HeaderBar({
             />
             {refreshing ? "Recalculando…" : "Recalcular ahora"}
           </button>
+          )}
         </div>
       </header>
 
+      {mostrarPeriodo && (
       <div className="bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl border border-cyan-200 px-4 py-3 flex items-center gap-3 flex-wrap">
         <i className="bx bx-calendar text-cyan-700 text-xl" />
         <div className="flex items-center gap-2 text-sm flex-wrap flex-1">
@@ -87,6 +92,7 @@ export default function HeaderBar({
           </select>
         </div>
       </div>
+      )}
     </>
   );
 }
