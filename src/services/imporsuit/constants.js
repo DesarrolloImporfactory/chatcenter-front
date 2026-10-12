@@ -76,6 +76,15 @@ export const CARTERA_CONFIGS_HABILITADAS = [242, 265];
 export const CHECKLIST_CONFIGS_HABILITADAS = [265];
 
 /**
+ * SOLICITUD DE COTIZACIÓN a pricing desde el panel del chat (pedido
+ * 2026-10-12). Solo la línea de Expertos: el token de Imporsuit va en el
+ * bundle, así que el bloque no debe verse fuera de las configs habilitadas.
+ * Quién puede pedir lo decide el servidor (silla en el portal); a los demás
+ * les responde 403 con un texto que se muestra tal cual.
+ */
+export const COTIZACION_CONFIGS_HABILITADAS = [265];
+
+/**
  * ANÁLISIS IA de cotizaciones no cerradas (por qué no se cerró y cómo
  * recuperarla). Pedido del 2026-09-24: solo en la línea 265 y solo para Johan,
  * que ve las cotizaciones del cliente de todos los asesores.
