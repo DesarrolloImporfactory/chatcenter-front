@@ -73,6 +73,10 @@ const FACTURA = {
   void: "Anulada",
 };
 
+// "19 oct 2026" para las fechas de cancelación programada.
+const fechaCorta = (iso) =>
+  new Date(iso).toLocaleDateString("es-EC", { day: "2-digit", month: "short", year: "numeric" });
+
 const SUB_STATUS = {
   active: { label: "Sub activa", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
   trialing: { label: "En prueba", cls: "bg-cyan-50 text-cyan-700 ring-cyan-200" },
@@ -375,7 +379,7 @@ export default function CobrosTab() {
 
           {/* Alertas que ya costaron dinero (12-10-2026: 10 clientes con dos
               subs y $150 cobrados dos veces). No dependen del rango. */}
-          {(data.alertas?.dobles?.length > 0 || k.pendiente_muerto_facturas > 0) && (
+          {(data.alertas?.dobles?.length > 0 || data.alertas?.dobles_programadas?.length > 0 || k.pendiente_muerto_facturas > 0) && (
             <Section
               icon="bx-shield-x"
               title="Alertas"
@@ -425,12 +429,50 @@ export default function CobrosTab() {
                                   <span className="text-slate-700">{s.producto || "—"} · {money2(s.monto)}</span>
                                   <span className="text-slate-400">desde {new Date(s.creada).toLocaleDateString("es-EC", { day: "2-digit", month: "short", year: "numeric" })}</span>
                                   {esLaDeBd && <span className="text-[10px] font-bold text-cyan-700">la de la BD</span>}
-                                  {s.reemplazada_por && <span className="text-[10px] font-bold text-rose-600">reemplazada → sobrante</span>}
-                                  {!s.reemplazada_por && s.cancel_at_period_end && <span className="text-[10px] text-slate-500">se cancela al fin del periodo</span>}
+                                  {s.reemplazada_por && !s.termina && <span className="text-[10px] font-bold text-rose-600">reemplazada → sobrante, hay que cancelarla</span>}
+                                  {s.reemplazada_por && s.termina && <span className="text-[10px] font-bold text-slate-500">reemplazada</span>}
+                                  {s.termina && <span className="text-[10px] text-slate-500">se cancela el {fechaCorta(s.termina)}</span>}
                                   <StripeLink modo={data.modo} tipo="subscriptions" id={s.id} />
                                 </li>
                               );
                             })}
+                          </ul>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {data.alertas?.dobles_programadas?.length > 0 && (
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-start gap-2 mb-3">
+                      <i className="bx bx-check-shield text-slate-500 text-xl" />
+                      <div>
+                        <div className="text-sm font-bold text-slate-900">
+                          {num(data.alertas.dobles_programadas.length)} cliente
+                          {data.alertas.dobles_programadas.length === 1 ? "" : "s"} con una suscripción sobrante ya programada para cancelarse
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Volvieron a contratar por checkout y la vieja quedó con fecha de fin: Stripe la cancela
+                          sola al cerrar el periodo y no genera otra factura. No hay nada que hacer.
+                        </p>
+                      </div>
+                    </div>
+                    <ul className="divide-y divide-slate-100">
+                      {data.alertas.dobles_programadas.map((d) => (
+                        <li key={d.customer_id} className="py-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-slate-800">{d.empresa || d.cliente_email || d.customer_id}</span>
+                            <StripeLink modo={data.modo} tipo="customers" id={d.customer_id} />
+                          </div>
+                          <ul className="mt-1 space-y-0.5">
+                            {d.subs.map((s) => (
+                              <li key={s.id} className="flex items-center gap-2 flex-wrap text-slate-600">
+                                <span>{s.producto || "—"} · {money2(s.monto)}</span>
+                                {s.id === d.sub_en_bd && <span className="text-[10px] font-bold text-cyan-700">la de la BD</span>}
+                                {s.termina && <span className="text-[10px] text-slate-500">se cancela el {fechaCorta(s.termina)}</span>}
+                                <StripeLink modo={data.modo} tipo="subscriptions" id={s.id} />
+                              </li>
+                            ))}
                           </ul>
                         </li>
                       ))}
