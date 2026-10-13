@@ -509,6 +509,9 @@ const Chat = () => {
   const location = useLocation();
   const desdeCotizacionRef = useRef(null);
   desdeCotizacionRef.current = location.state?.desdeCotizacion ?? null;
+  /* Lo mismo cuando se llega con ?motivo= (un caso de «Mi turno»). */
+  const motivoImporsuitRef = useRef(null);
+  motivoImporsuitRef.current = location.state?.motivoImporsuit ?? null;
 
   useEffect(() => {
     if (!chatId || !id_configuracion) return;
@@ -586,9 +589,12 @@ const Chat = () => {
          asesor se lo puede asignar. Es la transferencia normal —historial,
          aviso en el chat y refresco en vivo—; el socket valida que trabaje
          en esta línea (puedeAutoasignarseEnLinea). */
+      /* Igual si se llega con un motivo desde el portal del equipo (pedido
+         2026-10-13): un caso de «Mi turno» escalado a otra silla. */
       const cot = desdeCotizacionRef.current;
+      const motivoExterno = motivoImporsuitRef.current;
       if (
-        cot &&
+        (cot || motivoExterno) &&
         LINEAS_AUTOASIGNACION_COTIZACION.includes(Number(id_configuracion))
       ) {
         const r = await Swal.fire({
@@ -596,7 +602,11 @@ const Chat = () => {
           title: "¿Asignarte este chat?",
           text: `Este chat lo atiende ${
             chat?.nombre_encargado || "otro asesor"
-          }. Para escribirle por la cotización ${cot} tienes que asignártelo: quedará en tu bandeja y se avisa en el chat.`,
+          }. ${
+            cot
+              ? `Para escribirle por la cotización ${cot}`
+              : `Llegas por «${motivoExterno}»: para atenderlo`
+          } tienes que asignártelo: quedará en tu bandeja y se avisa en el chat.`,
           showCancelButton: true,
           confirmButtonText: "Asignármelo y abrir",
           cancelButtonText: "Cancelar",
@@ -624,7 +634,9 @@ const Chat = () => {
             idCliente: chat.id,
             idConfiguracion: id_configuracion,
             idDepartamento: departamento.id_departamento,
-            motivo: `Cotización ${cot} (desde Imporsuit)`,
+            motivo: cot
+              ? `Cotización ${cot} (desde Imporsuit)`
+              : `${motivoExterno} (desde Imporsuit)`,
           });
           Toast.fire({ icon: "success", title: "El chat ahora es tuyo" });
           return {

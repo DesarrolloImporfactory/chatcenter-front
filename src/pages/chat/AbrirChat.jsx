@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 /**
  * Enlace directo a un chat desde fuera de ImporChat:
  *   /abrir-chat/:linea/:chatId[?cot=<código de cotización>]
+ *   /abrir-chat/:linea/:chatId[?motivo=<por qué se abre>]
  *
  * `/chat/:chatId` solo no alcanza para un enlace externo: el chat se abre en
  * la conexión que esté en `localStorage.id_configuracion`, y desde otro origen
@@ -16,6 +17,11 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
  *
  * Lo usa el botón «Ir al chat» de «Mis Cotizaciones» en Imporsuit
  * (`Cotizadorpro/chatCliente` arma la URL).
+ *
+ * `?motivo=` es lo mismo para cuando no se llega desde una cotización: lo
+ * manda «Abrir chat» de los casos de «Mi turno» (portal del equipo), que
+ * suelen ser chats de un front escalados a otra silla. El texto va al aviso
+ * y al historial de la transferencia.
  */
 export default function AbrirChat() {
   const { linea, chatId } = useParams();
@@ -29,9 +35,14 @@ export default function AbrirChat() {
     }
     localStorage.setItem("id_configuracion", linea);
     const cot = (query.get("cot") || "").slice(0, 40);
+    const motivo = (query.get("motivo") || "").trim().slice(0, 90);
     navigate(`/chat/${chatId}`, {
       replace: true,
-      state: cot ? { desdeCotizacion: cot } : null,
+      state: cot
+        ? { desdeCotizacion: cot }
+        : motivo
+          ? { motivoImporsuit: motivo }
+          : null,
     });
   }, [linea, chatId, query, navigate]);
 
