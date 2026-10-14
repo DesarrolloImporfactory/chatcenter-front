@@ -1107,41 +1107,120 @@ const ProductoModal = ({
      producto del proveedor (ej. "Melaxin x2" con su propio ID). */
   const esDropi = editingProduct?.external_source === "DROPI";
 
-  /* Un solo tipo de variedad por producto: o es por color, o por talla, o por
-     sabor. Combinar dos se prestaba a confusión y terminaba mezclando valores
-     bajo el rótulo equivocado. */
+  /* Hasta dos tipos combinados (Talla + Color): cada fila es una combinación
+     con su propio ID de Dropi. Se guarda como atributo "Talla / Color" y
+     valor "M - Negro"; con uno solo queda igual que siempre ("Color: Negro").
+     Antes era un solo tipo y la cuenta 476 escribía "M BLANCA" bajo Color. */
   const ATRIBUTOS = ["Color", "Talla", "Sabor", "Modelo"];
-  const [atributo, setAtributo] = useState("Color");
+  const MAX_TIPOS = 2;
+  const SEP_ATRIBUTO = " / ";
+  const SEP_VALOR = " - ";
+  const [tiposVariedad, setTiposVariedad] = useState(["Color"]);
+  // Valores para armar todas las combinaciones de un golpe, por tipo.
+  const [opcionesCombinar, setOpcionesCombinar] = useState({});
 
-  const cambiarAtributo = (a) => {
-    setAtributo(a);
-    // Lo escrito deja de tener sentido al cambiar de tipo ("Negro" no es una
-    // talla), así que se limpia en vez de quedar bajo el rótulo errado.
+  const filaVacia = (n) => ({
+    dropi_variation_id: "",
+    partes: Array(n).fill(""),
+    stock: 0,
+    precio_proveedor: "",
+    precio_sugerido: "",
+  });
+
+  /* Agregar un tipo suma una casilla vacía a cada fila; quitarlo borra solo
+     esa casilla. Lo ya escrito en los demás tipos se conserva. */
+  const alternarTipo = (a) => {
+    const idx = tiposVariedad.indexOf(a);
+    if (idx >= 0) {
+      if (tiposVariedad.length === 1) return;
+      setTiposVariedad((t) => t.filter((x) => x !== a));
+      setVariaciones((lista) =>
+        lista.map((v) => ({
+          ...v,
+          partes: v.partes.filter((_, i) => i !== idx),
+        })),
+      );
+      return;
+    }
+    if (tiposVariedad.length >= MAX_TIPOS) return;
+    setTiposVariedad((t) => [...t, a]);
     setVariaciones((lista) =>
-      lista.map((v) => ({ ...v, atributo: a, valor: "" })),
+      lista.map((v) => ({ ...v, partes: [...v.partes, ""] })),
     );
   };
 
   const agregarVariacion = () =>
-    setVariaciones((v) => [
-      ...v,
-      {
-        dropi_variation_id: "",
-        atributo,
-        valor: "",
-        stock: 0,
-        precio_proveedor: "",
-        precio_sugerido: "",
-      },
-    ]);
+    setVariaciones((v) => [...v, filaVacia(tiposVariedad.length)]);
   const cambiarVariacion = (i, campo, valor) =>
     setVariaciones((lista) =>
       lista.map((v, idx) => (idx === i ? { ...v, [campo]: valor } : v)),
     );
+  const cambiarParte = (i, p, valor) =>
+    setVariaciones((lista) =>
+      lista.map((v, idx) =>
+        idx === i
+          ? { ...v, partes: v.partes.map((x, j) => (j === p ? valor : x)) }
+          : v,
+      ),
+    );
   const quitarVariacion = (i) =>
     setVariaciones((lista) => lista.filter((_, idx) => idx !== i));
 
-  const variacionCompleta = (v) => Boolean(String(v?.valor || "").trim());
+  const variacionCompleta = (v) =>
+    v.partes.length > 0 && v.partes.every((x) => String(x || "").trim());
+
+  const listaOpciones = (tipo) =>
+    String(opcionesCombinar[tipo] || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  /* Arma todas las combinaciones (M Negro, M Blanco, L Negro…). Las filas que
+     ya existían con la misma combinación conservan su ID de Dropi. */
+  const generarCombinaciones = () => {
+    const [a, b] = tiposVariedad.map(listaOpciones);
+    if (!a?.length || !b?.length) return;
+    const clave = (partes) =>
+      partes.map((x) => String(x).trim().toLowerCase()).join("|");
+    const previas = new Map(variaciones.map((v) => [clave(v.partes), v]));
+    const nuevas = [];
+    for (const x of a) {
+      for (const y of b) {
+        const previa = previas.get(clave([x, y]));
+        nuevas.push(previa || { ...filaVacia(2), partes: [x, y] });
+      }
+    }
+    setVariaciones(nuevas);
+  };
+
+  /* Lo guardado → filas editables. Un valor que no se deja partir en tantas
+     piezas como tipos (dato viejo o importado) queda entero en la primera. */
+  const filasDesdeGuardadas = (lista, tipos) =>
+    lista.map((v) => {
+      const piezas =
+        tipos.length > 1 ? String(v.valor ?? "").split(SEP_VALOR) : [v.valor];
+      const partes =
+        piezas.length === tipos.length
+          ? piezas.map((x) => String(x ?? "").trim())
+          : [String(v.valor ?? ""), ...Array(tipos.length - 1).fill("")];
+      return {
+        dropi_variation_id: v.dropi_variation_id ?? "",
+        partes,
+        stock: v.stock ?? 0,
+        precio_proveedor: v.precio_proveedor ?? "",
+        precio_sugerido: v.precio_sugerido ?? "",
+      };
+    });
+
+  const placeholderDe = (tipo) =>
+    tipo === "Talla"
+      ? "M"
+      : tipo === "Sabor"
+        ? "Fresa"
+        : tipo === "Modelo"
+          ? "Pro"
+          : "Negro";
+  const nombreTipos = tiposVariedad.join(" y ").toLowerCase();
 
   /* Tipo (producto/servicio): se hereda de lo que el cliente eligió al
      activar el bot en Asistentes, en vez de preguntarlo otra vez acá.
@@ -1375,20 +1454,19 @@ const ProductoModal = ({
       /* Si lo importado trae un rótulo que no está en la lista (Dropi a veces
          no manda el nombre del atributo), se cae a "Color" en vez de dejar
          ninguno marcado, que era lo que confundía. */
-      const attrGuardado = String(p.variaciones?.[0]?.atributo || "").split(
-        " / ",
-      )[0];
-      setAtributo(ATRIBUTOS.includes(attrGuardado) ? attrGuardado : "Color");
+      const tiposGuardados = String(p.variaciones?.[0]?.atributo || "")
+        .split(SEP_ATRIBUTO)
+        .map((t) => t.trim());
+      const tipos =
+        tiposGuardados.length <= MAX_TIPOS &&
+        tiposGuardados.every((t) => ATRIBUTOS.includes(t))
+          ? tiposGuardados
+          : ["Color"];
+      setTiposVariedad(tipos);
+      setOpcionesCombinar({});
       setVariaciones(
         Array.isArray(p.variaciones) && p.variaciones.length
-          ? p.variaciones.map((v) => ({
-              dropi_variation_id: v.dropi_variation_id ?? "",
-              atributo: v.atributo ?? "Color",
-              valor: v.valor ?? "",
-              stock: v.stock ?? 0,
-              precio_proveedor: v.precio_proveedor ?? "",
-              precio_sugerido: v.precio_sugerido ?? "",
-            }))
+          ? filasDesdeGuardadas(p.variaciones, tipos)
           : [],
       );
 
@@ -1438,10 +1516,8 @@ const ProductoModal = ({
       setFichaOpen(Boolean(b?.atributos));
       setEsVariable(false);
       setVariaciones([]);
-      // El estado es `atributo` (string), no el `atributosSel` (array) que
-      // existía antes. La rama de editar sí se actualizó al renombrarlo; esta
-      // no, y por eso "Agregar" reventaba con ReferenceError.
-      setAtributo("Color");
+      setTiposVariedad(["Color"]);
+      setOpcionesCombinar({});
     }
     // El proveedor ve su tabla de precios por cantidad abierta de entrada:
     // es la parte del formulario que le explica cómo cotiza el bot.
@@ -1571,7 +1647,10 @@ const ProductoModal = ({
       Swal.fire({
         icon: "warning",
         title: "Falta la variedad",
-        text: `Marcaste que se vende en varias opciones: agrega al menos un ${atributo.toLowerCase()}.`,
+        text:
+          tiposVariedad.length > 1
+            ? `Marcaste que se vende en varias opciones: agrega al menos una combinación con ${nombreTipos} completos.`
+            : `Marcaste que se vende en varias opciones: agrega al menos un ${nombreTipos}.`,
       });
       return false;
     }
@@ -1655,9 +1734,11 @@ const ProductoModal = ({
         data.append(
           "variaciones",
           JSON.stringify(
-            variaciones
-              .filter(variacionCompleta)
-              .map((v) => ({ ...v, atributo })),
+            variaciones.filter(variacionCompleta).map(({ partes, ...v }) => ({
+              ...v,
+              atributo: tiposVariedad.join(SEP_ATRIBUTO),
+              valor: partes.map((x) => String(x).trim()).join(SEP_VALOR),
+            })),
           ),
         );
       }
@@ -3092,29 +3173,91 @@ const ProductoModal = ({
 
                 {esVariable && (
                   <div className="mt-3">
-                    {/* Un solo tipo por producto: o color, o talla, o sabor. */}
+                    {/* Hasta dos tipos: con dos, cada fila es una combinación. */}
                     <div className="flex flex-wrap gap-1.5">
-                      {ATRIBUTOS.map((a) => (
-                        <button
-                          key={a}
-                          type="button"
-                          onClick={() => cambiarAtributo(a)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-                            atributo === a
-                              ? "bg-indigo-600 text-white border-indigo-600"
-                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
-                          }`}
-                        >
-                          {a}
-                        </button>
-                      ))}
+                      {ATRIBUTOS.map((a) => {
+                        const activo = tiposVariedad.includes(a);
+                        const bloqueado =
+                          !activo && tiposVariedad.length >= MAX_TIPOS;
+                        return (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() => alternarTipo(a)}
+                            disabled={bloqueado}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                              activo
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : bloqueado
+                                  ? "bg-white text-slate-300 border-slate-100 cursor-not-allowed"
+                                  : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                            }`}
+                          >
+                            {a}
+                          </button>
+                        );
+                      })}
                     </div>
+                    <p className="text-[11px] text-slate-400 mt-1.5">
+                      Puedes elegir hasta dos, por ejemplo Talla y Color: cada
+                      fila es una combinación con su ID de Dropi.
+                    </p>
+
+                    {tiposVariedad.length > 1 && (
+                      <div className="mt-3 rounded-xl border border-dashed border-slate-200 p-3 space-y-2">
+                        {tiposVariedad.map((t) => (
+                          <div
+                            key={t}
+                            className="grid grid-cols-[70px_1fr] gap-2 items-center"
+                          >
+                            <span className="text-xs font-semibold text-slate-500">
+                              {t}
+                            </span>
+                            <Inp
+                              placeholder={
+                                t === "Talla" ? "S, M, L, XL" : "Negro, Blanco"
+                              }
+                              value={opcionesCombinar[t] || ""}
+                              onChange={(e) =>
+                                setOpcionesCombinar((o) => ({
+                                  ...o,
+                                  [t]: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={generarCombinaciones}
+                          disabled={
+                            !tiposVariedad.every(
+                              (t) => listaOpciones(t).length,
+                            )
+                          }
+                          className="w-full py-2 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <i className="bx bx-grid-alt align-middle mr-1" />
+                          Armar todas las combinaciones
+                        </button>
+                      </div>
+                    )}
 
                     <div className="mt-3 rounded-xl border border-slate-200 overflow-hidden">
-                      <div className="grid grid-cols-[1fr_130px_36px] gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          {atributo}
-                        </span>
+                      <div
+                        className="grid gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200"
+                        style={{
+                          gridTemplateColumns: `repeat(${tiposVariedad.length}, minmax(0, 1fr)) 120px 36px`,
+                        }}
+                      >
+                        {tiposVariedad.map((t) => (
+                          <span
+                            key={t}
+                            className="text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                          >
+                            {t}
+                          </span>
+                        ))}
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                           ID Dropi
                         </span>
@@ -3124,23 +3267,19 @@ const ProductoModal = ({
                       {variaciones.map((v, i) => (
                         <div
                           key={i}
-                          className="grid grid-cols-[1fr_130px_36px] gap-2 px-3 py-2 items-center border-b border-slate-100 last:border-b-0"
+                          className="grid gap-2 px-3 py-2 items-center border-b border-slate-100 last:border-b-0"
+                          style={{
+                            gridTemplateColumns: `repeat(${tiposVariedad.length}, minmax(0, 1fr)) 120px 36px`,
+                          }}
                         >
-                          <Inp
-                            placeholder={
-                              atributo === "Talla"
-                                ? "M"
-                                : atributo === "Sabor"
-                                  ? "Fresa"
-                                  : atributo === "Modelo"
-                                    ? "Pro"
-                                    : "Negro"
-                            }
-                            value={v.valor}
-                            onChange={(e) =>
-                              cambiarVariacion(i, "valor", e.target.value)
-                            }
-                          />
+                          {tiposVariedad.map((t, p) => (
+                            <Inp
+                              key={t}
+                              placeholder={placeholderDe(t)}
+                              value={v.partes[p] ?? ""}
+                              onChange={(e) => cambiarParte(i, p, e.target.value)}
+                            />
+                          ))}
                           <Inp
                             placeholder="51400"
                             value={v.dropi_variation_id}
