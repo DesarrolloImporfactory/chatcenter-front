@@ -48,10 +48,16 @@ export default function ClienteListDrawer({
     try {
       const { data } = await chatApi.get(
         `admin_usuarios/detalle/${id_usuario}`,
+        { silentError: true },
       );
       setDetalleData(data.data);
-    } catch {
-      toast.error("No se pudo cargar el detalle");
+    } catch (e) {
+      // Finanzas ve el tablero pero no el Panel de usuarios
+      toast.error(
+        e?.response?.status === 403
+          ? "El detalle del cliente es del Panel de usuarios: no tienes acceso."
+          : "No se pudo cargar el detalle",
+      );
       setDetalleOpen(false);
     } finally {
       setDetalleLoading(false);
