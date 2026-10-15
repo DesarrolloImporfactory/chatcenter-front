@@ -1,3 +1,4 @@
+import { getTrackingUrlTransportadora } from "./trackingTransportadora";
 export const NO_IMAGE = "https://app.dropi.ec/assets/utils/no-image.jpg";
 const CLOUDFRONT = "https://d39ru7awumhhs2.cloudfront.net";
 
@@ -269,22 +270,5 @@ export const getGuideNumber = (o) => o?.shipping_guide || o?.sticker || null;
 export const getTrackingUrl = (o) => {
   const guide = getGuideNumber(o);
   if (!guide) return null;
-  const comp = String(getTransportadora(o) || "").toUpperCase();
-  const g = String(guide).trim();
-  if (
-    comp.includes("LAAR") ||
-    g.startsWith("LC") ||
-    g.startsWith("IMP") ||
-    g.startsWith("MKP")
-  )
-    return `https://fenixoper.laarcourier.com/Tracking/Guiacompleta.aspx?guia=${encodeURIComponent(g)}`;
-  if (comp.includes("GINTRACOM") || g.startsWith("D0") || g.startsWith("I0"))
-    return `https://ec.gintracom.site/web/site/tracking?guia=${encodeURIComponent(g)}`;
-  if (comp.includes("VELOCES") || g.startsWith("V"))
-    return `https://tracking.veloces.app/tracking-client/${encodeURIComponent(g)}`;
-  if (comp.includes("URBANO") || g.startsWith("WYB"))
-    return `https://app.urbano.com.ec/plugin/etracking/etracking/?guia=${encodeURIComponent(g)}`;
-  if (comp.includes("SERVIENTREGA"))
-    return `https://www.servientrega.com.ec/Tracking/?guia=${encodeURIComponent(g)}&tipo=GUIA`;
-  return null;
+  return getTrackingUrlTransportadora(getTransportadora(o), guide);
 };
