@@ -123,6 +123,20 @@ function Telefono({ f, compacto = false }) {
       >
         {personal ? "WhatsApp personal del dueño" : `Nº de su conexión (bot${f.conexion_nombre && !compacto ? `: ${f.conexion_nombre}` : ""})`}
       </div>
+      {f.numero_compartido && (
+        <div
+          title={f.numero_compartido.texto}
+          className={`mt-1 inline-flex items-start gap-1 px-1.5 py-0.5 rounded text-[10px] leading-tight font-semibold ring-1 max-w-full ${
+            f.numero_compartido.no_molestar ? "bg-rose-50 text-rose-700 ring-rose-200" : "bg-amber-50 text-amber-800 ring-amber-200"
+          }`}
+        >
+          <i className={`bx ${f.numero_compartido.no_molestar ? "bx-block" : "bx-group"} text-xs shrink-0 mt-px`} />
+          <span className={compacto ? "line-clamp-2" : ""}>
+            {f.numero_compartido.no_molestar ? "No contactar: " : ""}
+            {f.numero_compartido.texto}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -265,6 +279,7 @@ export default function RecuperacionPanel({ onSinPermiso }) {
   const [cohorte, setCohorte] = useState("");
   const [asignacion, setAsignacion] = useState("todos");
   const [soloSinContacto, setSoloSinContacto] = useState(false);
+  const [soloCompartido, setSoloCompartido] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [drawer, setDrawer] = useState(null); // id_usuario
   const [form, setForm] = useState(null); // fila
@@ -321,17 +336,18 @@ export default function RecuperacionPanel({ onSinPermiso }) {
       if (asignacion === "mios" && !f.caso?.es_mio) return false;
       if (asignacion === "sin" && f.caso?.asignado_a_id) return false;
       if (soloSinContacto && f.ultimo_seguimiento) return false;
+      if (soloCompartido && !f.numero_compartido) return false;
       if (!q) return true;
       return [f.empresa, f.email, f.whatsapp, f.nombre_plan, f.caso?.asignado_a_nombre]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [data, cohorte, asignacion, soloSinContacto, busqueda]);
+  }, [data, cohorte, asignacion, soloSinContacto, soloCompartido, busqueda]);
 
   // Solo un cambio de filtro vuelve a la primera página.
   useEffect(() => {
     setPagina(1);
-  }, [cohorte, asignacion, soloSinContacto, busqueda]);
+  }, [cohorte, asignacion, soloSinContacto, soloCompartido, busqueda]);
 
   const agenda = useMemo(() => {
     if (!data) return { vencidos: [], hoy: [], proximos: [], sinFecha: 0 };
@@ -625,6 +641,16 @@ export default function RecuperacionPanel({ onSinPermiso }) {
                 <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
                   <input type="checkbox" checked={soloSinContacto} onChange={(e) => setSoloSinContacto(e.target.checked)} />
                   Solo sin contactar
+                </label>
+                <label
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-600"
+                  title="Clientes cuyo WhatsApp también está en otra cuenta. En rojo: ya volvió con otra cuenta activa, no hay que contactarlo por esta."
+                >
+                  <input type="checkbox" checked={soloCompartido} onChange={(e) => setSoloCompartido(e.target.checked)} />
+                  Mismo WhatsApp en otra cuenta
+                  {data?.filas && (
+                    <span className="text-slate-400">({data.filas.filter((f) => f.numero_compartido).length})</span>
+                  )}
                 </label>
                 <input
                   value={busqueda}
