@@ -2387,6 +2387,32 @@ const ChatPrincipal = ({
                       mensaje.texto_mensaje || ""
                     ).slice(0, 16)}`;
 
+                  // Espejo: lo que el cliente escribió al número desde el que
+                  // se le llama (otra conexión). Solo lectura, no se responde
+                  // desde aquí.
+                  if (mensaje.tipo_mensaje === "espejo") {
+                    items.push(
+                      <div key={key} className="flex justify-start px-4">
+                        <div
+                          className="max-w-[70%] rounded-2xl rounded-tl-sm border border-dashed border-slate-300 bg-slate-50 px-4 py-2 text-slate-700 shadow-sm"
+                          title="Mensaje recibido en otra conexión. Solo lectura: si respondes aquí, sale por esta conexión."
+                        >
+                          <div className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-slate-500">
+                            <i className="bx bx-transfer-alt text-[14px]" />
+                            Vía {mensaje.responsable || "otra conexión"} · solo lectura
+                          </div>
+                          <div className="whitespace-pre-wrap break-words text-[15px] leading-snug">
+                            {mensaje.texto_mensaje}
+                          </div>
+                          <div className="mt-1 text-right text-[12px] text-slate-400">
+                            {formatHora(mensaje.created_at)}
+                          </div>
+                        </div>
+                      </div>,
+                    );
+                    continue;
+                  }
+
                   // ✅ NUEVO: Render especial para notificaciones (centrado amarillo)
                   if (mensaje.tipo_mensaje === "notificacion") {
                     items.push(

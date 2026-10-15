@@ -160,6 +160,132 @@ export default function LlamadasWhatsappCard() {
           </p>
         ) : null}
       </div>
+
+      {id_configuracion && !estado.cargando ? (
+        <AjustesLlamadas id_configuracion={id_configuracion} />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Llamar a los clientes de esta conexión desde otro número de la cuenta
+ * (para números en la app del celular, que WhatsApp no deja llamar) y el
+ * nombre con el que se presenta el mensaje de permiso.
+ */
+function AjustesLlamadas({ id_configuracion }) {
+  const [aj, setAj] = useState(null);
+  const [puente, setPuente] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [msg, setMsg] = useState({ tipo: "", texto: "" });
+
+  useEffect(() => {
+    let vigente = true;
+    chatApi
+      .get("/llamadas/ajustes", { params: { id_configuracion } })
+      .then(({ data }) => {
+        if (!vigente) return;
+        const d = data?.data || {};
+        setAj(d);
+        setPuente(d.id_configuracion_llamadas ? String(d.id_configuracion_llamadas) : "");
+        setNombre(d.nombre_llamadas || "");
+      })
+      .catch(() => vigente && setAj(null));
+    return () => {
+      vigente = false;
+    };
+  }, [id_configuracion]);
+
+  if (!aj) return null;
+
+  const cambiado =
+    String(aj.id_configuracion_llamadas || "") !== puente ||
+    (aj.nombre_llamadas || "") !== nombre.trim();
+
+  const guardar = async () => {
+    setGuardando(true);
+    setMsg({ tipo: "", texto: "" });
+    try {
+      const { data } = await chatApi.post("/llamadas/ajustes", {
+        id_configuracion,
+        id_configuracion_llamadas: puente ? Number(puente) : null,
+        nombre_llamadas: nombre.trim() || null,
+      });
+      setAj(data?.data || aj);
+      setMsg({ tipo: "ok", texto: "Guardado" });
+    } catch (err) {
+      setMsg({
+        tipo: "error",
+        texto: err?.response?.data?.message || "No se pudo guardar",
+      });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const porDefecto = aj.nombre_whatsapp || aj.nombre_configuracion;
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-xs">
+      <label className="block">
+        <span className="font-semibold text-slate-700">
+          Llamar a los clientes desde
+        </span>
+        <select
+          value={puente}
+          onChange={(e) => setPuente(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700"
+        >
+          <option value="">Este mismo número</option>
+          {(aj.opciones || []).map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.nombre_configuracion}
+              {o.telefono ? ` · ${o.telefono}` : ""}
+            </option>
+          ))}
+        </select>
+        <span className="mt-1 block text-[11px] text-slate-400">
+          Si este número también está en la app del celular, WhatsApp no deja
+          llamar desde él. Elige otra conexión tuya con las llamadas
+          encendidas: el chat sigue aquí, pero el cliente verá la llamada desde
+          ese otro número.
+        </span>
+      </label>
+
+      <label className="block">
+        <span className="font-semibold text-slate-700">
+          Nombre con el que te presentas
+        </span>
+        <input
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          maxLength={100}
+          placeholder={porDefecto || "Nombre de tu negocio"}
+          className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700"
+        />
+        <span className="mt-1 block text-[11px] text-slate-400">
+          Va en el mensaje que pide permiso para llamar: «Hola, somos{" "}
+          {nombre.trim() || porDefecto}…». Vacío = el nombre de WhatsApp del
+          número.
+        </span>
+      </label>
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={!cambiado || guardando}
+          className="rounded-lg bg-slate-900 px-3 py-1.5 font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+        >
+          {guardando ? "Guardando…" : "Guardar"}
+        </button>
+        {msg.texto ? (
+          <span className={msg.tipo === "ok" ? "text-emerald-700" : "text-rose-700"}>
+            {msg.texto}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
