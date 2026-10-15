@@ -348,7 +348,11 @@ function TarjetaAutomatizacion({ a, plantillas, aprobadas, variables, puedeConfi
     const opciones = Object.fromEntries(pasos.map((p) => [p.id, `Paso ${p.orden} · ${p.titulo}`]));
     const r = await Swal.fire({
       title: "Enviar ahora a toda la cohorte",
-      html: `<p style="font-size:13px;text-align:left">Manda el paso elegido a todos los clientes de <b>${a.cohortes.map((c) => COHORTE_LABEL[c] || c).join(", ")}</b> que tengan número, sin esperar los días de la secuencia. No se manda a quien ya respondió ni a quien escribió en los últimos 2 días, y se respeta el tope diario (${a.max_por_dia}).</p>`,
+      html: `<p style="font-size:13px;text-align:left">Manda el paso elegido a todos los clientes de <b>${a.cohortes.map((c) => COHORTE_LABEL[c] || c).join(", ")}</b> que tengan número, sin esperar los días de la secuencia. No se manda a quien ya respondió, a quien ya recibió ese paso o lo tiene en cola, ni a quien escribió en los últimos 2 días, y se respeta el tope diario (${a.max_por_dia}).</p>${
+        a.activa
+          ? `<p style="font-size:12px;text-align:left;color:#047857;margin-top:8px">La secuencia está activa: los pasos siguientes salen solos a quien no responda.</p>`
+          : `<p style="font-size:12px;text-align:left;color:#b45309;margin-top:8px"><b>La secuencia está apagada:</b> solo sale este paso. Para que los siguientes salgan solos, actívala con el botón «Activar».</p>`
+      }`,
       input: "select",
       inputOptions: opciones,
       inputPlaceholder: "Elige el paso",
