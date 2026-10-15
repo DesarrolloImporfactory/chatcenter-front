@@ -215,6 +215,8 @@ const CrearConfiguracionModal = ({
         {
           nombre_configuracion: nombreConfiguracion,
           telefono: cleanNumber,
+          // País del selector; antes no se mandaba y todas quedaban en "ec".
+          pais: countryCode.toLowerCase(),
           id_usuario: userData.id_usuario,
         },
         { silentError: true },

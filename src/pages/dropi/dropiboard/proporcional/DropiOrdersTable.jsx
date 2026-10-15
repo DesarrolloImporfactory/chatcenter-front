@@ -1,27 +1,11 @@
 import React, { useState } from "react";
 import { STATUS_CATEGORIES } from "../dropiHelpers";
+import { getTrackingUrlTransportadora } from "../../../../utils/trackingTransportadora";
 
 /* ── Tracking URL helper ── */
 function getTrackingUrl(shippingCompany, guide) {
   if (!guide) return null;
-  const comp = String(shippingCompany || "").toUpperCase();
-  const g = String(guide).trim();
-  if (
-    comp.includes("LAAR") ||
-    g.startsWith("LC") ||
-    g.startsWith("IMP") ||
-    g.startsWith("MKP")
-  )
-    return `https://fenixoper.laarcourier.com/Tracking/Guiacompleta.aspx?guia=${encodeURIComponent(g)}`;
-  if (comp.includes("GINTRACOM") || g.startsWith("D0") || g.startsWith("I0"))
-    return `https://ec.gintracom.site/web/site/tracking?guia=${encodeURIComponent(g)}`;
-  if (comp.includes("VELOCES") || g.startsWith("V"))
-    return `https://tracking.veloces.app/tracking-client/${encodeURIComponent(g)}`;
-  if (comp.includes("URBANO") || g.startsWith("WYB"))
-    return `https://app.urbano.com.ec/plugin/etracking/etracking/?guia=${encodeURIComponent(g)}`;
-  if (comp.includes("SERVIENTREGA"))
-    return `https://www.servientrega.com.ec/Tracking/?guia=${encodeURIComponent(g)}&tipo=GUIA`;
-  return null;
+  return getTrackingUrlTransportadora(shippingCompany, guide);
 }
 
 /* Abre el chat del cliente en pestaña nueva — misma lógica que
