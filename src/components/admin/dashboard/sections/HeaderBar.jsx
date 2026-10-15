@@ -10,6 +10,7 @@ export default function HeaderBar({
   fechaHoy,
   fechaRef,
   mostrarPeriodo = true,
+  mostrarPanelUsuarios = true,
 }) {
   const navigate = useNavigate();
   return (
@@ -29,12 +30,14 @@ export default function HeaderBar({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {mostrarPanelUsuarios && (
           <button
             onClick={() => navigate("/usuarios_admin")}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-slate-700 ring-1 ring-slate-200 font-semibold text-sm hover:bg-slate-100 transition"
           >
             <i className="bx bx-list-ul" /> Panel de usuarios
           </button>
+          )}
           {onRecalcular && (
           <button
             onClick={onRecalcular}

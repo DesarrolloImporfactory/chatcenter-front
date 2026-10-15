@@ -28,14 +28,30 @@ const TABS = [
   { id: "recuperacion", label: "Recuperación", icon: "bx-support" },
 ];
 
+// Finanzas (lista en requireFinanzasDashboard del back) solo lee: sin Recalcular,
+// sin Recuperación ni Panel de usuarios. El back lo exige igual.
+const esSuperAdmin = () => {
+  try {
+    return localStorage.getItem("user_role") === "super_administrador";
+  } catch {
+    return false;
+  }
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = TABS.some((t) => t.id === searchParams.get("tab"))
+  const superAdmin = useMemo(esSuperAdmin, []);
+  const tabs = useMemo(
+    () => (superAdmin ? TABS : TABS.filter((t) => t.id !== "recuperacion")),
+    [superAdmin],
+  );
+  const tab = tabs.some((t) => t.id === searchParams.get("tab"))
     ? searchParams.get("tab")
     : "resumen";
   const setTab = (id) => setSearchParams({ tab: id }, { replace: true });
   const [loading, setLoading] = useState(true);
+  const [sinPermiso, setSinPermiso] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [resumen, setResumen] = useState(null);
   const [serie, setSerie] = useState([]);
@@ -53,14 +69,16 @@ export default function AdminDashboard() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      const opts = { silentError: true };
       const [r1, r2] = await Promise.all([
-        chatApi.get(`admin_dashboard/resumen?dias=${diasComp}`),
-        chatApi.get("admin_dashboard/serie?meses=12"),
+        chatApi.get(`admin_dashboard/resumen?dias=${diasComp}`, opts),
+        chatApi.get("admin_dashboard/serie?meses=12", opts),
       ]);
       setResumen(r1.data.data);
       setSerie(r2.data.data || []);
-    } catch {
-      toast.error("Error cargando datos");
+    } catch (e) {
+      if (e?.response?.status === 403) setSinPermiso(true);
+      else toast.error("Error cargando datos");
     } finally {
       setLoading(false);
     }
@@ -88,8 +106,12 @@ export default function AdminDashboard() {
       await chatApi.post("admin_dashboard/snapshot_now");
       await fetchAll();
       toast.success("Recalculado");
-    } catch {
-      toast.error("Error");
+    } catch (e) {
+      toast.error(
+        e?.response?.status === 403
+          ? "No tienes permiso para recalcular."
+          : "Error",
+      );
     } finally {
       setRefreshing(false);
     }
@@ -188,6 +210,24 @@ export default function AdminDashboard() {
 
   const cargando = loading || !resumen;
 
+  if (sinPermiso) {
+    return (
+      <PageShell>
+        <div className="bg-slate-50 w-full min-h-[82vh] flex items-center justify-center px-4">
+          <div className="text-center">
+            <i className="bx bx-lock-alt text-5xl text-slate-400" />
+            <p className="mt-3 text-lg font-bold text-slate-800">
+              Acceso denegado
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Esta sección es solo para super administradores y finanzas.
+            </p>
+          </div>
+        </div>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell>
     <div className="bg-slate-50 w-full min-h-[82vh]">
@@ -196,8 +236,11 @@ export default function AdminDashboard() {
           resumen={resumen}
           refreshing={refreshing}
           onRecalcular={
-            tab === "cobros" || tab === "recuperacion" ? null : recalcular
+            !superAdmin || tab === "cobros" || tab === "recuperacion"
+              ? null
+              : recalcular
           }
+          mostrarPanelUsuarios={superAdmin}
           diasComp={diasComp}
           setDiasComp={setDiasComp}
           fechaHoy={fechaHoy}
@@ -206,7 +249,7 @@ export default function AdminDashboard() {
         />
 
         <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 -mt-2">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}

@@ -19,7 +19,8 @@ async function disponibilidad(idCfg) {
   const [wa, saldo] = await Promise.all([
     chatApi
       .get("/llamadas/configuracion", { params: { id_configuracion: idCfg } })
-      .then(({ data }) => !!data?.data?.activo)
+      // Propio o por la conexión puente (números en coexistencia)
+      .then(({ data }) => !!data?.data?.activo || !!data?.data?.puente?.activo)
       .catch(() => false),
     chatApi
       .get("/telefonia/saldo", { params: { id_configuracion: idCfg } })

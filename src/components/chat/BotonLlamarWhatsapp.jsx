@@ -25,7 +25,8 @@ async function llamadasActivas(id_configuracion) {
     const { data } = await chatApi.get("/llamadas/configuracion", {
       params: { id_configuracion },
     });
-    const activo = !!data?.data?.activo;
+    // Propio o por la conexión puente (números en coexistencia)
+    const activo = !!data?.data?.activo || !!data?.data?.puente?.activo;
     cacheConfig.set(id_configuracion, { activo, at: Date.now() });
     return activo;
   } catch {
@@ -102,11 +103,11 @@ export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion, va
     setOcupado(true);
     setAviso("");
     try {
-      await chatApi.post("/llamadas/permiso/solicitar", {
+      const { data } = await chatApi.post("/llamadas/permiso/solicitar", {
         id_configuracion,
         id_cliente_chat_center: idChat,
       });
-      setAviso("Solicitud enviada");
+      setAviso(data?.data?.via === "plantilla" ? "Solicitud enviada como plantilla" : "Solicitud enviada");
       await cargarPermiso();
     } catch (err) {
       setAviso(err?.response?.data?.message || "No se pudo enviar la solicitud");
@@ -129,6 +130,9 @@ export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion, va
     );
   };
 
+  // Conexión puente: el cliente ve ese otro número
+  const desde = permiso?.desde?.nombre ? ` · sale desde ${permiso.desde.nombre}` : "";
+
   if (variante === "menu") {
     const fila = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60";
     const icono = (cls, extra = "") => (
@@ -150,7 +154,10 @@ export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion, va
           {icono("bxl-whatsapp")}
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-slate-800">Por WhatsApp</span>
-            <span className="block text-[11px] text-slate-500">{permiso.status === "permanent" ? "permiso permanente" : `permiso hasta ${fechaCorta(permiso.expira_at)}`}</span>
+            <span className="block text-[11px] text-slate-500">
+              {permiso.status === "permanent" ? "permiso permanente" : `permiso hasta ${fechaCorta(permiso.expira_at)}`}
+              {desde}
+            </span>
           </span>
         </button>
       );
@@ -161,7 +168,13 @@ export default function BotonLlamarWhatsapp({ selectedChat, id_configuracion, va
           {icono(ocupado ? "bx-loader-alt bx-spin" : "bxl-whatsapp")}
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-slate-800">Por WhatsApp · pedir permiso</span>
-            <span className="block text-[11px] text-slate-500">{aviso || "Le llega un mensaje para aceptar que lo llames"}</span>
+            <span className="block text-[11px] text-slate-500">
+              {aviso ||
+                (permiso.ventana_abierta
+                  ? "Le llega un mensaje para aceptar que lo llames"
+                  : "No escribe hace +24 h: va como plantilla con el botón de permiso")}
+              {aviso ? null : desde}
+            </span>
           </span>
         </button>
       );
