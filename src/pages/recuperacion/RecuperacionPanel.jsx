@@ -141,6 +141,25 @@ function Telefono({ f, compacto = false }) {
   );
 }
 
+/** Sin seguimiento manual, pero sí le salió una automatización: no es «nunca contactado». */
+function ContactoAutomatico({ a }) {
+  return (
+    <div className="min-w-0">
+      <div className="inline-flex items-center gap-1 text-cyan-700 font-semibold">
+        <i className="bx bx-bot" /> Solo automatización
+      </div>
+      <div className="text-slate-500 truncate" title={`${a.secuencia} · Paso ${a.paso}${a.titulo ? ` · ${a.titulo}` : ""}`}>
+        Paso {a.paso}{a.titulo ? ` · ${a.titulo}` : ""} · {a.estado === "encolado" ? "en cola" : fmtFechaCorta(a.fecha)}
+      </div>
+      {a.respondio_en ? (
+        <div className="text-emerald-700 font-semibold">Respondió {fmtFechaCorta(a.respondio_en)}: falta seguimiento manual</div>
+      ) : (
+        <div className="text-slate-400">Sin respuesta · sin seguimiento manual</div>
+      )}
+    </div>
+  );
+}
+
 function BadgeCohorte({ id, cohortes }) {
   const c = cohortes.find((x) => x.id === id);
   const ui = COHORTE_UI[id] || COHORTE_UI.manual;
@@ -335,7 +354,7 @@ export default function RecuperacionPanel({ onSinPermiso }) {
       if (cohorte && f.cohorte !== cohorte) return false;
       if (asignacion === "mios" && !f.caso?.es_mio) return false;
       if (asignacion === "sin" && f.caso?.asignado_a_id) return false;
-      if (soloSinContacto && f.ultimo_seguimiento) return false;
+      if (soloSinContacto && (f.ultimo_seguimiento || f.automatizacion)) return false;
       if (soloCompartido && !f.numero_compartido) return false;
       if (!q) return true;
       return [f.empresa, f.email, f.whatsapp, f.nombre_plan, f.caso?.asignado_a_nombre]
@@ -541,7 +560,7 @@ export default function RecuperacionPanel({ onSinPermiso }) {
               accent="amber"
               label="Sin contactar"
               value={num(k.sin_contacto)}
-              hint="Nadie les ha registrado nada"
+              hint={k.solo_automatizacion ? `Ni seguimiento ni automatización · ${num(k.solo_automatizacion)} solo por automatización` : "Nadie les ha registrado nada"}
               onClick={() => { setVista("embudo"); setSoloSinContacto((v) => !v); }}
               activo={soloSinContacto}
             />
@@ -686,6 +705,8 @@ export default function RecuperacionPanel({ onSinPermiso }) {
                         <span className="text-slate-700">
                           Último: {RESULTADO_LABEL[f.ultimo_seguimiento.resultado] || f.ultimo_seguimiento.tipo} · {fmtFechaCorta(f.ultimo_seguimiento.fecha)} · {f.ultimo_seguimiento.por || "—"}
                         </span>
+                      ) : f.automatizacion ? (
+                        <ContactoAutomatico a={f.automatizacion} />
                       ) : (
                         <span className="text-amber-700 font-semibold"><i className="bx bx-phone-off" /> Nunca contactado</span>
                       )}
@@ -748,6 +769,8 @@ export default function RecuperacionPanel({ onSinPermiso }) {
                                 </div>
                                 <div className="text-slate-500 truncate">{fmtFechaCorta(u.fecha)} · {u.por || "—"} · {num(f.total_seguimientos)} en total</div>
                               </>
+                            ) : f.automatizacion ? (
+                              <ContactoAutomatico a={f.automatizacion} />
                             ) : (
                               <span className="inline-flex items-center gap-1 text-amber-700 font-semibold"><i className="bx bx-phone-off" /> Nunca contactado</span>
                             )}
