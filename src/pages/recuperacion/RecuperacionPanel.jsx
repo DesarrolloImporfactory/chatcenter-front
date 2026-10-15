@@ -140,22 +140,37 @@ function BadgeCohorte({ id, cohortes }) {
 /** Botones de acción de un cliente (los mismos en tabla, tarjeta y agenda). */
 function Acciones({ f, expertos, onRegistrar, onAbrir, onCerrar, mostrarCerrar = true }) {
   const puedeExpertos = expertos?.disponible && f.whatsapp_digits;
+  // Chat de otro asesor: no se abre (el chat se lo negaría); se pide la transferencia.
+  const ajeno = f.chat_expertos?.bloqueado ? f.chat_expertos.encargado_nombre || "otro asesor" : null;
   return (
     <div className="flex items-center gap-1 flex-wrap justify-end">
-      <button
-        onClick={() => abrirChatExpertos(f)}
-        disabled={!puedeExpertos}
-        title={
-          !f.whatsapp_digits
-            ? "El cliente no tiene número"
-            : expertos?.disponible
-              ? `Abrir la conversación en la conexión "${expertos.nombre}" (las automatizaciones saldrán de ahí)`
-              : expertos?.motivo || "No disponible"
-        }
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        <i className="bxl bxl-whatsapp text-sm" /> Chat desde Expertos
-      </button>
+      {ajeno ? (
+        <button
+          onClick={() =>
+            toast(`Este chat lo atiende ${ajeno}. Pídele que te lo transfiera para poder abrirlo.`, { duration: 5000 })
+          }
+          title={`Lo atiende ${ajeno}: pídele que te lo transfiera`}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg ring-1 ring-slate-300 bg-slate-50 text-slate-600 text-xs font-semibold hover:bg-slate-100 max-w-[180px]"
+        >
+          <i className="bx bx-lock-alt text-sm shrink-0" />
+          <span className="truncate">Lo atiende {ajeno}</span>
+        </button>
+      ) : (
+        <button
+          onClick={() => abrirChatExpertos(f)}
+          disabled={!puedeExpertos}
+          title={
+            !f.whatsapp_digits
+              ? "El cliente no tiene número"
+              : expertos?.disponible
+                ? `Abrir la conversación en la conexión "${expertos.nombre}" (las automatizaciones saldrán de ahí)`
+                : expertos?.motivo || "No disponible"
+          }
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <i className="bxl bxl-whatsapp text-sm" /> Chat desde Expertos
+        </button>
+      )}
       <button
         onClick={onRegistrar}
         title="Registrar lo que hablaste"
