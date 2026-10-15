@@ -35,6 +35,7 @@ const ESTADO_ENVIO = {
   enviado: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   error: "bg-rose-50 text-rose-700 ring-rose-200",
   omitido: "bg-slate-100 text-slate-600 ring-slate-200",
+  pausado: "bg-sky-50 text-sky-700 ring-sky-200",
 };
 
 const toLocalInput = (d) => {
@@ -132,6 +133,7 @@ export default function AutomatizacionesRecuperacion({ permisos }) {
   const [loading, setLoading] = useState(true);
   const [bitacora, setBitacora] = useState([]);
   const [filtroBitacora, setFiltroBitacora] = useState("");
+  const [estadoBitacora, setEstadoBitacora] = useState("");
   const puedeConfigurar = !!permisos?.puede_asignar;
 
   const cargar = useCallback(async () => {
@@ -139,8 +141,7 @@ export default function AutomatizacionesRecuperacion({ permisos }) {
     try {
       const { data: r } = await chatApi.get("recuperacion/automatizaciones");
       setData(r.data);
-      const { data: b } = await chatApi.get("recuperacion/automatizaciones/envios", { params: { limit: 150 } });
-      setBitacora(b.data || []);
+
       if (r.data?.expertos?.id_configuracion) {
         try {
           const { data: t } = await chatApi.post("whatsapp_managment/obtenerTemplatesWhatsapp", {
@@ -161,6 +162,19 @@ export default function AutomatizacionesRecuperacion({ permisos }) {
     }
   }, []);
 
+  // La bitácora se pide filtrada al back: si no, los pausados quedan tapados por los últimos envíos.
+  useEffect(() => {
+    let vivo = true;
+    chatApi
+      .get("recuperacion/automatizaciones/envios", {
+        params: { limit: 150, ...(filtroBitacora ? { id: filtroBitacora } : {}), ...(estadoBitacora ? { estado: estadoBitacora } : {}) },
+      })
+      .then(({ data: b }) => vivo && setBitacora(b.data || []))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [filtroBitacora, estadoBitacora, data]);
   useEffect(() => {
     cargar();
   }, [cargar]);
@@ -180,7 +194,7 @@ export default function AutomatizacionesRecuperacion({ permisos }) {
   }
   if (!data) return null;
 
-  const bitacoraVisible = filtroBitacora ? bitacora.filter((b) => String(b.id_automatizacion) === filtroBitacora) : bitacora;
+  const bitacoraVisible = bitacora;
 
   return (
     <div className="space-y-5">
@@ -233,14 +247,25 @@ export default function AutomatizacionesRecuperacion({ permisos }) {
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
           <div>
             <div className="text-sm font-bold text-slate-800">Bitácora de envíos</div>
-            <p className="text-xs text-slate-500">Qué se mandó, a quién, si llegó y si respondió. Los «omitidos» explican por qué no se envió.</p>
+            <p className="text-xs text-slate-500">
+              Qué se mandó, a quién, si llegó y si respondió. Los «omitidos» explican por qué no se envió; los «pausados» estaban
+              conversando con otro asesor y se reintentan solos cuando el chat lleve los días de pausa sin mensajes.
+            </p>
           </div>
+          <div className="flex items-center gap-2">
+          <select value={estadoBitacora} onChange={(e) => setEstadoBitacora(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1">
+            <option value="">Todos los estados</option>
+            {Object.keys(ESTADO_ENVIO).map((e) => (
+              <option key={e} value={e}>{e}</option>
+            ))}
+          </select>
           <select value={filtroBitacora} onChange={(e) => setFiltroBitacora(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1">
             <option value="">Todas las secuencias</option>
             {data.automatizaciones.map((a) => (
               <option key={a.id} value={a.id}>{a.nombre}</option>
             ))}
           </select>
+          </div>
         </div>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
@@ -270,7 +295,10 @@ export default function AutomatizacionesRecuperacion({ permisos }) {
                   {b.descuento_aplicado ? <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">10% aplicado</div> : null}
                 </td>
                 <td className="px-3 py-2 text-xs text-slate-600">{b.respondio_en ? fmtFechaHora(b.respondio_en) : "—"}</td>
-                <td className="px-3 py-2 text-xs text-slate-500 max-w-[260px] truncate" title={b.detalle || b.error_message || ""}>
+                <td
+                  className={`px-3 py-2 text-xs text-slate-500 ${b.estado === "pausado" ? "min-w-[260px] max-w-[420px]" : "max-w-[260px] truncate"}`}
+                  title={b.detalle || b.error_message || ""}
+                >
                   {b.detalle || b.error_message || b.nombre_template || ""}
                 </td>
               </tr>
@@ -348,7 +376,11 @@ function TarjetaAutomatizacion({ a, plantillas, aprobadas, variables, puedeConfi
     const opciones = Object.fromEntries(pasos.map((p) => [p.id, `Paso ${p.orden} · ${p.titulo}`]));
     const r = await Swal.fire({
       title: "Enviar ahora a toda la cohorte",
-      html: `<p style="font-size:13px;text-align:left">Manda el paso elegido a todos los clientes de <b>${a.cohortes.map((c) => COHORTE_LABEL[c] || c).join(", ")}</b> que tengan número, sin esperar los días de la secuencia. No se manda a quien ya respondió ni a quien escribió en los últimos 2 días, y se respeta el tope diario (${a.max_por_dia}).</p>`,
+      html: `<p style="font-size:13px;text-align:left">Manda el paso elegido a todos los clientes de <b>${a.cohortes.map((c) => COHORTE_LABEL[c] || c).join(", ")}</b> que tengan número, sin esperar los días de la secuencia. No se manda a quien ya respondió, a quien ya recibió ese paso o lo tiene en cola, ni a quien escribió en los últimos 2 días o conversa con otra persona del equipo (últimos ${a.pausa_chat_ajeno_dias ?? 3} días), y se respeta el tope diario (${a.max_por_dia}).</p>${
+        a.activa
+          ? `<p style="font-size:12px;text-align:left;color:#047857;margin-top:8px">La secuencia está activa: los pasos siguientes salen solos a quien no responda.</p>`
+          : `<p style="font-size:12px;text-align:left;color:#b45309;margin-top:8px"><b>La secuencia está apagada:</b> solo sale este paso. Para que los siguientes salgan solos, actívala con el botón «Activar».</p>`
+      }`,
       input: "select",
       inputOptions: opciones,
       inputPlaceholder: "Elige el paso",
@@ -450,7 +482,7 @@ function TarjetaAutomatizacion({ a, plantillas, aprobadas, variables, puedeConfi
       {abierta && (
         <div className="border-t border-slate-100 p-4 space-y-4">
           {puedeConfigurar && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
               <label className="space-y-1">
                 <span className="font-bold uppercase tracking-wider text-slate-500">Empieza</span>
                 <input type="datetime-local" value={inicio} onChange={(e) => setInicio(e.target.value)} onBlur={() => patch({ inicia_en: inicio ? new Date(inicio).toISOString() : null }, "Fecha de inicio guardada")} className="w-full px-2 py-1.5 border border-slate-300 rounded-lg" />
@@ -463,6 +495,11 @@ function TarjetaAutomatizacion({ a, plantillas, aprobadas, variables, puedeConfi
               <label className="space-y-1">
                 <span className="font-bold uppercase tracking-wider text-slate-500">Tope por día</span>
                 <input type="number" min="1" defaultValue={a.max_por_dia} onBlur={(e) => Number(e.target.value) !== a.max_por_dia && patch({ max_por_dia: e.target.value })} className="w-full px-2 py-1.5 border border-slate-300 rounded-lg" />
+              </label>
+              <label className="space-y-1">
+                <span className="font-bold uppercase tracking-wider text-slate-500">Pausa si otro atiende el chat</span>
+                <input type="number" min="0" defaultValue={a.pausa_chat_ajeno_dias ?? 3} onBlur={(e) => Number(e.target.value) !== Number(a.pausa_chat_ajeno_dias ?? 3) && patch({ pausa_chat_ajeno_dias: e.target.value })} className="w-full px-2 py-1.5 border border-slate-300 rounded-lg" />
+                <span className="text-slate-400">Días sin mensajes en ese chat antes de enviar. 0 = no esperar.</span>
               </label>
               <div className="space-y-1">
                 <span className="font-bold uppercase tracking-wider text-slate-500 block">Reglas</span>
