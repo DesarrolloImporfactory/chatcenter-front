@@ -93,6 +93,42 @@ const Asistentes = () => {
   // con la máscara, "Guardar" mandaría la máscara como si fuera una key.
   const [apiKeyInput, setApiKeyInput] = useState("");
 
+  // Proveedor con el que responde el bot: "openai" (por defecto) o "claude".
+  // El mismo modal de API Key sirve para los dos: modalProveedor dice cuál
+  // se está editando. La llave de Claude también llega enmascarada.
+  const [proveedorIA, setProveedorIA] = useState("openai");
+  const [modalProveedor, setModalProveedor] = useState("openai");
+  const [existeClaude, setExisteClaude] = useState(null);
+  const [claudeKeyGuardada, setClaudeKeyGuardada] = useState(false);
+  const [cambiandoProveedor, setCambiandoProveedor] = useState(false);
+  // Si eligió un proveedor sin llave, se abre el modal y, al guardar la llave,
+  // se activa ese proveedor solo (no hay que volver a hacer clic).
+  const [pendienteActivar, setPendienteActivar] = useState(null);
+  const esModalClaude = modalProveedor === "claude";
+  const abrirModalApiKey = (proveedor = "openai") => {
+    setModalProveedor(proveedor);
+    setShowModalApiKey(true);
+  };
+
+  const PROVEEDORES = {
+    openai: {
+      nombre: "OpenAI",
+      keyUrl: "https://platform.openai.com/api-keys",
+      billingUrl:
+        "https://platform.openai.com/settings/organization/billing/overview",
+      prefijo: "sk-...",
+    },
+    claude: {
+      nombre: "Claude (Anthropic)",
+      keyUrl: "https://console.anthropic.com/settings/keys",
+      billingUrl: "https://console.anthropic.com/settings/billing",
+      prefijo: "sk-ant-...",
+    },
+  };
+  const proveedorModal = PROVEEDORES[modalProveedor];
+  // keyGuardadaModal / keyMascaraModal se definen más abajo, después de
+  // apiKeyGuardada (useState): usarlos antes rompía el render (TDZ).
+
   useEffect(() => {
     setApiKeyInput("");
   }, [showModalApiKey]);
@@ -115,6 +151,9 @@ const Asistentes = () => {
   // true solo si la key existe GUARDADA en la BD (no lo que se tipea en el
   // input) — controla la visibilidad del botón "Eliminar API Key" del modal.
   const [apiKeyGuardada, setApiKeyGuardada] = useState(false);
+  // Qué llave muestra/edita el modal según el proveedor elegido en él.
+  const keyGuardadaModal = esModalClaude ? claudeKeyGuardada : apiKeyGuardada;
+  const keyMascaraModal = esModalClaude ? existeClaude : existeAsistente;
 
   // A qué cuenta de OpenAI pertenece la key GUARDADA (nombre, correo,
   // organización). El saldo es por organización: sin esto el cliente recarga
@@ -145,6 +184,11 @@ const Asistentes = () => {
       const hayKey = Boolean(String(data.api_key_openai || "").trim());
       setExisteAsistente(data.api_key_openai || null);
       setApiKeyGuardada(hayKey);
+      setProveedorIA(data.proveedor_ia === "claude" ? "claude" : "openai");
+      setExisteClaude(data.api_key_claude || null);
+      setClaudeKeyGuardada(
+        Boolean(String(data.api_key_claude || "").trim()),
+      );
       setAsistenteVentas(data.ventas || null);
       // Aparte y sin await: consulta a OpenAI, no debe demorar la vista.
       if (hayKey) fetchCuentaOpenAI();
@@ -153,8 +197,46 @@ const Asistentes = () => {
       console.error("Error al cargar los asistentes.", error);
       setExisteAsistente(null);
       setApiKeyGuardada(false);
+      setExisteClaude(null);
+      setClaudeKeyGuardada(false);
       setAsistenteVentas(null);
       setCuentaOpenAI(null);
+    }
+  };
+
+  // Con qué proveedor responde el bot. El back exige que la llave de ese
+  // proveedor esté guardada; si no, devuelve el motivo y no cambia nada.
+  const cambiarProveedor = async (proveedor) => {
+    if (cambiandoProveedor || proveedor === proveedorIA) return;
+    const tieneLlave = proveedor === "claude" ? claudeKeyGuardada : apiKeyGuardada;
+    if (!tieneLlave) {
+      Toast.fire({
+        icon: "info",
+        title: `Pegue la API Key de ${PROVEEDORES[proveedor].nombre} y se activa solo`,
+      });
+      setPendienteActivar(proveedor);
+      abrirModalApiKey(proveedor);
+      return;
+    }
+    setCambiandoProveedor(true);
+    try {
+      const { data } = await chatApi.post(
+        "openai_assistants/actualizar_proveedor_ia",
+        { id_configuracion, proveedor },
+      );
+      setProveedorIA(data?.proveedor_ia === "claude" ? "claude" : "openai");
+      Toast.fire({
+        icon: "success",
+        title: data?.message || "Proveedor actualizado",
+      });
+    } catch (e) {
+      console.error(e);
+      Toast.fire({
+        icon: "error",
+        title: e?.response?.data?.message || "No se pudo cambiar el proveedor",
+      });
+    } finally {
+      setCambiandoProveedor(false);
     }
   };
 
@@ -270,16 +352,26 @@ const Asistentes = () => {
 
     setDeletingApiKey(true);
     try {
-      await chatApi.post("openai_assistants/eliminar_api_key_openai", {
-        id_configuracion,
-      });
-      setExisteAsistente(null);
-      setApiKeyGuardada(false);
+      if (esModalClaude) {
+        await chatApi.post("openai_assistants/eliminar_api_key_claude", {
+          id_configuracion,
+        });
+        setExisteClaude(null);
+        setClaudeKeyGuardada(false);
+      } else {
+        await chatApi.post("openai_assistants/eliminar_api_key_openai", {
+          id_configuracion,
+        });
+        setExisteAsistente(null);
+        setApiKeyGuardada(false);
+      }
       setShowModalApiKey(false);
       await fetchAsistenteAutomatizado();
       Toast.fire({
         icon: "success",
-        title: "API Key eliminada y asistente suspendido",
+        title: esModalClaude
+          ? "API Key de Claude eliminada; el bot vuelve a OpenAI"
+          : "API Key eliminada y asistente suspendido",
       });
     } catch (e) {
       console.error(e);
@@ -296,29 +388,53 @@ const Asistentes = () => {
     if (savingApiKey) return;
     const key = String(apiKeyInput || "").trim();
     if (!key) {
-      Toast.fire({ icon: "warning", title: "Pegue su API Key de OpenAI" });
+      Toast.fire({
+        icon: "warning",
+        title: `Pegue su API Key de ${proveedorModal.nombre}`,
+      });
       return;
     }
     setSavingApiKey(true);
     try {
-      const response = await chatApi.post(
-        "openai_assistants/actualizar_api_key_openai",
-        {
-          id_configuracion: id_configuracion,
-          api_key: key,
-          tipo_configuracion: localStorage.getItem("tipo_configuracion"),
-        },
-      );
+      const response = esModalClaude
+        ? await chatApi.post("openai_assistants/actualizar_api_key_claude", {
+            id_configuracion: id_configuracion,
+            api_key: key,
+          })
+        : await chatApi.post("openai_assistants/actualizar_api_key_openai", {
+            id_configuracion: id_configuracion,
+            api_key: key,
+            tipo_configuracion: localStorage.getItem("tipo_configuracion"),
+          });
       const data = response.data || {};
       if (data.status === "200") {
         setShowModalApiKey(false);
         await fetchAsistenteAutomatizado();
         Toast.fire({
           icon: "success",
-          title: data.cuenta?.email
-            ? `API Key validada · cuenta ${data.cuenta.email}`
-            : "API Key validada y guardada",
+          title: esModalClaude
+            ? "API Key de Claude validada y guardada"
+            : data.cuenta?.email
+              ? `API Key validada · cuenta ${data.cuenta.email}`
+              : "API Key validada y guardada",
         });
+        // Venía de elegir este proveedor sin llave: ahora sí se activa.
+        if (pendienteActivar === modalProveedor && proveedorIA !== modalProveedor) {
+          setPendienteActivar(null);
+          try {
+            const r = await chatApi.post(
+              "openai_assistants/actualizar_proveedor_ia",
+              { id_configuracion, proveedor: modalProveedor },
+            );
+            setProveedorIA(r.data?.proveedor_ia === "claude" ? "claude" : "openai");
+            Toast.fire({ icon: "success", title: r.data?.message || "Proveedor activado" });
+          } catch (e2) {
+            Toast.fire({
+              icon: "error",
+              title: e2?.response?.data?.message || "La llave se guardó, pero no se pudo activar el proveedor",
+            });
+          }
+        }
       } else {
         Toast.fire({
           icon: "error",
@@ -331,7 +447,7 @@ const Asistentes = () => {
         icon: "error",
         title:
           e?.response?.data?.message ||
-          "API Key inválida o sin conexión con OpenAI",
+          `API Key inválida o sin conexión con ${proveedorModal.nombre}`,
       });
     } finally {
       setSavingApiKey(false);
@@ -378,9 +494,13 @@ const Asistentes = () => {
     }
   };
 
-  const hasApiKey = Boolean(
-    existeAsistente && String(existeAsistente).trim().length > 0,
-  );
+  // «Hay llave» = la del proveedor con el que responde el bot. Con Claude
+  // activo, la de OpenAI no cuenta para el estado del agente.
+  const hasApiKey =
+    proveedorIA === "claude"
+      ? claudeKeyGuardada
+      : Boolean(existeAsistente && String(existeAsistente).trim().length > 0);
+  const proveedorActivo = PROVEEDORES[proveedorIA];
 
   const hasVentasConfig =
     Boolean(asistenteVentas) &&
@@ -459,9 +579,6 @@ const Asistentes = () => {
     };
   }, [tipoVenta]);
 
-  const openAIKeyUrl = "https://platform.openai.com/api-keys";
-  const openAIBillingUrl =
-    "https://platform.openai.com/settings/organization/billing/overview";
 
   return (
     <div className="p-5">
@@ -472,17 +589,24 @@ const Asistentes = () => {
             <h1 className="text-2xl md:text-3xl font-bold">Asistentes AI</h1>
             <p className="opacity-90 mt-1 max-w-2xl">
               Configure la conexión con{" "}
-              <span className="font-semibold">OpenAI</span> y administre y el
-              comportamiento general del bot.
+              <span className="font-semibold">OpenAI</span> o{" "}
+              <span className="font-semibold">Claude</span>, elija con cuál
+              responde el bot y administre su comportamiento general.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <button
-              onClick={() => setShowModalApiKey(true)}
+              onClick={() => abrirModalApiKey("openai")}
               className="bg-white text-indigo-700 hover:bg-indigo-50 transition px-4 py-2 rounded-xl text-sm font-semibold shadow"
             >
-              {existeAsistente ? "Editar API Key" : "Añadir API Key"}
+              {existeAsistente ? "Editar API Key OpenAI" : "Añadir API Key OpenAI"}
+            </button>
+            <button
+              onClick={() => abrirModalApiKey("claude")}
+              className="bg-white/10 ring-1 ring-white/40 text-white hover:bg-white/20 transition px-4 py-2 rounded-xl text-sm font-semibold shadow"
+            >
+              {existeClaude ? "Editar API Key Claude" : "Añadir API Key Claude"}
             </button>
           </div>
         </div>
@@ -505,6 +629,18 @@ const Asistentes = () => {
           API Key OpenAI
           <i className="bx bx-play-circle text-sm text-indigo-400" />
         </button>
+        <a
+          href={PROVEEDORES.claude.keyUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold
+      text-amber-800 bg-amber-50 ring-1 ring-amber-200
+      hover:bg-amber-100 hover:ring-amber-300 transition-all"
+        >
+          <i className="bx bx-key text-sm" />
+          API Key Claude
+          <i className="bx bx-link-external text-sm text-amber-500" />
+        </a>
       </div>
 
       {/* Puesta en marcha en 3 pasos — reemplaza las 3 tarjetas de texto que
@@ -517,56 +653,94 @@ const Asistentes = () => {
             </div>
             <div>
               <h3 className="font-bold text-gray-900 leading-tight">
-                Conecete su asistente AI a trabajar en 3 pasos
+                Conecte su asistente AI en 3 pasos
               </h3>
               <p className="text-[12.5px] text-gray-500">
-                Toma menos de 2 minutos · solo necesita una cuenta de OpenAI
+                Toma menos de 2 minutos · solo necesita una cuenta de OpenAI o
+                de Claude (Anthropic)
               </p>
             </div>
           </div>
-          {hasApiKey && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[12px] font-bold ring-1 ring-emerald-200">
-              <i className="bx bxs-check-circle" /> API Key configurada
-            </span>
-          )}
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold ring-1 ${
+              hasApiKey
+                ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                : "bg-amber-50 text-amber-800 ring-amber-200"
+            }`}
+          >
+            <i className={`bx ${hasApiKey ? "bxs-check-circle" : "bx-time-five"}`} />
+            {hasApiKey
+              ? `Responde con ${proveedorActivo.nombre}`
+              : `Falta la API Key de ${proveedorActivo.nombre}`}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
-          {/* Paso 1 */}
+          {/* Paso 1: elegir el proveedor. Cada opción sabe si ya tiene llave;
+              elegir una sin llave abre el modal y la activa al guardar. */}
           <div className="relative rounded-2xl border border-gray-100 bg-gray-50/60 p-4 flex flex-col">
             <div className="flex items-center gap-2.5 mb-2">
-              <span
-                className={`w-7 h-7 rounded-full grid place-items-center text-[12px] font-extrabold ${
-                  hasApiKey
-                    ? "bg-emerald-500 text-white"
-                    : "bg-[#171931] text-white"
-                }`}
-              >
-                {hasApiKey ? <i className="bx bx-check text-base" /> : "1"}
+              <span className="w-7 h-7 rounded-full grid place-items-center text-[12px] font-extrabold bg-emerald-500 text-white">
+                <i className="bx bx-check text-base" />
               </span>
               <span className="font-bold text-gray-900 text-[14px]">
-                Genere su API Key
+                Elija el proveedor
               </span>
             </div>
-            <p className="text-[12.5px] text-gray-500 leading-5 flex-1">
-              Inicie sesión en OpenAI y cree una llave secreta{" "}
-              <span className="font-semibold text-gray-600">
-                (Create new secret key)
-              </span>
-              .
+            <p className="text-[12.5px] text-gray-500 leading-5">
+              El prompt, el catálogo y las acciones de cada columna no cambian;
+              solo cambia quién genera la respuesta.
             </p>
-            <a
-              href={openAIKeyUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white hover:opacity-95 transition text-sm font-semibold"
-            >
-              <i className="bx bx-link-external" />
-              Ir a generar API Key
-            </a>
+            <div className="mt-3 flex flex-col gap-2">
+              {[
+                { id: "openai", llave: apiKeyGuardada, nota: "GPT-5 mini, GPT-4o mini, GPT-4.1…" },
+                { id: "claude", llave: claudeKeyGuardada, nota: "Claude Opus 5.5, Sonnet 5.5, Haiku 5.5" },
+              ].map((p) => {
+                const activo = proveedorIA === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={cambiandoProveedor}
+                    onClick={() => cambiarProveedor(p.id)}
+                    className={`w-full text-left rounded-xl border-2 px-3 py-2 transition disabled:opacity-60 ${
+                      activo
+                        ? "border-indigo-500 bg-white"
+                        : "border-gray-200 bg-white hover:border-indigo-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-[13px] text-gray-900">
+                        {PROVEEDORES[p.id].nombre}
+                      </span>
+                      <span
+                        className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full ${
+                          activo
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {activo ? "Activo" : "Usar este"}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-gray-500 leading-4 mt-0.5">
+                      {p.nota}
+                    </div>
+                    <div
+                      className={`text-[11px] font-semibold mt-1 ${
+                        p.llave ? "text-emerald-700" : "text-amber-700"
+                      }`}
+                    >
+                      <i className={`bx ${p.llave ? "bxs-check-circle" : "bx-key"}`} />{" "}
+                      {p.llave ? "API Key guardada" : "Sin API Key todavía"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Paso 2 */}
+          {/* Paso 2: la llave del proveedor activo */}
           <div className="relative rounded-2xl border border-gray-100 bg-gray-50/60 p-4 flex flex-col">
             <div className="flex items-center gap-2.5 mb-2">
               <span
@@ -579,23 +753,32 @@ const Asistentes = () => {
                 {hasApiKey ? <i className="bx bx-check text-base" /> : "2"}
               </span>
               <span className="font-bold text-gray-900 text-[14px]">
-                Péguela aquí
+                Genere y pegue su API Key
               </span>
             </div>
             <p className="text-[12.5px] text-gray-500 leading-5 flex-1">
-              Copie la llave completa y la validamos con OpenAI automáticamente
-              al guardar.
+              Inicie sesión en {proveedorActivo.nombre}, cree una llave secreta
+              y péguela aquí: la validamos al guardar y queda cifrada.
             </p>
+            <a
+              href={proveedorActivo.keyUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white hover:opacity-95 transition text-sm font-semibold"
+            >
+              <i className="bx bx-link-external" />
+              Generar API Key en {proveedorIA === "claude" ? "Anthropic" : "OpenAI"}
+            </a>
             <button
-              onClick={() => setShowModalApiKey(true)}
-              className="mt-3 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition text-sm font-semibold shadow-sm"
+              onClick={() => abrirModalApiKey(proveedorIA)}
+              className="mt-2 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition text-sm font-semibold shadow-sm"
             >
               <i className="bx bx-plus" />
-              Pegar API Key aquí
+              {hasApiKey ? "Reemplazar API Key" : "Pegar API Key aquí"}
             </button>
           </div>
 
-          {/* Paso 3 */}
+          {/* Paso 3: saldo del proveedor activo */}
           <div className="relative rounded-2xl border border-gray-100 bg-gray-50/60 p-4 flex flex-col">
             <div className="flex items-center gap-2.5 mb-2">
               <span className="w-7 h-7 rounded-full grid place-items-center text-[12px] font-extrabold bg-[#171931] text-white">
@@ -606,11 +789,12 @@ const Asistentes = () => {
               </span>
             </div>
             <p className="text-[12.5px] text-gray-500 leading-5 flex-1">
-              Recuerde recargar créditos: sin saldo en OpenAI, el bot no
-              responde aunque la llave sea válida.
+              Sin saldo en {proveedorActivo.nombre} el bot no responde aunque
+              la llave sea válida. El gasto real se ve abajo en Consumo del
+              asistente.
             </p>
             <a
-              href={openAIBillingUrl}
+              href={proveedorActivo.billingUrl}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white hover:opacity-95 transition text-sm font-semibold"
@@ -626,7 +810,8 @@ const Asistentes = () => {
           <i className="bx bx-shield-quarter text-[15px] text-emerald-500 mt-0.5" />
           <span>
             Su API Key es privada: no la comparta por WhatsApp ni capturas. Si
-            sospecha filtración, regenérela en OpenAI y reemplácela aquí.
+            sospecha filtración, regenérela en {proveedorActivo.nombre} y
+            reemplácela aquí.
           </span>
         </p>
       </div>
@@ -827,7 +1012,7 @@ const Asistentes = () => {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold text-gray-900">
-                    API Key
+                    API Key OpenAI
                   </div>
                   <div className="text-[11.5px] text-gray-400 truncate">
                     {existeAsistente ? (
@@ -855,7 +1040,7 @@ const Asistentes = () => {
                   )}
                 </div>
                 <span
-                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${existeAsistente ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
+                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${existeAsistente ? "bg-emerald-100 text-emerald-700" : proveedorIA === "claude" ? "bg-gray-100 text-gray-500" : "bg-rose-100 text-rose-700"}`}
                 >
                   {existeAsistente ? "OK" : "Pendiente"}
                 </span>
@@ -890,24 +1075,73 @@ const Asistentes = () => {
                 </span>
               </div>
             </div>
+            {/* Fila Claude: llave y si es el proveedor activo */}
+            <div className="rounded-2xl border border-gray-100">
+              <div className="flex items-center gap-3 px-3.5 py-2.5">
+                <i
+                  className={`bx ${existeClaude ? "bxs-check-circle text-emerald-500" : "bx-time-five text-gray-300"} text-xl shrink-0`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-gray-900">
+                    API Key Claude
+                  </div>
+                  <div className="text-[11.5px] text-gray-400 truncate">
+                    {existeClaude ? (
+                      <>
+                        Configurada ·{" "}
+                        <span className="font-mono">{existeClaude}</span>
+                      </>
+                    ) : (
+                      "Sin configurar (opcional)"
+                    )}
+                  </div>
+                </div>
+                <span
+                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${existeClaude ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
+                >
+                  {existeClaude ? "OK" : "Opcional"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 px-3.5 py-2.5 border-t border-gray-50">
+                <i className="bx bxs-bolt text-xl shrink-0 text-indigo-500" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-gray-900">
+                    El bot responde con
+                  </div>
+                  <div className="text-[11.5px] text-gray-400 truncate">
+                    {PROVEEDORES[proveedorIA].nombre}
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-indigo-100 text-indigo-700">
+                  {proveedorIA === "claude" ? "Claude" : "OpenAI"}
+                </span>
+              </div>
+            </div>
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3.5">
               <div className="text-xs text-gray-500">Acciones rápidas</div>
               <div className="mt-2.5 flex flex-col gap-2">
                 <button
-                  onClick={() => setShowModalApiKey(true)}
+                  onClick={() => abrirModalApiKey("openai")}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white transition text-sm font-semibold"
                 >
                   <i className="bx bx-key" />
-                  {existeAsistente ? "Editar API Key" : "Añadir API Key"}
+                  {existeAsistente ? "Editar API Key OpenAI" : "Añadir API Key OpenAI"}
+                </button>
+                <button
+                  onClick={() => abrirModalApiKey("claude")}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-gray-200 hover:bg-white transition text-sm font-semibold text-gray-800"
+                >
+                  <i className="bx bx-key" />
+                  {existeClaude ? "Editar API Key Claude" : "Añadir API Key Claude"}
                 </button>
                 <a
-                  href={openAIKeyUrl}
+                  href={proveedorActivo.keyUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-gray-200 hover:bg-white transition text-sm font-semibold text-gray-800"
                 >
                   <i className="bx bx-link-external" />
-                  Abrir panel de API Keys
+                  Abrir panel de API Keys de {proveedorActivo.nombre}
                 </a>
               </div>
             </div>
@@ -937,10 +1171,12 @@ const Asistentes = () => {
                 </span>
                 <div>
                   <h5 className="text-base font-semibold text-[#171931] leading-tight">
-                    {existeAsistente ? "Editar API Key" : "Añadir API Key"}
+                    {keyGuardadaModal ? "Editar API Key" : "Añadir API Key"} ·{" "}
+                    {proveedorModal.nombre}
                   </h5>
                   <p className="text-[12px] text-slate-500">
-                    Pegue su llave de OpenAI. La validamos al guardar.
+                    Pegue su llave de {proveedorModal.nombre}. La validamos al
+                    guardar.
                   </p>
                 </div>
               </div>
@@ -964,7 +1200,7 @@ const Asistentes = () => {
                   <i className="bx bx-key absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400" />
                   <input
                     type="text"
-                    name="openai_api_key"
+                    name={esModalClaude ? "claude_api_key" : "openai_api_key"}
                     autoComplete="off"
                     spellCheck={false}
                     disabled={savingApiKey}
@@ -972,17 +1208,17 @@ const Asistentes = () => {
                     onChange={(e) => setApiKeyInput(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm font-mono text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 focus:bg-white transition-all duration-200 disabled:opacity-60"
                     placeholder={
-                      apiKeyGuardada
+                      keyGuardadaModal
                         ? "Pegue una llave nueva para reemplazarla"
-                        : "sk-..."
+                        : proveedorModal.prefijo
                     }
                   />
                 </div>
-                {apiKeyGuardada && existeAsistente && (
+                {keyGuardadaModal && keyMascaraModal && (
                   <p className="mt-1.5 text-[11.5px] text-slate-500">
                     Llave actual:{" "}
                     <span className="font-mono font-semibold text-slate-700">
-                      {existeAsistente}
+                      {keyMascaraModal}
                     </span>{" "}
                     · guardada cifrada, no se puede volver a ver completa.
                   </p>
@@ -990,7 +1226,7 @@ const Asistentes = () => {
                 <p className="mt-1.5 text-[11px] text-slate-400">
                   ¿Aún no tiene una?{" "}
                   <a
-                    href={openAIKeyUrl}
+                    href={proveedorModal.keyUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="font-semibold text-indigo-600 hover:underline"
@@ -1002,7 +1238,7 @@ const Asistentes = () => {
 
               {/* De qué cuenta de OpenAI es la key GUARDADA: el saldo es por
                   organización, así el cliente sabe dónde recargar. */}
-              {apiKeyGuardada && cuentaOpenAI?.email && (
+              {!esModalClaude && apiKeyGuardada && cuentaOpenAI?.email && (
                 <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3.5">
                   <div className="flex items-start gap-2.5">
                     <i className="bx bx-user-circle text-lg text-indigo-600 mt-0.5" />
@@ -1038,11 +1274,12 @@ const Asistentes = () => {
                 <div className="flex items-start gap-2.5">
                   <i className="bx bx-wallet text-lg text-amber-700 mt-0.5" />
                   <div className="text-[12px] leading-5 text-amber-900">
-                    <span className="font-bold">Nota:</span> su cuenta de OpenAI
-                    debe tener <span className="font-semibold">saldo</span> para
-                    que el bot responda.
+                    <span className="font-bold">Nota:</span> su cuenta de{" "}
+                    {proveedorModal.nombre} debe tener{" "}
+                    <span className="font-semibold">saldo</span> para que el bot
+                    responda.
                     <a
-                      href={openAIBillingUrl}
+                      href={proveedorModal.billingUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 font-bold text-amber-900 hover:bg-amber-200 transition"
@@ -1059,7 +1296,8 @@ const Asistentes = () => {
                 <div className="flex items-center gap-2.5 rounded-xl border border-indigo-100 bg-indigo-50 px-3.5 py-3">
                   <i className="bx bx-loader-alt bx-spin text-lg text-indigo-600" />
                   <p className="text-[12px] font-semibold text-indigo-900">
-                    Validando su API Key con OpenAI… esto toma unos segundos.
+                    Validando su API Key con {proveedorModal.nombre}… esto toma
+                    unos segundos.
                   </p>
                 </div>
               )}
@@ -1068,7 +1306,7 @@ const Asistentes = () => {
             {/* Footer: eliminar a la izquierda (solo si hay key guardada),
                 acciones normales a la derecha */}
             <div className="flex items-center bg-gray-50/60 px-5 py-4 border-t border-gray-100 gap-2.5">
-              {apiKeyGuardada && (
+              {keyGuardadaModal && (
                 <button
                   onClick={eliminarApiKey}
                   disabled={savingApiKey || deletingApiKey}

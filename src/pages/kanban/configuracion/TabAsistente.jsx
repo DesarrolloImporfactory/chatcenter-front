@@ -79,6 +79,33 @@ const MODELOS = [
   },
 ];
 
+/* Modelos cuando la cuenta responde con Claude (Asistentes AI → Proveedor de
+   IA). Mismo cálculo de costo por respuesta (~12k tokens de contexto, la
+   mayoría cacheados) con los precios públicos de Anthropic. Si la columna
+   tiene guardado un modelo gpt-* y el proveedor es Claude, el motor usa
+   Claude Opus 5.5 hasta que se elija otro aquí. */
+const MODELOS_CLAUDE = [
+  {
+    value: "claude-opus-5-5",
+    label: "Claude Opus 5.5",
+    desc: "Recomendado. ≈ $0.02 por respuesta (unas 50 por dólar). El más capaz siguiendo guiones largos y cerrando ventas",
+    color: "#d97706",
+    recomendado: true,
+  },
+  {
+    value: "claude-sonnet-5-5",
+    label: "Claude Sonnet 5.5",
+    desc: "≈ $0.01 por respuesta (unas 100 por dólar). Rápido y preciso; buen equilibrio para volumen medio",
+    color: "#0ea5e9",
+  },
+  {
+    value: "claude-haiku-5-5",
+    label: "Claude Haiku 5.5",
+    desc: "El más económico: ≈ $0.001 por respuesta (unas 1.000 por dólar). Ideal para mucho volumen y flujos cortos",
+    color: "#10b981",
+  },
+];
+
 const FORMATOS_VALIDOS = "PDF, DOCX, TXT, CSV, JSON, MD, XLSX, PPTX, HTML";
 
 function formatBytes(b) {
@@ -126,6 +153,9 @@ const TabAsistente = ({
   const [chatLoading, setChatLoading] = useState(false);
   const [previousResponseId, setPreviousResponseId] = useState(null);
   const chatEndRef = useRef(null);
+  // Con qué proveedor responde la cuenta ("openai" | "claude"): decide qué
+  // modelos muestra el selector. Lo manda obtener_asistente.
+  const [proveedorIA, setProveedorIA] = useState("openai");
 
   // ── Datos del asistente (cargados una sola vez por columna) ─
   const [asistente, setAsistente] = useState(null);
@@ -524,6 +554,11 @@ const TabAsistente = ({
         { id: columnaId },
       );
       console.log("🔍 obtener_asistente response:", data);
+      const proveedor =
+        data?.proveedor_ia === "claude" || data?.data?.proveedor_ia === "claude"
+          ? "claude"
+          : "openai";
+      setProveedorIA(proveedor);
       if (data?.success && data.data) {
         setAsistente(data.data);
         setArchivos(data.data.archivos || []);
@@ -1368,6 +1403,7 @@ const TabAsistente = ({
               <label style={lbl}>Modelo</label>
               <SelectorModelo
                 valor={formCrear.modelo}
+                proveedor={proveedorIA}
                 onChange={(v) => setFormCrear((p) => ({ ...p, modelo: v }))}
               />
             </div>
@@ -2182,6 +2218,7 @@ const TabAsistente = ({
             <label style={lbl}>Modelo</label>
             <SelectorModelo
               valor={formEditar.modelo}
+              proveedor={proveedorIA}
               onChange={(v) => setFormEditar((p) => ({ ...p, modelo: v }))}
             />
           </div>
@@ -3254,8 +3291,25 @@ const TabAsistente = ({
 // ─────────────────────────────────────────────────────────────
 // SelectorModelo
 // ─────────────────────────────────────────────────────────────
-const SelectorModelo = ({ valor, onChange }) => (
+const SelectorModelo = ({ valor, onChange, proveedor = "openai" }) => (
   <div style={{ marginTop: 6 }}>
+    {proveedor === "claude" && !/^claude-/.test(String(valor || "")) && (
+      <div
+        style={{
+          fontSize: "0.74rem",
+          color: "#92400e",
+          background: "#fffbeb",
+          border: "1px solid #fde68a",
+          borderRadius: 10,
+          padding: "8px 10px",
+          marginBottom: 8,
+        }}
+      >
+        Esta cuenta responde con <b>Claude</b>. El modelo guardado (
+        {valor || "—"}) es de OpenAI, así que el bot usa <b>Claude Opus 5.5</b>{" "}
+        hasta que elijas uno de estos y guardes.
+      </div>
+    )}
     <div
       style={{
         display: "grid",
@@ -3263,7 +3317,7 @@ const SelectorModelo = ({ valor, onChange }) => (
         gap: 8,
       }}
     >
-      {MODELOS.map((m) => (
+      {(proveedor === "claude" ? MODELOS_CLAUDE : MODELOS).map((m) => (
         <button
           key={m.value}
           type="button"
@@ -3321,9 +3375,10 @@ const SelectorModelo = ({ valor, onChange }) => (
       ))}
     </div>
     <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 6 }}>
-      Costos estimados por respuesta con los precios públicos de OpenAI, para
-      comparar entre modelos; el consumo real de tu cuenta se ve en Asistentes →
-      Consumo del asistente. Los productos con mensaje fijo configurado no
+      Costos estimados por respuesta con los precios públicos de{" "}
+      {proveedor === "claude" ? "Anthropic" : "OpenAI"}, para comparar entre
+      modelos; el consumo real de tu cuenta se ve en Asistentes → Consumo del
+      asistente. Los productos con mensaje fijo configurado no
       gastan tokens en el primer mensaje ni en sus respuestas rápidas; el resto
       de la conversación sí pasa por el modelo elegido aquí.
     </div>
