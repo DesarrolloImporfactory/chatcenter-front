@@ -45,6 +45,7 @@ import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlanti
 import TelefoniaAdmin from "./pages/telefonia/TelefoniaAdmin";
 import AdministradorCanales from "./pages/administradorcanales/AdministradorCanales";
 import Comentarios from "./pages/comentarios/Comentarios";
+import AsistenteComentarios from "./pages/comentarios/AsistenteComentarios";
 import Asistentes from "./pages/asistentes/Asistentes";
 import Estado_contactos_imporfactory from "./pages/contactos/Estado_contactos_imporfactory";
 import Estado_contactos_ventas from "./pages/contactos/Estado_contactos_ventas";
@@ -261,6 +262,18 @@ function App() {
                   element={
                     <MainLayout>
                       <Comentarios />
+                    </MainLayout>
+                  }
+                />
+
+                {/* Configuración del asistente de comentarios. Ruta aparte y
+                    no un modal: tiene explicación, opciones y un probador, y
+                    se entra a leerla tanto como a cambiarla. */}
+                <Route
+                  path="/comentarios/asistente"
+                  element={
+                    <MainLayout>
+                      <AsistenteComentarios />
                     </MainLayout>
                   }
                 />

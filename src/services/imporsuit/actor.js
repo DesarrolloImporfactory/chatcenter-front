@@ -3,13 +3,10 @@ import { jwtDecode } from "jwt-decode";
 /**
  * Identidad del AGENTE de chatcenter (subusuario) para la auditoría de cartera.
  *
- * No hay JWT por usuario hacia Imporsuit (la integración usa un token compartido),
- * así que el actor se arma en el front desde el JWT de chatcenter (localStorage)
- * y se manda al backend en el body (`_cc_actor`) vía el interceptor de imporsuitApi.
- *
- * Se manda por BODY y no por header a propósito: el `.htaccess` de Imporsuit solo
- * permite `Content-Type, Authorization` en CORS; un header custom rompería el
- * preflight. Esto es atribución para auditoría, NO un mecanismo de seguridad.
+ * Desde el 13-10-2026 esto es SOLO para la interfaz (saber quién soy para
+ * mostrar u ocultar cosas). La identidad que recibe Imporsuit la pone el
+ * backend de ImporChat desde la sesión (`/imporsuit_puente`) y descarta
+ * cualquier `_cc_actor.id_sub_usuario` o `agente` que salga del navegador.
  */
 
 /**
