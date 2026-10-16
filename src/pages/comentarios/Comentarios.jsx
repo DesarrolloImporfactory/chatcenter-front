@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import io from "socket.io-client";
+import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 
 const ENDPOINTS = {
@@ -13,6 +14,9 @@ const ENDPOINTS = {
   planos: "/facebook_comentarios/comentarios",
   resumen: "/facebook_comentarios/resumen",
   comentarios: (id) => `/facebook_comentarios/posts/${id}/comentarios`,
+  sugerir: "/facebook_comentarios/sugerir",
+  productos: "/facebook_comentarios/productos",
+  vincularProducto: "/facebook_comentarios/vincular-producto",
   responder: "/facebook_comentarios/responder",
   responderPrivado: "/facebook_comentarios/responder-privado",
 };
@@ -179,16 +183,284 @@ const Metrica = ({ valor, etiqueta, tono = "gris", icono }) => {
  * en profundidad aunque hoy Facebook sólo permite un nivel de anidación: si
  * algún día lo amplía, esto no hay que tocarlo.
  */
-const Comentario = ({ nodo, nivel = 0, onEnviar }) => {
+/**
+ * Quién escribió cada respuesta nuestra.
+ *
+ * En el hilo todas se ven iguales, y no lo son. Saber si contestó una persona,
+ * si salió una respuesta rápida del producto o si la redactó la IA es lo
+ * primero que hace falta cuando un cliente reclama por lo que se le dijo — y
+ * también es la forma de ver, sin contar a mano, cuánto está resolviendo solo
+ * el catálogo y cuánto está haciendo falta el modelo.
+ *
+ * null no es un hueco: significa que esa respuesta se escribió desde Facebook y
+ * no desde ChatCenter. Merece su propia etiqueta.
+ */
+const ORIGEN_RESPUESTA = {
+  persona: {
+    texto: "Persona",
+    icono: "bx-user",
+    clase: "border-gray-200 bg-gray-50 text-gray-600",
+    ayuda: "La escribió un agente desde cero",
+  },
+  rapida: {
+    texto: "Respuesta rápida",
+    icono: "bx-bolt-circle",
+    clase: "border-violet-200 bg-violet-50 text-violet-700",
+    ayuda: "Texto del producto, publicado tal cual. No gastó tokens.",
+  },
+  rapida_editada: {
+    texto: "Rápida · editada",
+    icono: "bx-edit-alt",
+    clase: "border-violet-200 bg-white text-violet-600",
+    ayuda: "Salió de una respuesta rápida y el agente la cambió",
+  },
+  ia: {
+    texto: "IA",
+    icono: "bx-bot",
+    clase: "border-blue-200 bg-blue-50 text-blue-700",
+    ayuda: "Borrador de la IA publicado tal cual",
+  },
+  ia_editada: {
+    texto: "IA · editada",
+    icono: "bx-edit-alt",
+    clase: "border-blue-200 bg-white text-blue-600",
+    ayuda: "La IA propuso y el agente lo reescribió",
+  },
+  facebook: {
+    texto: "Desde Facebook",
+    icono: "bxl-facebook-circle",
+    clase: "border-gray-200 bg-white text-gray-500",
+    ayuda: "Se respondió fuera de ChatCenter, así que no sabemos con qué",
+  },
+};
+
+const InsigniaOrigen = ({ origen, autor }) => {
+  const o = ORIGEN_RESPUESTA[origen || "facebook"];
+  if (!o) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] border ${o.clase}`}
+      title={autor ? `${o.ayuda} · ${autor}` : o.ayuda}
+    >
+      <i className={`bx ${o.icono}`} />
+      {o.texto}
+      {autor && origen && origen !== "facebook" ? (
+        <span className="opacity-70">· {autor}</span>
+      ) : null}
+    </span>
+  );
+};
+
+/**
+ * Producto de la publicación.
+ *
+ * Es lo que decide qué sabe el asistente al redactar. Sin producto vinculado
+ * solo puede reconocer el comentario y mandar al privado; con producto contesta
+ * de verdad, y si ese producto tiene respuestas rápidas cargadas responde con
+ * el texto que escribió el negocio, sin gastar tokens.
+ *
+ * Se vincula a mano. Se miró deducirlo del anuncio (anuncios_producto enlaza
+ * anuncio → producto) y el id del anuncio no aparece dentro del id de la
+ * publicación, así que automatizarlo hoy sería adivinar.
+ */
+const SelectorProducto = ({
+  postId,
+  idProducto,
+  nombreProducto,
+  productos,
+  cargando,
+  onVincular,
+}) => {
+  const [abierto, setAbierto] = useState(false);
+  const [q, setQ] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  const filtrados = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return productos;
+    return productos.filter((p) => (p.nombre || "").toLowerCase().includes(t));
+  }, [productos, q]);
+
+  const elegir = async (id) => {
+    if (guardando) return;
+    setGuardando(true);
+    try {
+      await onVincular(postId, id);
+      setAbierto(false);
+      setQ("");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="relative mt-2">
+      <button
+        onClick={() => setAbierto((v) => !v)}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition ${
+          idProducto
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+        }`}
+        title={
+          idProducto
+            ? "La IA responde con la ficha de este producto"
+            : "Sin producto, la IA solo puede mandar al privado"
+        }
+      >
+        <i className={`bx ${idProducto ? "bx-purchase-tag" : "bx-link"}`} />
+        <span className="max-w-[220px] truncate">
+          {idProducto
+            ? nombreProducto || `Producto #${idProducto}`
+            : "Vincular producto"}
+        </span>
+        <i className="bx bx-chevron-down opacity-60" />
+      </button>
+
+      {abierto ? (
+        <div className="absolute z-20 mt-1.5 w-80 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar producto…"
+              autoFocus
+              className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:border-blue-300"
+            />
+          </div>
+
+          <div className="max-h-64 overflow-y-auto">
+            {cargando ? (
+              <div className="p-3 text-xs text-gray-500 flex items-center gap-2">
+                <i className="bx bx-loader-alt bx-spin" />
+                Cargando productos…
+              </div>
+            ) : !filtrados.length ? (
+              <div className="p-3 text-xs text-gray-500">
+                No hay productos que coincidan.
+              </div>
+            ) : (
+              filtrados.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => elegir(p.id)}
+                  disabled={guardando}
+                  className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-50 disabled:opacity-50 ${
+                    p.id === idProducto ? "bg-emerald-50/60" : ""
+                  }`}
+                >
+                  {p.imagen_url ? (
+                    <img
+                      src={p.imagen_url}
+                      alt=""
+                      className="h-8 w-8 rounded-lg object-cover shrink-0"
+                    />
+                  ) : (
+                    <span className="h-8 w-8 rounded-lg bg-gray-100 grid place-items-center shrink-0 text-gray-400">
+                      <i className="bx bx-box" />
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs text-gray-800 truncate">
+                      {p.nombre}
+                    </span>
+                    <span className="block text-[11px] text-gray-400">
+                      {p.precio != null ? `${p.precio}` : "sin precio"}
+                    </span>
+                  </span>
+                  {/* Con respuestas cargadas la sugerencia sale del texto del
+                      negocio y no cuesta tokens: merece señalarse. */}
+                  {p.tiene_respuestas ? (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-600 border border-violet-100 shrink-0"
+                      title="Tiene respuestas rápidas cargadas"
+                    >
+                      <i className="bx bx-bolt-circle" />
+                    </span>
+                  ) : null}
+                </button>
+              ))
+            )}
+          </div>
+
+          {idProducto ? (
+            <button
+              onClick={() => elegir(null)}
+              disabled={guardando}
+              className="w-full px-3 py-2 text-left text-xs text-red-600 border-t border-gray-100 hover:bg-red-50 disabled:opacity-50"
+            >
+              <i className="bx bx-unlink mr-1" />
+              Quitar el producto de esta publicación
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const Comentario = ({ nodo, nivel = 0, onEnviar, onSugerir }) => {
   const [modo, setModo] = useState(null); // 'publico' | 'privado' | null
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
+  const [sugiriendo, setSugiriendo] = useState(false);
+  const [origenSugerencia, setOrigenSugerencia] = useState(null);
+
+  /**
+   * Pide un borrador a la IA y lo pone en el cuadro de texto.
+   *
+   * No publica: rellena. El agente lo lee, lo corrige si hace falta y decide.
+   * Esa frontera es la que se le declaró a Meta sobre pages_manage_engagement,
+   * y es lo que evita que una alucinación acabe publicada en la página de un
+   * cliente.
+   *
+   * Si ya había algo escrito no se pisa: lo que escribió una persona pesa más
+   * que lo que propone el modelo.
+   */
+  const sugerir = async () => {
+    if (sugiriendo || !onSugerir) return;
+    setSugiriendo(true);
+    setError(null);
+    try {
+      const r = await onSugerir(nodo.comment_id);
+      if (r?.sugerencia) {
+        setTexto((prev) => (prev.trim() ? prev : r.sugerencia));
+        setOrigenSugerencia(r);
+      }
+    } catch (err) {
+      setError(
+        err?.response?.data?.message || "No se pudo redactar la sugerencia.",
+      );
+    } finally {
+      setSugiriendo(false);
+    }
+  };
 
   const abrir = (m) => {
     setModo(m);
     setTexto("");
     setError(null);
+    setOrigenSugerencia(null);
+  };
+
+  /**
+   * De dónde salió el texto que se va a publicar.
+   *
+   * Pedir sugerencia y publicarla tal cual no es lo mismo que pedirla y
+   * reescribirla entera: en el segundo caso la respuesta es de la persona,
+   * aunque la haya arrancado el modelo. Se compara el texto final con el que
+   * propuso el backend; si cambió, se marca "editada".
+   *
+   * Si nunca se pidió sugerencia, es 'persona' y no hay nada que comparar.
+   */
+  const calcularOrigen = () => {
+    if (!origenSugerencia) return "persona";
+    const base =
+      origenSugerencia.origen === "respuesta_rapida" ? "rapida" : "ia";
+    const igual =
+      texto.trim() === String(origenSugerencia.sugerencia || "").trim();
+    return igual ? base : `${base}_editada`;
   };
 
   const enviar = async () => {
@@ -200,9 +472,11 @@ const Comentario = ({ nodo, nivel = 0, onEnviar }) => {
         comment_id: nodo.comment_id,
         mensaje: texto,
         privado: modo === "privado",
+        origen: calcularOrigen(),
       });
       setModo(null);
       setTexto("");
+      setOrigenSugerencia(null);
     } catch (err) {
       setError(err?.response?.data?.message || "No se pudo enviar.");
     } finally {
@@ -230,7 +504,15 @@ const Comentario = ({ nodo, nivel = 0, onEnviar }) => {
               {nodo.from_nombre || "Usuario de Facebook"}
             </span>
             {nodo.es_de_la_pagina ? (
-              <Pastilla tono="azul">página</Pastilla>
+              <>
+                <Pastilla tono="azul">página</Pastilla>
+                {/* De dónde salió esta respuesta. Sin esto, la que escribió
+                    una persona y la que redactó el modelo se ven idénticas. */}
+                <InsigniaOrigen
+                  origen={nodo.origen_respuesta}
+                  autor={nodo.respondido_por_nombre}
+                />
+              </>
             ) : null}
             {!nodo.es_de_la_pagina && nodo.respondido ? (
               <Pastilla tono="verde">
@@ -362,6 +644,63 @@ const Comentario = ({ nodo, nivel = 0, onEnviar }) => {
                       ? "Enviar privado"
                       : "Publicar respuesta"}
                 </button>
+                {/* Sólo en la respuesta pública: el privado abre una
+                    conversación y ahí escribe la persona, no el modelo. */}
+                {modo === "publico" && onSugerir ? (
+                  <button
+                    onClick={sugerir}
+                    disabled={sugiriendo || enviando}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition"
+                    title={
+                      texto.trim()
+                        ? "Ya escribiste algo: la sugerencia no lo va a pisar"
+                        : "Redacta un borrador con la IA"
+                    }
+                  >
+                    <i
+                      className={`bx ${sugiriendo ? "bx-loader-alt bx-spin" : "bx-bulb"}`}
+                    />
+                    {sugiriendo ? "Redactando…" : "Sugerir respuesta"}
+                  </button>
+                ) : null}
+
+                {/* De dónde salió el borrador. Importa: una respuesta rápida
+                    son palabras que escribió el negocio y se puede publicar
+                    casi sin mirar; una de la IA hay que leerla. */}
+                {origenSugerencia ? (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border ${
+                      origenSugerencia.origen === "respuesta_rapida"
+                        ? "border-violet-200 bg-violet-50 text-violet-700"
+                        : origenSugerencia.origen === "ia_sin_producto"
+                          ? "border-amber-200 bg-amber-50 text-amber-700"
+                          : "border-gray-200 bg-gray-50 text-gray-600"
+                    }`}
+                    title={
+                      origenSugerencia.origen === "respuesta_rapida"
+                        ? `Respuesta que el negocio escribió para: ${origenSugerencia.pregunta || "esta pregunta"}`
+                        : origenSugerencia.origen === "ia_sin_producto"
+                          ? "Esta publicación no tiene producto vinculado, así que la IA no sabe de qué habla"
+                          : `IA con la ficha de ${origenSugerencia.producto?.nombre || "el producto"}`
+                    }
+                  >
+                    <i
+                      className={`bx ${
+                        origenSugerencia.origen === "respuesta_rapida"
+                          ? "bx-bolt-circle"
+                          : origenSugerencia.origen === "ia_sin_producto"
+                            ? "bx-error-circle"
+                            : "bx-purchase-tag"
+                      }`}
+                    />
+                    {origenSugerencia.origen === "respuesta_rapida"
+                      ? "Respuesta del negocio"
+                      : origenSugerencia.origen === "ia_sin_producto"
+                        ? "Sin producto vinculado"
+                        : origenSugerencia.producto?.nombre || "IA"}
+                  </span>
+                ) : null}
+
                 <button
                   onClick={() => setModo(null)}
                   disabled={enviando}
@@ -388,6 +727,8 @@ const Comentario = ({ nodo, nivel = 0, onEnviar }) => {
 };
 
 export default function Comentarios() {
+  const navigate = useNavigate();
+
   const id_configuracion = useMemo(() => {
     const v = localStorage.getItem("id_configuracion");
     return v ? Number(v) : null;
@@ -412,6 +753,11 @@ export default function Comentarios() {
   const [estadoFiltro, setEstadoFiltro] = useState("pendientes");
   const [orden, setOrden] = useState("antiguos");
   const [busqueda, setBusqueda] = useState("");
+
+  // Catálogo para vincular la publicación a un producto. Se pide una sola vez:
+  // no cambia mientras dura la sesión de la bandeja.
+  const [productos, setProductos] = useState([]);
+  const [cargandoProductos, setCargandoProductos] = useState(true);
 
   const cargarPosts = useCallback(async () => {
     if (!id_configuracion) return;
@@ -584,13 +930,94 @@ export default function Comentarios() {
     }
   };
 
-  const enviarRespuesta = async ({ comment_id, mensaje, privado }) => {
+  /**
+   * Pide el borrador al backend. No publica nada.
+   *
+   * Devuelve el objeto entero y no sólo el texto porque el origen importa: una
+   * respuesta rápida son palabras del negocio y se puede publicar casi sin
+   * mirar; una de la IA hay que leerla; y "sin producto vinculado" es un aviso
+   * de que ese post todavía no está configurado.
+   */
+  const pedirSugerencia = async (comment_id) => {
+    const { data } = await chatApi.post(ENDPOINTS.sugerir, {
+      id_configuracion,
+      comment_id,
+    });
+    if (!data?.sugerencia) return null;
+    return {
+      sugerencia: data.sugerencia,
+      origen: data.origen || null,
+      producto: data.producto || null,
+      pregunta: data.pregunta || null,
+    };
+  };
+
+  const cargarProductos = useCallback(async () => {
+    if (!id_configuracion) return;
+    setCargandoProductos(true);
+    try {
+      const { data } = await chatApi.get(ENDPOINTS.productos, {
+        params: { id_configuracion },
+      });
+      setProductos(data.productos || []);
+    } catch {
+      // Sin catálogo el selector queda vacío, pero la bandeja sigue sirviendo.
+      setProductos([]);
+    } finally {
+      setCargandoProductos(false);
+    }
+  }, [id_configuracion]);
+
+  useEffect(() => {
+    cargarProductos();
+  }, [cargarProductos]);
+
+  /**
+   * Vincula la publicación a un producto (o lo quita, con id null).
+   *
+   * Refresca las dos listas y el comentario abierto, porque el producto se
+   * muestra en la cabecera del detalle y en la lista de publicaciones.
+   */
+  const vincularProducto = async (post_id, id_producto) => {
+    await chatApi.post(ENDPOINTS.vincularProducto, {
+      id_configuracion,
+      post_id,
+      id_producto,
+    });
+
+    const prod = id_producto
+      ? productos.find((p) => p.id === id_producto) || null
+      : null;
+
+    setSeleccionado((s) =>
+      s && s.post_id === post_id
+        ? { ...s, id_producto, producto_nombre: prod?.nombre || null }
+        : s,
+    );
+    setComentarioSel((c) =>
+      c && c.post_id === post_id
+        ? {
+            ...c,
+            post_id_producto: id_producto,
+            post_producto_nombre: prod?.nombre || null,
+          }
+        : c,
+    );
+
+    cargarPosts();
+    cargarPlanos();
+  };
+
+  const enviarRespuesta = async ({ comment_id, mensaje, privado, origen }) => {
     await chatApi.post(
       privado ? ENDPOINTS.responderPrivado : ENDPOINTS.responder,
       {
         id_configuracion,
         comment_id,
         mensaje,
+        // El privado no lo usa: ahí la conversación sigue en el chat, y el
+        // origen de cada mensaje ya se guarda por ese camino.
+        ...(privado ? {} : { origen }),
       },
     );
     if (seleccionado) await recargarHilo(seleccionado.id_facebook_post);
@@ -652,6 +1079,18 @@ export default function Comentarios() {
               </button>
             ))}
           </div>
+
+          {/* Configurar el asistente. Vive en su propia ruta porque tiene
+              explicación y probador, y se entra a leerla tanto como a
+              cambiarla. */}
+          <button
+            onClick={() => navigate("/comentarios/asistente")}
+            title="Configurar el asistente de comentarios"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm bg-white/10 text-white border border-white/25 hover:bg-white/20 transition"
+          >
+            <i className="bx bx-bot text-lg" />
+            <span className="hidden sm:inline">Asistente</span>
+          </button>
 
           <button
             onClick={() => {
@@ -1037,6 +1476,29 @@ export default function Comentarios() {
                       Ver la publicación en Facebook
                     </a>
                   ) : null}
+
+                  {/* Qué producto es. Decide qué puede contestar el asistente
+                      en los comentarios de esta publicación. */}
+                  <SelectorProducto
+                    postId={
+                      vista === "pendientes"
+                        ? comentarioSel.post_id
+                        : seleccionado.post_id
+                    }
+                    idProducto={
+                      vista === "pendientes"
+                        ? comentarioSel.post_id_producto
+                        : seleccionado.id_producto
+                    }
+                    nombreProducto={
+                      vista === "pendientes"
+                        ? comentarioSel.post_producto_nombre
+                        : seleccionado.producto_nombre
+                    }
+                    productos={productos}
+                    cargando={cargandoProductos}
+                    onVincular={vincularProducto}
+                  />
                 </div>
               </div>
 
@@ -1047,6 +1509,7 @@ export default function Comentarios() {
                     key={comentarioSel.id_facebook_comment}
                     nodo={comentarioSel}
                     onEnviar={enviarRespuesta}
+                    onSugerir={pedirSugerencia}
                   />
                 ) : cargandoHilo ? (
                   <div className="py-8 flex items-center justify-center gap-2 text-sm text-gray-500">
@@ -1059,6 +1522,7 @@ export default function Comentarios() {
                       key={c.id_facebook_comment}
                       nodo={c}
                       onEnviar={enviarRespuesta}
+                      onSugerir={pedirSugerencia}
                     />
                   ))
                 ) : (

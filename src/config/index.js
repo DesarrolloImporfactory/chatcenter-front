@@ -98,9 +98,12 @@ export const APP_CONFIG = {
 
 // Validación de configuración requerida
 export const validateConfig = () => {
-  const required = ["VITE_socket"];
+  // Cada variable se lee con su nombre escrito. NO usar `import.meta.env[key]`:
+  // el acceso dinámico hace que Vite copie TODAS las VITE_* del .env al bundle
+  // público, se usen o no (así se filtró una llave hasta el 13-10-2026).
+  const required = { VITE_socket: import.meta.env.VITE_socket };
 
-  const missing = required.filter((key) => !import.meta.env[key]);
+  const missing = Object.keys(required).filter((key) => !required[key]);
 
   if (missing.length > 0) {
     console.error("Missing required environment variables:", missing);

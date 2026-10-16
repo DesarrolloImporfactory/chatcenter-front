@@ -154,13 +154,14 @@ CHATCENTER_ASESOR_ID=0
 ```
 `CHATCENTER_ASESOR_ID` es solo fallback; las deudas usan el asesor del selector.
 
-### `d:\chatcenter-front\.env`
+### `socket/.env` (backend de ImporChat)
 ```dotenv
-VITE_IMPORSUIT_URL=https://new.imporsuitpro.com
-VITE_IMPORSUIT_CHATCENTER_TOKEN=do_not_put_server_secrets_in_vite
+IMPORSUIT_URL=https://new.imporsuitpro.com
+IMPORSUIT_CHATCENTER_TOKEN=<mismo valor que CHATCENTER_API_TOKEN>
 ```
-> El token debe ser **idéntico** en ambos. Tras editar el `.env` del front,
-> **reiniciar `npm run dev`** (Vite solo lee env al arrancar).
+> Desde el 13-10-2026 el front no lleva la llave: llama a
+> `/api/v1/imporsuit_puente` del backend de ImporChat, que la agrega.
+> `VITE_IMPORSUIT_CHATCENTER_TOKEN` ya no existe y no debe volver.
 
 ---
 
@@ -292,5 +293,6 @@ header custom rompería el preflight. `CarteraImporsuitSection` setea
 - **Sin cambios** (se descartó el enfoque SSO / token por usuario).
 
 ### Config (NO va al repo)
-- `.env` de ambos repos: `CHATCENTER_API_TOKEN` / `VITE_IMPORSUIT_CHATCENTER_TOKEN`
-  (mismo valor) + `CHATCENTER_ASESOR_ID`. Ver sección 5.
+- `.env` de los servidores: `CHATCENTER_API_TOKEN` (imporsuit-pro) /
+  `IMPORSUIT_CHATCENTER_TOKEN` (socket), mismo valor, + `CHATCENTER_ASESOR_ID`.
+  El front no lleva ninguna. Ver sección 5.

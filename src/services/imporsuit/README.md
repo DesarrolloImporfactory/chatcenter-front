@@ -12,11 +12,18 @@ asignarle paquetes/cursos, ver si tiene cartera, y registrar deudas y pagos.
 
 ---
 
-## Arquitectura (token único, sin SSO)
+## Arquitectura (la llave vive solo en los servidores)
+
+Desde el 13-10-2026 el front **no** llama a Imporsuit directo ni conoce la
+llave: le pide al backend de ImporChat, que valida la sesión, agrega la llave y
+pone la identidad del asesor (`_cc_actor`) desde la sesión.
 
 ```
 chatcenter (front)
-   │  Authorization: Bearer <CHATCENTER_API_TOKEN>   (token fijo, igual en ambos lados)
+   │  Authorization: Bearer <JWT de la sesión de ImporChat>
+   ▼
+socket  /api/v1/imporsuit_puente/*   ← solo cuentas de Imporfactory
+   │  Authorization: Bearer <CHATCENTER_API_TOKEN>   (solo en el .env del servidor)
    ▼
 new.imporsuitpro.com/Carterachat/*   ← controlador NUEVO e independiente
    │  reusa AsesorModel / UsuariosModel (sin modificarlos)
@@ -58,14 +65,14 @@ CHATCENTER_ASESOR_ID=0
   creadas desde chatcenter. Opcional para buscar/ver cartera; ponelo (tu id de
   admin) si querés que las deudas queden con asesor.
 
-### 2. ChatCenter — `d:\chatcenter-front\.env`
+### 2. Backend de ImporChat — `socket/.env`
 ```dotenv
-VITE_IMPORSUIT_URL=https://new.imporsuitpro.com
-VITE_IMPORSUIT_CHATCENTER_TOKEN=do_not_put_server_secrets_in_vite
+IMPORSUIT_URL=https://new.imporsuitpro.com
+IMPORSUIT_CHATCENTER_TOKEN=<mismo valor que CHATCENTER_API_TOKEN>
 ```
-> El valor de `VITE_IMPORSUIT_CHATCENTER_TOKEN` debe ser **idéntico** a
-> `CHATCENTER_API_TOKEN`. Tras editarlo, **reiniciá `npm run dev`** (Vite solo lee
-> env al arrancar).
+> El front **no lleva ninguna llave**. `VITE_IMPORSUIT_CHATCENTER_TOKEN` ya no
+> existe y no debe volver: todo lo que empieza por `VITE_` queda escrito en el
+> bundle público.
 
 ---
 
