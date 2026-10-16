@@ -184,6 +184,14 @@ const ENDPOINTS_CONFIG = [
     body: `{ "chat_id": 12345, "tipo": "image", "url": "https://cdn.midominio.com/producto.jpg", "caption": "Así se ve en rojo" }`,
   },
   {
+    grupo: "mensajes",
+    metodo: "POST",
+    path: "/cobros/aviso-pago",
+    scope: "mensajes:write",
+    desc: "Solo conexiones con plantillas de cobro de Imporsuit. Avisa por WhatsApp a una cuenta de Imporsuit (id_users o email) que tiene saldo vencido: nombre, monto y enlace de pago se calculan desde su cartera. No envía si está al día ni si ya recibió un cobro en las últimas horas_sin_repetir (72 por defecto); en esos casos responde enviado:false con el motivo.",
+    body: `{ "id_users": 1234, "origen": "login_suspendido", "horas_sin_repetir": 72 }`,
+  },
+  {
     grupo: "meta",
     metodo: "GET",
     path: "/plantillas-meta",
