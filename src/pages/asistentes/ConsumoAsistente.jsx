@@ -21,13 +21,31 @@ const fechaCorta = (iso) => {
 
 const FILAS_POR_PAGINA = 14;
 
-export default function ConsumoAsistente({ idConfiguracion }) {
+/* Dónde ver el uso oficial de cada proveedor. */
+const USO_OFICIAL = {
+  openai: { texto: "platform.openai.com/usage", url: "https://platform.openai.com/usage" },
+  claude: {
+    texto: "console.anthropic.com/settings/usage",
+    url: "https://console.anthropic.com/settings/usage",
+  },
+};
+
+/* `proveedores` = { openai: bool, claude: bool }: qué llaves tiene guardadas la
+   cuenta. Con las dos aparece el filtro OpenAI / Claude; también aparece si en
+   el período hubo respuestas de los dos (p. ej. cambió de proveedor y luego
+   borró una llave). Sin el filtro, para ver cuánto le costó Claude tendría
+   que dejar el bot respondiendo con Claude. */
+export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) {
   const [dias, setDias] = useState(30);
+  // "" = todos | "openai" | "claude"
+  const [proveedor, setProveedor] = useState("");
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
   // Paginación del detalle por día: 90 días de golpe era un scroll infinito.
   const [pagina, setPagina] = useState(0);
+  // «Volver a cargar» tras un fallo (p. ej. el backend reiniciándose).
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     if (!idConfiguracion) return;
@@ -37,7 +55,7 @@ export default function ConsumoAsistente({ idConfiguracion }) {
     chatApi
       .post(
         "/consumo_ia/resumen",
-        { id_configuracion: idConfiguracion, dias },
+        { id_configuracion: idConfiguracion, dias, proveedor: proveedor || undefined },
         { silentError: true },
       )
       .then(({ data: r }) => {
@@ -45,19 +63,39 @@ export default function ConsumoAsistente({ idConfiguracion }) {
         setData(r?.data || null);
         setPagina(0);
       })
-      .catch((e) => vivo && setError(e?.response?.data?.message || "No se pudo cargar el consumo."))
+      .catch((e) => {
+        if (!vivo) return;
+        console.error("[ConsumoAsistente] no se pudo cargar el consumo:", e);
+        setError(e?.response?.data?.message || "No se pudo cargar el consumo.");
+      })
       .finally(() => vivo && setCargando(false));
     return () => {
       vivo = false;
     };
-  }, [idConfiguracion, dias]);
+  }, [idConfiguracion, dias, proveedor, intento]);
 
   const t = data?.totales || {};
   const totalRespuestas = (t.msgs_ia || 0) + (t.msgs_sin_ia || 0);
   const pctSinIA = totalRespuestas ? Math.round(((t.msgs_sin_ia || 0) / totalRespuestas) * 100) : 0;
 
+  const pp = data?.por_proveedor || {};
+  const mostrarFiltro =
+    Boolean(proveedores.openai && proveedores.claude) ||
+    Boolean((pp.openai || 0) > 0 && (pp.claude || 0) > 0) ||
+    Boolean(proveedor);
+  const etiquetaProveedor =
+    proveedor === "claude" ? "Claude" : proveedor === "openai" ? "OpenAI" : "";
+  // Nota al pie: con el filtro se enlaza el panel de ese proveedor; sin filtro,
+  // el de OpenAI y, si hubo respuestas con Claude, también el de Anthropic.
+  const enlacesUso =
+    proveedor === "claude"
+      ? [USO_OFICIAL.claude]
+      : proveedor === "openai" || !(pp.claude > 0)
+        ? [USO_OFICIAL.openai]
+        : [USO_OFICIAL.openai, USO_OFICIAL.claude];
+
   return (
-    <div className="bg-white border rounded-2xl shadow-sm p-6 mt-4">
+    <div id="consumo-asistente" className="bg-white border rounded-2xl shadow-sm p-6 mt-4 scroll-mt-4">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div className="flex items-start gap-3">
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 grid place-items-center">
@@ -66,30 +104,84 @@ export default function ConsumoAsistente({ idConfiguracion }) {
           <div>
             <h3 className="text-xl font-bold text-gray-900">Consumo del asistente</h3>
             <p className="text-sm text-gray-500">
-              Cuántas respuestas salieron con IA, cuántas sin IA y cuánto costaron{" "}
+              Cuántas respuestas salieron con IA
+              {etiquetaProveedor ? (
+                <>
+                  {" "}
+                  <b className="text-gray-700">de {etiquetaProveedor}</b>
+                </>
+              ) : null}
+              , cuántas sin IA y cuánto costaron{" "}
               <b className="text-gray-700">en los últimos {dias} días</b> (acumulado
               del período, no por día — el detalle diario está en la tabla).
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 self-start">
-          {[7, 30, 90].map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDias(d)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                dias === d ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {d} días
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap self-start">
+          {mostrarFiltro && (
+            <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+              {[
+                { v: "", txt: "Todos" },
+                { v: "openai", txt: "OpenAI" },
+                { v: "claude", txt: "Claude" },
+              ].map((o) => (
+                <button
+                  key={o.v || "todos"}
+                  type="button"
+                  onClick={() => setProveedor(o.v)}
+                  title={
+                    o.v && typeof pp[o.v] === "number"
+                      ? `${num(pp[o.v])} respuestas con ${o.txt} en el período`
+                      : undefined
+                  }
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                    proveedor === o.v
+                      ? "bg-white shadow text-slate-900"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {o.txt}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDias(d)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  dias === d ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {d} días
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {error ? (
-        <div className="text-sm text-rose-600">{error}</div>
+        /* Sin datos no es un error para el cliente: se muestra como vacío y
+           se deja volver a cargar. El detalle técnico queda en consola. */
+        <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center">
+          <i className="bx bx-bar-chart-alt-2 text-3xl text-slate-300" />
+          <div className="mt-1 text-sm font-semibold text-slate-600">
+            Todavía no hay información de consumo disponible
+          </div>
+          <div className="mt-0.5 text-[12px] text-slate-400">
+            Cuando el asistente responda, el detalle de respuestas y costo
+            aparece aquí.
+          </div>
+          <button
+            type="button"
+            onClick={() => setIntento((i) => i + 1)}
+            className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-indigo-600 hover:underline"
+          >
+            <i className="bx bx-refresh" /> Volver a cargar
+          </button>
+        </div>
       ) : cargando && !data ? (
         <div className="h-28 rounded-xl bg-slate-100 animate-pulse" />
       ) : data ? (
@@ -248,16 +340,21 @@ export default function ConsumoAsistente({ idConfiguracion }) {
 
           <p className="mt-3 text-[11.5px] text-slate-400 leading-snug">
             {data.nota} Modelo de referencia para las estimaciones:{" "}
-            <b className="text-slate-600">{data.modelo_referencia}</b> (precios de OpenAI
+            <b className="text-slate-600">{data.modelo_referencia}</b> (precios
             revisados {data.precios_actualizados}). El detalle oficial de uso está en{" "}
-            <a
-              href="https://platform.openai.com/usage"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-indigo-600 hover:underline"
-            >
-              platform.openai.com/usage
-            </a>
+            {enlacesUso.map((u, i) => (
+              <React.Fragment key={u.url}>
+                {i > 0 ? " y " : ""}
+                <a
+                  href={u.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-600 hover:underline"
+                >
+                  {u.texto}
+                </a>
+              </React.Fragment>
+            ))}
             .
           </p>
         </>
