@@ -109,6 +109,13 @@ const ChatPruebaModal = ({
           id: columnaActiva,
           mensaje: texto,
           previous_response_id: previousResponseId,
+          // Cuando la cuenta responde con Claude no hay cadena en OpenAI: el
+          // backend rearma la conversación con este historial (igual que en
+          // producción con el recap). Con OpenAI lo ignora.
+          historial: mensajes
+            .filter((m) => m.rol === "user" || m.rol === "assistant")
+            .slice(-30)
+            .map((m) => ({ rol: m.rol, texto: m.texto })),
         },
         {
           timeout: 150000,
