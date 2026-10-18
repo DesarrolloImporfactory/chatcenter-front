@@ -266,10 +266,9 @@ const Asistentes = () => {
     if (cambiandoProveedor || proveedor === proveedorIA) return;
     const tieneLlave = proveedor === "claude" ? claudeKeyGuardada : apiKeyGuardada;
     if (!tieneLlave) {
-      Toast.fire({
-        icon: "info",
-        title: `Pegue la API Key de ${PROVEEDORES[proveedor].nombre} y se activa solo`,
-      });
+      // Sin llave: se abre el modal y punto. Al guardarla, el proveedor se
+      // activa solo (pendienteActivar). Sin toast: parecía un error antes
+      // de que el cliente hubiera hecho nada.
       setPendienteActivar(proveedor);
       abrirModalApiKey(proveedor);
       return;
@@ -930,7 +929,7 @@ const Asistentes = () => {
               className="mt-auto pt-3 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white hover:opacity-95 transition text-sm font-semibold"
             >
               <i className="bx bx-link-external" />
-              Generar API Key en {proveedorIA === "claude" ? "Anthropic" : "OpenAI"}
+              Generar API Key de {proveedorActivo.corto}
             </a>
             <button
               onClick={() => abrirModalApiKey(proveedorIA)}
@@ -973,7 +972,7 @@ const Asistentes = () => {
               className="mt-2 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition text-sm font-semibold text-gray-800"
             >
               <i className="bx bx-line-chart" />
-              Ver el gasto real abajo
+              Ver consumo
             </a>
           </div>
         </div>
@@ -1447,7 +1446,11 @@ const Asistentes = () => {
                   </h5>
                   <p className="text-[12px] text-slate-500">
                     Pegue su llave de {proveedorModal.nombre}. La validamos al
-                    guardar.
+                    guardar
+                    {pendienteActivar === modalProveedor &&
+                    proveedorIA !== modalProveedor
+                      ? ` y el bot pasa a responder con ${proveedorModal.corto}.`
+                      : "."}
                   </p>
                 </div>
               </div>
