@@ -2461,6 +2461,31 @@ const TabAsistente = ({
                 >
                   Formatos: {FORMATOS_VALIDOS}
                 </div>
+                {/* Con Claude no hay búsqueda en documentos: el texto se
+                    extrae al subir y el bot lo lee completo en cada
+                    respuesta. Lo que no tenga texto (fotos escaneadas,
+                    PPTX) no le llega. */}
+                {proveedorIA === "claude" && (
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#b45309",
+                      background: "#fffbeb",
+                      border: "1px solid #fde68a",
+                      borderRadius: 8,
+                      padding: "6px 10px",
+                      marginTop: 6,
+                      maxWidth: 560,
+                    }}
+                  >
+                    <i className="bx bx-info-circle" style={{ marginRight: 5 }} />
+                    Esta cuenta responde con <b>Claude</b>: el documento no se
+                    indexa, su texto se extrae al subirlo y Claude lo lee
+                    completo en cada respuesta (PDF, DOCX, XLSX, CSV, TXT, MD,
+                    JSON, HTML con texto; no sirven escaneos ni PPTX). No hace
+                    falta la llave de OpenAI para esto.
+                  </div>
+                )}
               </div>
               <div>
                 <input
@@ -2646,9 +2671,31 @@ const TabAsistente = ({
                           }}
                         >
                           {archivo.status === "completed"
-                            ? "✓ Indexado"
+                            ? archivo.solo_claude
+                              ? "✓ Texto guardado"
+                              : "✓ Indexado"
                             : archivo.status}
                         </span>
+                        {proveedorIA === "claude" && (
+                          <>
+                            <span>·</span>
+                            <span
+                              title={
+                                archivo.leido_claude
+                                  ? "Claude lee este documento completo en cada respuesta"
+                                  : "Subido antes de la fase Claude o sin texto legible: Claude no lo ve. Vuelva a subirlo o corra el script de extracción."
+                              }
+                              style={{
+                                color: archivo.leido_claude ? "#b45309" : "#94a3b8",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {archivo.leido_claude
+                                ? "Claude lo lee"
+                                : "Claude no lo ve"}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <button
