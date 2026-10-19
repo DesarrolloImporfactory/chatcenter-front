@@ -109,9 +109,16 @@ const Asistentes = () => {
   // Si eligió un proveedor sin llave, se abre el modal y, al guardar la llave,
   // se activa ese proveedor solo (no hay que volver a hacer clic).
   const [pendienteActivar, setPendienteActivar] = useState(null);
+  /* Proveedor que el cliente está CONECTANDO (el que eligió en el paso 1),
+     que no es el activo hasta que guarda la llave. El paso 2 lo sigue a él:
+     antes seguía a `proveedorIA`, así que quien entraba por primera vez y
+     elegía Claude veía "Generar API Key de OpenAI", y el botón de Claude
+     recién aparecía cuando ya tenía la llave guardada. */
+  const [proveedorPaso2, setProveedorPaso2] = useState("openai");
   const esModalClaude = modalProveedor === "claude";
   const abrirModalApiKey = (proveedor = "openai") => {
     setModalProveedor(proveedor);
+    setProveedorPaso2(proveedor);
     setShowModalApiKey(true);
   };
 
@@ -189,6 +196,18 @@ const Asistentes = () => {
   const [apiKeyGuardada, setApiKeyGuardada] = useState(false);
   // Qué llave muestra/edita el modal según el proveedor elegido en él.
   const keyGuardadaModal = esModalClaude ? claudeKeyGuardada : apiKeyGuardada;
+  // Qué proveedor muestran los pasos 2 y 3. Si el activo tiene llave, él; si
+  // no (cuenta nueva: "openai" por defecto sin llave), el que sí tenga llave;
+  // sin ninguna, el por defecto. El cliente cambia tocando la tarjeta. Va
+  // después de declarar apiKeyGuardada: arriba daba "Cannot access before
+  // initialization".
+  useEffect(() => {
+    const llaveDe = { openai: apiKeyGuardada, claude: claudeKeyGuardada };
+    if (llaveDe[proveedorIA]) setProveedorPaso2(proveedorIA);
+    else if (llaveDe.claude) setProveedorPaso2("claude");
+    else if (llaveDe.openai) setProveedorPaso2("openai");
+    else setProveedorPaso2(proveedorIA);
+  }, [proveedorIA, apiKeyGuardada, claudeKeyGuardada]);
   const keyMascaraModal = esModalClaude ? existeClaude : existeAsistente;
 
   // A qué cuenta de OpenAI pertenece la key GUARDADA (nombre, correo,
@@ -558,6 +577,13 @@ const Asistentes = () => {
       ? claudeKeyGuardada
       : Boolean(existeAsistente && String(existeAsistente).trim().length > 0);
   const proveedorActivo = PROVEEDORES[proveedorIA];
+  // El paso 2 habla del proveedor que se está conectando, no del activo.
+  const proveedorPaso2Info = PROVEEDORES[proveedorPaso2] || proveedorActivo;
+  const llavePaso2 =
+    proveedorPaso2 === "claude"
+      ? claudeKeyGuardada
+      : Boolean(existeAsistente && String(existeAsistente).trim().length > 0);
+  const existePaso2 = proveedorPaso2 === "claude" ? existeClaude : existeAsistente;
   const mostrarComparacion =
     verComparacion ?? !(apiKeyGuardada || claudeKeyGuardada);
 
@@ -789,7 +815,8 @@ const Asistentes = () => {
             </div>
             <p className="text-[12.5px] text-gray-500 leading-5 mb-3">
               OpenAI o Claude: las dos funcionan igual con su bot. Puede
-              guardar ambas llaves y cambiar cuando quiera.
+              guardar ambas llaves y cambiar cuando quiera. Toque una tarjeta
+              y los pasos 2 y 3 le muestran cómo conectarla.
             </p>
             {/* Claude sin llave de OpenAI: el bot responde texto, fotos y
                 documentos, pero no escucha audios (eso lo hace OpenAI). */}
@@ -806,14 +833,25 @@ const Asistentes = () => {
                 { id: "claude", llave: claudeKeyGuardada },
               ].map((p) => {
                 const info = PROVEEDORES[p.id];
-                const activo = proveedorIA === p.id;
+                /* "Activo" = el bot responde con él Y tiene llave. Sin llave
+                   no responde nadie, así que no se marca (antes OpenAI salía
+                   "Activo" en una cuenta recién creada, sin llave). */
+                const activo = proveedorIA === p.id && Boolean(p.llave);
+                const seleccionado = proveedorPaso2 === p.id;
                 const esClaude = p.id === "claude";
                 return (
                   <div
                     key={p.id}
-                    className={`rounded-xl border-2 bg-white px-3 py-2 flex items-center gap-2.5 transition ${
-                      activo ? "border-indigo-500" : "border-gray-200"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setProveedorPaso2(p.id)}
+                    onKeyDown={(e) => e.key === "Enter" && setProveedorPaso2(p.id)}
+                    className={`rounded-xl border-2 bg-white px-3 py-2 flex items-center gap-2.5 transition cursor-pointer ${
+                      seleccionado
+                        ? "border-indigo-500 shadow-sm"
+                        : "border-gray-200 hover:border-indigo-300"
                     }`}
+                    title={`Ver los pasos para ${info.corto}`}
                   >
                     <span
                       className={`w-8 h-8 rounded-lg grid place-items-center text-[12px] font-extrabold shrink-0 ${
@@ -830,8 +868,8 @@ const Asistentes = () => {
                           {info.corto}
                         </span>
                         {activo && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-600 text-white shrink-0">
-                            Activo
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-600 text-white shrink-0">
+                            Responde el bot
                           </span>
                         )}
                       </div>
@@ -845,7 +883,10 @@ const Asistentes = () => {
                         {p.llave && (
                           <button
                             type="button"
-                            onClick={() => abrirModalApiKey(p.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              abrirModalApiKey(p.id);
+                            }}
                             className="ml-1.5 font-semibold text-gray-500 hover:text-indigo-600 hover:underline"
                           >
                             editar
@@ -853,15 +894,35 @@ const Asistentes = () => {
                         )}
                       </div>
                     </div>
-                    {!activo && (
+                    {/* Sin llave: "Conectar" abre el modal (aunque sea el
+                        proveedor por defecto). Con llave y sin ser el activo:
+                        "Usar" lo activa. Con llave y activo: nada que hacer. */}
+                    {!p.llave ? (
                       <button
                         type="button"
-                        disabled={cambiandoProveedor}
-                        onClick={() => cambiarProveedor(p.id)}
-                        className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11.5px] font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-60"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (proveedorIA !== p.id) setPendienteActivar(p.id);
+                          abrirModalApiKey(p.id);
+                        }}
+                        className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11.5px] font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
                       >
-                        {p.llave ? "Usar" : "Conectar"}
+                        Conectar
                       </button>
+                    ) : (
+                      !activo && (
+                        <button
+                          type="button"
+                          disabled={cambiandoProveedor}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cambiarProveedor(p.id);
+                          }}
+                          className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11.5px] font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-60"
+                        >
+                          Usar
+                        </button>
+                      )
                     )}
                   </div>
                 );
@@ -881,85 +942,91 @@ const Asistentes = () => {
             </button>
           </div>
 
-          {/* Paso 2: la llave del proveedor activo */}
+          {/* Paso 2: la llave del proveedor que se está conectando (el que
+              eligió en el paso 1). Si todavía no es el activo, se dice. */}
           <div className="relative rounded-2xl border border-gray-100 bg-gray-50/60 p-4 flex flex-col">
             <div className="flex items-center gap-2.5 mb-2">
               <span
                 className={`w-7 h-7 rounded-full grid place-items-center text-[12px] font-extrabold ${
-                  hasApiKey
+                  llavePaso2
                     ? "bg-emerald-500 text-white"
                     : "bg-[#171931] text-white"
                 }`}
               >
-                {hasApiKey ? <i className="bx bx-check text-base" /> : "2"}
+                {llavePaso2 ? <i className="bx bx-check text-base" /> : "2"}
               </span>
               <span className="font-bold text-gray-900 text-[14px]">
-                Genere y pegue su API Key
+                Genere y pegue su API Key de {proveedorPaso2Info.corto}
               </span>
             </div>
             <p className="text-[12.5px] text-gray-500 leading-5">
-              Inicie sesión en {proveedorActivo.nombre}, cree una llave secreta
-              y péguela aquí: la validamos al guardar y queda cifrada.
+              Inicie sesión en {proveedorPaso2Info.nombre}, cree una llave
+              secreta y péguela aquí: la validamos al guardar y queda cifrada.
+              {proveedorPaso2 !== proveedorIA && !llavePaso2 && (
+                <>
+                  {" "}
+                  Al guardarla, el bot pasa a responder con{" "}
+                  {proveedorPaso2Info.corto}.
+                </>
+              )}
             </p>
-            {/* Estado de la llave del proveedor activo: llena el hueco entre
-                el texto y los botones con algo útil. */}
+            {/* Estado de la llave de ese proveedor: llena el hueco entre el
+                texto y los botones con algo útil. */}
             <div
               className={`mt-2 rounded-xl border px-3 py-2 text-[11.5px] font-semibold truncate ${
-                hasApiKey
+                llavePaso2
                   ? "border-emerald-100 bg-emerald-50/60 text-emerald-700"
                   : "border-amber-100 bg-amber-50/60 text-amber-800"
               }`}
             >
-              <i className={`bx ${hasApiKey ? "bxs-check-circle" : "bx-key"} align-middle`} />{" "}
-              {hasApiKey ? (
+              <i className={`bx ${llavePaso2 ? "bxs-check-circle" : "bx-key"} align-middle`} />{" "}
+              {llavePaso2 ? (
                 <>
                   Guardada ·{" "}
-                  <span className="font-mono font-normal">
-                    {proveedorIA === "claude" ? existeClaude : existeAsistente}
-                  </span>
+                  <span className="font-mono font-normal">{existePaso2}</span>
                 </>
               ) : (
-                `Todavía sin API Key de ${proveedorActivo.corto}`
+                `Todavía sin API Key de ${proveedorPaso2Info.corto}`
               )}
             </div>
             <a
-              href={proveedorActivo.keyUrl}
+              href={proveedorPaso2Info.keyUrl}
               target="_blank"
               rel="noreferrer"
               className="mt-auto pt-3 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white hover:opacity-95 transition text-sm font-semibold"
             >
               <i className="bx bx-link-external" />
-              Generar API Key de {proveedorActivo.corto}
+              Generar API Key de {proveedorPaso2Info.corto}
             </a>
             <button
-              onClick={() => abrirModalApiKey(proveedorIA)}
+              onClick={() => abrirModalApiKey(proveedorPaso2)}
               className="mt-2 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition text-sm font-semibold shadow-sm"
             >
               <i className="bx bx-plus" />
-              {hasApiKey ? "Reemplazar API Key" : "Pegar API Key aquí"}
+              {llavePaso2 ? "Reemplazar API Key" : "Pegar API Key aquí"}
             </button>
           </div>
 
-          {/* Paso 3: saldo del proveedor activo */}
+          {/* Paso 3: saldo del proveedor seleccionado en el paso 1 */}
           <div className="relative rounded-2xl border border-gray-100 bg-gray-50/60 p-4 flex flex-col">
             <div className="flex items-center gap-2.5 mb-2">
               <span className="w-7 h-7 rounded-full grid place-items-center text-[12px] font-extrabold bg-[#171931] text-white">
                 3
               </span>
               <span className="font-bold text-gray-900 text-[14px]">
-                Recargue saldo
+                Recargue saldo en {proveedorPaso2Info.corto}
               </span>
             </div>
             <p className="text-[12.5px] text-gray-500 leading-5">
-              Sin saldo en {proveedorActivo.nombre} el bot no responde aunque
-              la llave sea válida.
+              Sin saldo en {proveedorPaso2Info.nombre} el bot no responde
+              aunque la llave sea válida.
             </p>
             {/* Cuánto rinde una recarga: la misma cifra que la comparación. */}
             <div className="mt-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-[11.5px] font-semibold text-indigo-800">
-              <i className="bx bx-coin-stack align-middle" /> {proveedorActivo.rinde}
+              <i className="bx bx-coin-stack align-middle" /> {proveedorPaso2Info.rinde}
             </div>
             <a
-              href={proveedorActivo.billingUrl}
+              href={proveedorPaso2Info.billingUrl}
               target="_blank"
               rel="noreferrer"
               className="mt-auto pt-3 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#171931] text-white hover:opacity-95 transition text-sm font-semibold"
@@ -999,7 +1066,7 @@ const Asistentes = () => {
                     <th className="w-28 px-4 py-2" />
                     {["openai", "claude"].map((id) => {
                       const info = PROVEEDORES[id];
-                      const activo = proveedorIA === id;
+                      const activo = proveedorIA === id && hasApiKey;
                       return (
                         <th key={id} className="px-4 py-2 text-left font-bold text-gray-900">
                           <span className="inline-flex items-center gap-2">
@@ -1467,9 +1534,25 @@ const Asistentes = () => {
             {/* Body */}
             <div className="px-5 py-5 space-y-4">
               <div>
-                <label className="block text-[#171931] text-[13px] font-medium mb-1.5">
-                  API Key
-                </label>
+                <div className="flex items-center justify-between mb-1.5 gap-2">
+                  <label className="block text-[#171931] text-[13px] font-medium">
+                    API Key
+                  </label>
+                  {/* Quien entra por "Conectar" en el paso 1 llega acá sin
+                      llave: el enlace para generarla va en el mismo modal,
+                      del proveedor que se está editando. */}
+                  {!keyGuardadaModal && (
+                    <a
+                      href={proveedorModal.keyUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                    >
+                      <i className="bx bx-link-external" />
+                      ¿Aún no tiene una? Generar API Key de {proveedorModal.corto}
+                    </a>
+                  )}
+                </div>
                 <div className="relative">
                   <i className="bx bx-key absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400" />
                   <input
