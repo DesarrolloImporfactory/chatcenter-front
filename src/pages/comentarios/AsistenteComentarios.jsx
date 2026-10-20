@@ -443,6 +443,87 @@ export default function AsistenteComentarios() {
       <div className="grid gap-4 lg:grid-cols-[1.15fr_.85fr] items-start">
         {/* ── Izquierda: lo que se configura ── */}
         <div className="flex flex-col gap-4 min-w-0">
+          {/* ── El interruptor grande ──────────────────────────────
+              Va aparte y arriba de todo porque no es una preferencia de
+              redacción: decide si lo que escribe la IA pasa por los ojos de
+              alguien antes de quedar publicado en tu página. Y no se atenúa
+              con el modo avanzado, porque no depende del prompt. */}
+          <section
+            className={`rounded-2xl border p-4 transition ${
+              opciones.auto
+                ? "border-emerald-200 bg-emerald-50/50"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`h-10 w-10 shrink-0 rounded-xl grid place-items-center ${
+                  opciones.auto
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                <i
+                  className={`bx ${opciones.auto ? "bx-bot" : "bx-user-check"} text-xl`}
+                />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-gray-900">
+                  {opciones.auto
+                    ? "La IA responde sola"
+                    : "Tú decides cada respuesta"}
+                </p>
+                <p className="text-[12px] text-gray-500 mt-0.5 leading-snug">
+                  {opciones.auto
+                    ? "Contesta los comentarios nuevos sin que nadie los lea antes. Sigues pudiendo responder a mano cuando quieras."
+                    : "La IA solo redacta borradores cuando aprietas «Sugerir» en la bandeja. Nada se publica sin que lo apruebes."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(opciones.auto)}
+                onClick={() => cambiar("auto", !opciones.auto)}
+                className={`shrink-0 mt-0.5 h-7 w-12 rounded-full p-0.5 transition ${
+                  opciones.auto ? "bg-emerald-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                    opciones.auto ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
+            </div>
+
+            {opciones.auto ? (
+              <div className="mt-3 pt-3 border-t border-emerald-200/70 text-[11.5px] text-emerald-900/80 leading-relaxed">
+                <p className="font-semibold mb-1">
+                  Aun encendida, solo contesta cuando se cumplen las tres:
+                </p>
+                <ul className="space-y-0.5">
+                  <li>
+                    <i className="bx bx-check text-emerald-600" /> la publicación
+                    tiene un producto vinculado —sin saber de qué se habla no
+                    publica nada;
+                  </li>
+                  <li>
+                    <i className="bx bx-check text-emerald-600" /> esa publicación
+                    no tiene la IA apagada desde la bandeja;
+                  </li>
+                  <li>
+                    <i className="bx bx-check text-emerald-600" /> es la primera
+                    vez que esa persona comenta ahí. A partir de la segunda le
+                    dice que le escribes por el privado, y se lo escribe: la
+                    venta sigue en el chat, con el bot de ventas.
+                  </li>
+                </ul>
+              </div>
+            ) : null}
+          </section>
+
           <Tarjeta
             titulo="Cómo quieres que hable"
             sub="Lo que decide tu negocio. No hace falta escribir instrucciones."

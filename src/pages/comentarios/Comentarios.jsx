@@ -18,6 +18,7 @@ const ENDPOINTS = {
   productos: "/facebook_comentarios/productos",
   vincularProducto: "/facebook_comentarios/vincular-producto",
   sincronizar: "/facebook_comentarios/sincronizar-publicaciones",
+  iaAutomatica: "/facebook_comentarios/ia-automatica",
   responder: "/facebook_comentarios/responder",
   responderPrivado: "/facebook_comentarios/responder-privado",
 };
@@ -244,6 +245,22 @@ const ORIGEN_RESPUESTA = {
     clase: "border-blue-200 bg-white text-blue-600",
     ayuda: "La IA propuso y el agente lo reescribió",
   },
+  // Las dos de la respuesta automática. Se distinguen de 'ia' a propósito: una
+  // la leyó alguien antes de publicarse y la otra no, y eso es justo lo que hay
+  // que poder ver de un vistazo al revisar qué se publicó en la página.
+  ia_auto: {
+    texto: "IA · sola",
+    icono: "bx-bot",
+    clase: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    ayuda: "La IA contestó sola, sin que nadie lo revisara antes",
+  },
+  derivada: {
+    texto: "Al privado",
+    icono: "bx-send",
+    clase: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    ayuda:
+      "Segunda vez que esta persona comenta: se le pasó la conversación al chat privado",
+  },
   facebook: {
     texto: "Desde Facebook",
     icono: "bxl-facebook-circle",
@@ -281,6 +298,60 @@ const InsigniaOrigen = ({ origen, autor }) => {
  * anuncio → producto) y el id del anuncio no aparece dentro del id de la
  * publicación, así que automatizarlo hoy sería adivinar.
  */
+/**
+ * Interruptor de la respuesta automática, para esta publicación.
+ *
+ * Va pegado al selector de producto porque son las dos mitades de la misma
+ * decisión: el producto dice QUÉ puede contestar la IA aquí, y esto dice si
+ * contesta sola. Sin producto se muestra apagado y sin efecto — no es un fallo,
+ * es la regla que impide que hable de algo que no conoce.
+ */
+const InterruptorIaPost = ({ postId, activa, hayProducto, onCambiar }) => {
+  const encendida = Boolean(activa) && hayProducto;
+
+  return (
+    <div
+      className={`mt-2 inline-flex items-center gap-2 pl-2.5 pr-1.5 py-1 rounded-lg border text-xs transition ${
+        encendida
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-gray-200 bg-white text-gray-500"
+      }`}
+      title={
+        !hayProducto
+          ? "Vincula un producto para que la IA pueda contestar sola"
+          : encendida
+            ? "La IA contesta sola los comentarios de esta publicación"
+            : "Los comentarios de esta publicación los respondes tú"
+      }
+    >
+      <i className={`bx ${encendida ? "bx-bot" : "bx-user-check"}`} />
+      <span>
+        {!hayProducto
+          ? "IA automática (falta producto)"
+          : encendida
+            ? "Responde sola"
+            : "Respondes tú"}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={encendida}
+        disabled={!hayProducto}
+        onClick={() => onCambiar(postId, !activa)}
+        className={`h-5 w-9 shrink-0 rounded-full p-0.5 transition disabled:opacity-40 ${
+          encendida ? "bg-emerald-500" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+            encendida ? "translate-x-4" : ""
+          }`}
+        />
+      </button>
+    </div>
+  );
+};
+
 const SelectorProducto = ({
   postId,
   idProducto,
@@ -1188,6 +1259,48 @@ export default function Comentarios() {
   };
 
   /**
+   * Encender o apagar la IA en UNA publicación.
+   *
+   * Se pinta antes de que conteste el servidor y se revierte si falla: es un
+   * interruptor, y un interruptor que tarda medio segundo en moverse se
+   * aprieta dos veces.
+   */
+  const cambiarIaPost = async (post_id, activa) => {
+    const pintar = (v) => {
+      setSeleccionado((s) =>
+        s && s.post_id === post_id ? { ...s, ia_automatica: v ? 1 : 0 } : s,
+      );
+      setComentarioSel((c) =>
+        c && c.post_id === post_id
+          ? { ...c, post_ia_automatica: v ? 1 : 0 }
+          : c,
+      );
+      setPosts((lista) =>
+        lista.map((p) =>
+          p.post_id === post_id ? { ...p, ia_automatica: v ? 1 : 0 } : p,
+        ),
+      );
+    };
+
+    pintar(activa);
+    try {
+      await chatApi.post(ENDPOINTS.iaAutomatica, {
+        id_configuracion,
+        post_id,
+        activa,
+      });
+    } catch (err) {
+      pintar(!activa);
+      setAvisoFeed({
+        tono: "rojo",
+        texto:
+          err?.response?.data?.message ||
+          "No se pudo cambiar la IA de esta publicación.",
+      });
+    }
+  };
+
+  /**
    * Envía la respuesta. Un solo clic puede mandar las dos cosas.
    *
    * `privado` (booleano) es el modo: el agente abrió el cuadro del privado y
@@ -1673,6 +1786,16 @@ export default function Comentarios() {
                                 Sin producto
                               </Pastilla>
                             )}
+                            {/* Solo cuando hay producto: sin él la IA no
+                                contesta igual, y dos avisos para la misma
+                                causa confunden. */}
+                            {post.producto_nombre &&
+                            Number(post.ia_automatica) !== 1 ? (
+                              <Pastilla>
+                                <i className="bx bx-user-check" />
+                                IA apagada
+                              </Pastilla>
+                            ) : null}
                           </div>
                           <div className="flex items-center gap-1 text-xs text-gray-400 mt-1.5">
                             <i
@@ -1826,6 +1949,25 @@ export default function Comentarios() {
                     productos={productos}
                     cargando={cargandoProductos}
                     onVincular={vincularProducto}
+                  />
+
+                  <InterruptorIaPost
+                    postId={
+                      vista === "pendientes"
+                        ? comentarioSel.post_id
+                        : seleccionado.post_id
+                    }
+                    activa={
+                      vista === "pendientes"
+                        ? comentarioSel.post_ia_automatica
+                        : seleccionado.ia_automatica
+                    }
+                    hayProducto={Boolean(
+                      vista === "pendientes"
+                        ? comentarioSel.post_id_producto
+                        : seleccionado.id_producto,
+                    )}
+                    onCambiar={cambiarIaPost}
                   />
                 </div>
               </div>
