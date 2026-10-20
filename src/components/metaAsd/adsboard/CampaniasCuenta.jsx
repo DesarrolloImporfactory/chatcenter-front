@@ -132,8 +132,8 @@ const Thumb = ({ src, es_sistema, onClick, size = "w-12 h-12" }) => (
    ───────────────────────────────────────────── */
 const POR_PAGINA = 10;
 
-const Paginador = ({ pagina, total, onCambiar }) => {
-  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+export const Paginador = ({ pagina, total, onCambiar, porPagina = POR_PAGINA }) => {
+  const paginas = Math.max(1, Math.ceil(total / porPagina));
   if (paginas <= 1) return null;
   // Números visibles: primera, última y una ventana de ±2 alrededor
   const nums = [];
