@@ -6,8 +6,11 @@ import {
   ESTADO_DEUDA,
   editarDeuda,
   enviarWebhookCuota,
+  fijarMonedaDeuda,
   LAUNCH_ID_DEFAULT,
+  MONEDAS,
 } from "../../services/imporsuit";
+import { fmtMoneda, normalizarMoneda } from "../../services/imporsuit/moneda";
 import { useCarteraCliente, tieneCartera } from "./useCarteraCliente";
 import { CrearUsuarioForm } from "./CrearUsuarioForm";
 import { AgregarDeudaForm } from "./AgregarDeudaForm";
@@ -15,8 +18,8 @@ import { RegistrarPagoForm } from "./RegistrarPagoForm";
 import { SubirComprobanteForm } from "./SubirComprobanteForm";
 import { FacturarDeudaModal } from "./FacturarDeudaModal";
 
-const MONEY = new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" });
-const fmt$ = (n) => MONEY.format(Number(n ?? 0));
+/** Cada monto con la moneda de SU deuda; nunca se suman pesos con dólares. */
+const fmt$ = (n, moneda) => fmtMoneda(n ?? 0, moneda);
 const fmtDate = (s) => {
   if (!s) return "—";
   const d = new Date(s);
@@ -97,6 +100,33 @@ export function CarteraClientePanel({
     }
   };
 
+  /** Deuda vieja sin moneda: se confirma una vez y queda fija con sus cuotas. */
+  const onConfirmarMoneda = async (deuda) => {
+    const { value: moneda, isConfirmed } = await Swal.fire({
+      title: "¿En qué moneda está esta deuda?",
+      html: `<div style="text-align:left;font-size:14px;line-height:1.6">
+          <div><b>Deuda:</b> ${deuda.concepto}</div>
+          <div><b>Monto:</b> ${Number(deuda.monto_original).toFixed(2)} · pendiente ${Number(deuda.monto_pendiente).toFixed(2)}</div>
+          <div style="margin-top:8px;color:#b45309;font-size:13px">Es una deuda vieja que nunca guardó su moneda. Revisa el comprobante antes de elegir: lo que confirmes queda fijo para esta deuda y sus cuotas.</div>
+        </div>`,
+      input: "select",
+      inputOptions: Object.fromEntries(MONEDAS.map((m) => [m.value, m.label])),
+      inputPlaceholder: "Seleccionar…",
+      inputValidator: (v) => (v ? undefined : "Elige la moneda"),
+      showCancelButton: true,
+      confirmButtonText: "Confirmar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!isConfirmed) return;
+    try {
+      await fijarMonedaDeuda({ idCpp: deuda.id_cpp, moneda });
+      toast.success(`Deuda en ${moneda}`);
+      recargar();
+    } catch (e) {
+      Swal.fire({ icon: "error", title: "No se pudo confirmar", text: e?.message ?? "" });
+    }
+  };
+
   const onEditar = async (deuda) => {
     const { value, isConfirmed } = await Swal.fire({
       title: "Editar Launch ID",
@@ -133,7 +163,8 @@ export function CarteraClientePanel({
       html: `Se reenviarán <b>${pagos.length}</b> pago(s) al webhook de lanzamientos.<br><span style="color:#b45309;font-size:13px">⚠️ Vuelve a disparar el webhook de producción; si estos pagos ya se enviaron antes, podrían duplicarse en el sistema de lanzamientos.</span>`,
       input: "select",
       inputOptions: { USD: "USD", MXN: "MXN" },
-      inputValue: "USD",
+      // Los pagos están en la moneda de su deuda (docs/separacion_monedas.md).
+      inputValue: normalizarMoneda(deuda.moneda) || "USD",
       inputLabel: "Moneda",
       showCancelButton: true,
       confirmButtonText: "Sí, reenviar",
@@ -279,6 +310,7 @@ export function CarteraClientePanel({
               onEditar={onEditar}
               onReenviar={onReenviar}
               onFacturar={(d) => setModal({ factura: d })}
+              onConfirmarMoneda={onConfirmarMoneda}
             />
           )}
         </>
@@ -343,7 +375,7 @@ function porFechaCreacionDesc(a, b) {
   return Number(b.id_cpp) - Number(a.id_cpp);
 }
 
-function DeudasTable({ deudas, cargando, onAgregar, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar, onFacturar }) {
+function DeudasTable({ deudas, cargando, onAgregar, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar, onFacturar, onConfirmarMoneda }) {
   const [openId, setOpenId] = useState(null);
   const [filtro, setFiltro] = useState(null); // null = automático
   const [page, setPage] = useState(1);
@@ -441,6 +473,7 @@ function DeudasTable({ deudas, cargando, onAgregar, onPagar, onSubirComprobante,
                 onEditar={onEditar}
                 onReenviar={onReenviar}
                 onFacturar={onFacturar}
+                onConfirmarMoneda={onConfirmarMoneda}
               />
             );
           })}
@@ -526,7 +559,8 @@ function BotonFactura({ d, onClick }) {
   );
 }
 
-function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar, onFacturar }) {
+function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, onEliminar, onEditar, onReenviar, onFacturar, onConfirmarMoneda }) {
+  const moneda = normalizarMoneda(d.moneda);
   const estadoTxt = ESTADO_DEUDA[Number(d.estado)] ?? "Pendiente";
   const estadoCls =
     Number(d.estado) === 1
@@ -540,7 +574,30 @@ function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, on
     <li className="px-4 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="break-words font-semibold text-gray-800">{d.concepto}</p>
+          <p className="break-words font-semibold text-gray-800">
+            {d.concepto}{" "}
+            <span
+              className={`ml-1 rounded-full px-2 py-0.5 align-middle text-[10px] font-bold ${
+                moneda === "MXN"
+                  ? "bg-amber-100 text-amber-700"
+                  : moneda === "USD"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-rose-100 text-rose-700"
+              }`}
+              title={moneda ? undefined : "Deuda vieja sin moneda confirmada: no se suma con ninguna"}
+            >
+              {moneda ?? "SIN MONEDA"}
+            </span>
+            {!moneda && onConfirmarMoneda && (
+              <button
+                type="button"
+                onClick={() => onConfirmarMoneda(d)}
+                className="ml-1 text-[11px] font-bold text-rose-600 underline hover:text-rose-800"
+              >
+                Confirmar moneda
+              </button>
+            )}
+          </p>
           {d.launch_id ? (
             <p className="text-[11px] text-gray-400">Launch: {d.launch_id}</p>
           ) : null}
@@ -562,7 +619,7 @@ function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, on
               pendiente > 0 ? "text-amber-600" : "text-emerald-600"
             }`}
           >
-            {fmt$(pendiente)}
+            {fmt$(pendiente, moneda)}
           </p>
         </div>
       </div>
@@ -626,9 +683,15 @@ function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, on
                   {p.medio_pago || "—"}
                 </span>
                 <span className="font-mono font-bold text-emerald-600">
-                  {fmt$(p.monto_pagado)}
+                  {fmt$(p.monto_pagado, moneda)}
                 </span>
               </div>
+              {p.moneda_recibida && p.monto_recibido != null && (
+                <div className="mt-0.5 text-[11px] text-amber-700">
+                  Llegaron {fmtMoneda(p.monto_recibido, p.moneda_recibida)}
+                  {p.tipo_cambio ? ` · TC ${Number(p.tipo_cambio)}` : ""}
+                </div>
+              )}
               <div className="mt-1 text-[11px] text-gray-400">
                 {fmtDate(p.fecha_pago)}
                 {p.referencia ? ` · ${p.referencia}` : ""}

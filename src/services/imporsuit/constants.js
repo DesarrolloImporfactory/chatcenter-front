@@ -47,9 +47,10 @@ export const TIPOS_PAGO = [
   { value: "gestionado", label: "Gestionado" },
 ];
 
+/** Monedas de la cartera. Ver `services/imporsuit/moneda.js`. */
 export const MONEDAS = [
-  { value: "USD", label: "USD" },
-  { value: "MXN", label: "MXN" },
+  { value: "USD", label: "USD — dólares" },
+  { value: "MXN", label: "MXN — pesos mexicanos" },
 ];
 
 export const TIPOS_VENTA = [

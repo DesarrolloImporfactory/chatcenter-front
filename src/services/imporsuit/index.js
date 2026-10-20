@@ -15,6 +15,7 @@ export {
   generarCartera,
   agregarDeuda,
   agregarPago,
+  fijarMonedaDeuda,
   subirComprobantePago,
   eliminarDeuda,
   editarDeuda,

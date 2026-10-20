@@ -18,16 +18,13 @@ import {
   formatEspera,
 } from "../../config/alertasSinRespuesta";
 import {
+  campoPorMoneda,
   estadoDeuda,
   hayAlertaDeuda,
-  montoAlerta,
+  montosAlerta,
+  textoPorMoneda,
   ESTILO_DEUDA,
 } from "../imporsuit/deudaVencimiento";
-
-const MONEY_DEUDA = new Intl.NumberFormat("es-EC", {
-  style: "currency",
-  currency: "USD",
-});
 
 /* ===================== Estilos de canal ===================== */
 const CHANNEL_STYLES = {
@@ -1089,18 +1086,22 @@ function MessageItem({
               (() => {
                 const est = estadoDeuda(deudaCartera);
                 const cfg = ESTILO_DEUDA[est];
-                const monto = montoAlerta(deudaCartera);
+                // Un monto por moneda: nunca se suman pesos con dólares.
+                const monto = textoPorMoneda(montosAlerta(deudaCartera));
+                const total = textoPorMoneda(
+                  campoPorMoneda(deudaCartera, "pendiente"),
+                );
                 const titulo =
                   est === "vencida"
-                    ? `${deudaCartera.vencidas} deuda${deudaCartera.vencidas === 1 ? "" : "s"} VENCIDA${deudaCartera.vencidas === 1 ? "" : "S"} por ${MONEY_DEUDA.format(monto)} (de ${MONEY_DEUDA.format(deudaCartera.pendiente)} pendientes en total)`
-                    : `${deudaCartera.porVencer} deuda${deudaCartera.porVencer === 1 ? "" : "s"} por vencer (≤7 días) por ${MONEY_DEUDA.format(monto)} (de ${MONEY_DEUDA.format(deudaCartera.pendiente)} pendientes en total)`;
+                    ? `${deudaCartera.vencidas} deuda${deudaCartera.vencidas === 1 ? "" : "s"} VENCIDA${deudaCartera.vencidas === 1 ? "" : "S"} por ${monto} (de ${total} pendientes en total)`
+                    : `${deudaCartera.porVencer} deuda${deudaCartera.porVencer === 1 ? "" : "s"} por vencer (≤7 días) por ${monto} (de ${total} pendientes en total)`;
                 return (
                   <span
                     className={`shrink-0 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-[1px] text-[8.5px] font-bold leading-none ${cfg.badge}`}
                     title={titulo}
                   >
                     <i className={`${cfg.icon} text-[9px]`} />
-                    {MONEY_DEUDA.format(monto)}
+                    {monto}
                     <span className="uppercase tracking-wide">
                       · {est === "vencida" ? "Venc." : "×Vencer"}
                     </span>

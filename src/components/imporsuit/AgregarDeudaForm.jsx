@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
-import { agregarDeuda, TIPOS_VENTA, getAsesores } from "../../services/imporsuit";
+import { agregarDeuda, TIPOS_VENTA, MONEDAS, getAsesores } from "../../services/imporsuit";
 import { Overlay, Field, inputCls, btnPrimary, btnGhost } from "./CrearUsuarioForm";
 
 /** Usuario ficticio en Imporsuit (id_users) usado como FK cuando no hay asesor. */
@@ -15,6 +15,9 @@ export function AgregarDeudaForm({ idCarteraUuid, onClose, onSaved }) {
   const [form, setForm] = useState({
     concepto: "",
     monto: "",
+    // Sin default a propósito: un USD propuesto es justo lo que dejaba pesos
+    // marcados como dólares (docs/separacion_monedas.md en Imporsuit).
+    moneda: "",
     tipoVenta: "fria",
     fechaLimite: "",
     launchId: "",
@@ -45,6 +48,7 @@ export function AgregarDeudaForm({ idCarteraUuid, onClose, onSaved }) {
     if (!form.concepto.trim()) return toast.error("Ingresa un concepto");
     if (!form.monto || Number(form.monto) <= 0)
       return toast.error("El monto debe ser mayor a 0");
+    if (!form.moneda) return toast.error("Elige la moneda de la deuda");
     if (!form.fechaLimite) return toast.error("Selecciona la fecha límite");
     if (!form.asesor) return toast.error("Selecciona el asesor");
 
@@ -53,6 +57,7 @@ export function AgregarDeudaForm({ idCarteraUuid, onClose, onSaved }) {
       const resultado = await agregarDeuda({
         concepto: form.concepto,
         monto: Number(form.monto),
+        moneda: form.moneda,
         idCarteraUuid,
         tipoVenta: form.tipoVenta,
         fechaLimite: form.fechaLimite,
@@ -86,14 +91,23 @@ export function AgregarDeudaForm({ idCarteraUuid, onClose, onSaved }) {
             <Field label="Monto">
               <input type="number" step="0.01" min="0" className={inputCls} value={form.monto} onChange={set("monto")} disabled={submitting} placeholder="0.00" />
             </Field>
-            <Field label="Tipo de venta">
-              <select className={inputCls} value={form.tipoVenta} onChange={set("tipoVenta")} disabled={submitting}>
-                {TIPOS_VENTA.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+            <Field label="Moneda *">
+              <select className={inputCls} value={form.moneda} onChange={set("moneda")} disabled={submitting}>
+                <option value="">Seleccionar…</option>
+                {MONEDAS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
             </Field>
           </div>
+
+          <Field label="Tipo de venta">
+            <select className={inputCls} value={form.tipoVenta} onChange={set("tipoVenta")} disabled={submitting}>
+              {TIPOS_VENTA.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </Field>
 
           <Field label="Asesor">
             <select className={inputCls} value={form.asesor} onChange={set("asesor")} disabled={submitting}>

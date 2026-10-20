@@ -111,6 +111,8 @@ export function cuerpoVenta(payload) {
     correo: String(payload.correo ?? "").trim(),
     telefono: String(payload.telefono ?? "").trim(),
     pais: String(payload.pais ?? "").trim().toUpperCase(),
+    // USD | MXN — obligatoria (docs/separacion_monedas.md en Imporsuit).
+    moneda: payload.moneda,
     id_producto_venta: Number(payload.idProducto),
     monto_total: Number(payload.montoTotal),
     monto_pagado: Number(payload.montoPagado ?? 0),
