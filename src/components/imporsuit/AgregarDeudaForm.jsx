@@ -15,8 +15,8 @@ export function AgregarDeudaForm({ idCarteraUuid, onClose, onSaved }) {
   const [form, setForm] = useState({
     concepto: "",
     monto: "",
-    // Sin default a propósito: un USD propuesto es justo lo que dejaba pesos
-    // marcados como dólares (docs/separacion_monedas.md en Imporsuit).
+    // Sin default a propósito: un USD propuesto es justo lo que dejaba montos
+    // en moneda local marcados como dólares (docs/separacion_monedas.md en Imporsuit).
     moneda: "",
     tipoVenta: "fria",
     fechaLimite: "",

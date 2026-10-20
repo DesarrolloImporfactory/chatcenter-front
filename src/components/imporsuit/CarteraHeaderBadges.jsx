@@ -102,7 +102,7 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
         if (!exists || !data) return;
 
         // Pendientes, vencidas y por vencer (≤7 días) según fecha_limite, con
-        // los montos POR MONEDA: un cliente puede deber dólares y pesos.
+        // los montos POR MONEDA: un cliente puede deber dólares y moneda local.
         let resumen = { numPendientes: 0, vencidas: 0, porVencer: 0, porMoneda: {} };
         if (tieneCartera(data)) {
           const rows = await getDeudasUsuario(data.id_cartera, {
@@ -155,7 +155,7 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
         (() => {
           const est = estadoDeuda(info);
           const cfg = ESTILO_DEUDA[est];
-          // Un monto por moneda: nunca se suman pesos con dólares.
+          // Un monto por moneda: nunca se suman monedas distintas.
           const monto = textoPorMoneda(montosAlerta(info));
           const total = textoPorMoneda(campoPorMoneda(info, "pendiente"));
           const titulo =

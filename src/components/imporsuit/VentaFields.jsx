@@ -4,7 +4,7 @@ import chatApi from "../../api/chatcenter";
 import { Field, inputCls } from "./ui";
 import { ComprobantesUploader } from "./ComprobantesUploader";
 import { MONEDAS } from "../../services/imporsuit";
-import { fmtMoneda } from "../../services/imporsuit/moneda";
+import { USD, fmtMoneda, monedasDelPais, nombreMoneda } from "../../services/imporsuit/moneda";
 
 /**
  * Pasarelas que solo cobran en dólares. Espejo de
@@ -13,7 +13,8 @@ import { fmtMoneda } from "../../services/imporsuit/moneda";
 const PASARELAS_SOLO_USD = ["stripe", "datalink", "payphone"];
 
 /** Moneda que se propone según el país: México la elige, el resto es USD. */
-const monedaPorPais = (pais) => (pais === "MX" ? "" : "USD");
+/** Los países con moneda local (México, Colombia, Perú) la eligen; el resto, USD. */
+const monedaPorPais = (pais) => (monedasDelPais(pais).length > 1 ? "" : USD);
 
 /**
  * Campos del alta en MODO VENTAS dentro de ImporChat (el alumno ya pagó).
@@ -167,7 +168,7 @@ export function sumarMeses(fechaISO, meses) {
 
 const INITIAL_VENTA = {
   pais: "EC",
-  // USD | MXN (docs/separacion_monedas.md en Imporsuit). México no tiene
+  // USD | MXN | COP | PEN (docs/separacion_monedas.md en Imporsuit). Los países con moneda local no tienen
   // default: puede pagar en cualquiera de las dos.
   moneda: "USD",
   idProducto: "",
@@ -368,8 +369,11 @@ export function useVentaForm(activo) {
     if (!venta.modalidad) return "Selecciona el tipo de pago";
     if (!venta.pais) return "Selecciona el país";
     if (!venta.moneda) return "Elige la moneda de la venta";
-    if (venta.moneda === "MXN" && venta.pais === "EC") return "Una venta de Ecuador se cobra en dólares";
-    if (venta.moneda === "MXN" && PASARELAS_SOLO_USD.includes(venta.pasarela))
+    if (!monedasDelPais(venta.pais).includes(venta.moneda))
+      return venta.pais === "EC"
+        ? "Una venta de Ecuador se cobra en dólares"
+        : `Una venta de ${venta.pais} no se cobra en ${nombreMoneda(venta.moneda)}`;
+    if (venta.moneda !== USD && PASARELAS_SOLO_USD.includes(venta.pasarela))
       return "Esa pasarela cobra en dólares: la venta va en USD";
     if (!venta.idCloser) return "Selecciona el closer que cerró la venta";
     if (!venta.pasarela) return "Selecciona la pasarela de pago";
@@ -472,7 +476,7 @@ export function VentaFields({ form, disabled, interno = false }) {
             disabled={disabled}
           >
             <option value="">Seleccionar…</option>
-            {MONEDAS.filter((m) => venta.pais !== "EC" || m.value === "USD").map((m) => (
+            {MONEDAS.filter((m) => monedasDelPais(venta.pais).includes(m.value)).map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
               </option>

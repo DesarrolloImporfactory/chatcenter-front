@@ -9,6 +9,9 @@ import {
   MXN,
   convertirMoneda,
   errorTipoCambio,
+  monedaLocalDelCruce,
+  monedasRecibibles,
+  nombreMoneda,
   fmtMoneda,
   normalizarMoneda,
 } from "../../services/imporsuit/moneda";
@@ -59,6 +62,13 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
   const monedaAbono = monedaDeLaDeuda ?? normalizarMoneda(form.monedaDeuda);
   const monedaRecibida = normalizarMoneda(form.monedaRecibida) ?? monedaAbono;
   const cruzado = Boolean(monedaAbono && monedaRecibida && monedaAbono !== monedaRecibida);
+  // La moneda local del cruce (el que no es USD): da sentido al tipo de cambio.
+  const local = cruzado ? monedaLocalDelCruce(monedaRecibida, monedaAbono) : null;
+  const errorTc = cruzado
+    ? local
+      ? errorTipoCambio(form.tipoCambio, local)
+      : "Los cruces pasan por el dólar: elige USD o la moneda de la deuda"
+    : null;
   const abono = cruzado
     ? convertirMoneda(form.montoPagado, monedaRecibida, monedaAbono, form.tipoCambio)
     : Number(form.montoPagado) || 0;
@@ -69,7 +79,7 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
     const monto = Number(form.montoPagado);
     if (!monedaAbono) return toast.error("Confirma en qué moneda está esta deuda");
     if (!form.montoPagado || monto <= 0) return toast.error("Monto > 0");
-    if (cruzado && errorTipoCambio(form.tipoCambio)) return toast.error(errorTipoCambio(form.tipoCambio));
+    if (errorTc) return toast.error(errorTc);
     if (abono > pendiente + 0.009)
       return toast.error(
         cruzado
@@ -151,14 +161,14 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
             <Field label="El cliente pagó en">
               <select className={inputCls} value={form.monedaRecibida || monedaAbono || ""} onChange={set("monedaRecibida")} disabled={submitting || !monedaAbono}>
                 {!monedaAbono && <option value="">—</option>}
-                {MONEDAS.map((m) => (
+                {monedasRecibibles(monedaAbono).map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
             </Field>
             {cruzado ? (
-              <Field label="Tipo de cambio (pesos por 1 dólar) *">
-                <input type="number" step="0.0001" min="0" className={inputCls} value={form.tipoCambio} onChange={set("tipoCambio")} disabled={submitting} placeholder="Ej. 18.35" />
+              <Field label={`Tipo de cambio (${nombreMoneda(local)} por 1 dólar) *`}>
+                <input type="number" step="0.0001" min="0" className={inputCls} value={form.tipoCambio} onChange={set("tipoCambio")} disabled={submitting} />
               </Field>
             ) : (
               <div />
@@ -168,7 +178,7 @@ export function RegistrarPagoForm({ deuda, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-3">
             <Field label={cruzado ? `Monto recibido (${monedaRecibida})` : `Monto pagado${monedaAbono ? ` (${monedaAbono})` : ""}`}>
               <input type="number" step="0.01" min="0" max={cruzado ? undefined : pendiente} className={inputCls} value={form.montoPagado} onChange={set("montoPagado")} disabled={submitting} placeholder="0.00" />
-              {cruzado && abono > 0 && !errorTipoCambio(form.tipoCambio) && (
+              {cruzado && abono > 0 && !errorTc && (
                 <span className="mt-1 block text-[11px] text-emerald-700">
                   Se abonan {fmtMoneda(abono, monedaAbono)} a la deuda.
                 </span>

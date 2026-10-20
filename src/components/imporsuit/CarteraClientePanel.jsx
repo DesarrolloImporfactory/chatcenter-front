@@ -18,7 +18,13 @@ import { RegistrarPagoForm } from "./RegistrarPagoForm";
 import { SubirComprobanteForm } from "./SubirComprobanteForm";
 import { FacturarDeudaModal } from "./FacturarDeudaModal";
 
-/** Cada monto con la moneda de SU deuda; nunca se suman pesos con dólares. */
+/** Cada monto con la moneda de SU deuda; nunca se suman monedas distintas. */
+const CHIP_MONEDA = {
+  USD: "bg-emerald-100 text-emerald-700",
+  MXN: "bg-amber-100 text-amber-700",
+  COP: "bg-sky-100 text-sky-700",
+  PEN: "bg-violet-100 text-violet-700",
+};
 const fmt$ = (n, moneda) => fmtMoneda(n ?? 0, moneda);
 const fmtDate = (s) => {
   if (!s) return "—";
@@ -162,7 +168,7 @@ export function CarteraClientePanel({
       title: "Reenviar pagos a la API",
       html: `Se reenviarán <b>${pagos.length}</b> pago(s) al webhook de lanzamientos.<br><span style="color:#b45309;font-size:13px">⚠️ Vuelve a disparar el webhook de producción; si estos pagos ya se enviaron antes, podrían duplicarse en el sistema de lanzamientos.</span>`,
       input: "select",
-      inputOptions: { USD: "USD", MXN: "MXN" },
+      inputOptions: Object.fromEntries(MONEDAS.map((m) => [m.value, m.corto])),
       // Los pagos están en la moneda de su deuda (docs/separacion_monedas.md).
       inputValue: normalizarMoneda(deuda.moneda) || "USD",
       inputLabel: "Moneda",
@@ -578,11 +584,7 @@ function DeudaCard({ d, pagos, isOpen, onToggle, onPagar, onSubirComprobante, on
             {d.concepto}{" "}
             <span
               className={`ml-1 rounded-full px-2 py-0.5 align-middle text-[10px] font-bold ${
-                moneda === "MXN"
-                  ? "bg-amber-100 text-amber-700"
-                  : moneda === "USD"
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-rose-100 text-rose-700"
+                CHIP_MONEDA[moneda] ?? "bg-rose-100 text-rose-700"
               }`}
               title={moneda ? undefined : "Deuda vieja sin moneda confirmada: no se suma con ninguna"}
             >

@@ -13,8 +13,8 @@ import {
  * días. Debe coincidir con el del backend (Carterachat: deudas_pendientes_por_correos).
  *
  * Los MONTOS van siempre por moneda (separacion_monedas.md en imporsutipro):
- * `porMoneda = { USD: { pendiente, montoVencido, montoPorVencer }, MXN: …, SIN: … }`.
- * Un cliente puede deber dólares y pesos a la vez: nunca se suman.
+ * `porMoneda = { USD: { pendiente, montoVencido, montoPorVencer }, MXN: …, COP: …, PEN: …, SIN: … }`.
+ * Un cliente puede deber dólares y moneda local a la vez: nunca se suman.
  */
 export const DIAS_POR_VENCER = 7;
 
@@ -83,7 +83,7 @@ export function tienePendiente(info) {
 
 /**
  * «US$ 120,00 · MX$ 2.500,00»: un monto por moneda, nunca sumados. `montos`
- * es { USD: n, MXN: n, SIN: n }; lo sin moneda se marca como tal.
+ * es { USD: n, MXN: n, …, SIN: n }; lo sin moneda se marca como tal.
  */
 export function textoPorMoneda(montos, sep = " · ") {
   return Object.entries(montos ?? {})
@@ -94,7 +94,7 @@ export function textoPorMoneda(montos, sep = " · ") {
     .join(sep);
 }
 
-/** De `porMoneda` toma un solo campo: { USD: n, MXN: n }. */
+/** De `porMoneda` toma un solo campo: { USD: n, MXN: n, … }. */
 export function campoPorMoneda(info, campo) {
   const out = {};
   for (const [m, v] of Object.entries(info?.porMoneda ?? {})) {
@@ -115,7 +115,7 @@ export function hayAlertaDeuda(info) {
 }
 
 /**
- * Montos que debe MOSTRAR el badge, POR MONEDA ({ USD: n, MXN: n }): las
+ * Montos que debe MOSTRAR el badge, POR MONEDA ({ USD: n, MXN: n, … }): las
  * VENCIDAS o, si no hay ninguna vencida, las que están por vencer.
  * Nunca el total pendiente: ese incluía deudas con vencimiento lejano e
  * inflaba la cifra que ve el asesor.

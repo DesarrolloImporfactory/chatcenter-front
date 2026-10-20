@@ -1086,7 +1086,7 @@ function MessageItem({
               (() => {
                 const est = estadoDeuda(deudaCartera);
                 const cfg = ESTILO_DEUDA[est];
-                // Un monto por moneda: nunca se suman pesos con dólares.
+                // Un monto por moneda: nunca se suman monedas distintas.
                 const monto = textoPorMoneda(montosAlerta(deudaCartera));
                 const total = textoPorMoneda(
                   campoPorMoneda(deudaCartera, "pendiente"),

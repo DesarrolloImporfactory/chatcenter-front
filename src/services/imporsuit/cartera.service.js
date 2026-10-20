@@ -132,7 +132,7 @@ export async function agregarDeuda(
     fechaLimite,
     launchId,
     idAsesor,
-    // 'USD' | 'MXN' — obligatoria (docs/separacion_monedas.md en Imporsuit).
+    // Una de CLAVES_MONEDA (USD, MXN, COP, PEN) — obligatoria (docs/separacion_monedas.md en Imporsuit).
     moneda,
   },
   { signal } = {},
@@ -170,8 +170,9 @@ export async function agregarPago(
     imagenesUrls = [],
     numeroCuota = "",
     // Moneda (docs/separacion_monedas.md en Imporsuit): `montoPagado` va
-    // SIEMPRE en la moneda de la deuda. Si el cliente pagó en la otra, viajan
-    // lo recibido y el tipo de cambio (pesos por 1 dólar) y el back recalcula.
+    // SIEMPRE en la moneda de la deuda. Si el cliente pagó en otra, viajan lo
+    // recibido y el tipo de cambio (unidades de la moneda local por 1 dólar) y
+    // el back recalcula.
     monedaRecibida = null,
     montoRecibido = null,
     tipoCambio = null,
