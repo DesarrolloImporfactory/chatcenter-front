@@ -805,6 +805,40 @@ export default function AsistenteComentarios() {
                             ) : null}
                           </div>
                         </div>
+
+                        {/* El privado, si el asistente propuso seguir por ahí.
+                            Se enseña acá porque es parte de lo que va a hacer:
+                            configurar el prompt sin ver el privado es ver la
+                            mitad. Se dibuja distinto del comentario a
+                            propósito — ese lo ve todo el mundo, este no. */}
+                        {r.privado ? (
+                          <div className="ml-12 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/70 px-3 py-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-800">
+                                <i className="bx bx-lock-alt" />
+                                Mensaje privado
+                              </span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded-md border ${
+                                  r.privado_prometido
+                                    ? "border-indigo-300 bg-white text-indigo-700"
+                                    : "border-gray-300 bg-white text-gray-500"
+                                }`}
+                              >
+                                {r.privado_prometido
+                                  ? "se manda: lo prometió en público"
+                                  : "opcional: va desmarcado"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-indigo-950/80 leading-snug mt-1">
+                              {r.privado}
+                            </p>
+                            <p className="text-[10.5px] text-indigo-700/70 mt-1 leading-snug">
+                              Abre el chat de Messenger y, cuando el cliente
+                              conteste, sigue la IA del kanban con este producto.
+                            </p>
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })
