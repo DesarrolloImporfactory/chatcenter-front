@@ -516,13 +516,71 @@ export default function AsistenteComentarios() {
                   <li>
                     <i className="bx bx-check text-emerald-600" /> es la primera
                     vez que esa persona comenta ahí. A partir de la segunda le
-                    dice que le escribes por el privado, y se lo escribe: la
-                    venta sigue en el chat, con el bot de ventas.
+                    contesta igual en público, y además le escribe al privado:
+                    la venta sigue en el chat, con el bot de ventas.
                   </li>
                 </ul>
               </div>
             ) : null}
           </section>
+
+          {/* Datos del negocio. Va antes del estilo a propósito: es lo que
+              evita que publique una garantía que nadie ofrece. */}
+          <Tarjeta
+            titulo="Datos de tu negocio"
+            sub="Envíos, pagos, garantía, horarios. Lo que no esté aquí, no lo sabe."
+            icono="bx-store"
+            tono="violeta"
+            accion={
+              opciones.negocio?.trim() ? (
+                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700">
+                  <i className="bx bx-check-circle" />
+                  Cargados
+                </span>
+              ) : (
+                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold border border-amber-200 bg-amber-50 text-amber-700">
+                  <i className="bx bx-error-circle" />
+                  Sin cargar
+                </span>
+              )
+            }
+          >
+            {!opciones.negocio?.trim() ? (
+              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2.5 text-[11.5px] text-amber-900 leading-relaxed">
+                Mientras esté vacío, a <strong>«¿tienen garantía?»</strong> o{" "}
+                <strong>«¿aceptan pago contra entrega?»</strong> no puede
+                contestar: solo decir que le escribes por el privado. Y son las
+                dos preguntas que más llegan a un comentario.
+              </div>
+            ) : null}
+
+            <textarea
+              id="asistente-negocio"
+              value={opciones.negocio || ""}
+              onChange={(e) => cambiar("negocio", e.target.value)}
+              maxLength={1200}
+              rows={7}
+              placeholder={
+                "Envíos: a todo Ecuador. Quito y Guayaquil en 24 h, resto del país 48 a 72 h.\n" +
+                "Pago: contra entrega en todo el país, o transferencia.\n" +
+                "Garantía: 3 meses por defectos de fábrica.\n" +
+                "Devoluciones: 48 horas desde que lo recibes, en su caja.\n" +
+                "Horario: lunes a sábado de 9h00 a 18h00."
+              }
+              className={`${entradaBase} leading-relaxed font-mono text-[11.5px]`}
+            />
+
+            <div className="mt-2 flex items-start justify-between gap-3">
+              <p className="text-[10.5px] text-gray-400 leading-snug">
+                Una cosa por línea, como se la contarías a un empleado nuevo.
+                Esto son <strong>datos</strong>, no instrucciones: siguen
+                valiendo aunque escribas tus propias instrucciones más abajo.
+              </p>
+              <span className="shrink-0 text-[10px] text-gray-300 tabular-nums">
+                {(opciones.negocio || "").length}/1200
+              </span>
+            </div>
+          </Tarjeta>
 
           <Tarjeta
             titulo="Cómo quieres que hable"
