@@ -4,6 +4,7 @@ import chatApi from "../../api/chatcenter";
 import { Field, inputCls } from "./ui";
 import { ComprobantesUploader } from "./ComprobantesUploader";
 import { MONEDAS } from "../../services/imporsuit";
+import { PAISES } from "../../services/imporsuit/paises";
 import { USD, fmtMoneda, monedasDelPais, nombreMoneda } from "../../services/imporsuit/moneda";
 
 /**
@@ -26,19 +27,6 @@ const monedaPorPais = (pais) => (monedasDelPais(pais).length > 1 ? "" : USD);
  * prometería al cliente cifras que la cartera no va a mostrar.
  */
 
-/** Países frecuentes. El back solo acepta el código ISO de 2 letras. */
-const PAISES = [
-  { code: "EC", label: "Ecuador" },
-  { code: "CO", label: "Colombia" },
-  { code: "MX", label: "México" },
-  { code: "PE", label: "Perú" },
-  { code: "CL", label: "Chile" },
-  { code: "AR", label: "Argentina" },
-  { code: "BO", label: "Bolivia" },
-  { code: "PA", label: "Panamá" },
-  { code: "US", label: "Estados Unidos" },
-  { code: "ES", label: "España" },
-];
 
 const ETIQUETA_PASARELA = {
   stripe: "Stripe",

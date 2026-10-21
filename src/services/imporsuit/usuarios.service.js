@@ -94,6 +94,8 @@ export async function crearUsuarioFull(payload, { signal } = {}) {
     nombre: String(payload.nombre ?? "").trim(),
     correo: String(payload.correo ?? "").trim(),
     telefono: String(payload.telefono ?? "").trim(),
+    // ISO de 2 letras. Obligatorio para crear una cuenta (Class/Pais.php de Imporsuit).
+    pais: String(payload.pais ?? "").trim().toUpperCase(),
     rol: Number(payload.rol),
     contrasena: payload.contrasena || "Import.1",
     cursos: Array.isArray(payload.cursos) ? payload.cursos.map(Number) : [],

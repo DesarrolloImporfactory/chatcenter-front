@@ -12,6 +12,7 @@ import {
   PAQUETES,
 } from "../../services/imporsuit";
 import { VentaFields, useVentaForm } from "./VentaFields";
+import { PAISES } from "../../services/imporsuit/paises";
 import { Field, Overlay, inputCls, btnPrimary, btnGhost } from "./ui";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,6 +85,8 @@ export function CrearUsuarioForm({
       clienteExistente ? clienteExistente.telefono : telefonoInicial,
     ),
     rol: clienteExistente?.id_rol ? String(clienteExistente.id_rol) : "",
+    // País (obligatorio al crear, desde el 21-oct-2026). Existente: el suyo.
+    pais: String(clienteExistente?.pais ?? "").toUpperCase(),
     // Pre-carga de flags vigentes (clave para no sobrescribir paquetes).
     membresia_ecommerce: toFlag(clienteExistente?.membresia_ecommerce),
     ecommerce: toFlag(clienteExistente?.ecommerce),
@@ -287,6 +290,9 @@ export function CrearUsuarioForm({
       return toast.error("Correo inválido");
     if (!form.telefono.trim()) return toast.error("Ingresa el teléfono");
     if (!esVenta && !form.rol) return toast.error("Selecciona un rol");
+    // Cuenta nueva sin venta: el país se pide acá (con venta va en sus datos).
+    if (!esVenta && !ventaInterna && !clienteExistente && !form.pais)
+      return toast.error("Selecciona el país del cliente");
 
     if (esVenta || ventaInterna) {
       const errorVenta = ventaForm.validar();
@@ -303,6 +309,7 @@ export function CrearUsuarioForm({
         nombre: form.nombre.trim(),
         correo: form.correo.trim(),
         telefono: form.telefono.trim(),
+        pais: form.pais || (ventaInterna ? ventaForm.venta.pais : ""),
         rol: Number(form.rol),
         membresia_ecommerce: form.membresia_ecommerce,
         ecommerce: form.ecommerce,
@@ -518,6 +525,16 @@ export function CrearUsuarioForm({
             <Field label="Teléfono / WhatsApp">
               <input className={inputCls} value={form.telefono} onChange={set("telefono")} disabled={submitting} placeholder="+593999999999" />
             </Field>
+            {!esVenta && !ventaInterna && (
+              <Field label={clienteExistente ? "País" : "País *"}>
+                <select className={inputCls} value={form.pais} onChange={set("pais")} disabled={submitting}>
+                  <option value="">Seleccionar país</option>
+                  {PAISES.map((p) => (
+                    <option key={p.code} value={p.code}>{p.label} ({p.code})</option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <Field label={esVenta ? "Rol (por defecto Estudiantes)" : "Rol"}>
               <select className={inputCls} value={form.rol} onChange={set("rol")} disabled={submitting}>
                 <option value="">
