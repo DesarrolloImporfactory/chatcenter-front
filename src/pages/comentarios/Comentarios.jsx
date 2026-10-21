@@ -255,11 +255,11 @@ const ORIGEN_RESPUESTA = {
     ayuda: "La IA contestó sola, sin que nadie lo revisara antes",
   },
   derivada: {
-    texto: "Al privado",
+    texto: "IA · y al privado",
     icono: "bx-send",
     clase: "border-indigo-200 bg-indigo-50 text-indigo-700",
     ayuda:
-      "Segunda vez que esta persona comenta: se le pasó la conversación al chat privado",
+      "No es la primera vez que esta persona comenta: se le contestó aquí y además se le escribió por el chat privado",
   },
   facebook: {
     texto: "Desde Facebook",

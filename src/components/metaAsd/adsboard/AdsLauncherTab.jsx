@@ -7,6 +7,7 @@ import { creativosDePlantilla } from "./adsMedia";
 import ReglasAutomaticas from "../../../pages/campanias/ReglasAutomaticas";
 import CampaniasCuenta, {
   EstadoBadge,
+  Paginador,
   fmtMoney,
   fmtNum,
 } from "./CampaniasCuenta";
@@ -38,6 +39,45 @@ const PERIODOS = [
 ];
 const PERIODO_LABEL = Object.fromEntries(PERIODOS.map((p) => [p.id, p.texto]));
 const PERIODO_KEY = "anuncios_periodo";
+
+// Plantillas: 9 por página (3 filas de 3 cards) para que 100 plantillas no
+// sean un scroll infinito. El card no cambia; se filtra por lo que está
+// haciendo cada plantilla y se pagina igual que la tabla de campañas.
+const PLANTILLAS_POR_PAGINA = 9;
+const GRUPOS_PLANTILLA = [
+  { id: "todas", label: "Todas", icon: null },
+  { id: "vivo", label: "En vivo", icon: "bx-play-circle" },
+  { id: "pausada", label: "Pausadas", icon: "bx-pause-circle" },
+  { id: "lista", label: "Sin campaña", icon: "bx-rocket" },
+];
+const ORDEN_GRUPO = { vivo: 0, pausada: 1, incompleta: 2, lista: 3 };
+
+/* Portada del card. Las URLs son del CDN de Meta y pueden caducar: si la
+   imagen no carga se muestra el marcador en vez del ícono roto del navegador. */
+const Portada = ({ src, alt, esVideo }) => {
+  const [rota, setRota] = useState(false);
+  useEffect(() => setRota(false), [src]);
+  if (src && !rota) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        className="w-full h-full object-cover"
+        onError={() => setRota(true)}
+      />
+    );
+  }
+  return esVideo ? (
+    <div className="w-full h-full bg-slate-800 grid place-items-center text-white/70">
+      <i className="bx bx-video text-4xl" />
+    </div>
+  ) : (
+    <div className="w-full h-full grid place-items-center text-slate-300">
+      <i className="bx bx-image text-4xl" />
+    </div>
+  );
+};
 
 const fechaISO = (diasAtras = 0) => {
   const d = new Date();
@@ -225,6 +265,77 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
       m.set(String(d.campaign_id), d.estado_meta || "DELETED");
     return m;
   }, [cuenta]);
+
+  // ── Plantillas: filtro, orden y paginación ──
+  // El grupo de cada plantilla sale del estado REAL de sus campañas (lo
+  // mismo que dice el sello del card): en vivo → pausada → incompleta → sin
+  // campaña viva. Dentro del grupo manda el orden del servidor (última
+  // edición primero).
+  const [grupoPlantillas, setGrupoPlantillas] = useState("todas");
+  const [busquedaPlantillas, setBusquedaPlantillas] = useState("");
+  const [paginaPlantillas, setPaginaPlantillas] = useState(1);
+
+  const grupoDe = useCallback(
+    (p) => {
+      if ((p.faltantes || []).length) return "incompleta";
+      const vivas = campaniasPorPlantilla.get(p.id) || [];
+      if (vivas.some((c) => c.effective_status === "ACTIVE")) return "vivo";
+      if (vivas.length) return "pausada";
+      return "lista";
+    },
+    [campaniasPorPlantilla],
+  );
+  const plantillasOrdenadas = useMemo(
+    () =>
+      plantillas
+        .map((p, i) => ({ p, i, g: grupoDe(p) }))
+        .sort((a, b) => ORDEN_GRUPO[a.g] - ORDEN_GRUPO[b.g] || a.i - b.i),
+    [plantillas, grupoDe],
+  );
+  const conteosPlantillas = useMemo(() => {
+    const c = { todas: plantillasOrdenadas.length, vivo: 0, pausada: 0, lista: 0 };
+    for (const { g } of plantillasOrdenadas) {
+      if (g === "incompleta") c.lista++;
+      else c[g]++;
+    }
+    return c;
+  }, [plantillasOrdenadas]);
+  const plantillasFiltradas = useMemo(() => {
+    const q = busquedaPlantillas.trim().toLowerCase();
+    return plantillasOrdenadas
+      .filter(({ p, g }) => {
+        if (grupoPlantillas === "vivo" && g !== "vivo") return false;
+        if (grupoPlantillas === "pausada" && g !== "pausada") return false;
+        if (grupoPlantillas === "lista" && g !== "lista" && g !== "incompleta")
+          return false;
+        if (
+          q &&
+          !`${p.nombre} ${p.producto_nombre || ""}`.toLowerCase().includes(q)
+        )
+          return false;
+        return true;
+      })
+      .map(({ p }) => p);
+  }, [plantillasOrdenadas, grupoPlantillas, busquedaPlantillas]);
+  const totalPaginasPlantillas = Math.max(
+    1,
+    Math.ceil(plantillasFiltradas.length / PLANTILLAS_POR_PAGINA),
+  );
+  const paginaPlantillasSegura = Math.min(paginaPlantillas, totalPaginasPlantillas);
+  const plantillasVisibles = plantillasFiltradas.slice(
+    (paginaPlantillasSegura - 1) * PLANTILLAS_POR_PAGINA,
+    paginaPlantillasSegura * PLANTILLAS_POR_PAGINA,
+  );
+  const cambiarPaginaPlantillas = (n) => {
+    setPaginaPlantillas(Math.min(Math.max(1, n), totalPaginasPlantillas));
+    plantillasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const filtrarPlantillas = (fn) => {
+    fn();
+    setPaginaPlantillas(1);
+  };
+  // Con pocas plantillas los filtros son ruido: aparecen cuando hacen falta.
+  const mostrarFiltrosPlantillas = plantillas.length > 3;
 
   // El wizard necesita el contexto (páginas/productos); si aún viene en
   // camino se avisa en vez de abrir un modal a medias.
@@ -429,6 +540,12 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
 
   const [plantillaResaltada, setPlantillaResaltada] = useState(null);
   const verPlantilla = (id_plantilla) => {
+    // La plantilla buscada puede estar filtrada o en otra página: se quitan
+    // los filtros y se salta a su página antes de resaltarla.
+    setGrupoPlantillas("todas");
+    setBusquedaPlantillas("");
+    const idx = plantillasOrdenadas.findIndex(({ p }) => p.id === id_plantilla);
+    setPaginaPlantillas(idx >= 0 ? Math.floor(idx / PLANTILLAS_POR_PAGINA) + 1 : 1);
     setPlantillaResaltada(id_plantilla);
     plantillasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     setTimeout(() => setPlantillaResaltada(null), 2500);
@@ -775,8 +892,8 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
 
       {/* PLANTILLAS */}
       <div ref={plantillasRef} className="scroll-mt-4">
-        <div className="flex items-center justify-between mb-2.5 px-1">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-2.5 px-1">
+          <div className="min-w-0">
             <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
               <i className="bx bx-layout text-indigo-600 text-lg" />
               Tus plantillas
@@ -788,6 +905,36 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
               Cada card muestra lo que esa plantilla tiene corriendo ahora mismo en Meta.
             </p>
           </div>
+          {mostrarFiltrosPlantillas && (
+            <div className="flex flex-wrap items-center gap-2">
+              {GRUPOS_PLANTILLA.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => filtrarPlantillas(() => setGrupoPlantillas(g.id))}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold ring-1 transition whitespace-nowrap ${
+                    grupoPlantillas === g.id
+                      ? "bg-[#171931] text-white ring-[#171931]"
+                      : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {g.icon && <i className={`bx ${g.icon}`} />}
+                  {g.label}
+                  <span className="opacity-70">{conteosPlantillas[g.id]}</span>
+                </button>
+              ))}
+              <div className="relative w-full sm:w-56">
+                <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={busquedaPlantillas}
+                  onChange={(e) =>
+                    filtrarPlantillas(() => setBusquedaPlantillas(e.target.value))
+                  }
+                  placeholder="Buscar plantilla o producto..."
+                  className="w-full pl-9 pr-3 py-1.5 rounded-full border border-slate-200 bg-white text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {plantillas.length === 0 ? (
@@ -811,9 +958,34 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
               Crear mi primera plantilla
             </button>
           </div>
+        ) : plantillasFiltradas.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-50 ring-1 ring-slate-200 grid place-items-center mb-3">
+              <i className="bx bx-search-alt text-2xl text-slate-400" />
+            </div>
+            <p className="text-sm font-bold text-slate-700">
+              Ninguna plantilla coincide con el filtro
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Prueba con otro estado o texto de búsqueda.
+            </p>
+            <button
+              onClick={() =>
+                filtrarPlantillas(() => {
+                  setGrupoPlantillas("todas");
+                  setBusquedaPlantillas("");
+                })
+              }
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 transition"
+            >
+              <i className="bx bx-x" />
+              Quitar filtros
+            </button>
+          </div>
         ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {plantillas.map((p) => {
+            {plantillasVisibles.map((p) => {
               const incompleta = (p.faltantes || []).length > 0;
               const vivas = campaniasPorPlantilla.get(p.id) || [];
               const idas = idasPorPlantilla.get(p.id) || [];
@@ -884,21 +1056,11 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                     }
                     title={nCreativos > 0 ? "Ver vista previa del anuncio" : undefined}
                   >
-                    {p.imagen_url ? (
-                      <img
-                        src={p.imagen_url}
-                        alt={p.nombre}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : nCreativos > 0 ? (
-                      <div className="w-full h-full bg-slate-800 grid place-items-center text-white/70">
-                        <i className="bx bx-video text-4xl" />
-                      </div>
-                    ) : (
-                      <div className="w-full h-full grid place-items-center text-slate-300">
-                        <i className="bx bx-image text-4xl" />
-                      </div>
-                    )}
+                    <Portada
+                      src={p.imagen_url}
+                      alt={p.nombre}
+                      esVideo={nCreativos > 0}
+                    />
                     {nCreativos > 0 && (
                       <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-black/60 group-hover:bg-indigo-600 text-white text-[10px] font-bold transition">
                         <i className="bx bx-show" />
@@ -1113,6 +1275,25 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
               );
             })}
           </div>
+          {plantillasFiltradas.length > PLANTILLAS_POR_PAGINA && (
+            <div className="mt-3 px-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-400">
+              <span>
+                {(paginaPlantillasSegura - 1) * PLANTILLAS_POR_PAGINA + 1}–
+                {Math.min(
+                  paginaPlantillasSegura * PLANTILLAS_POR_PAGINA,
+                  plantillasFiltradas.length,
+                )}{" "}
+                de {plantillasFiltradas.length} plantillas
+              </span>
+              <Paginador
+                pagina={paginaPlantillasSegura}
+                total={plantillasFiltradas.length}
+                porPagina={PLANTILLAS_POR_PAGINA}
+                onCambiar={cambiarPaginaPlantillas}
+              />
+            </div>
+          )}
+          </>
         )}
       </div>
 
