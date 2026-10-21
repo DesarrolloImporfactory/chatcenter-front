@@ -1,9 +1,20 @@
+import {
+  fmtMoneda,
+  normalizarMoneda,
+  ordenarPorMoneda,
+  SIN,
+} from "../../services/imporsuit/moneda";
+
 /**
  * Estado de vencimiento de la cartera de un cliente, para avisar de un vistazo
  * (sin abrir cada chat): VENCIDA (roja), POR VENCER (ámbar) o al día (verde).
  *
  * Umbral "por vencer": la fecha_limite cae dentro de los próximos DIAS_POR_VENCER
  * días. Debe coincidir con el del backend (Carterachat: deudas_pendientes_por_correos).
+ *
+ * Los MONTOS van siempre por moneda (separacion_monedas.md en imporsutipro):
+ * `porMoneda = { USD: { pendiente, montoVencido, montoPorVencer }, MXN: …, COP: …, PEN: …, SIN: … }`.
+ * Un cliente puede deber dólares y moneda local a la vez: nunca se suman.
  */
 export const DIAS_POR_VENCER = 7;
 
@@ -16,31 +27,81 @@ export function diasHastaVencer(fechaLimite, hoy = new Date()) {
   return Math.floor((f - h) / 86400000);
 }
 
+const centavos = (n) => Math.round(n * 100) / 100;
+
 /**
- * Cuenta vencidas / por vencer a partir de una lista de deudas (filas con
- * estado, monto_pendiente y fecha_limite). Para la cabecera, que ya trae las
- * deudas completas.
+ * Cuenta pendientes / vencidas / por vencer a partir de una lista de deudas
+ * (filas con estado, monto_pendiente, fecha_limite y moneda). Para la
+ * cabecera, que ya trae las deudas completas. Los montos salen por moneda.
  */
 export function contarVencimientos(deudas, hoy = new Date()) {
+  let numPendientes = 0;
   let vencidas = 0;
   let porVencer = 0;
-  let montoVencido = 0;
-  let montoPorVencer = 0;
+  const porMoneda = {};
   for (const d of Array.isArray(deudas) ? deudas : []) {
     if (Number(d.estado) === 2) continue; // anuladas no cuentan
     const m = Number(d.monto_pendiente) || 0;
     if (m <= 0) continue;
+    numPendientes += 1;
+    const mon = normalizarMoneda(d.moneda) ?? SIN;
+    const t = (porMoneda[mon] ??= { pendiente: 0, montoVencido: 0, montoPorVencer: 0 });
+    t.pendiente = centavos(t.pendiente + m);
     const dias = diasHastaVencer(d.fecha_limite, hoy);
     if (dias == null) continue;
     if (dias < 0) {
       vencidas += 1;
-      montoVencido += m;
+      t.montoVencido = centavos(t.montoVencido + m);
     } else if (dias <= DIAS_POR_VENCER) {
       porVencer += 1;
-      montoPorVencer += m;
+      t.montoPorVencer = centavos(t.montoPorVencer + m);
     }
   }
-  return { vencidas, porVencer, montoVencido, montoPorVencer };
+  return { numPendientes, vencidas, porVencer, porMoneda: ordenarPorMoneda(porMoneda) };
+}
+
+/**
+ * `por_moneda` del backend (deudas_por_correos: snake_case) al formato del
+ * front: { USD: { pendiente, montoVencido, montoPorVencer }, … }.
+ */
+export function porMonedaDesdeApi(porMoneda) {
+  const out = {};
+  for (const [m, v] of Object.entries(porMoneda ?? {})) {
+    out[m] = {
+      pendiente: Number(v?.pendiente) || 0,
+      montoVencido: Number(v?.monto_vencido) || 0,
+      montoPorVencer: Number(v?.monto_por_vencer) || 0,
+    };
+  }
+  return ordenarPorMoneda(out);
+}
+
+/** ¿Debe algo, en cualquier moneda? (no suma: solo mira si alguna es > 0) */
+export function tienePendiente(info) {
+  return Object.values(info?.porMoneda ?? {}).some((v) => Number(v?.pendiente) > 0);
+}
+
+/**
+ * «US$ 120,00 · MX$ 2.500,00»: un monto por moneda, nunca sumados. `montos`
+ * es { USD: n, MXN: n, …, SIN: n }; lo sin moneda se marca como tal.
+ */
+export function textoPorMoneda(montos, sep = " · ") {
+  return Object.entries(montos ?? {})
+    .filter(([, v]) => Number(v) > 0)
+    .map(([m, v]) =>
+      m === SIN ? `${fmtMoneda(v, null)} (sin moneda)` : fmtMoneda(v, m),
+    )
+    .join(sep);
+}
+
+/** De `porMoneda` toma un solo campo: { USD: n, MXN: n, … }. */
+export function campoPorMoneda(info, campo) {
+  const out = {};
+  for (const [m, v] of Object.entries(info?.porMoneda ?? {})) {
+    const n = Number(v?.[campo]) || 0;
+    if (n > 0) out[m] = n;
+  }
+  return out;
 }
 
 /**
@@ -54,28 +115,21 @@ export function hayAlertaDeuda(info) {
 }
 
 /**
- * Monto que debe MOSTRAR el badge: la suma de las VENCIDAS (todas juntas) o,
- * si no hay ninguna vencida, la suma de las que están por vencer.
+ * Montos que debe MOSTRAR el badge, POR MONEDA ({ USD: n, MXN: n, … }): las
+ * VENCIDAS o, si no hay ninguna vencida, las que están por vencer.
  * Nunca el total pendiente: ese incluía deudas con vencimiento lejano e
  * inflaba la cifra que ve el asesor.
  */
-export function montoAlerta(info) {
+export function montosAlerta(info) {
   const vencidas = Number(info?.vencidas) || 0;
   const porVencer = Number(info?.porVencer) || 0;
-  // Fallback al total: si el backend todavía no envía monto_vencido /
-  // monto_por_vencer (despliegue desfasado del PHP), es preferible mostrar el
-  // total pendiente antes que un "$0.00" que parecería un error.
-  const total = Number(info?.pendiente) || 0;
-
-  if (vencidas > 0) {
-    const m = Number(info?.montoVencido) || 0;
-    return m > 0 ? m : total;
-  }
-  if (porVencer > 0) {
-    const m = Number(info?.montoPorVencer) || 0;
-    return m > 0 ? m : total;
-  }
-  return 0;
+  const campo =
+    vencidas > 0 ? "montoVencido" : porVencer > 0 ? "montoPorVencer" : null;
+  if (!campo) return {};
+  const montos = campoPorMoneda(info, campo);
+  // Fallback al pendiente: es preferible mostrar el total por moneda antes
+  // que un badge vacío que parecería un error.
+  return Object.keys(montos).length ? montos : campoPorMoneda(info, "pendiente");
 }
 
 /** Deriva el estado peor: vencida > por_vencer > al_dia. */

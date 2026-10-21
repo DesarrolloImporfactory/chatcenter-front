@@ -3,6 +3,7 @@ import {
   CARTERA_CONFIGS_HABILITADAS,
   getDeudasPorCorreos,
 } from "../../services/imporsuit";
+import { porMonedaDesdeApi, tienePendiente } from "./deudaVencimiento";
 
 /**
  * Deudas de cartera para el LISTADO de chats sin ponerlo lento:
@@ -20,7 +21,7 @@ import {
  */
 
 const TTL_MS = 5 * 60 * 1000; // revalidar deudas cada 5 min
-const cache = new Map(); // correo -> { pendiente, numPendientes, ts }
+const cache = new Map(); // correo -> { numPendientes, vencidas, porVencer, porMoneda, ts }
 const enVuelo = new Set(); // correos con petición en curso (dedup)
 
 /** Normaliza un email a la clave usada por el caché y el backend. */
@@ -65,13 +66,12 @@ export default function useDeudasChats(chats, idConfiguracion) {
         for (const e of faltantes) {
           const d = data?.[e];
           cache.set(e, {
-            pendiente: Number(d?.pendiente) || 0,
             numPendientes: Number(d?.num_pendientes) || 0,
             vencidas: Number(d?.vencidas) || 0,
             porVencer: Number(d?.por_vencer) || 0,
-            // Montos por estado: el badge muestra estos, no el total.
-            montoVencido: Number(d?.monto_vencido) || 0,
-            montoPorVencer: Number(d?.monto_por_vencer) || 0,
+            // Montos por moneda y por estado: el badge muestra los vencidos
+            // (o por vencer), cada moneda por separado, nunca sumadas.
+            porMoneda: porMonedaDesdeApi(d?.por_moneda),
             fechaLimiteMin: d?.fecha_limite_min || null,
             ts,
           });
@@ -93,7 +93,7 @@ export default function useDeudasChats(chats, idConfiguracion) {
     if (!habilitado) return map;
     for (const e of correos) {
       const hit = cache.get(e);
-      if (hit && hit.pendiente > 0) map[e] = hit;
+      if (hit && tienePendiente(hit)) map[e] = hit;
     }
     return map;
     // `version` fuerza recomputar cuando llegan respuestas del batch.

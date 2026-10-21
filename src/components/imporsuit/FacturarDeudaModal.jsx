@@ -9,6 +9,7 @@ import {
   prepararFacturaDeuda,
 } from "../../services/imporsuit";
 import { Field, Overlay, btnGhost, btnPrimary, inputCls } from "./ui";
+import { fmtMoneda, normalizarMoneda, USD } from "../../services/imporsuit/moneda";
 
 const MONEY = new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" });
 const fmt$ = (n) => MONEY.format(Number(n ?? 0));
@@ -127,6 +128,10 @@ export function FacturarDeudaModal({ deuda, onClose, onChanged }) {
   const otrosBloqueos = (ctx?.bloqueos ?? []).filter(
     (b) => !["cartera_pendiente", "sin_facturacion", "ya_facturada"].includes(b.codigo),
   );
+  // Una deuda en moneda local (MXN, COP, PEN) no se factura (lo dice su
+  // bloqueo), pero su saldo se muestra en su moneda y no como si fueran dólares.
+  const monedaDeuda = normalizarMoneda(ctx?.deuda?.moneda ?? deuda?.moneda);
+  const fmtSaldo = (n) => (monedaDeuda && monedaDeuda !== USD ? fmtMoneda(n, monedaDeuda) : fmt$(n));
 
   return (
     <Overlay onClose={emitiendo ? undefined : onClose}>
@@ -204,8 +209,8 @@ export function FacturarDeudaModal({ deuda, onClose, onChanged }) {
                 titulo="Deuda pagada completa"
                 detalle={
                   cartera?.pagada
-                    ? `Cobrado ${fmt$(cartera.total)}.`
-                    : `Faltan ${fmt$(cartera?.pendiente)} por cobrar. Registra el pago y vuelve.`
+                    ? `Cobrado ${fmtSaldo(cartera.total)}.`
+                    : `Faltan ${fmtSaldo(cartera?.pendiente)} por cobrar. Registra el pago y vuelve.`
                 }
               />
               <Paso

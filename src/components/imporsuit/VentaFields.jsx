@@ -3,6 +3,19 @@ import { getCatalogosVenta } from "../../services/imporsuit";
 import chatApi from "../../api/chatcenter";
 import { Field, inputCls } from "./ui";
 import { ComprobantesUploader } from "./ComprobantesUploader";
+import { MONEDAS } from "../../services/imporsuit";
+import { PAISES } from "../../services/imporsuit/paises";
+import { USD, fmtMoneda, monedasDelPais, nombreMoneda } from "../../services/imporsuit/moneda";
+
+/**
+ * Pasarelas que solo cobran en dólares. Espejo de
+ * `VentaModel::PASARELAS_SOLO_USD`: el back rechaza una venta en pesos con ellas.
+ */
+const PASARELAS_SOLO_USD = ["stripe", "datalink", "payphone"];
+
+/** Moneda que se propone según el país: México la elige, el resto es USD. */
+/** Los países con moneda local (México, Colombia, Perú) la eligen; el resto, USD. */
+const monedaPorPais = (pais) => (monedasDelPais(pais).length > 1 ? "" : USD);
 
 /**
  * Campos del alta en MODO VENTAS dentro de ImporChat (el alumno ya pagó).
@@ -14,19 +27,6 @@ import { ComprobantesUploader } from "./ComprobantesUploader";
  * prometería al cliente cifras que la cartera no va a mostrar.
  */
 
-/** Países frecuentes. El back solo acepta el código ISO de 2 letras. */
-const PAISES = [
-  { code: "EC", label: "Ecuador" },
-  { code: "CO", label: "Colombia" },
-  { code: "MX", label: "México" },
-  { code: "PE", label: "Perú" },
-  { code: "CL", label: "Chile" },
-  { code: "AR", label: "Argentina" },
-  { code: "BO", label: "Bolivia" },
-  { code: "PA", label: "Panamá" },
-  { code: "US", label: "Estados Unidos" },
-  { code: "ES", label: "España" },
-];
 
 const ETIQUETA_PASARELA = {
   stripe: "Stripe",
@@ -156,6 +156,9 @@ export function sumarMeses(fechaISO, meses) {
 
 const INITIAL_VENTA = {
   pais: "EC",
+  // USD | MXN | COP | PEN (docs/separacion_monedas.md en Imporsuit). Los países con moneda local no tienen
+  // default: puede pagar en cualquiera de las dos.
+  moneda: "USD",
   idProducto: "",
   montoTotal: "",
   // Qué fue lo que entró: reserva, pago parcial o pago total. Va atado a las
@@ -260,6 +263,7 @@ export function useVentaForm(activo) {
   const setCampo = (name, value) => {
     setVenta((prev) => {
       const next = { ...prev, [name]: value };
+      if (name === "pais") next.moneda = monedaPorPais(value);
       // De contado, lo pagado es el total: evita el rechazo del back por
       // descuadre y ahorra teclear el mismo número dos veces.
       if (name === "cuotas" && Number(value) === 1) next.montoPagado = next.montoTotal;
@@ -352,6 +356,13 @@ export function useVentaForm(activo) {
     if (!venta.idProducto) return "Selecciona el producto vendido";
     if (!venta.modalidad) return "Selecciona el tipo de pago";
     if (!venta.pais) return "Selecciona el país";
+    if (!venta.moneda) return "Elige la moneda de la venta";
+    if (!monedasDelPais(venta.pais).includes(venta.moneda))
+      return venta.pais === "EC"
+        ? "Una venta de Ecuador se cobra en dólares"
+        : `Una venta de ${venta.pais} no se cobra en ${nombreMoneda(venta.moneda)}`;
+    if (venta.moneda !== USD && PASARELAS_SOLO_USD.includes(venta.pasarela))
+      return "Esa pasarela cobra en dólares: la venta va en USD";
     if (!venta.idCloser) return "Selecciona el closer que cerró la venta";
     if (!venta.pasarela) return "Selecciona la pasarela de pago";
     if (!venta.fechaCompra) return "Indica la fecha de compra";
@@ -440,6 +451,22 @@ export function VentaFields({ form, disabled, interno = false }) {
             {PAISES.map((p) => (
               <option key={p.code} value={p.code}>
                 {p.label} ({p.code})
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Moneda de la venta">
+          <select
+            className={inputCls}
+            value={venta.moneda}
+            onChange={(e) => setCampo("moneda", e.target.value)}
+            disabled={disabled}
+          >
+            <option value="">Seleccionar…</option>
+            {MONEDAS.filter((m) => monedasDelPais(venta.pais).includes(m.value)).map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
               </option>
             ))}
           </select>
@@ -665,7 +692,7 @@ export function VentaFields({ form, disabled, interno = false }) {
             </p>
             {pendiente > 0.009 && (
               <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                Queda pendiente: {pendiente.toFixed(2)}
+                Queda pendiente: {fmtMoneda(pendiente, venta.moneda)}
               </span>
             )}
           </div>
@@ -680,7 +707,7 @@ export function VentaFields({ form, disabled, interno = false }) {
                   {idx === 0 && c.abonado > 0 && (
                     <span className="ml-1.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
                       {c.saldo > 0.009
-                        ? `abona ${c.abonado.toFixed(2)}`
+                        ? `abona ${fmtMoneda(c.abonado, venta.moneda)}`
                         : "se paga ahora"}
                     </span>
                   )}
@@ -688,12 +715,12 @@ export function VentaFields({ form, disabled, interno = false }) {
                       vencimiento un mes para que no figure vencida mañana. */}
                   {idx === 0 && c.saldo > 0.009 && (
                     <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
-                      faltan {c.saldo.toFixed(2)} → pasa al mes siguiente
+                      faltan {fmtMoneda(c.saldo, venta.moneda)} → pasa al mes siguiente
                     </span>
                   )}
                 </span>
                 <span className="font-mono tabular-nums">
-                  {c.monto.toFixed(2)} · vence {c.vence}
+                  {fmtMoneda(c.monto, venta.moneda)} · vence {c.vence}
                 </span>
               </li>
             ))}
@@ -701,7 +728,7 @@ export function VentaFields({ form, disabled, interno = false }) {
 
           {plan[0]?.reprogramada && (
             <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
-              La cuota 1 queda con {plan[0].saldo.toFixed(2)} pendiente y vence
+              La cuota 1 queda con {fmtMoneda(plan[0].saldo, venta.moneda)} pendiente y vence
               el {plan[0].vence}, junto con la cuota 2. Así no aparece vencida
               mañana ni se le bloquea el acceso.
             </p>

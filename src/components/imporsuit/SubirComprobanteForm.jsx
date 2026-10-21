@@ -4,8 +4,7 @@ import Swal from "sweetalert2";
 import { subirComprobantePago } from "../../services/imporsuit";
 import { Overlay, Field, inputCls, btnPrimary, btnGhost } from "./CrearUsuarioForm";
 import { ComprobantesUploader } from "./ComprobantesUploader";
-
-const MONEY = new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" });
+import { fmtMoneda } from "../../services/imporsuit/moneda";
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /**
@@ -53,7 +52,7 @@ export function SubirComprobanteForm({ deuda, pago, onClose, onSaved }) {
           </div>
           <p className="mt-0.5 text-xs text-gray-500">
             {deuda?.concepto} · Pago de{" "}
-            <strong className="text-emerald-600">{MONEY.format(Number(pago.monto_pagado) || 0)}</strong>
+            <strong className="text-emerald-600">{fmtMoneda(Number(pago.monto_pagado) || 0, deuda?.moneda)}</strong>
             {pago.medio_pago ? ` · ${pago.medio_pago}` : ""}
           </p>
         </header>

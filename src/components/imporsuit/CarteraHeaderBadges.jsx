@@ -6,17 +6,14 @@ import {
 } from "../../services/imporsuit";
 import { tieneCartera } from "./useCarteraCliente";
 import {
+  campoPorMoneda,
   contarVencimientos,
   estadoDeuda,
   hayAlertaDeuda,
-  montoAlerta,
+  montosAlerta,
+  textoPorMoneda,
   ESTILO_DEUDA,
 } from "./deudaVencimiento";
-
-const MONEY = new Intl.NumberFormat("es-EC", {
-  style: "currency",
-  currency: "USD",
-});
 
 /** "12 may 2024" */
 function fmtFechaCorta(s) {
@@ -104,38 +101,20 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
         });
         if (!exists || !data) return;
 
-        let pendiente = 0;
-        let numPendientes = 0;
-        let vencidas = 0;
-        let porVencer = 0;
-        let montoVencido = 0;
-        let montoPorVencer = 0;
+        // Pendientes, vencidas y por vencer (≤7 días) según fecha_limite, con
+        // los montos POR MONEDA: un cliente puede deber dólares y moneda local.
+        let resumen = { numPendientes: 0, vencidas: 0, porVencer: 0, porMoneda: {} };
         if (tieneCartera(data)) {
           const rows = await getDeudasUsuario(data.id_cartera, {
             signal: ctrl.signal,
           });
-          for (const d of Array.isArray(rows) ? rows : []) {
-            if (Number(d.estado) === 2) continue; // anuladas no cuentan
-            const m = Number(d.monto_pendiente) || 0;
-            if (m > 0) {
-              pendiente += m;
-              numPendientes += 1;
-            }
-          }
-          // Vencidas / por vencer (≤7 días) según fecha_limite, con sus montos
-          ({ vencidas, porVencer, montoVencido, montoPorVencer } =
-            contarVencimientos(rows));
+          resumen = contarVencimientos(rows);
         }
         if (!ctrl.signal.aborted) {
           setInfo({
             fechaRegistro: data.fecha_registro || null,
             fechaSuscripcion: data.fecha_suscripcion || null,
-            pendiente,
-            numPendientes,
-            vencidas,
-            porVencer,
-            montoVencido,
-            montoPorVencer,
+            ...resumen,
           });
         }
       } catch {
@@ -176,11 +155,13 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
         (() => {
           const est = estadoDeuda(info);
           const cfg = ESTILO_DEUDA[est];
-          const monto = montoAlerta(info);
+          // Un monto por moneda: nunca se suman monedas distintas.
+          const monto = textoPorMoneda(montosAlerta(info));
+          const total = textoPorMoneda(campoPorMoneda(info, "pendiente"));
           const titulo =
             est === "vencida"
-              ? `${info.vencidas} deuda${info.vencidas === 1 ? "" : "s"} VENCIDA${info.vencidas === 1 ? "" : "S"} por ${MONEY.format(monto)} (de ${MONEY.format(info.pendiente)} pendientes en total)`
-              : `${info.porVencer} deuda${info.porVencer === 1 ? "" : "s"} por vencer (≤7 días) por ${MONEY.format(monto)} (de ${MONEY.format(info.pendiente)} pendientes en total)`;
+              ? `${info.vencidas} deuda${info.vencidas === 1 ? "" : "s"} VENCIDA${info.vencidas === 1 ? "" : "S"} por ${monto} (de ${total} pendientes en total)`
+              : `${info.porVencer} deuda${info.porVencer === 1 ? "" : "s"} por vencer (≤7 días) por ${monto} (de ${total} pendientes en total)`;
           return (
             <div
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 shadow-sm ${cfg.badge}`}
@@ -188,7 +169,7 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
             >
               <i className={`${cfg.icon} text-[12px]`} />
               <span className="text-[11px] font-bold">
-                {MONEY.format(monto)}
+                {monto}
               </span>
               <span className="text-[9px] font-bold uppercase tracking-wider">
                 {cfg.label}

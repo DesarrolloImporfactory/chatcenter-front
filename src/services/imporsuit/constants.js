@@ -47,10 +47,8 @@ export const TIPOS_PAGO = [
   { value: "gestionado", label: "Gestionado" },
 ];
 
-export const MONEDAS = [
-  { value: "USD", label: "USD" },
-  { value: "MXN", label: "MXN" },
-];
+/** Monedas de la cartera: la lista única vive en `services/imporsuit/moneda.js`. */
+export { MONEDAS } from "./moneda";
 
 export const TIPOS_VENTA = [
   { value: "fria", label: "Fría" },

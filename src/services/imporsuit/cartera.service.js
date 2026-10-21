@@ -132,6 +132,8 @@ export async function agregarDeuda(
     fechaLimite,
     launchId,
     idAsesor,
+    // Una de CLAVES_MONEDA (USD, MXN, COP, PEN) — obligatoria (docs/separacion_monedas.md en Imporsuit).
+    moneda,
   },
   { signal } = {},
 ) {
@@ -140,6 +142,7 @@ export async function agregarDeuda(
     {
       concepto: String(concepto ?? "").trim(),
       monto: Number(monto),
+      moneda,
       id_cartera: String(idCarteraUuid),
       tipo_venta: tipoVenta,
       fecha_limite: fechaLimite,
@@ -166,7 +169,15 @@ export async function agregarPago(
     referencia = "",
     imagenesUrls = [],
     numeroCuota = "",
-    moneda = "USD",
+    // Moneda (docs/separacion_monedas.md en Imporsuit): `montoPagado` va
+    // SIEMPRE en la moneda de la deuda. Si el cliente pagó en otra, viajan lo
+    // recibido y el tipo de cambio (unidades de la moneda local por 1 dólar) y
+    // el back recalcula.
+    monedaRecibida = null,
+    montoRecibido = null,
+    tipoCambio = null,
+    // Solo para una deuda vieja sin moneda: en qué moneda está.
+    monedaDeuda = null,
     // Fecha que consta en el comprobante bancario. El back la EXIGE cuando se
     // adjunta uno: sin esto el pago con comprobante se rechaza siempre.
     fechaTransaccion = "",
@@ -190,9 +201,25 @@ export async function agregarPago(
       referencia: String(referencia ?? ""),
       imagenes_urls: comprobantes,
       numero_cuota: String(numeroCuota ?? ""),
-      moneda: String(moneda ?? "USD"),
+      moneda_recibida: monedaRecibida || null,
+      monto_recibido: montoRecibido != null ? Number(montoRecibido) : null,
+      tipo_cambio: tipoCambio != null && tipoCambio !== "" ? Number(tipoCambio) : null,
+      moneda_deuda: monedaDeuda || null,
       fecha_transaccion: fechaDelComprobante,
     },
+    { signal },
+  );
+  return unwrap(data);
+}
+
+/**
+ * Confirma la moneda de una deuda vieja que no la tenía (y de sus cuotas
+ * hermanas). El back no deja cambiar una moneda ya puesta.
+ */
+export async function fijarMonedaDeuda({ idCpp, moneda }, { signal } = {}) {
+  const { data } = await imporsuitApi.post(
+    "/Carterachat/fijar_moneda_deuda",
+    { id_cpp: Number(idCpp), moneda },
     { signal },
   );
   return unwrap(data);
