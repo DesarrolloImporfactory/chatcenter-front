@@ -17,6 +17,8 @@ const ENDPOINTS = {
   sugerir: "/facebook_comentarios/sugerir",
   productos: "/facebook_comentarios/productos",
   vincularProducto: "/facebook_comentarios/vincular-producto",
+  sincronizar: "/facebook_comentarios/sincronizar-publicaciones",
+  iaAutomatica: "/facebook_comentarios/ia-automatica",
   responder: "/facebook_comentarios/responder",
   responderPrivado: "/facebook_comentarios/responder-privado",
 };
@@ -67,6 +69,7 @@ const Pastilla = ({ children, tono = "gris" }) => {
     ambar: "bg-amber-50 text-amber-700 border-amber-200",
     azul: "bg-blue-50 text-blue-700 border-blue-200",
     verde: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    indigo: "bg-indigo-50 text-indigo-700 border-indigo-200",
   };
   return (
     <span
@@ -156,15 +159,31 @@ const Miniatura = ({ post, tamano = "lista" }) => {
   );
 };
 
-/** Contador del encabezado. */
-const Metrica = ({ valor, etiqueta, tono = "gris", icono }) => {
+/**
+ * Contador del encabezado.
+ *
+ * Con `onClick` deja de ser un cartel y pasa a ser la entrada al filtro que le
+ * corresponde: un número que señala trabajo pendiente y no lleva a ninguna
+ * parte obliga a buscar a mano lo que ya se contó.
+ */
+const Metrica = ({ valor, etiqueta, tono = "gris", icono, onClick, activo }) => {
   const tonos = {
     gris: "text-gray-900",
     ambar: "text-amber-600",
     azul: "text-blue-700",
+    indigo: "text-indigo-700",
   };
+  const Caja = onClick ? "button" : "div";
   return (
-    <div className="flex-1 min-w-[7rem] rounded-xl border border-gray-100 bg-white px-4 py-3">
+    <Caja
+      onClick={onClick}
+      type={onClick ? "button" : undefined}
+      className={`flex-1 min-w-[7rem] text-left rounded-xl border bg-white px-4 py-3 transition ${
+        activo
+          ? "border-indigo-300 ring-2 ring-indigo-100"
+          : "border-gray-100"
+      } ${onClick ? "hover:border-gray-300 hover:shadow-sm cursor-pointer" : ""}`}
+    >
       <div className="flex items-center gap-1.5 text-xs text-gray-500">
         {icono ? <i className={`bx ${icono} text-sm`} /> : null}
         {etiqueta}
@@ -172,7 +191,7 @@ const Metrica = ({ valor, etiqueta, tono = "gris", icono }) => {
       <div className={`text-2xl font-semibold mt-0.5 ${tonos[tono]}`}>
         {valor}
       </div>
-    </div>
+    </Caja>
   );
 };
 
@@ -226,6 +245,22 @@ const ORIGEN_RESPUESTA = {
     clase: "border-blue-200 bg-white text-blue-600",
     ayuda: "La IA propuso y el agente lo reescribió",
   },
+  // Las dos de la respuesta automática. Se distinguen de 'ia' a propósito: una
+  // la leyó alguien antes de publicarse y la otra no, y eso es justo lo que hay
+  // que poder ver de un vistazo al revisar qué se publicó en la página.
+  ia_auto: {
+    texto: "IA · sola",
+    icono: "bx-bot",
+    clase: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    ayuda: "La IA contestó sola, sin que nadie lo revisara antes",
+  },
+  derivada: {
+    texto: "IA · y al privado",
+    icono: "bx-send",
+    clase: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    ayuda:
+      "No es la primera vez que esta persona comenta: se le contestó aquí y además se le escribió por el chat privado",
+  },
   facebook: {
     texto: "Desde Facebook",
     icono: "bxl-facebook-circle",
@@ -263,6 +298,60 @@ const InsigniaOrigen = ({ origen, autor }) => {
  * anuncio → producto) y el id del anuncio no aparece dentro del id de la
  * publicación, así que automatizarlo hoy sería adivinar.
  */
+/**
+ * Interruptor de la respuesta automática, para esta publicación.
+ *
+ * Va pegado al selector de producto porque son las dos mitades de la misma
+ * decisión: el producto dice QUÉ puede contestar la IA aquí, y esto dice si
+ * contesta sola. Sin producto se muestra apagado y sin efecto — no es un fallo,
+ * es la regla que impide que hable de algo que no conoce.
+ */
+const InterruptorIaPost = ({ postId, activa, hayProducto, onCambiar }) => {
+  const encendida = Boolean(activa) && hayProducto;
+
+  return (
+    <div
+      className={`mt-2 inline-flex items-center gap-2 pl-2.5 pr-1.5 py-1 rounded-lg border text-xs transition ${
+        encendida
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-gray-200 bg-white text-gray-500"
+      }`}
+      title={
+        !hayProducto
+          ? "Vincula un producto para que la IA pueda contestar sola"
+          : encendida
+            ? "La IA contesta sola los comentarios de esta publicación"
+            : "Los comentarios de esta publicación los respondes tú"
+      }
+    >
+      <i className={`bx ${encendida ? "bx-bot" : "bx-user-check"}`} />
+      <span>
+        {!hayProducto
+          ? "IA automática (falta producto)"
+          : encendida
+            ? "Responde sola"
+            : "Respondes tú"}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={encendida}
+        disabled={!hayProducto}
+        onClick={() => onCambiar(postId, !activa)}
+        className={`h-5 w-9 shrink-0 rounded-full p-0.5 transition disabled:opacity-40 ${
+          encendida ? "bg-emerald-500" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+            encendida ? "translate-x-4" : ""
+          }`}
+        />
+      </button>
+    </div>
+  );
+};
+
 const SelectorProducto = ({
   postId,
   idProducto,
@@ -406,6 +495,12 @@ const Comentario = ({ nodo, nivel = 0, onEnviar, onSugerir }) => {
   const [error, setError] = useState(null);
   const [sugiriendo, setSugiriendo] = useState(false);
   const [origenSugerencia, setOrigenSugerencia] = useState(null);
+  /* El borrador del privado y si sale o no. Van juntos pero separados del
+     texto público: el agente puede editar uno sin tocar el otro, y puede
+     publicar sólo el comentario desmarcando la casilla. */
+  const [privado, setPrivado] = useState("");
+  const [mandarPrivado, setMandarPrivado] = useState(false);
+  const [aviso, setAviso] = useState(null);
 
   /**
    * Pide un borrador a la IA y lo pone en el cuadro de texto.
@@ -427,6 +522,15 @@ const Comentario = ({ nodo, nivel = 0, onEnviar, onSugerir }) => {
       if (r?.sugerencia) {
         setTexto((prev) => (prev.trim() ? prev : r.sugerencia));
         setOrigenSugerencia(r);
+
+        /* El privado sólo se ofrece si de verdad se puede mandar: Facebook
+           permite uno por comentario y no sobre uno propio. Viene marcado
+           cuando la respuesta pública lo promete —ahí no mandarlo es quedar
+           mal— y desmarcado cuando es de cortesía. */
+        if (r.privado && puedePrivado) {
+          setPrivado(r.privado);
+          setMandarPrivado(r.privado_prometido);
+        }
       }
     } catch (err) {
       setError(
@@ -442,6 +546,9 @@ const Comentario = ({ nodo, nivel = 0, onEnviar, onSugerir }) => {
     setTexto("");
     setError(null);
     setOrigenSugerencia(null);
+    setPrivado("");
+    setMandarPrivado(false);
+    setAviso(null);
   };
 
   /**
@@ -467,18 +574,32 @@ const Comentario = ({ nodo, nivel = 0, onEnviar, onSugerir }) => {
     if (!texto.trim() || enviando) return;
     setEnviando(true);
     setError(null);
+    setAviso(null);
     try {
-      await onEnviar({
+      const r = await onEnviar({
         comment_id: nodo.comment_id,
         mensaje: texto,
         privado: modo === "privado",
+        // Sólo cuando el agente lo dejó marcado y hay texto. Desmarcarlo
+        // publica el comentario y nada más.
+        mensajePrivado:
+          modo === "publico" && mandarPrivado && privado.trim()
+            ? privado.trim()
+            : null,
         origen: calcularOrigen(),
       });
       setModo(null);
       setTexto("");
       setOrigenSugerencia(null);
+      setPrivado("");
+      setMandarPrivado(false);
+      // El comentario salió y el privado no. No es un error del envío, pero
+      // hay que verlo: el privado no se reintenta solo.
+      if (r?.avisoPrivado) setAviso(r.avisoPrivado);
     } catch (err) {
-      setError(err?.response?.data?.message || "No se pudo enviar.");
+      setError(
+        err?.response?.data?.message || err?.message || "No se pudo enviar.",
+      );
     } finally {
       setEnviando(false);
     }
@@ -561,6 +682,15 @@ const Comentario = ({ nodo, nivel = 0, onEnviar, onSugerir }) => {
             </p>
           ) : null}
 
+          {/* La respuesta pública salió y el privado no. Va fuera del cuadro
+              de respuesta porque ese ya se cerró: el envío no falló. */}
+          {aviso ? (
+            <p className="flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-1.5">
+              <i className="bx bx-error mt-0.5 shrink-0" />
+              <span className="min-w-0">{aviso}</span>
+            </p>
+          ) : null}
+
           {!nodo.es_de_la_pagina && !modo ? (
             <div className="flex gap-2 mt-2">
               <button
@@ -620,6 +750,63 @@ const Comentario = ({ nodo, nivel = 0, onEnviar, onSugerir }) => {
                   puede enviar otro después.
                 </p>
               ) : null}
+
+              {/* El privado que propuso la IA, para que salga con el mismo
+                  clic. Vive acá y no en su propio flujo porque son una sola
+                  decisión: si la respuesta pública dice "te escribo al
+                  privado", mandar una sin la otra deja al negocio prometiendo
+                  algo que nadie cumple. */}
+              {modo === "publico" && privado ? (
+                <div
+                  className={`mt-2.5 rounded-xl border transition ${
+                    mandarPrivado
+                      ? "border-indigo-200 bg-indigo-50/60"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  <label className="flex items-start gap-2 px-3 pt-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={mandarPrivado}
+                      onChange={(e) => setMandarPrivado(e.target.checked)}
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+                    />
+                    <span className="min-w-0">
+                      <span
+                        className={`text-xs font-semibold ${
+                          mandarPrivado ? "text-indigo-900" : "text-gray-600"
+                        }`}
+                      >
+                        <i className="bx bx-lock-alt mr-1" />
+                        También escribirle al privado
+                      </span>
+                      <span className="block text-[11px] text-gray-500 mt-0.5">
+                        {origenSugerencia?.privado_prometido
+                          ? "La respuesta pública lo promete, así que conviene mandarlo."
+                          : "La respuesta pública ya quedó completa: esto es opcional."}
+                      </span>
+                    </span>
+                  </label>
+
+                  <div className="px-3 pb-3 pt-2">
+                    <textarea
+                      value={privado}
+                      onChange={(e) => setPrivado(e.target.value)}
+                      rows={3}
+                      disabled={!mandarPrivado}
+                      className="w-full text-sm bg-white border border-gray-200 rounded-lg p-2.5 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100 disabled:text-gray-400 transition"
+                    />
+                    {mandarPrivado ? (
+                      <p className="flex items-start gap-1.5 text-[11px] text-indigo-700 mt-1.5">
+                        <i className="bx bx-right-arrow-circle mt-0.5 shrink-0" />
+                        {origenSugerencia?.producto?.nombre
+                          ? `Abre el chat con el contexto de ${origenSugerencia.producto.nombre} y, cuando responda, sigue la IA del kanban.`
+                          : "Abre el chat en Messenger y, cuando responda, sigue la IA del kanban."}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               {error ? (
                 <p className="flex items-start gap-1.5 text-xs text-rose-600 mt-1.5">
                   <i className="bx bx-error-circle mt-0.5 shrink-0" />
@@ -642,7 +829,9 @@ const Comentario = ({ nodo, nivel = 0, onEnviar, onSugerir }) => {
                     ? "Enviando…"
                     : modo === "privado"
                       ? "Enviar privado"
-                      : "Publicar respuesta"}
+                      : mandarPrivado && privado.trim()
+                        ? "Publicar y escribir al privado"
+                        : "Publicar respuesta"}
                 </button>
                 {/* Sólo en la respuesta pública: el privado abre una
                     conversación y ahí escribe la persona, no el modelo. */}
@@ -737,6 +926,11 @@ export default function Comentarios() {
   const [posts, setPosts] = useState([]);
   const [resumen, setResumen] = useState(null);
   const [soloPendientes, setSoloPendientes] = useState(false);
+  // Publicaciones a las que todavía no se les dijo de qué producto hablan: la
+  // IA las contesta, pero sin precios ni respuestas del wizard.
+  const [sinProducto, setSinProducto] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [avisoFeed, setAvisoFeed] = useState(null);
   const [seleccionado, setSeleccionado] = useState(null);
   const [hilo, setHilo] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -770,6 +964,7 @@ export default function Comentarios() {
             id_configuracion,
             limite: 50,
             solo_pendientes: soloPendientes ? 1 : 0,
+            sin_producto: sinProducto ? 1 : 0,
           },
         }),
         chatApi.get(ENDPOINTS.resumen, { params: { id_configuracion } }),
@@ -788,11 +983,60 @@ export default function Comentarios() {
     } finally {
       setCargando(false);
     }
-  }, [id_configuracion, soloPendientes]);
+  }, [id_configuracion, soloPendientes, sinProducto]);
 
   useEffect(() => {
     cargarPosts();
   }, [cargarPosts]);
+
+  /**
+   * Releer el feed de la página.
+   *
+   * Al abrir la bandeja el backend ya lo hace solo, pero con una frescura de
+   * 10 minutos: si acabas de publicar y quieres vincularle el producto ahora,
+   * este botón se salta la espera. No publica nada en Facebook.
+   */
+  const buscarPublicaciones = useCallback(async () => {
+    if (!id_configuracion) return;
+    setSincronizando(true);
+    setAvisoFeed(null);
+    try {
+      const { data } = await chatApi.post(ENDPOINTS.sincronizar, null, {
+        params: { id_configuracion },
+      });
+      await cargarPosts();
+      setAvisoFeed(
+        data?.errores?.length
+          ? { tono: "rojo", texto: data.errores.join(" · ") }
+          : {
+              tono: "verde",
+              texto: data?.nuevas
+                ? `${data.nuevas} ${
+                    data.nuevas === 1
+                      ? "publicación nueva"
+                      : "publicaciones nuevas"
+                  } en la bandeja.`
+                : "Ya estaban todas: no hay publicaciones nuevas.",
+            },
+      );
+    } catch (err) {
+      setAvisoFeed({
+        tono: "rojo",
+        texto:
+          err?.response?.data?.message ||
+          "No se pudieron leer las publicaciones de la página.",
+      });
+    } finally {
+      setSincronizando(false);
+    }
+  }, [id_configuracion, cargarPosts]);
+
+  // El aviso es una confirmación, no un error que haya que atender: se va solo.
+  useEffect(() => {
+    if (!avisoFeed) return undefined;
+    const t = setTimeout(() => setAvisoFeed(null), 6000);
+    return () => clearTimeout(t);
+  }, [avisoFeed]);
 
   const cargarPlanos = useCallback(async () => {
     if (!id_configuracion) return;
@@ -946,6 +1190,12 @@ export default function Comentarios() {
     if (!data?.sugerencia) return null;
     return {
       sugerencia: data.sugerencia,
+      // Borrador del mensaje privado, cuando la IA propone seguir por ahí. No
+      // se envía solo: es otro borrador que el agente lee y decide.
+      privado: data.privado || null,
+      // Lo decide el backend mirando si la respuesta pública promete el
+      // privado. Si lo promete, va marcado; si es de cortesía, desmarcado.
+      privado_prometido: Boolean(data.privado_prometido),
       origen: data.origen || null,
       producto: data.producto || null,
       pregunta: data.pregunta || null,
@@ -1008,8 +1258,68 @@ export default function Comentarios() {
     cargarPlanos();
   };
 
-  const enviarRespuesta = async ({ comment_id, mensaje, privado, origen }) => {
-    await chatApi.post(
+  /**
+   * Encender o apagar la IA en UNA publicación.
+   *
+   * Se pinta antes de que conteste el servidor y se revierte si falla: es un
+   * interruptor, y un interruptor que tarda medio segundo en moverse se
+   * aprieta dos veces.
+   */
+  const cambiarIaPost = async (post_id, activa) => {
+    const pintar = (v) => {
+      setSeleccionado((s) =>
+        s && s.post_id === post_id ? { ...s, ia_automatica: v ? 1 : 0 } : s,
+      );
+      setComentarioSel((c) =>
+        c && c.post_id === post_id
+          ? { ...c, post_ia_automatica: v ? 1 : 0 }
+          : c,
+      );
+      setPosts((lista) =>
+        lista.map((p) =>
+          p.post_id === post_id ? { ...p, ia_automatica: v ? 1 : 0 } : p,
+        ),
+      );
+    };
+
+    pintar(activa);
+    try {
+      await chatApi.post(ENDPOINTS.iaAutomatica, {
+        id_configuracion,
+        post_id,
+        activa,
+      });
+    } catch (err) {
+      pintar(!activa);
+      setAvisoFeed({
+        tono: "rojo",
+        texto:
+          err?.response?.data?.message ||
+          "No se pudo cambiar la IA de esta publicación.",
+      });
+    }
+  };
+
+  /**
+   * Envía la respuesta. Un solo clic puede mandar las dos cosas.
+   *
+   * `privado` (booleano) es el modo: el agente abrió el cuadro del privado y
+   * sólo quiere mandar eso. `mensajePrivado` (texto) es el otro caso: está
+   * publicando una respuesta pública y además sale el privado. Son distintos y
+   * conviven, porque el botón de privado suelto sigue existiendo.
+   *
+   * Cuando van los dos, el backend publica primero y manda el privado después:
+   * si lo público dice "te escribo al privado", el comentario es la promesa y
+   * el privado es cumplirla, en ese orden.
+   */
+  const enviarRespuesta = async ({
+    comment_id,
+    mensaje,
+    privado,
+    mensajePrivado,
+    origen,
+  }) => {
+    const { data } = await chatApi.post(
       privado ? ENDPOINTS.responderPrivado : ENDPOINTS.responder,
       {
         id_configuracion,
@@ -1018,11 +1328,23 @@ export default function Comentarios() {
         // El privado no lo usa: ahí la conversación sigue en el chat, y el
         // origen de cada mensaje ya se guarda por ese camino.
         ...(privado ? {} : { origen }),
+        ...(!privado && mensajePrivado ? { privado: mensajePrivado } : {}),
       },
     );
+
     if (seleccionado) await recargarHilo(seleccionado.id_facebook_post);
     cargarPosts();
     cargarPlanos();
+
+    /* El comentario sí se publicó y el privado no: el backend devuelve 200 a
+       propósito, porque un error haría que el agente reescribiera algo que ya
+       está en Facebook. Se avisa, pero no se trata como un fallo del envío. */
+    if (data?.privado && data.privado.enviado === false) {
+      return {
+        avisoPrivado: `La respuesta se publicó, pero el mensaje privado no salió: ${data.privado.error}`,
+      };
+    }
+    return {};
   };
 
   // El efecto de tiempo real necesita recargar el hilo abierto, pero se define
@@ -1119,11 +1441,42 @@ export default function Comentarios() {
               tono="azul"
               icono="bx-news"
             />
+            {/* Clic = ir a verlas. El número solo no sirve de nada si hay que
+                buscarlas una por una. */}
             <Metrica
-              valor={posts.length}
-              etiqueta="Publicaciones en la lista"
+              valor={resumen.posts_sin_producto ?? 0}
+              etiqueta="Sin producto vinculado"
+              tono={resumen.posts_sin_producto ? "indigo" : "gris"}
+              icono="bx-package"
+              activo={vista === "publicacion" && sinProducto}
+              onClick={() => {
+                const prender = !(vista === "publicacion" && sinProducto);
+                setVista("publicacion");
+                setSinProducto(prender);
+              }}
+            />
+            <Metrica
+              valor={resumen.posts ?? posts.length}
+              etiqueta="Publicaciones"
               icono="bx-list-ul"
             />
+          </div>
+        ) : null}
+
+        {avisoFeed ? (
+          <div
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm border-t ${
+              avisoFeed.tono === "rojo"
+                ? "bg-rose-50 border-rose-100 text-rose-800"
+                : "bg-emerald-50 border-emerald-100 text-emerald-800"
+            }`}
+          >
+            <i
+              className={`bx ${
+                avisoFeed.tono === "rojo" ? "bx-error-circle" : "bx-check-circle"
+              } text-base shrink-0`}
+            />
+            <span>{avisoFeed.texto}</span>
           </div>
         ) : null}
       </div>
@@ -1276,7 +1629,7 @@ export default function Comentarios() {
             <aside className="flex-1 min-w-0 flex flex-col min-h-0">
               {/* El filtro vive aquí, no en el encabezado: sólo afecta a esta
                   vista. La bandeja plana tiene el suyo propio. */}
-              <div className="shrink-0 mb-3">
+              <div className="shrink-0 mb-3 flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setSoloPendientes((v) => !v)}
                   className={`px-3 py-1.5 rounded-full text-xs border transition ${
@@ -1287,6 +1640,33 @@ export default function Comentarios() {
                 >
                   <i className="bx bx-filter-alt mr-1" />
                   Solo con pendientes
+                </button>
+
+                <button
+                  onClick={() => setSinProducto((v) => !v)}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition ${
+                    sinProducto
+                      ? "bg-indigo-600 border-indigo-600 text-white"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  <i className="bx bx-package mr-1" />
+                  Sin producto
+                </button>
+
+                {/* Las publicaciones entran solas al abrir la bandeja, pero con
+                    10 minutos de margen. Esto es para cuando acabas de
+                    publicar y la quieres configurar ya. */}
+                <button
+                  onClick={buscarPublicaciones}
+                  disabled={sincronizando}
+                  title="Volver a leer las publicaciones de tu página en Facebook"
+                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-gray-200 bg-white text-gray-600 hover:border-gray-300 disabled:opacity-50 transition"
+                >
+                  <i
+                    className={`bx bx-sync ${sincronizando ? "bx-spin" : ""}`}
+                  />
+                  {sincronizando ? "Buscando…" : "Buscar nuevas"}
                 </button>
               </div>
 
@@ -1302,18 +1682,50 @@ export default function Comentarios() {
                 </div>
               ) : null}
 
+              {/* La lista ya no son "publicaciones con comentarios" sino las
+                  publicaciones de la página, así que el vacío depende del
+                  filtro: con `sin_producto` puesto, vacío es buena noticia. */}
               {!cargando && !posts.length ? (
                 <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
                   <div className="h-14 w-14 rounded-full bg-gray-50 border border-gray-100 grid place-items-center mx-auto mb-3">
-                    <i className="bx bx-message-rounded-dots text-3xl text-gray-300" />
+                    <i
+                      className={`bx ${
+                        sinProducto
+                          ? "bx-check-double text-emerald-400"
+                          : "bx-news text-gray-300"
+                      } text-3xl`}
+                    />
                   </div>
-                  <p className="text-gray-700 font-medium">
-                    Todavía no hay comentarios.
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Aparecerán aquí en cuanto alguien comente una publicación de
-                    tu página.
-                  </p>
+                  {sinProducto ? (
+                    <>
+                      <p className="text-gray-700 font-medium">
+                        Todas tienen producto vinculado.
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        El asistente puede contestar con precios y condiciones
+                        en cualquiera de ellas.
+                      </p>
+                    </>
+                  ) : soloPendientes ? (
+                    <>
+                      <p className="text-gray-700 font-medium">
+                        Nada sin responder.
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Quita el filtro para ver todas las publicaciones.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-700 font-medium">
+                        No encontramos publicaciones.
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Se leen de tu página de Facebook al abrir esta pantalla.
+                        Si acabas de publicar, prueba con «Buscar nuevas».
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : null}
 
@@ -1345,20 +1757,59 @@ export default function Comentarios() {
                           </p>
                           <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                             <Pastilla>
-                              {post.total_comentarios}{" "}
-                              {post.total_comentarios === 1
-                                ? "comentario"
-                                : "comentarios"}
+                              {post.total_comentarios
+                                ? `${post.total_comentarios} ${
+                                    post.total_comentarios === 1
+                                      ? "comentario"
+                                      : "comentarios"
+                                  }`
+                                : "Sin comentarios"}
                             </Pastilla>
                             {post.sin_responder > 0 ? (
                               <Pastilla tono="ambar">
                                 {post.sin_responder} sin responder
                               </Pastilla>
                             ) : null}
+                            {/* De qué producto habla. Se ve desde la lista
+                                porque es lo que hay que arreglar antes de que
+                                llegue el primer comentario, no después. */}
+                            {post.producto_nombre ? (
+                              <Pastilla tono="verde">
+                                <i className="bx bx-package" />
+                                <span className="truncate max-w-[9rem]">
+                                  {post.producto_nombre}
+                                </span>
+                              </Pastilla>
+                            ) : (
+                              <Pastilla tono="indigo">
+                                <i className="bx bx-package" />
+                                Sin producto
+                              </Pastilla>
+                            )}
+                            {/* Solo cuando hay producto: sin él la IA no
+                                contesta igual, y dos avisos para la misma
+                                causa confunden. */}
+                            {post.producto_nombre &&
+                            Number(post.ia_automatica) !== 1 ? (
+                              <Pastilla>
+                                <i className="bx bx-user-check" />
+                                IA apagada
+                              </Pastilla>
+                            ) : null}
                           </div>
                           <div className="flex items-center gap-1 text-xs text-gray-400 mt-1.5">
-                            <i className="bx bx-time-five" />
-                            {fechaCorta(post.ultimo_comentario_at)}
+                            <i
+                              className={`bx ${
+                                post.ultimo_comentario_at
+                                  ? "bx-time-five"
+                                  : "bx-calendar"
+                              }`}
+                            />
+                            {post.ultimo_comentario_at
+                              ? `Último comentario ${fechaCorta(
+                                  post.ultimo_comentario_at,
+                                )}`
+                              : `Publicado ${fechaCorta(post.publicado_at)}`}
                           </div>
                         </div>
                       </div>
@@ -1499,6 +1950,25 @@ export default function Comentarios() {
                     cargando={cargandoProductos}
                     onVincular={vincularProducto}
                   />
+
+                  <InterruptorIaPost
+                    postId={
+                      vista === "pendientes"
+                        ? comentarioSel.post_id
+                        : seleccionado.post_id
+                    }
+                    activa={
+                      vista === "pendientes"
+                        ? comentarioSel.post_ia_automatica
+                        : seleccionado.ia_automatica
+                    }
+                    hayProducto={Boolean(
+                      vista === "pendientes"
+                        ? comentarioSel.post_id_producto
+                        : seleccionado.id_producto,
+                    )}
+                    onCambiar={cambiarIaPost}
+                  />
                 </div>
               </div>
 
@@ -1526,8 +1996,22 @@ export default function Comentarios() {
                     />
                   ))
                 ) : (
-                  <div className="py-8 text-center text-sm text-gray-500">
-                    Esta publicación no tiene comentarios visibles.
+                  /* Antes este hueco sólo salía si se habían borrado todos los
+                     comentarios. Ahora es el caso normal de una publicación
+                     recién hecha, así que en vez de un aviso vacío dice qué
+                     conviene hacer mientras no llega nadie. */
+                  <div className="py-8 px-4 text-center">
+                    <i className="bx bx-message-rounded-dots text-3xl text-gray-300" />
+                    <p className="text-sm text-gray-600 mt-2">
+                      Todavía nadie ha comentado esta publicación.
+                    </p>
+                    {seleccionado && !seleccionado.id_producto ? (
+                      <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 mt-3 inline-block max-w-sm">
+                        <i className="bx bx-package mr-1" />
+                        Vincúlale el producto ahora, arriba: así el asistente ya
+                        sabe de qué habla cuando llegue el primer comentario.
+                      </p>
+                    ) : null}
                   </div>
                 )}
               </div>
