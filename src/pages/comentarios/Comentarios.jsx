@@ -1005,17 +1005,30 @@ export default function Comentarios() {
         params: { id_configuracion },
       });
       await cargarPosts();
+      // Dos novedades posibles y pueden darse juntas: entraron publicaciones
+      // nuevas y salieron las que el negocio borró de Facebook.
+      const partes = [];
+      if (data?.nuevas) {
+        partes.push(
+          `${data.nuevas} ${
+            data.nuevas === 1 ? "publicación nueva" : "publicaciones nuevas"
+          } en la bandeja.`,
+        );
+      }
+      if (data?.borradas) {
+        partes.push(
+          data.borradas === 1
+            ? "1 publicación ya no existe en Facebook y salió de la bandeja."
+            : `${data.borradas} publicaciones ya no existen en Facebook y salieron de la bandeja.`,
+        );
+      }
       setAvisoFeed(
         data?.errores?.length
           ? { tono: "rojo", texto: data.errores.join(" · ") }
           : {
               tono: "verde",
-              texto: data?.nuevas
-                ? `${data.nuevas} ${
-                    data.nuevas === 1
-                      ? "publicación nueva"
-                      : "publicaciones nuevas"
-                  } en la bandeja.`
+              texto: partes.length
+                ? partes.join(" ")
                 : "Ya estaban todas: no hay publicaciones nuevas.",
             },
       );
