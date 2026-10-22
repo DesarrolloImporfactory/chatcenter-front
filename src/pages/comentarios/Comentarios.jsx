@@ -1001,7 +1001,7 @@ export default function Comentarios() {
     setSincronizando(true);
     setAvisoFeed(null);
     try {
-      const { data } = await chatApi.post(ENDPOINTS.sincronizar, null, {
+      const { data } = await chatApi.post(ENDPOINTS.sincronizar, {}, {
         params: { id_configuracion },
       });
       await cargarPosts();
