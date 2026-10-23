@@ -174,6 +174,9 @@ const Asistentes = () => {
   }, [showModalApiKey]);
 
   const [asistenteVentas, setAsistenteVentas] = useState(null);
+  // Aviso no bloqueante del back (p. ej. organización de OpenAI sin verificar
+  // para GPT-5: el bot responde con el modelo de respaldo).
+  const [avisoOpenAI, setAvisoOpenAI] = useState(null);
   const [nombreBotVenta, setNombreBotVenta] = useState("");
   const [activoVenta, setActivoVenta] = useState(false);
   const [productosVenta, setProductosVenta] = useState([]);
@@ -214,36 +217,58 @@ const Asistentes = () => {
   // organización). El saldo es por organización: sin esto el cliente recarga
   // una cuenta mientras el bot consume de otra. null = sin key o no se pudo
   // averiguar, y entonces simplemente no se muestra.
+  // El back la guarda en la BD al cargar la llave y no vuelve a preguntar a
+  // OpenAI hasta que cambie; "Actualizar" (refrescar=1) fuerza la consulta.
   const [cuentaOpenAI, setCuentaOpenAI] = useState(null);
+  const [cuentaOpenAIAt, setCuentaOpenAIAt] = useState(null);
+  const [refrescandoCuenta, setRefrescandoCuenta] = useState(false);
 
-  const fetchCuentaOpenAI = async () => {
+  const fetchCuentaOpenAI = async (refrescar = false) => {
     if (!id_configuracion) return;
     try {
+      if (refrescar) setRefrescandoCuenta(true);
       const { data } = await chatApi.get("openai_assistants/openai_cuenta", {
-        params: { id_configuracion },
+        params: { id_configuracion, ...(refrescar ? { refrescar: 1 } : {}) },
       });
       setCuentaOpenAI(data?.cuenta || null);
+      setCuentaOpenAIAt(data?.consultada_at || null);
     } catch (error) {
       console.error("No se pudo identificar la cuenta de OpenAI.", error);
       setCuentaOpenAI(null);
+      setCuentaOpenAIAt(null);
+    } finally {
+      if (refrescar) setRefrescandoCuenta(false);
     }
   };
 
   // Lo mismo para Claude: Anthropic no da el correo con una llave normal,
   // pero sí el nombre de la organización y sus ids, que es donde se recarga.
   const [cuentaClaude, setCuentaClaude] = useState(null);
+  const [cuentaClaudeAt, setCuentaClaudeAt] = useState(null);
 
-  const fetchCuentaClaude = async () => {
+  const fetchCuentaClaude = async (refrescar = false) => {
     if (!id_configuracion) return;
     try {
+      if (refrescar) setRefrescandoCuenta(true);
       const { data } = await chatApi.get("openai_assistants/claude_cuenta", {
-        params: { id_configuracion },
+        params: { id_configuracion, ...(refrescar ? { refrescar: 1 } : {}) },
       });
       setCuentaClaude(data?.cuenta || null);
+      setCuentaClaudeAt(data?.consultada_at || null);
     } catch (error) {
       console.error("No se pudo identificar la organización de Claude.", error);
       setCuentaClaude(null);
+      setCuentaClaudeAt(null);
+    } finally {
+      if (refrescar) setRefrescandoCuenta(false);
     }
+  };
+
+  // "Consultado el 22/10/2026 · Actualizar" al pie de los recuadros de cuenta.
+  const fechaConsultaCorta = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("es-EC");
   };
 
   const fetchAsistenteAutomatizado = async () => {
@@ -262,6 +287,7 @@ const Asistentes = () => {
         Boolean(String(data.api_key_claude || "").trim()),
       );
       setAsistenteVentas(data.ventas || null);
+      setAvisoOpenAI(data.openai_aviso || null);
       // Aparte y sin await: consulta a OpenAI, no debe demorar la vista.
       if (hayKey) fetchCuentaOpenAI();
       else setCuentaOpenAI(null);
@@ -778,6 +804,72 @@ const Asistentes = () => {
               </p>
             </div>
           </div>
+
+          {/* Aviso no bloqueante: el bot responde, pero con el modelo de
+              respaldo porque la organización de OpenAI no está verificada
+              para GPT-5. Solo el dueño puede arreglarlo, así que se le dice
+              exactamente qué hacer y dónde. */}
+          {avisoOpenAI?.codigo === "ORG_NO_VERIFICADA" && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5">
+              <div className="flex items-start gap-2.5">
+                <i className="bx bx-error-circle text-lg text-amber-700 mt-0.5" />
+                <div className="min-w-0 text-[12.5px] leading-5 text-amber-950">
+                  <div className="font-bold">
+                    Su bot está respondiendo con un modelo de respaldo
+                  </div>
+                  <div>
+                    {avisoOpenAI.msg ||
+                      "Su organización de OpenAI no está verificada para GPT-5."}{" "}
+                    Sus clientes sí reciben respuesta, pero no con el modelo que
+                    eligió. Para volver a GPT-5 entre a OpenAI con el correo
+                    dueño de su API Key{cuentaOpenAI?.email ? ` (${cuentaOpenAI.email})` : ""} y pulse{" "}
+                    <span className="font-semibold">Verify Organization</span>.
+                    Tarda hasta 15 minutos en activarse. No es un problema de
+                    saldo ni de su plan.
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[12px]">
+                    <a
+                      href="https://platform.openai.com/settings/organization/general"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-amber-800 underline hover:text-amber-900"
+                    >
+                      Verificar organización en OpenAI
+                    </a>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const { data } = await chatApi.post(
+                            "openai_assistants/openai_comprobar_gpt5",
+                            { id_configuracion },
+                          );
+                          Toast.fire({
+                            icon: data?.ok ? "success" : "warning",
+                            title: data?.mensaje || (data?.ok ? "GPT-5 ya responde" : "Todavía no está verificada"),
+                          });
+                          if (data?.ok) setAvisoOpenAI(null);
+                        } catch (e) {
+                          Toast.fire({
+                            icon: "error",
+                            title: e?.response?.data?.message || "No se pudo comprobar con OpenAI",
+                          });
+                        }
+                      }}
+                      className="font-semibold text-amber-800 underline hover:text-amber-900"
+                    >
+                      Ya verifiqué, comprobar ahora
+                    </button>
+                    {avisoOpenAI.at && (
+                      <span className="text-amber-900/70">
+                        Detectado el {new Date(avisoOpenAI.at).toLocaleDateString("es-EC")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <span
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold ring-1 ${
               hasApiKey
@@ -1621,6 +1713,21 @@ const Asistentes = () => {
                       <div className="mt-1 text-[11px] text-indigo-900/70">
                         El saldo se recarga iniciando sesión con ese correo y
                         en esa organización.
+                        {fechaConsultaCorta(cuentaOpenAIAt) && (
+                          <>
+                            {" "}· Consultado el {fechaConsultaCorta(cuentaOpenAIAt)}
+                          </>
+                        )}
+                        {" "}·{" "}
+                        <button
+                          type="button"
+                          onClick={() => fetchCuentaOpenAI(true)}
+                          disabled={refrescandoCuenta}
+                          className="underline hover:text-indigo-700 disabled:opacity-50"
+                          title="Vuelve a preguntar a OpenAI de quién es la llave guardada"
+                        >
+                          {refrescandoCuenta ? "Consultando…" : "Actualizar"}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1653,6 +1760,21 @@ const Asistentes = () => {
                         esa organización (Anthropic no muestra el correo con una
                         llave normal; el nombre de la organización suele llevar
                         el del dueño).
+                        {fechaConsultaCorta(cuentaClaudeAt) && (
+                          <>
+                            {" "}· Consultado el {fechaConsultaCorta(cuentaClaudeAt)}
+                          </>
+                        )}
+                        {" "}·{" "}
+                        <button
+                          type="button"
+                          onClick={() => fetchCuentaClaude(true)}
+                          disabled={refrescandoCuenta}
+                          className="underline hover:text-amber-800 disabled:opacity-50"
+                          title="Vuelve a preguntar a Anthropic de qué organización es la llave guardada"
+                        >
+                          {refrescandoCuenta ? "Consultando…" : "Actualizar"}
+                        </button>
                       </div>
                     </div>
                   </div>
