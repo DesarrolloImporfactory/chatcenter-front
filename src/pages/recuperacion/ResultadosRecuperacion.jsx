@@ -289,7 +289,15 @@ export default function ResultadosRecuperacion({ onAbrirCliente }) {
                         <span className={`px-2 py-0.5 rounded text-[11px] font-bold ring-1 ${est.cls}`}>{est.label}</span>
                         {c.cierre_motivo && <div className="text-[11px] text-slate-500 italic">{c.cierre_motivo}</div>}
                       </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{c.asignado_a_nombre || <span className="text-slate-400">sin asignar</span>}</td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {c.asignado_a_nombre || <span className="text-slate-400">sin asignar</span>}
+                        {/* Cuánto se trabajó el caso: con 0 seguimientos un «perdido»
+                            no es un cliente que se resistió, es uno que nadie llamó. */}
+                        <div className={`text-[11px] ${Number(c.seguimientos_caso) === 0 ? "text-rose-700 font-semibold" : "text-slate-500"}`}>
+                          {num(c.seguimientos_caso)} seguimiento(s)
+                          {Number(c.automatizaciones_enviadas) > 0 && <> · {num(c.automatizaciones_enviadas)} automático(s)</>}
+                        </div>
+                      </td>
                       <td className="px-3 py-2 text-right text-xs">{c.monto_plan != null ? `${money(c.monto_plan)}/mes` : "—"}</td>
                       <td className="px-3 py-2 text-xs text-slate-600 whitespace-nowrap">
                         {fmtFechaHora(c.cerrado_en)}
