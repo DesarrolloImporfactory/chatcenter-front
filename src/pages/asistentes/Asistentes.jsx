@@ -1326,7 +1326,7 @@ const Asistentes = () => {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => navigate("/kanban_config")}
+                    onClick={() => navigate("/configuracion_agente")}
                     title="Definir el nombre en la vista de Agentes"
                     className="group inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
                   >
@@ -1555,7 +1555,7 @@ const Asistentes = () => {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => navigate("/kanban_config")}
+                      onClick={() => navigate("/configuracion_agente")}
                       className="inline-flex items-center gap-0.5 text-[11.5px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
                     >
                       Definir nombre en Agentes

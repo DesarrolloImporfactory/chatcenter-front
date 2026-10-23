@@ -462,12 +462,18 @@ function App() {
                 />
 
                 <Route
-                  path="/kanban_config"
+                  path="/configuracion_agente"
                   element={
                     <MainLayout>
                       <KanbanConfig />
                     </MainLayout>
                   }
+                />
+                {/* Ruta vieja: la vista pasó a llamarse "Configuración del
+                    agente" (2026-10-23). Se mantiene para enlaces guardados. */}
+                <Route
+                  path="/kanban_config"
+                  element={<Navigate to="/configuracion_agente" replace />}
                 />
 
                 <Route
