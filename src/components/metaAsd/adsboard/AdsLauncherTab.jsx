@@ -4,6 +4,11 @@ import chatApi from "../../../api/chatcenter";
 import LauncherWizardModal, { AdPreview } from "./LauncherWizardModal";
 import MediaLightbox from "./MediaLightbox";
 import { creativosDePlantilla } from "./adsMedia";
+import {
+  swalMotivo,
+  resumenMotivo,
+  detalleMotivo,
+} from "./adsMotivoError";
 import ReglasAutomaticas from "../../../pages/campanias/ReglasAutomaticas";
 import CampaniasCuenta, {
   EstadoBadge,
@@ -421,12 +426,9 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
         fetchTodo();
         fetchCuenta();
       } else {
-        Swal.fire({
-          icon: "error",
-          title: "Meta rechazó el lanzamiento",
-          text: data?.message || "Inténtalo de nuevo.",
-          customClass: { popup: "rounded-2xl" },
-        });
+        // El backend manda `motivo`: el porqué en español y los pasos para
+        // arreglarlo. El `message` queda como respaldo.
+        Swal.fire(swalMotivo(data?.motivo, data?.message));
         fetchTodo(); // la bitácora registra el intento fallido
       }
     } catch (err) {
@@ -1388,15 +1390,23 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                       );
                       const estadoIda = estadoIdas.get(String(l.campaign_id));
                       let errorLegible = "";
+                      let errorDetalle = "";
                       if (l.resultado !== "ok" && l.error_meta) {
+                        let crudo = "";
                         try {
                           const e = JSON.parse(l.error_meta);
-                          errorLegible =
-                            (typeof e === "string" ? e : e?.error_user_msg || e?.message) ||
+                          crudo =
+                            (typeof e === "string"
+                              ? e
+                              : e?.error_user_msg || e?.message) ||
                             String(l.error_meta);
                         } catch {
-                          errorLegible = String(l.error_meta);
+                          crudo = String(l.error_meta);
                         }
+                        // `motivo` lo arma el backend con el catálogo; si la
+                        // respuesta es vieja se cae al texto de Meta.
+                        errorLegible = resumenMotivo(l.motivo, crudo);
+                        errorDetalle = detalleMotivo(l.motivo, crudo);
                       }
                       return (
                         <tr key={l.id} className="border-b border-slate-50 align-top">
@@ -1419,7 +1429,7 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
                                 {errorLegible && (
                                   <p
                                     className="mt-1 text-[10px] text-rose-600/80 leading-snug line-clamp-2"
-                                    title={errorLegible}
+                                    title={errorDetalle || errorLegible}
                                   >
                                     {errorLegible}
                                   </p>

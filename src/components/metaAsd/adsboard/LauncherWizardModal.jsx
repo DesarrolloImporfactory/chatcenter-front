@@ -10,6 +10,7 @@ import chatApi from "../../../api/chatcenter";
 import ReglasAutomaticas from "../../../pages/campanias/ReglasAutomaticas";
 import MediaLightbox from "./MediaLightbox";
 import { fetchVideoInfo } from "./adsMedia";
+import { swalMotivo } from "./adsMotivoError";
 
 /**
  * LauncherWizardModal
@@ -1456,13 +1457,13 @@ const LauncherWizardModal = ({
           customClass: { popup: "rounded-2xl" },
         });
       } else {
+        // La plantilla YA quedó guardada: el aviso explica el motivo del
+        // rechazo y los pasos, pero sin dar a entender que se perdió nada.
+        const op = swalMotivo(lanzo.data?.motivo, lanzo.data?.message);
         Swal.fire({
-          icon: "error",
-          title: "La plantilla se guardó, pero Meta rechazó el lanzamiento",
-          text:
-            lanzo.data?.message ||
-            "Revisa la plantilla e inténtalo de nuevo.",
-          customClass: { popup: "rounded-2xl" },
+          ...op,
+          footer:
+            "<span style='font-size:12px;color:#64748b'>La plantilla se guardó: cuando lo resuelvas, lánzala desde el botón Lanzar.</span>",
         });
       }
       onClose?.(true);
