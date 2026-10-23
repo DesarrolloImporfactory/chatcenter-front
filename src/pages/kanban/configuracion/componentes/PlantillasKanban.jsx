@@ -50,7 +50,7 @@ const PlantillasKanban = ({ id_configuracion, onPlantillaAplicada }) => {
         onClick={() => setShowModal(true)}
       >
         <i className="bx bx-layout" style={{ fontSize: 15 }} />
-        Plantillas Kanban
+        Plantillas por rubro
       </button>
 
       {/* Renderizado condicional a propósito: el modal carga las plantillas

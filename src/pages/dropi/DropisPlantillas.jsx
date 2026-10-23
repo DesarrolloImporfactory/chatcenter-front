@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import RespondedorLogistico from "./RespondedorLogistico";
@@ -692,7 +699,12 @@ function TemplatePreview({ template, bodyParams }) {
    Componente principal
    ═══════════════════════════════════════════════════════════ */
 
-const DropisPlantillas = ({ id_configuracion }) => {
+/* `sinBoton`: en Configuración del agente el disparador vive en el menú
+   "Plantillas" de la cabecera; el modal se abre desde afuera por `ref.abrir()`. */
+const DropisPlantillas = forwardRef(function DropisPlantillas(
+  { id_configuracion, sinBoton = false },
+  ref,
+) {
   const [showModal, setShowModal] = useState(false);
   const [plantillas, setPlantillas] = useState([]);
   const [respuestasRapidas, setRespuestasRapidas] = useState([]);
@@ -759,6 +771,8 @@ const DropisPlantillas = ({ id_configuracion }) => {
   }, [refrescarBadge]);
 
   // ── Abrir modal ──
+  useImperativeHandle(ref, () => ({ abrir: () => handleAbrir() }));
+
   const handleAbrir = async () => {
     setShowModal(true);
     setLoading(true);
@@ -1140,7 +1154,12 @@ const DropisPlantillas = ({ id_configuracion }) => {
         .dp-botcheck em { font-style:normal;font-size:.7rem;color:#4c51bf;opacity:.85;line-height:1.45; }
       `}</style>
 
-      <button className="dp-trigger-btn" type="button" onClick={handleAbrir}>
+      <button
+        className="dp-trigger-btn"
+        type="button"
+        onClick={handleAbrir}
+        style={sinBoton ? { display: "none" } : undefined}
+      >
         <i className="bx bx-package" style={{ fontSize: 15 }} />
         Plantillas de seguimiento
         {totalActivos > 0 && (
@@ -2198,6 +2217,6 @@ const DropisPlantillas = ({ id_configuracion }) => {
       )}
     </>
   );
-};
+});
 
 export default DropisPlantillas;

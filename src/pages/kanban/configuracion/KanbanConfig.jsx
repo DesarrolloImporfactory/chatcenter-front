@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
 import chatApi from "../../../api/chatcenter";
 import PageHeader from "../../../pages/Header/pageHeader";
@@ -7,6 +8,8 @@ import RemarketingColumna from "./componentes/RemarketingColumna";
 import DropisPlantillas from "../../dropi/DropisPlantillas";
 import PlantillasKanban from "./componentes/PlantillasKanban";
 import MisPlantillas from "./componentes/MisPlantillas";
+import AdaptarBot from "./componentes/AdaptarBot";
+import InstaladorPlantillasModal from "./modales/InstaladorPlantillasModal";
 
 // ─────────────────────────────────────────────────────────────
 // Constantes de UI
@@ -54,6 +57,25 @@ const PROPOSITOS_COLUMNA = {
   en_transito: "Pedidos en camino.",
   retiro_agencia: "Pedidos para retirar en agencia.",
   novedad: "Pedidos con una novedad en la entrega.",
+  // Tableros adaptados (Adaptar el bot a mi negocio)
+  fuera_zona:
+    "Personas de ciudades donde no llegas. El bot no las corta en seco: les deja una salida y la puerta abierta.",
+  por_agendar:
+    "Quien ya quiere el servicio. El bot presenta las opciones, propone dos horarios libres y deja la cita o reserva creada en la agenda.",
+  cita_agendada:
+    "Citas o reservas confirmadas y creadas en la agenda. El bot resuelve dudas y cambios hasta el día del servicio.",
+  atendido:
+    "Ya recibió el servicio. El bot agradece, pide una reseña y queda listo para una nueva reserva. Mueve aquí la tarjeta cuando el servicio se haya realizado.",
+  venta_producto:
+    "Quien quiere comprar algo que se entrega (no se agenda). El bot cierra con el resumen del pedido.",
+  venta_cerrada:
+    "Pedidos cerrados por el bot con nombre, producto, total y entrega. Desde aquí los procesa tu equipo.",
+  cotizacion:
+    "Servicios de mayor valor. El bot levanta qué necesita la persona, para cuándo, dónde y presupuesto, sin dar un precio final.",
+  por_cerrar:
+    "Cotizaciones con la ficha completa. Las cierra una persona del equipo con la propuesta real.",
+  perdidos:
+    "Personas que dijeron que no o dejaron de responder tras los seguimientos.",
 };
 
 const PALETA_COLORES = [
@@ -408,6 +430,48 @@ const KanbanConfig = () => {
   // Un solo lugar visible; no hay que entrar columna por columna.
   const [tableroVersion, setTableroVersion] = useState(null);
   const [actualizandoTablero, setActualizandoTablero] = useState(false);
+
+  /* Cabecera: un solo menú "Plantillas" en vez de cinco botones. Los modales
+     de plantillas guardadas y de Dropi siguen viviendo en sus componentes
+     (montados sin botón) y se abren por ref desde el menú. */
+  const misPlantillasRef = useRef(null);
+  const dropiRef = useRef(null);
+  const [showInstalador, setShowInstalador] = useState(false);
+
+  /* Instalar una plantilla (por rubro o guardada) encima de un tablero ya
+     armado mezcla columnas de los dos: el instalador salta las que existen y
+     agrega el resto, y el cliente termina con dos asistentes a medias. Acá
+     se reinicia primero, con confirmación, y recién después se abre. */
+  const instalarSobreTablero = async (abrir, que) => {
+    if (!columnas.length) {
+      abrir();
+      return;
+    }
+    const r = await Swal.fire({
+      icon: "warning",
+      title: "Ya tienes un tablero instalado",
+      html:
+        `Para instalar ${que} primero se retira el tablero actual: ` +
+        `<b>${columnas.length} columnas</b> con sus asistentes y seguimientos.<br><br>` +
+        `Tus contactos no se pierden, pero el bot deja de responder hasta que termines de instalar.`,
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Retirar e instalar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!r.isConfirmed) return;
+    try {
+      const { data } = await chatApi.post("/kanban_plantillas/reiniciar", {
+        id_configuracion,
+      });
+      if (!data?.success) throw new Error(data?.message || "No se pudo reiniciar");
+      await cargarColumnas();
+      await cargarVersionTablero();
+      abrir();
+    } catch (e) {
+      Swal.fire({ icon: "error", title: "No se pudo retirar el tablero", text: e.message });
+    }
+  };
 
   const cargarVersionTablero = useCallback(async () => {
     if (!id_configuracion) return;
@@ -1201,43 +1265,92 @@ const KanbanConfig = () => {
             style={{ fontSize: 20, color: "#22d3ee" }}
           />
         }
-        title="Configuración del Kanban"
-        subtitle="Define columnas, asistentes de IA y acciones automáticas por cada etapa de tu flujo."
+        title="Configuración del agente"
+        subtitle="Las etapas de tu embudo, el asistente de IA de cada una y lo que pasa automáticamente en cada paso."
         actions={
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <MisPlantillas
+            <AdaptarBot
               id_configuracion={id_configuracion}
-              onPlantillaAplicada={cargarColumnas}
+              destacado
+              onTableroConstruido={async () => {
+                await cargarColumnas();
+                await cargarVersionTablero();
+              }}
             />
-            <PlantillasKanban
-              id_configuracion={id_configuracion}
-              onPlantillaAplicada={cargarColumnas}
-            />
-            <DropisPlantillas id_configuracion={id_configuracion} />
 
-            {columnas.length > 0 && (
-              <div className="mx-1 h-6 w-px bg-white/10 flex-shrink-0" />
-            )}
+            <MenuPlantillas
+              hayColumnas={columnas.length > 0}
+              items={[
+                {
+                  icono: "bx bx-layout",
+                  titulo: "Plantillas por rubro",
+                  detalle: "E-commerce, clínicas, estética, inmobiliaria…",
+                  onClick: () =>
+                    instalarSobreTablero(() => setShowInstalador(true), "una plantilla por rubro"),
+                },
+                {
+                  icono: "bx bx-collection",
+                  titulo: "Mis plantillas guardadas",
+                  detalle: "Reutiliza un tablero que guardaste antes",
+                  onClick: () =>
+                    instalarSobreTablero(
+                      () => misPlantillasRef.current?.abrirLista?.(),
+                      "una plantilla guardada",
+                    ),
+                },
+                {
+                  icono: "bx bx-bookmark-plus",
+                  titulo: "Guardar este tablero",
+                  detalle: "Como plantilla propia para otras cuentas",
+                  onClick: () => misPlantillasRef.current?.abrirGuardar?.(),
+                  soloConColumnas: true,
+                },
+                {
+                  icono: "bx bx-package",
+                  titulo: "Seguimiento logístico",
+                  detalle: "Avisos al cliente en cada etapa de su envío",
+                  onClick: () => dropiRef.current?.abrir?.(),
+                },
+                {
+                  separador: true,
+                  icono: "bx bx-trash",
+                  titulo: "Reiniciar tablero",
+                  detalle: "Borra columnas, asistentes y seguimientos",
+                  peligro: true,
+                  onClick: reiniciarConfig,
+                  soloConColumnas: true,
+                },
+              ]}
+            />
 
             <button
               onClick={() => setShowModalNueva(true)}
-              className="h-9 inline-flex items-center gap-1.5 px-4 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-[#171931] font-bold text-xs shadow-lg shadow-cyan-500/20 transition flex-shrink-0 whitespace-nowrap"
+              className="h-9 inline-flex items-center gap-1.5 px-3.5 rounded-xl border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] text-white font-semibold text-xs transition flex-shrink-0 whitespace-nowrap"
             >
               <i className="bx bx-plus text-base" /> Nueva columna
             </button>
-
-            {columnas.length > 0 && (
-              <button
-                onClick={reiniciarConfig}
-                title="Reiniciar configuración"
-                className="h-9 w-9 rounded-xl border border-rose-400/20 bg-rose-400/5 text-rose-300 hover:bg-rose-400/10 transition flex items-center justify-center flex-shrink-0"
-              >
-                <i className="bx bx-trash text-base" />
-              </button>
-            )}
           </div>
         }
       />
+
+      {/* Modales de plantillas: montados sin botón, los abre el menú. */}
+      <MisPlantillas
+        ref={misPlantillasRef}
+        sinBotones
+        id_configuracion={id_configuracion}
+        onPlantillaAplicada={cargarColumnas}
+      />
+      <DropisPlantillas ref={dropiRef} sinBoton id_configuracion={id_configuracion} />
+      {showInstalador && (
+        <InstaladorPlantillasModal
+          id_configuracion={id_configuracion}
+          onPlantillaAplicada={async () => {
+            await cargarColumnas();
+            await cargarVersionTablero();
+          }}
+          onClose={() => setShowInstalador(false)}
+        />
+      )}
 
       {/* ───── Tableros: principal + secundarios ─────
            Cada tablero es un embudo. El principal es el de siempre; los
@@ -3505,6 +3618,112 @@ const AccionCard = ({
 };
 
 // ─────────────────────────────────────────────────────────────
+// MenuPlantillas — un solo botón en la cabecera para todo lo de plantillas
+// ─────────────────────────────────────────────────────────────
+const MenuPlantillas = ({ items, hayColumnas }) => {
+  const [abierto, setAbierto] = useState(false);
+  /* El panel se dibuja en un portal sobre el body con posición fija: la
+     cabecera (PageHeader) tiene overflow-hidden y recortaba el desplegable,
+     se veía media opción y el resto quedaba detrás del fondo azul. */
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const ref = useRef(null);
+  const panelRef = useRef(null);
+
+  const abrir = () => {
+    const r = ref.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
+    setAbierto((v) => !v);
+  };
+
+  useEffect(() => {
+    if (!abierto) return undefined;
+    const cerrar = (e) => {
+      if (ref.current?.contains(e.target) || panelRef.current?.contains(e.target)) return;
+      setAbierto(false);
+    };
+    const esc = (e) => e.key === "Escape" && setAbierto(false);
+    const reubicar = () => setAbierto(false);
+    document.addEventListener("mousedown", cerrar);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("resize", reubicar);
+    window.addEventListener("scroll", reubicar, true);
+    return () => {
+      document.removeEventListener("mousedown", cerrar);
+      document.removeEventListener("keydown", esc);
+      window.removeEventListener("resize", reubicar);
+      window.removeEventListener("scroll", reubicar, true);
+    };
+  }, [abierto]);
+
+  const visibles = items.filter((it) => !it.soloConColumnas || hayColumnas);
+
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        type="button"
+        onClick={abrir}
+        className={`h-9 inline-flex items-center gap-1.5 px-3.5 rounded-xl border text-xs font-semibold transition whitespace-nowrap ${
+          abierto
+            ? "border-white/30 bg-white/[0.14] text-white"
+            : "border-white/15 bg-white/[0.06] hover:bg-white/[0.12] text-white"
+        }`}
+      >
+        <i className="bx bx-grid-alt text-base text-indigo-300" />
+        Plantillas
+        <i className={`bx bx-chevron-down text-base transition-transform ${abierto ? "rotate-180" : ""}`} />
+      </button>
+
+      {abierto &&
+        createPortal(
+        <div
+          ref={panelRef}
+          className="fixed w-[300px] rounded-2xl bg-white shadow-2xl border border-slate-200 p-1.5 text-left"
+          style={{ top: pos.top, right: pos.right, zIndex: 9000, animation: "kc-menu-in .15s ease" }}
+        >
+          <style>{`@keyframes kc-menu-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}`}</style>
+          {visibles.map((it) => (
+            <React.Fragment key={it.titulo}>
+              {it.separador && <div className="my-1.5 h-px bg-slate-100" />}
+              <button
+                type="button"
+                onClick={() => {
+                  setAbierto(false);
+                  it.onClick?.();
+                }}
+                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition ${
+                  it.peligro ? "hover:bg-rose-50" : "hover:bg-slate-50"
+                }`}
+              >
+                <span
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    it.peligro ? "bg-rose-50 text-rose-500" : "bg-indigo-50 text-indigo-600"
+                  }`}
+                >
+                  <i className={`${it.icono} text-base`} />
+                </span>
+                <span className="min-w-0">
+                  <span
+                    className={`block text-[.8rem] font-bold leading-tight ${
+                      it.peligro ? "text-rose-600" : "text-slate-900"
+                    }`}
+                  >
+                    {it.titulo}
+                  </span>
+                  <span className="block text-[.68rem] text-slate-500 mt-0.5 leading-snug">
+                    {it.detalle}
+                  </span>
+                </span>
+              </button>
+            </React.Fragment>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
 // EmptyHeroKanban — onboarding cuando no hay columnas
 // ─────────────────────────────────────────────────────────────
 const EmptyHeroKanban = ({
@@ -3566,27 +3785,32 @@ const EmptyHeroKanban = ({
             contactos y cierre ventas mientras tú duermes.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 max-w-md">
-            <button
-              onClick={onCrearColumna}
-              className="group relative flex-1 h-12 inline-flex items-center justify-center gap-2 px-5 rounded-xl text-[#171931] font-bold text-sm transition overflow-hidden"
-              style={{
-                background: "linear-gradient(135deg, #67e8f9 0%, #22d3ee 100%)",
-                boxShadow:
-                  "0 10px 30px -8px rgba(34,211,238,0.55), 0 0 0 1px rgba(255,255,255,0.15) inset",
-              }}
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-              <span className="absolute top-0 left-3 right-3 h-px bg-white/50" />
-              <i className="bx bx-plus text-lg relative" />
-              <span className="relative">Crear primera columna</span>
-            </button>
-
-            <div className="flex-1 [&>button]:!w-full [&>button]:!h-12 [&>button]:!justify-center [&>button]:!px-5 [&>button]:!rounded-xl [&>button]:!bg-white/[0.07] [&>button]:!border [&>button]:!border-white/15 [&>button]:!text-white [&>button]:!font-bold [&>button]:!text-sm [&>button]:hover:!bg-white/[0.12] [&>button]:hover:!border-white/25 [&>button]:!backdrop-blur-md [&>button]:!transition">
-              <PlantillasKanban
+          <div className="flex flex-col gap-3 max-w-md">
+            {/* Primero el bot a medida: es el camino para quien no es
+                e-commerce ni calza en una plantilla. */}
+            <div className="[&>button]:!w-full [&>button]:!h-12 [&>button]:!justify-center [&>button]:!px-5 [&>button]:!rounded-xl [&>button]:!text-sm">
+              <AdaptarBot
                 id_configuracion={idConfiguracion}
-                onPlantillaAplicada={onPlantillaAplicada}
+                onTableroConstruido={onPlantillaAplicada}
+                destacado
               />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 [&>button]:!w-full [&>button]:!h-12 [&>button]:!justify-center [&>button]:!px-5 [&>button]:!rounded-xl [&>button]:!bg-white/[0.07] [&>button]:!border [&>button]:!border-white/15 [&>button]:!text-white [&>button]:!font-bold [&>button]:!text-sm [&>button]:hover:!bg-white/[0.12] [&>button]:hover:!border-white/25 [&>button]:!backdrop-blur-md [&>button]:!transition">
+                <PlantillasKanban
+                  id_configuracion={idConfiguracion}
+                  onPlantillaAplicada={onPlantillaAplicada}
+                />
+              </div>
+
+              <button
+                onClick={onCrearColumna}
+                className="flex-1 h-12 inline-flex items-center justify-center gap-2 px-5 rounded-xl bg-white/[0.07] border border-white/15 text-white font-bold text-sm hover:bg-white/[0.12] hover:border-white/25 backdrop-blur-md transition"
+              >
+                <i className="bx bx-plus text-lg" />
+                <span>Crear columna a mano</span>
+              </button>
             </div>
           </div>
 
