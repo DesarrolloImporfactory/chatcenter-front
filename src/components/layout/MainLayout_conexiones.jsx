@@ -9,6 +9,7 @@ import FloatingSupportChat from "./FloatingSupportChat";
 import { globalLogout } from "../../utils/globalLogout";
 import chatApi from "../../api/chatcenter";
 import WhatsAppCaptureModal from "../../pages/selectorHerramienta/modales/WhatsAppCaptureModal";
+import ModalAgendarImplementacion from "./modales/ModalAgendarImplementacion";
 import useRecuperacionAcceso from "../../hooks/useRecuperacionAcceso";
 
 // Rutas que siguen disponibles aunque el plan no esté activo: sin ellas el
@@ -149,6 +150,40 @@ function MainLayout({ children }) {
      Mi Perfil decía "Sin registrar". Se pide aquí, en el layout de
      /conexiones, y solo al administrador: es configuración de la cuenta. */
   const [needsCapture, setNeedsCapture] = useState(false);
+
+  /* Invitación a agendar la implementación (Calendly comercial). Solo al
+     administrador de una cuenta que no ha empezado: una conexión como máximo
+     y ninguna conectada. El back decide y guarda la respuesta por cuenta
+     (agendó / no por ahora 3 días / no volver a mostrar). Espera a que se
+     cierre el modal del WhatsApp personal para no encimar dos ventanas. */
+  const [implementacion, setImplementacion] = useState(null);
+  // Cerrarlo con la X solo lo oculta en esta sesión del navegador: vuelve a
+  // salir al volver a entrar. «No por ahora» y «No volver a mostrar» sí se
+  // guardan en la base (los maneja el back).
+  // La clave lleva el `iat` del token: cerrar sesión no borra sessionStorage,
+  // así que sin esto un login nuevo en la misma pestaña seguía viendo la
+  // marca del login anterior y el modal no volvía a salir.
+  const claveImplementacion = userData
+    ? `impl_cerrada_${userData.id_usuario || userData.id_users || ""}_${userData.iat || ""}`
+    : null;
+  useEffect(() => {
+    if (!userData || !esAdministrador) return;
+    try {
+      if (claveImplementacion && sessionStorage.getItem(claveImplementacion)) return;
+    } catch (_) {
+      /* sin storage: se consulta igual */
+    }
+    let cancelado = false;
+    chatApi
+      .get("onboarding/implementacion")
+      .then(({ data }) => {
+        if (!cancelado && data?.data?.mostrar) setImplementacion(data.data);
+      })
+      .catch((e) => console.warn("[layout] no se pudo leer onboarding:", e?.message));
+    return () => {
+      cancelado = true;
+    };
+  }, [userData, esAdministrador, claveImplementacion]);
 
   useEffect(() => {
     // Los roles administrativos no tienen plan propio; no se les gatea nada.
@@ -497,6 +532,14 @@ function MainLayout({ children }) {
 
       {/* Sin conexión elegida: modo general (tutoriales e integraciones) */}
       <FloatingSupportChat general />
+
+      {implementacion && !needsCapture && esAdministrador && (
+        <ModalAgendarImplementacion
+          datos={implementacion}
+          claveSesion={claveImplementacion}
+          onCerrar={() => setImplementacion(null)}
+        />
+      )}
 
       {needsCapture && esAdministrador && userData?.id_usuario && (
         <WhatsAppCaptureModal

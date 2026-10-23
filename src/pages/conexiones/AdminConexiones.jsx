@@ -788,8 +788,39 @@ const COLS_CUENTAS = [
   { key: "detalle", label: "", sortable: false },
 ];
 
+/* Países donde hay bots e-commerce. El código viene de configuraciones.pais
+   (minúsculas); si aparece uno nuevo se muestra el código en mayúsculas. */
+const PAISES_NOMBRE = {
+  ec: "Ecuador",
+  mx: "México",
+  co: "Colombia",
+  pe: "Perú",
+  gt: "Guatemala",
+  cl: "Chile",
+  pa: "Panamá",
+  us: "Estados Unidos",
+};
+const PAISES_BANDERA = {
+  ec: "🇪🇨",
+  mx: "🇲🇽",
+  co: "🇨🇴",
+  pe: "🇵🇪",
+  gt: "🇬🇹",
+  cl: "🇨🇱",
+  pa: "🇵🇦",
+  us: "🇺🇸",
+};
+const nombrePais = (p) =>
+  PAISES_NOMBRE[p] || (p ? String(p).toUpperCase() : "Sin país");
+const banderaPais = (p) => PAISES_BANDERA[p] || "🌐";
+
 function TabSalud() {
   const [rango, setRango] = useState(30);
+  /* "" = todos los países. México cierra 5-7 % y Ecuador ~20 %: mezclados,
+     el global baja cuando crece México aunque ningún bot empeore; con el
+     filtro se ve cada país por separado y a qué país va cada mejora. */
+  const [pais, setPais] = useState("");
+  const [paises, setPaises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [recalculando, setRecalculando] = useState(false);
   const [resumen, setResumen] = useState(null);
@@ -805,14 +836,17 @@ function TabSalud() {
   const fetchTodo = useCallback(async () => {
     setLoading(true);
     try {
-      const [r1, r2, r3] = await Promise.all([
-        chatApi.get(`admin_bot_salud/resumen?dias=${rango}`),
-        chatApi.get(`admin_bot_salud/cuentas?dias=${rango}`),
-        chatApi.get(`admin_bot_salud/embudo?dias=${rango}`),
+      const qp = `dias=${rango}${pais ? `&pais=${encodeURIComponent(pais)}` : ""}`;
+      const [r1, r2, r3, r4] = await Promise.all([
+        chatApi.get(`admin_bot_salud/resumen?${qp}`),
+        chatApi.get(`admin_bot_salud/cuentas?${qp}`),
+        chatApi.get(`admin_bot_salud/embudo?${qp}`),
+        chatApi.get(`admin_bot_salud/paises?dias=${rango}`),
       ]);
       setResumen(r1.data.data);
       setCuentas(r2.data.data || []);
       setEmbudo(r3.data.data);
+      setPaises(r4.data.data || []);
       setDetalle(null);
       setPagina(1);
     } catch {
@@ -820,7 +854,7 @@ function TabSalud() {
     } finally {
       setLoading(false);
     }
-  }, [rango]);
+  }, [rango, pais]);
 
   useEffect(() => {
     fetchTodo();
@@ -877,7 +911,8 @@ function TabSalud() {
       ? cuentas.filter(
           (c) =>
             c.nombre?.toLowerCase().includes(q) ||
-            String(c.telefono || "").includes(q),
+            String(c.telefono || "").includes(q) ||
+            nombrePais(c.pais).toLowerCase().includes(q),
         )
       : [...cuentas];
     const { key, dir } = orden;
@@ -939,6 +974,48 @@ function TabSalud() {
             Últimos {d} días
           </button>
         ))}
+        {/* País: todos o uno. Cada píldora trae su % de cierre para ver de
+            entrada cuál arrastra el global (MX 5-7 %, EC ~20 %). */}
+        {paises.length > 1 ? (
+          <div
+            className="flex items-center gap-1 flex-wrap pl-2 ml-1 border-l border-slate-200"
+            title="Filtrar el tablero por el país de las cuentas"
+          >
+            <button
+              onClick={() => setPais("")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                pais === ""
+                  ? "bg-[#171931] text-white border-[#171931]"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              🌎 Todos los países
+            </button>
+            {paises.map((p) => (
+              <button
+                key={p.pais || "sin"}
+                onClick={() => setPais(p.pais || "")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                  pais === p.pais
+                    ? "bg-[#171931] text-white border-[#171931]"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                }`}
+                title={`${p.cuentas} cuentas · ${p.convers_ia.toLocaleString()} conversaciones en ${rango} días`}
+              >
+                {banderaPais(p.pais)} {nombrePais(p.pais)}
+                {p.pct_cierre !== null && p.pct_cierre !== undefined ? (
+                  <span
+                    className={`ml-1.5 font-bold ${
+                      pais === p.pais ? "text-emerald-300" : "text-slate-400"
+                    }`}
+                  >
+                    {p.pct_cierre}%
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <button
           onClick={() => setGuiaOpen(true)}
           className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
@@ -1271,9 +1348,14 @@ function TabSalud() {
               {cuentasVisibles.map((c) => (
                 <tr key={c.id_configuracion}>
                   <td className="py-2.5 px-3 font-medium text-slate-900 max-w-[240px] truncate">
+                    <span title={nombrePais(c.pais)} className="mr-1">
+                      {banderaPais(c.pais)}
+                    </span>
                     {c.nombre}
                     <span className="block text-[10px] text-slate-400 font-normal">
                       #{c.id_configuracion} · {c.telefono || "sin teléfono"}
+                      {" · "}
+                      {nombrePais(c.pais)}
                     </span>
                   </td>
                   <td className="py-2.5 px-3 text-xs text-slate-500 max-w-[140px] truncate">
