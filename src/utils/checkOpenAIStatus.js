@@ -33,8 +33,9 @@ function inyectarEstilos() {
 const CLASE_POP = { popup: "oa-pop" };
 
 /* "Ya recargué": le pide al backend que compruebe el saldo AHORA.
-   Devuelve true solo si la cuenta quedó reactivada. */
-async function reintentarOpenAI(id_configuracion) {
+   Devuelve true solo si la cuenta quedó reactivada. También la usa la
+   tarjeta de /conexiones. */
+export async function reintentarOpenAI(id_configuracion) {
   inyectarEstilos();
   Swal.fire({
     title: "Comprobando con OpenAI…",
@@ -269,6 +270,62 @@ export async function checkOpenAIStatus() {
 
     inyectarEstilos();
 
+    /* Por qué está apagada, clasificado por el back (openai_error_codigo):
+       SIN_SALDO se arregla recargando; KEY_INVALIDA, cargando otra llave en
+       Asistentes (recargar no sirve de nada); ERROR es otra cosa y se ofrece
+       comprobar. Hasta hoy el aviso decía "sin saldo" para cualquier 0. */
+    const codigo = data.openai_error_codigo || "SIN_SALDO";
+    const esClaude = String(data.proveedor_ia || "").toLowerCase() === "claude";
+    const proveedor = esClaude ? "Claude" : "OpenAI";
+
+    if (codigo === "KEY_INVALIDA") {
+      const r = await Swal.fire({
+        icon: "error",
+        title: `Tu API Key de ${proveedor} ya no es válida`,
+        html: `
+          <div style="font-size:14px; line-height:1.6; text-align:left;">
+            ${proveedor} rechaza la llave guardada en esta cuenta (inválida o
+            revocada) y el asistente dejó de responder a tus clientes. No es un
+            problema de saldo ni de tu plan de la plataforma.
+            <br/><br/>
+            Se soluciona generando una llave nueva en ${proveedor} y
+            cargándola en <b>Asistentes AI</b>. Al guardarla, el bot retoma
+            solo los chats que quedaron sin respuesta.
+          </div>
+        `,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        confirmButtonText: "Cargar API Key",
+        showCancelButton: true,
+        cancelButtonText: "Más tarde",
+        confirmButtonColor: "#4f46e5",
+        customClass: CLASE_POP,
+      });
+      if (r.isConfirmed && window.location.pathname !== "/asistentes") {
+        window.location.assign("/asistentes");
+      }
+      return;
+    }
+
+    const urlRecarga = esClaude
+      ? "https://console.anthropic.com/settings/billing"
+      : URL_BILLING;
+    const textoMotivo =
+      codigo === "SIN_SALDO"
+        ? `Tu cuenta de ${proveedor} se quedó sin saldo y el asistente dejó de
+            responder a tus clientes. Esto no tiene relación con tu plan de la
+            plataforma, que sigue activo.
+            <br/><br/>
+            Se soluciona recargando saldo en tu cuenta de ${proveedor}.`
+        : `${proveedor} rechazó la última llamada del asistente y está en
+            pausa${
+              data.openai_error_msg
+                ? `: <i>${String(data.openai_error_msg).slice(0, 220)}</i>`
+                : "."
+            }
+            <br/><br/>
+            Si ya lo revisaste en tu cuenta de ${proveedor}, compruébalo aquí.`;
+
     /* Se vuelve a mostrar mientras el cliente siga intentando: tras abrir la
        página de pago querrá comprobar al volver, y tras un intento fallido
        querrá reintentar. "Más tarde" cierra siempre. */
@@ -284,20 +341,21 @@ export async function checkOpenAIStatus() {
         title: "Tu asistente está en pausa",
         html: `
           <div style="font-size:14px; line-height:1.6; text-align:left;">
-            Tu cuenta de OpenAI se quedó sin saldo y el asistente dejó de
-            responder a tus clientes. Esto no tiene relación con tu plan de la
-            plataforma, que sigue activo.
-            <br/><br/>
-            Se soluciona recargando saldo en tu cuenta de OpenAI. Si ya lo
-            hiciste,
+            ${textoMotivo}
+            ${
+              esClaude
+                ? "<br/><br/>Con la próxima conversación el bot vuelve a responder solo."
+                : ` Si ya lo hiciste,
             <a href="#" id="oa-ya-recargue"
                style="color:#4f46e5; font-weight:600;">pulsa aquí y lo
-            comprobamos al instante</a>.
+            comprobamos al instante</a>.`
+            }
           </div>
         `,
         allowOutsideClick: false,
         allowEscapeKey: false,
-        confirmButtonText: "Recargar en OpenAI",
+        confirmButtonText:
+          codigo === "SIN_SALDO" ? `Recargar en ${proveedor}` : `Abrir ${proveedor}`,
         showCancelButton: true,
         cancelButtonText: "Más tarde",
         confirmButtonColor: "#4f46e5",
@@ -318,9 +376,9 @@ export async function checkOpenAIStatus() {
         const reactivado = await reintentarOpenAI(id_configuracion);
         if (!reactivado) seguirMostrando = true;
       } else if (result.isConfirmed) {
-        window.open(URL_BILLING, "_blank");
+        window.open(urlRecarga, "_blank");
         // Vuelve a salir el aviso para que "pulsa aquí" esté a mano al volver.
-        seguirMostrando = true;
+        seguirMostrando = !esClaude;
       }
     }
   } catch (err) {

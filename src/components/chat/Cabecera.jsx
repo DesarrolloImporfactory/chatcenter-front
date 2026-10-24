@@ -409,7 +409,7 @@ const Cabecera = ({
     localStorage.setItem("id_configuracion", id_configuracion);
     localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
 
-    navigate("/kanban_config");
+    navigate("/configuracion_agente");
   };
 
   // (La verificación "¿tiene Dropi vinculado?" que vivía aquí se eliminó:
@@ -1480,7 +1480,7 @@ const Cabecera = ({
                     dejaban un hueco visible entre los ítems. */}
                 {tipo_configuracion === "kanban" && (
                   <a
-                    href="/kanban_config"
+                    href="/configuracion_agente"
                     onClick={(e) => {
                       if (
                         e.metaKey ||
@@ -1496,7 +1496,7 @@ const Cabecera = ({
                       setSliderOpen(false);
                     }}
                     className={`group flex items-center gap-3 text-left px-4 py-2 cursor-pointer ${
-                      location.pathname === "/kanban_config"
+                      location.pathname === "/configuracion_agente"
                         ? "font-semibold text-blue-600"
                         : ""
                     }`}
