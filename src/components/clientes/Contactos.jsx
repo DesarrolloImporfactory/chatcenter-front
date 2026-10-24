@@ -3,6 +3,7 @@ import chatApi from "../../api/chatcenter";
 import useCatalogoProductos from "../imporsuit/useCatalogoProductos";
 import Swal from "sweetalert2";
 import io from "socket.io-client";
+import { authDelSocket, vigilarSesionDelSocket } from "../../utils/socketSesion";
 import { jwtDecode } from "jwt-decode";
 import Select, { components as rsComponents } from "react-select";
 import * as XLSX from "xlsx";
@@ -743,7 +744,9 @@ export default function Contactos() {
     const socket = io(import.meta.env.VITE_socket, {
       transports: ["websocket", "polling"],
       secure: true,
+      auth: authDelSocket(),
     });
+    vigilarSesionDelSocket(socket);
 
     socket.on("connect", () => {
       console.log("Conectado al servidor de WebSockets");

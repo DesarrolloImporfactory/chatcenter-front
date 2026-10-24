@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import io from "socket.io-client";
+import { authDelSocket, vigilarSesionDelSocket } from "../../utils/socketSesion";
 import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 
@@ -1106,7 +1107,9 @@ export default function Comentarios() {
 
     const socket = io(import.meta.env.VITE_socket, {
       transports: ["websocket", "polling"],
+      auth: authDelSocket(),
     });
+    vigilarSesionDelSocket(socket);
 
     // Una ráfaga de comentarios llegaría como una ráfaga de recargas. Se
     // agrupan: se relee una sola vez poco después del último aviso.
