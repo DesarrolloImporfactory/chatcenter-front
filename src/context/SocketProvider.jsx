@@ -10,6 +10,7 @@ import {
 import { io } from "socket.io-client";
 import { Outlet } from "react-router-dom";
 import { handleSessionExpired } from "../auth/sessionExpired";
+import { vigilarSesionDelSocket } from "../utils/socketSesion";
 
 const SocketContext = createContext(null);
 
@@ -43,17 +44,7 @@ export default function SocketProvider({ token, children }) {
     // Si el token está muerto rechazaba el handshake y socket.io reintentaba
     // infinitamente con el mismo token. Ahora cortamos y avisamos una sola vez.
     const onConnectError = (err) => {
-      const motivo = err?.data?.code || err?.message;
-      // Cuenta suspendida, eliminada o con la sesión cerrada en otro lado.
-      if (
-        motivo === "USER_SUSPENDED" ||
-        motivo === "USER_NOT_FOUND" ||
-        motivo === "TOKEN_REVOKED"
-      ) {
-        s.close();
-        handleSessionExpired({ code: motivo });
-        return;
-      }
+      const motivo = err?.message;
       if (motivo === "INVALID_TOKEN" || motivo === "NO_TOKEN") {
         s.close(); // corta la reconexión infinita
         handleSessionExpired({
@@ -62,19 +53,17 @@ export default function SocketProvider({ token, children }) {
       }
     };
 
-    // El servidor corta los sockets ya abiertos de quien quedó suspendido.
-    const onSesionTerminada = (data) => onConnectError({ data });
-
     s.on("connect", onConnect);
     s.on("disconnect", onDisconnect);
     s.on("connect_error", onConnectError);
-    s.on("SESION_TERMINADA", onSesionTerminada);
+    // Cuenta suspendida, eliminada o con la sesión cerrada en otro lado: al
+    // conectar o cuando el servidor corta un socket ya abierto.
+    vigilarSesionDelSocket(s);
 
     return () => {
       s.off("connect", onConnect);
       s.off("disconnect", onDisconnect);
       s.off("connect_error", onConnectError);
-      s.off("SESION_TERMINADA", onSesionTerminada);
       s.disconnect();
       socketRef.current = null;
       setSocket(null);
