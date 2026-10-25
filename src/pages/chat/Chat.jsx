@@ -6,6 +6,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
+import { authDelSocket, vigilarSesionDelSocket } from "../../utils/socketSesion";
 
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
 import { es } from "date-fns/locale"; // Importa el locale para español
@@ -2491,7 +2492,9 @@ const Chat = () => {
       const socket = io(import.meta.env.VITE_socket, {
         transports: ["websocket", "polling"],
         secure: true,
+        auth: authDelSocket(),
       });
+      vigilarSesionDelSocket(socket);
       socket.on("connect", () => {
         console.log("Conectado al servidor de WebSockets");
         socketRef.current = socket;

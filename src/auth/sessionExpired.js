@@ -10,8 +10,9 @@ import authService from "./AuthService";
  *   2. `hooks/useSessionGuard.js` — watchdog que mira `exp` sin esperar a que
  *      falle una API (antes nada revisaba esto y el usuario se quedaba en la
  *      página con todo fallando hasta que recargaba).
- *   3. `context/SocketProvider.jsx` — cuando el namespace /presence rechaza el
- *      handshake por token inválido.
+ *   3. `context/SocketProvider.jsx` y `utils/socketSesion.js` — cuando el
+ *      socket rechaza el handshake o el servidor lo corta (SESION_TERMINADA)
+ *      porque el token es inválido o la cuenta quedó suspendida.
  *
  * Es idempotente: por más peticiones que fallen en paralelo, un solo Swal.
  * Este módulo NO importa `chatApi` a propósito, para no crear un ciclo de
@@ -26,6 +27,11 @@ const MENSAJES = {
     title: "Cerraste sesión en otra aplicación",
     text: "Tu sesión se cerró desde otro dispositivo o desde Imporsuit. Vas a ser redirigido para iniciar sesión de nuevo.",
     icon: "info",
+  },
+  USER_SUSPENDED: {
+    title: "Tu acceso está suspendido",
+    text: "Habla con tu administrador. Vas a ser redirigido al inicio de sesión.",
+    icon: "warning",
   },
   USER_NOT_FOUND: {
     title: "Tu usuario ya no está disponible",
