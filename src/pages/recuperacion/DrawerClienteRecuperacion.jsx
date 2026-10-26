@@ -1,8 +1,17 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import chatApi from "../../api/chatcenter";
 import SeguimientosTab from "../../components/admin/dashboard/seguimientos/SeguimientosTab";
-import { COHORTE_UI, ESTADO_CASO, money, fmtFecha, fmtFechaHora, num, irAlChatExpertos } from "./recuperacionUtils";
+import ModalPagoManual from "./ModalPagoManual";
+import { COHORTE_UI, ESTADO_CASO, money, money2, fmtFecha, fmtFechaHora, num, irAlChatExpertos } from "./recuperacionUtils";
+
+const ACCION_PAGO = {
+  saldada: { label: "Factura saldada en Stripe", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+  anuladas: { label: "Facturas anuladas", cls: "bg-slate-100 text-slate-700 ring-slate-200" },
+  sin_factura: { label: "Acceso fijado a mano", cls: "bg-violet-50 text-violet-700 ring-violet-200" },
+  error: { label: "Stripe falló: revisar", cls: "bg-rose-50 text-rose-700 ring-rose-200" },
+};
+const METODO_PAGO = { transferencia: "Transferencia", efectivo: "Efectivo", otro: "Otro" };
 
 const ESTADO_CUENTA = {
   activo: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -40,19 +49,35 @@ async function abrirChatExpertos(id_usuario) {
 export default function DrawerClienteRecuperacion({ id_usuario, permisos, expertos, onClose, onCambio }) {
   const [ficha, setFicha] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Pagos fuera de Stripe (solo super admin): facturas saldables + registro.
+  const [pagos, setPagos] = useState(null);
+  const [pagosError, setPagosError] = useState(null);
+  const [modalPago, setModalPago] = useState(false);
+
+  const cargarFicha = useCallback(() => {
+    setLoading(true);
+    return chatApi
+      .get(`recuperacion/cliente/${id_usuario}`)
+      .then(({ data }) => setFicha(data.data))
+      .catch((e) => toast.error(e?.response?.data?.message || "No se pudo cargar la ficha"))
+      .finally(() => setLoading(false));
+  }, [id_usuario]);
+
+  const cargarPagos = useCallback(() => {
+    if (!permisos?.es_super) return Promise.resolve();
+    setPagosError(null);
+    return chatApi
+      .get(`recuperacion/cliente/${id_usuario}/pagos-manuales`, { silentError: true })
+      .then(({ data }) => setPagos(data.data))
+      .catch((e) => setPagosError(e?.response?.data?.message || "No se pudo consultar Stripe"));
+  }, [id_usuario, permisos?.es_super]);
 
   useEffect(() => {
-    let vivo = true;
-    setLoading(true);
-    chatApi
-      .get(`recuperacion/cliente/${id_usuario}`)
-      .then(({ data }) => vivo && setFicha(data.data))
-      .catch((e) => toast.error(e?.response?.data?.message || "No se pudo cargar la ficha"))
-      .finally(() => vivo && setLoading(false));
-    return () => {
-      vivo = false;
-    };
-  }, [id_usuario]);
+    setFicha(null);
+    setPagos(null);
+    cargarFicha();
+    cargarPagos();
+  }, [cargarFicha, cargarPagos]);
 
   useEffect(() => {
     const onEsc = (e) => e.key === "Escape" && onClose();
@@ -164,6 +189,110 @@ export default function DrawerClienteRecuperacion({ id_usuario, permisos, expert
                 )}
               </div>
 
+              {permisos?.es_super && (
+                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div>
+                      <div className="text-sm font-bold text-slate-800">Pagos fuera de Stripe</div>
+                      <p className="text-[11px] text-slate-500 leading-snug">
+                        Transferencia o efectivo. Se guarda con comprobante y, si eliges la factura, Stripe la marca pagada y deja de
+                        reintentar la tarjeta.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setModalPago(true)}
+                      disabled={!pagos}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 text-white text-xs font-semibold hover:bg-cyan-700 disabled:opacity-40"
+                    >
+                      <i className="bx bx-receipt" /> Registrar pago fuera de Stripe
+                    </button>
+                  </div>
+
+                  {!pagos && !pagosError && (
+                    <div className="text-xs text-slate-400">
+                      <i className="bx bx-loader-alt bx-spin" /> Consultando Stripe…
+                    </div>
+                  )}
+                  {pagosError && <div className="text-xs text-rose-600">{pagosError}</div>}
+
+                  {pagos && (
+                    <>
+                      {pagos.stripe_error && (
+                        <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">
+                          <b>Stripe no respondió:</b> {pagos.stripe_error}. No se pudieron leer sus facturas; puedes registrar el pago
+                          igual, pero sin saldar ninguna.
+                        </div>
+                      )}
+                      {pagos.modo === "test" && (
+                        <div className="text-[11px] font-bold text-orange-600">Stripe en modo TEST: no es la cuenta real.</div>
+                      )}
+                      {pagos.facturas.length > 0 ? (
+                        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1">
+                          <div className="font-bold">
+                            {pagos.facturas.length === 1 ? "Hay 1 factura sin cobrar en Stripe" : `Hay ${pagos.facturas.length} facturas sin cobrar en Stripe`}
+                          </div>
+                          {pagos.facturas.map((f) => (
+                            <div key={f.id} className="flex items-center gap-2 flex-wrap">
+                              <b className="tabular-nums">{money2(f.monto)}</b>
+                              <span>{f.status === "open" ? "abierta" : "incobrable"}</span>
+                              <span>· {f.es_de_suscripcion_bd ? "de la suscripción" : f.es_manual ? "manual (creada en Stripe)" : "otra suscripción"}</span>
+                              {f.proximo_intento && <span>· reintenta {fmtFechaHora(f.proximo_intento)}</span>}
+                              {f.hosted_invoice_url && (
+                                <a href={f.hosted_invoice_url} target="_blank" rel="noreferrer" className="underline">
+                                  ver
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : pagos.stripe_error ? null : (
+                        <div className="text-xs text-slate-500">
+                          Sin facturas abiertas en Stripe
+                          {pagos.suscripcion && (
+                            <>
+                              {" "}
+                              · suscripción <b>{pagos.suscripcion.status}</b>
+                              {pagos.suscripcion.periodo_fin && <> hasta {fmtFecha(pagos.suscripcion.periodo_fin)}</>}
+                            </>
+                          )}
+                          .
+                        </div>
+                      )}
+
+                      {pagos.pagos.length > 0 && (
+                        <ul className="divide-y divide-slate-100 text-xs">
+                          {pagos.pagos.map((p) => {
+                            const a = ACCION_PAGO[p.stripe_accion] || ACCION_PAGO.sin_factura;
+                            return (
+                              <li key={p.id} className="py-2 flex items-start gap-3 flex-wrap">
+                                <b className="tabular-nums text-slate-800">{money2(p.monto)}</b>
+                                <span className="text-slate-600">
+                                  {METODO_PAGO[p.metodo] || p.metodo} · {fmtFecha(p.fecha_pago || p.created_at)}
+                                  {p.referencia && <> · Ref. {p.referencia}</>}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold ring-1 ${a.cls}`}>{a.label}</span>
+                                {p.acceso_hasta && <span className="text-slate-600">acceso hasta {fmtFecha(p.acceso_hasta)}</span>}
+                                <span className="ml-auto flex items-center gap-2">
+                                  <span className="text-slate-400">{p.registrado_por_nombre || "—"}</span>
+                                  {p.comprobante_url ? (
+                                    <a href={p.comprobante_url} target="_blank" rel="noreferrer" className="font-semibold text-cyan-700 hover:underline">
+                                      <i className="bx bx-receipt" /> Comprobante
+                                    </a>
+                                  ) : (
+                                    <span className="text-orange-600 font-semibold">Sin comprobante</span>
+                                  )}
+                                </span>
+                                {p.stripe_detalle && <span className="basis-full text-[10px] text-slate-400">{p.stripe_detalle}</span>}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                 <div className="text-sm font-bold text-slate-800 mb-2">Casos de recuperación</div>
                 {!ficha.casos?.length ? (
@@ -210,6 +339,22 @@ export default function DrawerClienteRecuperacion({ id_usuario, permisos, expert
           </button>
         </div>
       </aside>
+
+      {modalPago && pagos && (
+        <ModalPagoManual
+          id_usuario={id_usuario}
+          panel={pagos}
+          onClose={() => setModalPago(false)}
+          onRegistrado={() => {
+            setModalPago(false);
+            // El webhook de Stripe actualiza la cuenta unos segundos después:
+            // se recarga la ficha ahora y el panel de pagos (Stripe en vivo).
+            cargarPagos();
+            cargarFicha();
+            onCambio?.();
+          }}
+        />
+      )}
     </div>
   );
 }

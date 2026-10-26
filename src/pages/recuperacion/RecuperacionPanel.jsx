@@ -8,6 +8,7 @@ import DrawerClienteRecuperacion from "./DrawerClienteRecuperacion";
 import ResultadosRecuperacion from "./ResultadosRecuperacion";
 import AsesoresRecuperacion from "./AsesoresRecuperacion";
 import AutomatizacionesRecuperacion from "./AutomatizacionesRecuperacion";
+import PagosManualesRecuperacion from "./PagosManualesRecuperacion";
 import {
   COHORTE_UI,
   ESTADO_CASO,
@@ -28,6 +29,7 @@ const VISTAS = [
   { id: "agenda", label: "Agenda", icon: "bx-calendar-check" },
   { id: "automatizaciones", label: "Automatizaciones", icon: "bx-bot" },
   { id: "resultados", label: "Resultados", icon: "bx-trophy" },
+  { id: "pagos", label: "Pagos manuales", icon: "bx-receipt", soloSuper: true },
   { id: "asesores", label: "Asesores", icon: "bx-user-pin", soloSuper: true },
 ];
 
@@ -580,6 +582,9 @@ export default function RecuperacionPanel({ onSinPermiso }) {
       {vista === "resultados" && <ResultadosRecuperacion onAbrirCliente={(id) => setDrawer(id)} />}
       {vista === "automatizaciones" && <AutomatizacionesRecuperacion permisos={permisos} />}
       {vista === "asesores" && permisos.puede_gestionar_asesores && <AsesoresRecuperacion />}
+      {vista === "pagos" && permisos.puede_gestionar_asesores && (
+        <PagosManualesRecuperacion onAbrirCliente={(id) => setDrawer(id)} />
+      )}
 
       {(vista === "embudo" || vista === "agenda") && loading && !data && (
         <div className="py-20 text-center text-slate-500">
