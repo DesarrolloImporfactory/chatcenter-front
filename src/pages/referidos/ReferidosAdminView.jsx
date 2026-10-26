@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import SaldosReferidoresAdmin from "./SaldosReferidoresAdmin";
 
 /* ============================================================
    Solicitudes de transferencia — panel del super administrador
@@ -648,6 +649,9 @@ export default function ReferidosAdminView() {
   const [busqueda, setBusqueda] = useState("");
   const [detalleId, setDetalleId] = useState(null);
   const [resolviendo, setResolviendo] = useState(null); // { solicitud, accion }
+  // 'solicitudes' = lo que ya pidieron; 'saldos' = lo que se les debe aunque
+  // no lo hayan pedido (reserva necesaria + quién usa el programa).
+  const [seccion, setSeccion] = useState("solicitudes");
 
   // El backend también gatea; esto evita pintar una pantalla que va a dar 403.
   useEffect(() => {
@@ -730,25 +734,52 @@ export default function ReferidosAdminView() {
                 Administración · Referidos
               </span>
               <h1 className="mt-2 text-xl md:text-2xl font-extrabold text-white tracking-tight leading-tight">
-                Solicitudes de transferencia
+                {seccion === "saldos"
+                  ? "Saldos por cobrar"
+                  : "Solicitudes de transferencia"}
               </h1>
               <p className="mt-1 text-white/55 text-[13px] leading-snug max-w-2xl">
-                Comisiones que los referidores pidieron recibir en su banco.
-                Transfiere por fuera, registra aquí el pago y adjunta el
-                comprobante: es lo que ellos ven en su pantalla de cobros.
+                {seccion === "saldos"
+                  ? "Lo que cada referidor ya ganó y todavía no pidió: cuánto hay que tener en reserva y quién está usando el programa."
+                  : "Comisiones que los referidores pidieron recibir en su banco. Transfiere por fuera, registra aquí el pago y adjunta el comprobante: es lo que ellos ven en su pantalla de cobros."}
               </p>
             </div>
-            <button
-              onClick={cargar}
-              className="px-4 py-2.5 bg-white/10 text-white rounded-xl font-semibold text-[12.5px] hover:bg-white/20 transition ring-1 ring-white/15"
-            >
-              <i className="bx bx-refresh mr-1.5" />
-              Actualizar
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex rounded-xl bg-white/10 ring-1 ring-white/15 p-1">
+                {[
+                  { k: "solicitudes", label: "Solicitudes", icon: "bx-money-withdraw" },
+                  { k: "saldos", label: "Saldos por cobrar", icon: "bx-coin-stack" },
+                ].map((s) => (
+                  <button
+                    key={s.k}
+                    onClick={() => setSeccion(s.k)}
+                    className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition inline-flex items-center gap-1.5 ${
+                      seccion === s.k
+                        ? "bg-white text-[#171931]"
+                        : "text-white/75 hover:text-white"
+                    }`}
+                  >
+                    <i className={`bx ${s.icon}`} />
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              {seccion === "solicitudes" && (
+                <button
+                  onClick={cargar}
+                  className="px-4 py-2.5 bg-white/10 text-white rounded-xl font-semibold text-[12.5px] hover:bg-white/20 transition ring-1 ring-white/15"
+                >
+                  <i className="bx bx-refresh mr-1.5" />
+                  Actualizar
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
-        {cargando ? (
+        {seccion === "saldos" ? (
+          <SaldosReferidoresAdmin />
+        ) : cargando ? (
           <Esqueleto />
         ) : (
           <div className="p-3 md:p-5 space-y-4">
