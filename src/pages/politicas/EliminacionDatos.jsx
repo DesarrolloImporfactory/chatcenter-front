@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import "./politicas.css";
+import { LegalHero, LegalPie } from "../legal/LegalHero";
 
 /**
  * Instrucciones de eliminación de datos de usuario.
@@ -20,35 +20,19 @@ export default function EliminacionDatos() {
     document.title = "Eliminación de datos | ImporChat (by Imporfactory)";
   }, []);
 
-  const hoy = new Date().toLocaleDateString("es-EC", {
-    year: "numeric",
-    month: "long",
-    day: "2-digit",
-  });
-
   return (
     <div className="legal">
-      <header className="hero">
-        <div className="wrap">
-          <p className="badge">Última actualización: {hoy}</p>
-          <h1>Eliminación de datos</h1>
-          <p className="lead">
-            Cómo solicitar que <strong>ImporChat</strong> elimine los datos que
-            conserva sobre usted, y qué ocurre después de pedirlo.
-          </p>
-          <div className="links">
-            <a href="/politica-privacidad" className="link">
-              Política de Privacidad
-            </a>
-            <a href="/condiciones-servicio" className="link">
-              Condiciones del Servicio
-            </a>
-            <a href="mailto:info@imporfactoryusa.com" className="link">
-              Contacto
-            </a>
-          </div>
-        </div>
-      </header>
+      <LegalHero
+        titulo="Eliminación de datos"
+        enlaces={[
+          { href: "/politica-privacidad", t: "Política de Privacidad" },
+          { href: "/condiciones-servicio", t: "Condiciones del Servicio" },
+          { href: "mailto:info@imporfactoryusa.com", t: "Contacto" },
+        ]}
+      >
+        Cómo solicitar que <strong>ImporChat</strong> elimine los datos que
+        conserva sobre usted, y qué ocurre después de pedirlo.
+      </LegalHero>
 
       <main className="wrap">
         <nav className="toc card">
@@ -85,7 +69,7 @@ export default function EliminacionDatos() {
           <ul className="check">
             <li>
               <strong>Escribió o comentó a un negocio</strong> por Facebook
-              Messenger, Instagram, WhatsApp o TikTok, y ese negocio usa
+              Messenger, Instagram o WhatsApp, y ese negocio usa
               ImporChat. Vaya al <a href="#usuario">punto 2</a>.
             </li>
             <li>
@@ -118,13 +102,13 @@ export default function EliminacionDatos() {
               conversó.
             </li>
             <li>
-              El <strong>canal</strong> que utilizó: Messenger, Instagram,
-              WhatsApp o TikTok.
+              El <strong>canal</strong> que utilizó: Messenger, Instagram o
+              WhatsApp.
             </li>
             <li>
               El <strong>dato con el que le identificamos</strong>: su número de
               teléfono si escribió por WhatsApp, o su nombre de usuario o perfil
-              si fue por Messenger, Instagram o TikTok.
+              si fue por Messenger o Instagram.
             </li>
           </ul>
           <p className="note">
@@ -285,9 +269,7 @@ export default function EliminacionDatos() {
           </p>
         </section>
 
-        <footer className="foot">
-          © {new Date().getFullYear()} Imporfactory
-        </footer>
+        <LegalPie />
       </main>
     </div>
   );
