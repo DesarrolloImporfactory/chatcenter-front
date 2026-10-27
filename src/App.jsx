@@ -18,7 +18,7 @@ import PlanesView from "./pages/planes/PlanesView";
 import PlanesViewPrueba from "./pages/planes/PlanesViewPrueba";
 import MiPlan from "./pages/facturacion/Miplan";
 import MiPlanPrueba from "./pages/facturacion/MiplanPrueba";
-import LandingHome from "./pages/planes/LandingHome";
+import LandingHome from "./pages/landingHome/LandingHome";
 
 import ListaPlanes from "./pages/planes/listaPlanes";
 
