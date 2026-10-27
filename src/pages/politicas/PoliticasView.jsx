@@ -1,42 +1,26 @@
 import { useEffect } from "react";
-import "./politicas.css";
+import { LegalHero, LegalPie } from "../legal/LegalHero";
 
 export default function PoliticasView() {
   useEffect(() => {
     document.title = "Política de Privacidad | ImporChat (by Imporfactory)";
   }, []);
 
-  const hoy = new Date().toLocaleDateString("es-EC", {
-    year: "numeric",
-    month: "long",
-    day: "2-digit",
-  });
-
   return (
     <div className="legal">
-      {/* HERO */}
-      <header className="hero">
-        <div className="wrap">
-          <p className="badge">Última actualización: {hoy}</p>
-          <h1>Política de Privacidad</h1>
-          <p className="lead">
-            Esta Política explica cómo <strong>Imporfactory</strong>{" "}
-            (“nosotros”) trata los datos cuando usted usa{" "}
-            <strong>ImporChat</strong> y su módulo <strong>Calendario</strong>.
-          </p>
-          <div className="links">
-            <a href="/condiciones-servicio" className="link">
-              Condiciones del Servicio
-            </a>
-            <a href="/eliminacion-datos" className="link">
-              Eliminación de datos
-            </a>
-            <a href="mailto:info@imporfactoryusa.com" className="link">
-              Contacto
-            </a>
-          </div>
-        </div>
-      </header>
+      <LegalHero
+        titulo="Política de Privacidad"
+        enlaces={[
+          { href: "/condiciones-servicio", t: "Condiciones del Servicio" },
+          { href: "mailto:info@imporfactoryusa.com", t: "Contacto" },
+        ]}
+      >
+        Esta Política explica cómo <strong>Imporfactory</strong> («nosotros»)
+        trata los datos cuando usted usa <strong>ImporChat</strong>, su agente
+        IA y su módulo de <strong>Calendario</strong>. La resumimos en una
+        frase: sus conversaciones son suyas y de su negocio; nosotros solo las
+        guardamos para prestarle el servicio.
+      </LegalHero>
 
       {/* CONTENIDO */}
       <main className="wrap">
@@ -275,14 +259,7 @@ export default function PoliticasView() {
             .
           </p>
 
-          <h3>3.2. TikTok</h3>
-          <p>
-            Recibimos y enviamos los mensajes de la cuenta de empresa que el
-            negocio conecta, con el alcance mínimo necesario para operar la
-            bandeja.
-          </p>
-
-          <h3>3.3. Google</h3>
+          <h3>3.2. Google</h3>
           <p>
             Solo si el negocio activa el módulo de calendario:
           </p>
@@ -337,6 +314,15 @@ export default function PoliticasView() {
               su cuenta de Google
             </a>
             .
+          </p>
+
+          <h3>3.3. Proveedores de inteligencia artificial</h3>
+          <p>
+            Para que el agente IA responda, enviamos a OpenAI o Anthropic el
+            mensaje del cliente y la información del negocio necesaria para
+            contestarlo. Ambos proveedores tratan esos datos bajo sus términos
+            de API para empresas, que excluyen el uso del contenido para
+            entrenar sus modelos.
           </p>
         </section>
 
@@ -519,9 +505,7 @@ export default function PoliticasView() {
           </p>
         </section>
 
-        <footer className="foot">
-          © {new Date().getFullYear()} Imporfactory
-        </footer>
+        <LegalPie />
       </main>
     </div>
   );
