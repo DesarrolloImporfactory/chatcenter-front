@@ -80,10 +80,9 @@ const ChipRemove = (props) => (
   </components.MultiValueRemove>
 );
 
-/* Video «Cómo generar la API Key de Claude». Mientras esté vacío, el botón de
-   la fila «¿Cómo configurar?» se ve desactivado con «Muy pronto»; al pegar
-   aquí el enlace de YouTube queda activo solo. */
-const TUTORIAL_CLAUDE_URL = "";
+/* Video «Cómo generar la API Key de Claude» (fila «¿Cómo configurar?»). Si
+   se vacía, el botón vuelve a verse desactivado con «Muy pronto». */
+const TUTORIAL_CLAUDE_URL = "https://www.youtube.com/watch?v=le0lT4BBRs8";
 
 /** —— Página de Asistentes —— */
 const Asistentes = () => {

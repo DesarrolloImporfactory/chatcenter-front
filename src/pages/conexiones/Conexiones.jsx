@@ -849,6 +849,92 @@ const Conexiones = () => {
   const isMessengerConectado = (c) => Number(c?.messenger_conectado) === 1;
   const isInstagramConectado = (c) => Number(c?.instagram_conectado) === 1;
 
+  /* Desconectar el inbox de Messenger o Instagram (mismo botón que Meta
+     Ads). WhatsApp no se desconecta desde aquí a propósito. El backend borra
+     la fila de la página pero NO los chats: siguen en /chat como historial
+     y, si se vuelve a conectar la misma página, continúan donde iban. */
+  const CANAL_INBOX = {
+    ms: {
+      nombre: "Messenger",
+      endpoint: "/messenger/facebook/disconnect",
+      articulo: "la página",
+    },
+    ig: {
+      nombre: "Instagram",
+      endpoint: "/instagram/facebook/disconnect",
+      articulo: "la cuenta",
+    },
+  };
+  const handleDesconectarInbox = useCallback(async (config, canal) => {
+    const c = CANAL_INBOX[canal];
+    if (!c) return;
+    const ask = await Swal.fire({
+      title: `Desconectar ${c.nombre}`,
+      html: `<div style="text-align:left;font-size:14px;line-height:1.5">
+        <p>Dejarás de recibir y responder mensajes de ${c.nombre} en esta conexión.</p>
+        <p style="margin-top:8px"><b>Los chats no se borran:</b> siguen visibles en el chat como historial.</p>
+        <ul style="margin:8px 0 0 18px;padding:0">
+          <li>Si vuelves a conectar <b>${c.articulo} misma</b>, esas conversaciones continúan donde iban.</li>
+          <li>Si conectas <b>otra</b> ${c.articulo.replace("la ", "")}, los chats nuevos llegan aparte y los anteriores quedan solo como historial.</li>
+        </ul>
+      </div>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Desconectar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#ef4444",
+      reverseButtons: true,
+    });
+    if (!ask.isConfirmed) return;
+    try {
+      await chatApi.post(c.endpoint, { id_configuracion: config.id });
+      await fetchConfiguracionAutomatizada();
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: `${c.nombre} desconectado`,
+        showConfirmButton: false,
+        timer: 1800,
+      });
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "No se pudo desconectar.",
+        "error",
+      );
+    }
+    // Deps vacías por la misma razón que handleDesconectarMetaAds (TDZ).
+  }, []);
+
+  /* Aviso antes de (re)conectar un inbox cuando la conexión ya tuvo chats
+     por ese canal: que sepa que los anteriores siguen ahí y qué pasa según
+     conecte la misma página u otra. Devuelve false si cancela. */
+  const avisarChatsPrevios = async (config, canal) => {
+    const c = CANAL_INBOX[canal];
+    const tiene =
+      canal === "ms"
+        ? Number(config?.messenger_tiene_chats) === 1
+        : Number(config?.instagram_tiene_chats) === 1;
+    if (!c || !tiene) return true;
+    const ask = await Swal.fire({
+      title: `Esta conexión ya tuvo chats de ${c.nombre}`,
+      html: `<div style="text-align:left;font-size:14px;line-height:1.5">
+        <p>Las conversaciones anteriores de ${c.nombre} siguen en el chat.</p>
+        <ul style="margin:8px 0 0 18px;padding:0">
+          <li>Si conectas <b>${c.articulo} misma</b> de antes, esos chats continúan donde iban.</li>
+          <li>Si conectas <b>otra</b>, los chats nuevos llegan aparte y los anteriores quedan solo como historial (no se pueden responder).</li>
+        </ul>
+      </div>`,
+      icon: "info",
+      showCancelButton: true,
+      confirmButtonText: "Continuar",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+    });
+    return ask.isConfirmed;
+  };
+
   const [metaConnecting, setMetaConnecting] = useState(false);
   const [metaConnectText, setMetaConnectText] = useState(
     "Conectando con Meta…",
@@ -1067,6 +1153,7 @@ const Conexiones = () => {
 
   const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
   const handleConectarFacebookInbox = async (config) => {
+    if (!(await avisarChatsPrevios(config, "ms"))) return;
     try {
       localStorage.setItem("id_configuracion_fb", String(config.id));
       setIdConfiguracionFB(String(config.id));
@@ -1238,6 +1325,7 @@ const Conexiones = () => {
 
   const IG_FBL_CONFIG_ID = "754174810774119";
   const handleConectarInstagramInbox = async (config) => {
+    if (!(await avisarChatsPrevios(config, "ig"))) return;
     try {
       localStorage.setItem("oauth_provider", "instagram");
       localStorage.setItem("id_configuracion_ig", String(config.id));
@@ -2075,14 +2163,15 @@ const Conexiones = () => {
                           label="Messenger"
                           brandColor="blue"
                           active={msgConectado}
+                          stateLabel={msgConectado ? "Desconectar" : "Conectar"}
                           title={
                             msgConectado
-                              ? "Inbox de Messenger conectado"
+                              ? `Messenger: ${config.messenger_page_name || "conectado"} (click para desconectar)`
                               : "Conectar Inbox de Messenger"
                           }
                           onClick={
                             msgConectado
-                              ? undefined
+                              ? () => handleDesconectarInbox(config, "ms")
                               : () => handleConectarFacebookInbox(config)
                           }
                         />
@@ -2091,14 +2180,15 @@ const Conexiones = () => {
                           label="Instagram"
                           brandColor="pink"
                           active={igConectado}
+                          stateLabel={igConectado ? "Desconectar" : "Conectar"}
                           title={
                             igConectado
-                              ? "Inbox de Instagram conectado"
+                              ? "Inbox de Instagram conectado (click para desconectar)"
                               : "Conectar Inbox de Instagram"
                           }
                           onClick={
                             igConectado
-                              ? undefined
+                              ? () => handleDesconectarInbox(config, "ig")
                               : () => handleConectarInstagramInbox(config)
                           }
                         />
