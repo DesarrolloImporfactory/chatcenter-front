@@ -30,6 +30,175 @@ function Dato({ label, children }) {
   );
 }
 
+/** Burbuja de un mensaje del chat de Expertos (entrante = cliente, saliente = nosotros). */
+function Burbuja({ m, etiqueta, resaltar }) {
+  return (
+    <div className={`flex ${m.entrante ? "justify-start" : "justify-end"}`}>
+      <div
+        className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-xs shadow-sm ${
+          m.entrante
+            ? resaltar
+              ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-300"
+              : "bg-white text-slate-800 ring-1 ring-slate-200"
+            : resaltar
+              ? "bg-cyan-700 text-white ring-2 ring-cyan-300"
+              : "bg-cyan-600 text-white"
+        }`}
+      >
+        {etiqueta && (
+          <div className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${m.entrante ? "text-emerald-700" : "text-cyan-100"}`}>{etiqueta}</div>
+        )}
+        <div className="whitespace-pre-wrap break-words">{m.texto}</div>
+        {m.archivo && (
+          <a href={m.archivo} target="_blank" rel="noreferrer" className={`underline ${m.entrante ? "text-cyan-700" : "text-cyan-100"}`}>
+            ver archivo
+          </a>
+        )}
+        <div className={`text-[10px] mt-0.5 ${m.entrante ? "text-slate-400" : "text-cyan-100/80"}`}>{fmtFechaHora(m.fecha)}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Chat del cliente en Expertos, en modo lectura, en dos pestañas:
+ *  - Automatizaciones: cada mensaje automático que salió y lo que el cliente
+ *    contestó exactamente después (el back los empareja). Si no contestó, la
+ *    jugada es llamarlo; si contestó, el asesor sabe por dónde guiarlo.
+ *  - Conversación: los últimos mensajes y, arriba, si el chat se puede pedir
+ *    (nadie lo tiene, o quien lo tiene no conversa hace días) o si hay una
+ *    conversación en curso de importaciones que no se debe interrumpir.
+ */
+function ConversacionExpertos({ conv, expertos, whatsappUrl, whatsapp, esBot }) {
+  const tieneAutos = !!conv?.automatizaciones?.length;
+  const [tab, setTab] = useState(tieneAutos ? "autos" : "chat");
+  const nombreConexion = expertos?.nombre || "Expertos";
+  if (!conv) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="text-sm font-bold text-slate-800 mb-1">Chat en {nombreConexion}</div>
+        <p className="text-xs text-slate-500">Nunca se le ha escrito desde esa conexión. {whatsapp ? `Llámalo al ${whatsapp}.` : ""}</p>
+      </div>
+    );
+  }
+  const autos = conv.automatizaciones || [];
+  const respondidas = autos.filter((a) => a.respuestas?.length).length;
+  const TABS = [
+    { id: "autos", label: "Automatizaciones", badge: tieneAutos ? `${respondidas}/${autos.length} con respuesta` : "ninguna" },
+    { id: "chat", label: "Conversación", badge: conv.transferible ? "se puede pedir" : "en curso" },
+  ];
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+        <div className="text-sm font-bold text-slate-800">
+          Chat en {nombreConexion}
+          <span className="text-slate-400 font-normal text-xs"> · solo lectura</span>
+        </div>
+        <div className="flex gap-1">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold ring-1 ${
+                tab === t.id ? "bg-cyan-600 text-white ring-cyan-600" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              {t.label} <span className={tab === t.id ? "text-cyan-100" : "text-slate-400"}>· {t.badge}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "autos" && (
+        <div className="space-y-3">
+          {esBot && autos.length > 0 && (
+            <div className="rounded-lg bg-amber-50 ring-1 ring-amber-200 text-amber-900 text-[11px] p-2">
+              Este número es el WhatsApp de su propia conexión de ImporChat (su bot): lo que «contesta» puede ser el bot del
+              cliente, no la persona. Si no hay una respuesta humana clara, llámalo.
+            </div>
+          )}
+          {!autos.length && (
+            <p className="text-xs text-slate-500">
+              No le ha salido ninguna automatización por este chat. {whatsapp ? `Llámalo al ${whatsapp}.` : ""}
+            </p>
+          )}
+          {autos.map((a) => (
+            <div key={a.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                <span className="inline-flex items-center gap-1 font-bold text-cyan-700">
+                  <i className="bx bx-bot" /> {a.secuencia} · paso {a.paso}
+                  {a.titulo ? ` · ${a.titulo}` : ""}
+                </span>
+                <span className="text-slate-400">{fmtFechaHora(a.fecha)}</span>
+                {a.respuestas?.length ? (
+                  <span className="ml-auto px-2 py-0.5 rounded font-bold ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">
+                    Respondió {fmtFechaHora(a.respuestas[0].fecha)}
+                  </span>
+                ) : (
+                  <span className="ml-auto px-2 py-0.5 rounded font-bold ring-1 bg-amber-50 text-amber-700 ring-amber-200">Sin respuesta</span>
+                )}
+              </div>
+              {a.texto_enviado ? (
+                <Burbuja m={{ entrante: false, texto: a.texto_enviado, fecha: a.fecha }} etiqueta="Mensaje automático" />
+              ) : (
+                <div className="text-[11px] text-slate-400 italic">No se encontró el texto enviado.</div>
+              )}
+              {a.respuestas?.map((r) => (
+                <Burbuja key={r.id} m={r} etiqueta="El cliente contestó" resaltar />
+              ))}
+              {!a.respuestas?.length && (
+                <div className="text-[11px] text-slate-600">
+                  No contestó este mensaje.{" "}
+                  {whatsappUrl ? (
+                    <a href={whatsappUrl} target="_blank" rel="noreferrer" className="font-semibold text-cyan-700 hover:underline">
+                      Llámalo o escríbele al {whatsapp}
+                    </a>
+                  ) : (
+                    "Llámalo."
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "chat" && (
+        <>
+          <div
+            className={`rounded-lg p-2.5 text-xs mb-2 ring-1 ${
+              conv.transferible ? "bg-emerald-50 text-emerald-900 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-amber-200"
+            }`}
+          >
+            <div className="font-bold flex items-center gap-1">
+              <i className={`bx ${conv.transferible ? "bx-check-circle" : "bx-error"}`} />
+              {conv.transferible ? "Se puede pedir el chat" : "Conversación en curso: no pedir el chat"}
+            </div>
+            <div>{conv.motivo_transferible}</div>
+            <div className="text-[11px] opacity-80 mt-0.5">
+              {conv.encargado_nombre ? <>A cargo de <b>{conv.encargado_nombre}</b></> : "Sin encargado"}
+              {conv.ultimo_entrante_at && <> · el cliente escribió por última vez {fmtFechaHora(conv.ultimo_entrante_at)}</>}
+              {conv.ultimo_saliente_at && <> · le escribimos por última vez {fmtFechaHora(conv.ultimo_saliente_at)}</>}
+            </div>
+          </div>
+          <div className="max-h-80 overflow-y-auto space-y-1.5 bg-slate-50 rounded-lg p-2 border border-slate-100">
+            {!conv.mensajes.length && <p className="text-xs text-slate-400 text-center py-4">Sin mensajes.</p>}
+            {conv.mensajes.map((m) => (
+              <Burbuja
+                key={m.id}
+                m={m}
+                resaltar={m.respuesta_automatizacion || m.automatizacion}
+                etiqueta={m.respuesta_automatizacion ? "Respuesta a la automatización" : m.automatizacion ? "Mensaje automático" : !m.entrante ? m.responsable : null}
+              />
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-slate-400">Últimos {conv.mensajes.length} mensajes. Lo que contestó a cada automatización está completo en la otra pestaña.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
  * Ficha del cliente para los asesores de recuperación: datos de la cuenta,
  * casos (abiertos y cerrados) y el historial de seguimientos con su
@@ -325,6 +494,8 @@ export default function DrawerClienteRecuperacion({ id_usuario, permisos, expert
                   </p>
                 )}
               </div>
+
+              <ConversacionExpertos conv={ficha.conversacion_expertos} expertos={expertos} whatsappUrl={ficha.whatsapp_url} whatsapp={ficha.whatsapp} esBot={ficha.telefono_fuente === "conexion"} />
 
               <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                 <SeguimientosTab id_usuario={id_usuario} />
