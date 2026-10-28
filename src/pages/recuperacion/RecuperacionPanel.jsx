@@ -144,6 +144,14 @@ function Telefono({ f, compacto = false }) {
   );
 }
 
+/** Contestó una automatización y el último seguimiento registrado es anterior a esa respuesta (o no hay). */
+function respondioSinSeguimiento(f) {
+  const r = f.automatizacion?.respondio_en;
+  if (!r) return false;
+  const s = f.ultimo_seguimiento?.fecha;
+  return !s || new Date(s) < new Date(r);
+}
+
 /** Sin seguimiento manual, pero sí le salió una automatización: no es «nunca contactado». */
 function ContactoAutomatico({ a }) {
   return (
@@ -155,7 +163,14 @@ function ContactoAutomatico({ a }) {
         Paso {a.paso}{a.titulo ? ` · ${a.titulo}` : ""} · {a.estado === "encolado" ? "en cola" : fmtFechaCorta(a.fecha)}
       </div>
       {a.respondio_en ? (
-        <div className="text-emerald-700 font-semibold">Respondió {fmtFechaCorta(a.respondio_en)}: falta seguimiento manual</div>
+        <>
+          <div className="text-emerald-700 font-semibold">Respondió {fmtFechaCorta(a.respondio_en)}: falta seguimiento manual</div>
+          {a.respuesta_texto && (
+            <div className="text-slate-600 italic truncate" title={a.respuesta_texto}>
+              «{a.respuesta_texto}»
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-slate-400">Sin respuesta · sin seguimiento manual</div>
       )}
@@ -302,6 +317,9 @@ export default function RecuperacionPanel({ onSinPermiso }) {
   const [asignacion, setAsignacion] = useState("todos");
   const [soloSinContacto, setSoloSinContacto] = useState(false);
   const [soloCompartido, setSoloCompartido] = useState(false);
+  // Respondió a una automatización y nadie le registró seguimiento después:
+  // es el cliente que ya levantó la mano, por ahí se empieza.
+  const [soloRespondieron, setSoloRespondieron] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [drawer, setDrawer] = useState(null); // id_usuario
   const [form, setForm] = useState(null); // fila
@@ -359,17 +377,18 @@ export default function RecuperacionPanel({ onSinPermiso }) {
       if (asignacion === "sin" && f.caso?.asignado_a_id) return false;
       if (soloSinContacto && (f.ultimo_seguimiento || f.automatizacion)) return false;
       if (soloCompartido && !f.numero_compartido) return false;
+      if (soloRespondieron && !respondioSinSeguimiento(f)) return false;
       if (!q) return true;
       return [f.empresa, f.email, f.whatsapp, f.nombre_plan, f.caso?.asignado_a_nombre]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [data, cohorte, asignacion, soloSinContacto, soloCompartido, busqueda]);
+  }, [data, cohorte, asignacion, soloSinContacto, soloCompartido, soloRespondieron, busqueda]);
 
   // Solo un cambio de filtro vuelve a la primera página.
   useEffect(() => {
     setPagina(1);
-  }, [cohorte, asignacion, soloSinContacto, soloCompartido, busqueda]);
+  }, [cohorte, asignacion, soloSinContacto, soloCompartido, soloRespondieron, busqueda]);
 
   // Historial: el embudo solo lista casos ABIERTOS. Cuando el cliente ya se
   // fue (canceló, venció) desaparece de la lista y nadie sabía qué pasó con
@@ -788,6 +807,16 @@ export default function RecuperacionPanel({ onSinPermiso }) {
                   Mismo WhatsApp en otra cuenta
                   {data?.filas && (
                     <span className="text-slate-400">({data.filas.filter((f) => f.numero_compartido).length})</span>
+                  )}
+                </label>
+                <label
+                  className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-semibold"
+                  title="El cliente contestó el mensaje automático y nadie le registró un seguimiento después. Ya levantó la mano: por aquí se empieza."
+                >
+                  <input type="checkbox" checked={soloRespondieron} onChange={(e) => setSoloRespondieron(e.target.checked)} />
+                  Respondieron sin seguimiento
+                  {data?.filas && (
+                    <span className="text-emerald-600/70 font-normal">({data.filas.filter(respondioSinSeguimiento).length})</span>
                   )}
                 </label>
                 <input
