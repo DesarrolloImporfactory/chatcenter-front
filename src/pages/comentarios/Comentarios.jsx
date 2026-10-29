@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import io from "socket.io-client";
+import { authDelSocket, vigilarSesionDelSocket } from "../../utils/socketSesion";
 import { useNavigate } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
 
@@ -1001,21 +1002,34 @@ export default function Comentarios() {
     setSincronizando(true);
     setAvisoFeed(null);
     try {
-      const { data } = await chatApi.post(ENDPOINTS.sincronizar, null, {
+      const { data } = await chatApi.post(ENDPOINTS.sincronizar, {}, {
         params: { id_configuracion },
       });
       await cargarPosts();
+      // Dos novedades posibles y pueden darse juntas: entraron publicaciones
+      // nuevas y salieron las que el negocio borró de Facebook.
+      const partes = [];
+      if (data?.nuevas) {
+        partes.push(
+          `${data.nuevas} ${
+            data.nuevas === 1 ? "publicación nueva" : "publicaciones nuevas"
+          } en la bandeja.`,
+        );
+      }
+      if (data?.borradas) {
+        partes.push(
+          data.borradas === 1
+            ? "1 publicación ya no existe en Facebook y salió de la bandeja."
+            : `${data.borradas} publicaciones ya no existen en Facebook y salieron de la bandeja.`,
+        );
+      }
       setAvisoFeed(
         data?.errores?.length
           ? { tono: "rojo", texto: data.errores.join(" · ") }
           : {
               tono: "verde",
-              texto: data?.nuevas
-                ? `${data.nuevas} ${
-                    data.nuevas === 1
-                      ? "publicación nueva"
-                      : "publicaciones nuevas"
-                  } en la bandeja.`
+              texto: partes.length
+                ? partes.join(" ")
                 : "Ya estaban todas: no hay publicaciones nuevas.",
             },
       );
@@ -1093,7 +1107,9 @@ export default function Comentarios() {
 
     const socket = io(import.meta.env.VITE_socket, {
       transports: ["websocket", "polling"],
+      auth: authDelSocket(),
     });
+    vigilarSesionDelSocket(socket);
 
     // Una ráfaga de comentarios llegaría como una ráfaga de recargas. Se
     // agrupan: se relee una sola vez poco después del último aviso.

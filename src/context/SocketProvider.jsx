@@ -10,6 +10,7 @@ import {
 import { io } from "socket.io-client";
 import { Outlet } from "react-router-dom";
 import { handleSessionExpired } from "../auth/sessionExpired";
+import { vigilarSesionDelSocket } from "../utils/socketSesion";
 
 const SocketContext = createContext(null);
 
@@ -55,6 +56,9 @@ export default function SocketProvider({ token, children }) {
     s.on("connect", onConnect);
     s.on("disconnect", onDisconnect);
     s.on("connect_error", onConnectError);
+    // Cuenta suspendida, eliminada o con la sesión cerrada en otro lado: al
+    // conectar o cuando el servidor corta un socket ya abierto.
+    vigilarSesionDelSocket(s);
 
     return () => {
       s.off("connect", onConnect);

@@ -409,7 +409,7 @@ const Cabecera = ({
     localStorage.setItem("id_configuracion", id_configuracion);
     localStorage.setItem("id_plataforma_conf", id_plataforma_conf);
 
-    navigate("/kanban_config");
+    navigate("/configuracion_agente");
   };
 
   // (La verificación "¿tiene Dropi vinculado?" que vivía aquí se eliminó:
@@ -1036,11 +1036,17 @@ const Cabecera = ({
           </a>
 
           {/* Comentarios de Facebook.
-              Dos condiciones: que haya una página conectada (sin eso la
-              pantalla sale vacía) y, por ahora, que sea la cuenta de pruebas
-              cfg=10 — la app nueva de Meta todavía no pasa App Review, así que
-              el resto de cuentas aún no puede responder comentarios. */}
-          {id_configuracion === 10 && tieneMessenger && (
+              Una sola condición: que haya una página conectada, porque sin
+              página no hay publicaciones que leer y la pantalla sale vacía. El
+              candado de cfg=10 se quitó cuando Meta aprobó
+              pages_read_engagement y pages_manage_engagement en la app nueva.
+
+              Ojo: tener Messenger conectado no garantiza poder RESPONDER. Una
+              página conectada antes de la aprobación puede no haber concedido
+              pages_manage_engagement, y entonces leer los comentarios funciona
+              pero responder falla con error de permisos. Se arregla
+              reconectando la página. */}
+          {tieneMessenger && (
             <a
               href="/comentarios"
               className={`group flex items-center w-full px-5 py-4 text-left hover:bg-gray-100 ${
@@ -1474,7 +1480,7 @@ const Cabecera = ({
                     dejaban un hueco visible entre los ítems. */}
                 {tipo_configuracion === "kanban" && (
                   <a
-                    href="/kanban_config"
+                    href="/configuracion_agente"
                     onClick={(e) => {
                       if (
                         e.metaKey ||
@@ -1490,7 +1496,7 @@ const Cabecera = ({
                       setSliderOpen(false);
                     }}
                     className={`group flex items-center gap-3 text-left px-4 py-2 cursor-pointer ${
-                      location.pathname === "/kanban_config"
+                      location.pathname === "/configuracion_agente"
                         ? "font-semibold text-blue-600"
                         : ""
                     }`}

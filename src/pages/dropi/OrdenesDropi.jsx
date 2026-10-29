@@ -400,6 +400,124 @@ function OrigenBadge({ shopType, shopName, esShopify }) {
 const money = (n) =>
   Number(n || 0).toLocaleString("es", { minimumFractionDigits: 2 });
 
+/* Aviso de pedido duplicado: el back manda, por cada orden en pendiente
+   confirmación, las otras órdenes "vivas" (no canceladas ni entregadas,
+   últimos 60 días) del mismo teléfono. Se pinta como bloque HTML dentro
+   del diálogo de confirmar. */
+const escapeHtml = (s) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+const fmtFechaCorta = (val) => {
+  const d = new Date(val);
+  if (!val || !isFinite(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+};
+
+/* Tarjeta por cada otra orden viva: número, estado, fecha y total en la
+   primera línea; productos y guía en la segunda. */
+function htmlDuplicadas(dups) {
+  const lista = (dups || [])
+    .map((d) => {
+      const prods = (d.productos || []).join(" + ");
+      return `<li class="py-2 border-b border-amber-100 last:border-0">
+        <div class="flex items-center gap-2">
+          <b class="shrink-0">#${escapeHtml(d.id)}</b>
+          <span class="shrink-0 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[11px] font-semibold">${escapeHtml(d.status || "-")}</span>
+          <span class="text-gray-500 text-xs">${escapeHtml(fmtFechaCorta(d.order_created_at))}</span>
+          ${d.total_order ? `<span class="ml-auto text-xs font-semibold text-gray-700">$${escapeHtml(money(d.total_order))}</span>` : ""}
+        </div>
+        ${prods ? `<div class="text-xs text-gray-700 mt-0.5">${escapeHtml(prods)}</div>` : ""}
+        ${d.shipping_guide ? `<div class="text-[11px] text-gray-500">Guía ${escapeHtml(d.shipping_guide)}</div>` : ""}
+      </li>`;
+    })
+    .join("");
+  return `<ul class="mt-2 px-3 rounded-lg bg-amber-50 border border-amber-200 list-none text-sm text-gray-800">${lista}</ul>`;
+}
+
+/* Diálogos de acción: mismo esqueleto para todos, texto corto y alineado a
+   la izquierda. */
+const dialogoAccion = ({ icon, title, html, confirmText, confirmColor }) =>
+  Swal.fire({
+    icon,
+    title,
+    html: `<div class="text-left text-sm text-gray-700 leading-relaxed">${html}</div>`,
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: "Volver",
+    confirmButtonColor: confirmColor,
+    reverseButtons: true,
+    focusCancel: true,
+    width: 440,
+  });
+
+const Toast = Swal.mixin({
+  toast: true,
+  position: "top-end",
+  timer: 2200,
+  timerProgressBar: true,
+  showConfirmButton: false,
+});
+
+/* Por qué una orden ya no admite confirmar ni cancelar desde aquí. */
+function motivoSinAccion(statusNorm) {
+  const s = statusNorm || "";
+  if (!s) return "Sin estado en Dropi todavía.";
+  if (/CANCELAD|ANULAD|RECHAZAD/.test(s))
+    return "Orden cancelada. No admite más acciones.";
+  if (/ENTREGAD/.test(s)) return "Orden entregada. No admite más acciones.";
+  if (/DEVOL/.test(s)) return "Orden en devolución. No admite más acciones.";
+  if (/NOVEDAD/.test(s)) return "Orden con novedad. Se gestiona en Novedades.";
+  return `Ya tuvo movimiento en Dropi (${s}). No admite más acciones.`;
+}
+
+/* Tooltip propio (el title nativo tarda en salir y se ve pequeño). Va
+   arriba y pegado a la derecha porque la columna es la última. */
+function Tip({ text, children }) {
+  return (
+    <span className="relative group inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute right-0 bottom-full mb-1.5 hidden group-hover:block w-max max-w-[220px] whitespace-normal text-left bg-gray-900 text-white text-[11px] leading-snug rounded-md px-2 py-1.5 shadow-lg z-20"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
+/* Botón redondo de acción (visto / equis / prohibido). */
+function AccionBtn({ tono, icon, tip, onClick, disabled, loading }) {
+  const base =
+    "inline-flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition focus:outline-none";
+  const tonos = {
+    verde: "bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-200",
+    rojo: "bg-white text-red-600 border border-red-200 hover:bg-red-50 focus:ring-4 focus:ring-red-200",
+    gris: "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none",
+  };
+  const clase = disabled && !loading ? tonos.gris : tonos[tono] || tonos.gris;
+  return (
+    <Tip text={tip}>
+      <button
+        type="button"
+        onClick={disabled || loading ? undefined : onClick}
+        disabled={disabled || loading}
+        aria-label={tip}
+        className={`${base} ${clase} ${loading ? "cursor-wait opacity-70" : ""}`}
+      >
+        <i
+          className={`bx ${loading ? "bx-loader-alt bx-spin" : icon} text-[18px]`}
+        />
+      </button>
+    </Tip>
+  );
+}
+
 function resumenCambio(cambios) {
   const c = (cambios || [])[0];
   switch (c?.campo) {
@@ -429,19 +547,36 @@ function detalleCambio(reemplazaA, cambios) {
   return partes.join("\n");
 }
 
-function EstadoPedidoBadge({ estado, porBot, reemplazaA, cambios }) {
-  const confirmado = estado === "confirmado";
+function EstadoPedidoBadge({ estado, status, porBot, reemplazaA, cambios }) {
+  // El back marca "confirmado" a todo lo que no es PENDIENTE CONFIRMACION,
+  // incluidas las canceladas; acá se distingue para no pintar en verde una
+  // orden que se acaba de cancelar desde esta misma vista.
+  const cancelado = /CANCELAD|ANULAD|RECHAZAD/.test(
+    String(status || "").toUpperCase(),
+  );
+  const confirmado = !cancelado && estado === "confirmado";
+  const clase = cancelado
+    ? "bg-red-50 text-red-700 border-red-200"
+    : confirmado
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : "bg-amber-50 text-amber-700 border-amber-200";
+  const icono = cancelado
+    ? "bx-x-circle"
+    : confirmado
+      ? "bx-check-shield"
+      : "bx-time-five";
+  const texto = cancelado
+    ? "Cancelado"
+    : confirmado
+      ? "Confirmado"
+      : "Pend. confirmación";
   return (
     <div className="flex flex-col items-start gap-1">
       <span
-        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border ${
-          confirmado
-            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-            : "bg-amber-50 text-amber-700 border-amber-200"
-        }`}
+        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border ${clase}`}
       >
-        <i className={`bx ${confirmado ? "bx-check-shield" : "bx-time-five"} text-sm`} />
-        {confirmado ? "Confirmado" : "Pend. confirmación"}
+        <i className={`bx ${icono} text-sm`} />
+        {texto}
       </span>
       {porBot && (
         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100">
@@ -787,6 +922,173 @@ const OrdenesDropi = () => {
 
     window.open(`${CHAT_ROUTE}/${chatId}`, "_blank", "noopener,noreferrer");
   }, []);
+
+  // =========================
+  // ACCIONES: confirmar / cancelar una orden en PENDIENTE CONFIRMACION
+  // directo en Dropi, sin tener que abrir el chat exacto del cliente.
+  // =========================
+  const [accionEnCurso, setAccionEnCurso] = useState(null); // dropi_order_id
+  const [accionTipo, setAccionTipo] = useState(null); // confirmar | cancelar
+
+  const handleAccionOrden = useCallback(
+    async (o, accion) => {
+      const orderId = Number(o?.id);
+      if (!orderId || !id_configuracion || accionEnCurso) return;
+
+      const esConfirmar = accion === "confirmar";
+      const nombre = escapeHtml(
+        `${o?.name ?? ""} ${o?.surname ?? ""}`.trim() || "el cliente",
+      );
+      // Otras órdenes vivas del mismo teléfono (las manda el listado). Si
+      // hay, el diálogo de confirmar las muestra y pide doble seguridad.
+      const dupsLista = esConfirmar
+        ? Array.isArray(o?.otras_ordenes_activas)
+          ? o.otras_ordenes_activas
+          : []
+        : [];
+      const hayDup = dupsLista.length > 0;
+
+      const yaConfirmada =
+        String(o?.status || "")
+          .trim()
+          .toUpperCase() === "PENDIENTE";
+
+      // Confirmación obligatoria: esto cambia el estado directo en Dropi y
+      // no se deshace desde acá. Texto corto: quién, qué pasa, listo.
+      let r;
+      if (esConfirmar && hayDup) {
+        r = await dialogoAccion({
+          icon: "warning",
+          title: "Posible pedido duplicado",
+          html: `<b>${nombre}</b> ya tiene otra orden activa:
+                 ${htmlDuplicadas(dupsLista)}
+                 <p class="mt-3">¿Confirmar igual el pedido <b>#${orderId}</b>?</p>
+                 <p class="mt-1 text-xs text-gray-500">Se confirma directamente en Dropi: el proveedor la recibe y la despacha.</p>`,
+          confirmText: "Confirmar igual",
+          confirmColor: "#059669",
+        });
+      } else if (esConfirmar) {
+        r = await dialogoAccion({
+          icon: "question",
+          title: `Confirmar pedido #${orderId}`,
+          html: `<b>${nombre}</b>
+                 <p class="mt-2">Se confirma <b>directamente en Dropi</b>: el proveedor la recibe y la despacha.</p>`,
+          confirmText: "Confirmar",
+          confirmColor: "#059669",
+        });
+      } else {
+        r = await dialogoAccion({
+          icon: "warning",
+          title: `Cancelar pedido #${orderId}`,
+          html: `<b>${nombre}</b>${
+            yaConfirmada
+              ? ` <span class="text-amber-700 text-xs font-semibold">· ya estaba confirmada</span>`
+              : ""
+          }
+                 <p class="mt-2">Se cancela <b>directamente en Dropi</b>: el proveedor no la despachará. No se puede deshacer.</p>`,
+          confirmText: "Sí, cancelar",
+          confirmColor: "#d33",
+        });
+      }
+      if (!r.isConfirmed) return;
+
+      setAccionEnCurso(orderId);
+      setAccionTipo(accion);
+      try {
+        const enviar = (forzar) =>
+          chatApi.post("dropi_integrations/orders/cache/set-status", {
+            id_configuracion,
+            dropi_order_id: orderId,
+            accion,
+            // Si el usuario ya vio el aviso de duplicado en este diálogo, el
+            // back no tiene que volver a frenar.
+            forzar: forzar === true,
+          });
+
+        let res;
+        try {
+          res = await enviar(hayDup);
+        } catch (e1) {
+          // Red de seguridad del back: el listado estaba viejo y no traía el
+          // aviso, pero sí hay otras órdenes vivas. Se muestra y se reintenta
+          // solo si el usuario insiste.
+          const d = e1?.response?.data;
+          if (
+            e1?.response?.status === 409 &&
+            d?.code === "ORDEN_DUPLICADA" &&
+            Array.isArray(d?.duplicadas)
+          ) {
+            setAccionEnCurso(null);
+            const r2 = await dialogoAccion({
+              icon: "warning",
+              title: "Posible pedido duplicado",
+              html: `<b>${nombre}</b> ya tiene otra orden activa:
+                     ${htmlDuplicadas(d.duplicadas)}
+                     <p class="mt-3">¿Confirmar igual el pedido <b>#${orderId}</b>?</p>
+                     <p class="mt-1 text-xs text-gray-500">Se confirma directamente en Dropi: el proveedor la recibe y la despacha.</p>`,
+              confirmText: "Confirmar igual",
+              confirmColor: "#059669",
+            });
+            if (!r2.isConfirmed) {
+              // Guardar el aviso en la fila para que se vea sin recargar.
+              setOrders((prev) =>
+                prev.map((row) =>
+                  Number(row?.id) === orderId
+                    ? { ...row, otras_ordenes_activas: d.duplicadas }
+                    : row,
+                ),
+              );
+              return;
+            }
+            setAccionEnCurso(orderId);
+            res = await enviar(true);
+          } else {
+            throw e1;
+          }
+        }
+        const nuevo = res?.data?.data || {};
+        const nuevoStatus =
+          nuevo.status || (esConfirmar ? "PENDIENTE" : "CANCELADO");
+        // Reflejar en la fila sin recargar toda la lista.
+        setOrders((prev) =>
+          prev.map((row) =>
+            Number(row?.id) === orderId
+              ? { ...row, status: nuevoStatus, estado_pedido: "confirmado" }
+              : row,
+          ),
+        );
+        Toast.fire({
+          icon: "success",
+          title: esConfirmar
+            ? `Pedido #${orderId} confirmado en Dropi`
+            : `Pedido #${orderId} cancelado en Dropi`,
+        });
+      } catch (error) {
+        const msg =
+          error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          "No se pudo cambiar el estado de la orden.";
+        Swal.fire({
+          icon: "error",
+          title: esConfirmar ? "No se pudo confirmar" : "No se pudo cancelar",
+          html: `<div class="text-sm text-gray-700">${escapeHtml(msg)}</div>`,
+          confirmButtonColor: "#171931",
+          width: 440,
+        });
+        // Si el estado ya cambió por otro lado (chat, Dropi, webhook) la
+        // lista está vieja: se recarga para mostrar el estado real.
+        if (error?.response?.status === 409 && query && !query.invalidDate) {
+          lastKeyRef.current = "";
+          fetchOrders(query);
+        }
+      } finally {
+        setAccionEnCurso(null);
+        setAccionTipo(null);
+      }
+    },
+    [id_configuracion, accionEnCurso, query, fetchOrders],
+  );
 
   const ChatButton = ({ onClick, disabled = false }) => (
     <button
@@ -1252,7 +1554,7 @@ const OrdenesDropi = () => {
 
         {/* TABLA */}
         <div className="mt-6 overflow-auto rounded-xl border border-gray-100">
-          <table className="min-w-[1100px] w-full text-[13px]">
+          <table className="min-w-[1250px] w-full text-[13px]">
             <thead className="bg-gray-50 text-gray-700">
               <tr>
                 <th className="text-left px-3 py-2.5 font-semibold"># Orden</th>
@@ -1270,6 +1572,9 @@ const OrdenesDropi = () => {
                 </th>
                 <th className="text-left px-3 py-2.5 font-semibold">Origen</th>
                 <th className="px-3 py-2.5 font-semibold text-center">Chat</th>
+                <th className="px-3 py-2.5 font-semibold text-center">
+                  Acciones
+                </th>
               </tr>
             </thead>
 
@@ -1278,7 +1583,7 @@ const OrdenesDropi = () => {
                 /* skeleton */
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={`sk-${i}`} className="animate-pulse">
-                    {Array.from({ length: 9 }).map((__, j) => (
+                    {Array.from({ length: 10 }).map((__, j) => (
                       <td key={j} className="px-3 py-3">
                         <div className="h-3 rounded bg-gray-100 w-full max-w-[140px]" />
                         {j === 1 && (
@@ -1290,7 +1595,7 @@ const OrdenesDropi = () => {
                 ))
               ) : orders.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-gray-500" colSpan={9}>
+                  <td className="px-4 py-6 text-gray-500" colSpan={10}>
                     No se encontraron órdenes con esos filtros.
                   </td>
                 </tr>
@@ -1308,6 +1613,16 @@ const OrdenesDropi = () => {
                     p0?.imagen_catalogo || productImg(p0?.image) || null;
                   const prodNames =
                     prods.map((p) => p.name).filter(Boolean).join(" + ") || "-";
+                  // Mismas reglas que isPendingConfirm / canCancelOrder del
+                  // panel del chat (utils/orderHelper), sobre el status crudo.
+                  const statusNorm = String(o?.status || "")
+                    .trim()
+                    .toUpperCase()
+                    .replace(/\s+/g, " ")
+                    .replace(/_/g, " ");
+                  const puedeConfirmar = statusNorm === "PENDIENTE CONFIRMACION";
+                  const puedeCancelar =
+                    puedeConfirmar || statusNorm === "PENDIENTE";
 
                   return (
                     <tr key={o.id} className="hover:bg-gray-50">
@@ -1439,10 +1754,38 @@ const OrdenesDropi = () => {
                       <td className="px-3 py-2.5">
                         <EstadoPedidoBadge
                           estado={o?.estado_pedido}
+                          status={o?.status}
                           porBot={!!o?.creado_por_bot}
                           reemplazaA={o?.reemplaza_a}
                           cambios={o?.cambios_del_cliente}
                         />
+                        {/* Posible duplicado: el mismo teléfono tiene otra
+                            orden viva reciente. Se ve antes de pulsar
+                            Confirmar; el detalle va en el title y en el
+                            diálogo. */}
+                        {Array.isArray(o?.otras_ordenes_activas) &&
+                          o.otras_ordenes_activas.length > 0 && (
+                            <span
+                              className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 cursor-help"
+                              title={o.otras_ordenes_activas
+                                .map(
+                                  (d) =>
+                                    `#${d.id} · ${d.status || "-"} · ${fmtFechaCorta(
+                                      d.order_created_at,
+                                    )}${
+                                      (d.productos || []).length
+                                        ? ` · ${d.productos.join(" + ")}`
+                                        : ""
+                                    }`,
+                                )
+                                .join("\n")}
+                            >
+                              <i className="bx bxs-error text-xs" />
+                              {o.otras_ordenes_activas.length === 1
+                                ? `Posible duplicado: #${o.otras_ordenes_activas[0].id}`
+                                : `Posible duplicado: ${o.otras_ordenes_activas.length} órdenes`}
+                            </span>
+                          )}
                       </td>
 
                       {/* Estado del envío */}
@@ -1471,6 +1814,54 @@ const OrdenesDropi = () => {
                           disabled={!o?.has_chat || !o?.chat_id_cliente}
                           onClick={() => openChatById(o)}
                         />
+                      </td>
+
+                      {/* Acciones (mismas reglas que el panel del chat):
+                          confirmar solo en PENDIENTE CONFIRMACION; cancelar
+                          en PENDIENTE CONFIRMACION o PENDIENTE, que son los
+                          únicos estados en que Dropi deja cancelar. Solo
+                          Dropi: Aliclik no tiene este flujo. Cambian el
+                          estado directo en Dropi. */}
+                      <td className="px-3 py-2.5 text-center">
+                        {esAliclik ? (
+                          <span className="text-xs text-gray-400">—</span>
+                        ) : puedeCancelar ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            <AccionBtn
+                              tono="verde"
+                              icon="bx-check"
+                              tip={
+                                puedeConfirmar
+                                  ? "Confirmar pedido en Dropi"
+                                  : "Ya está confirmada"
+                              }
+                              disabled={!puedeConfirmar || !!accionEnCurso}
+                              loading={
+                                accionEnCurso === Number(o?.id) &&
+                                accionTipo === "confirmar"
+                              }
+                              onClick={() => handleAccionOrden(o, "confirmar")}
+                            />
+                            <AccionBtn
+                              tono="rojo"
+                              icon="bx-x"
+                              tip="Cancelar pedido en Dropi"
+                              disabled={!!accionEnCurso}
+                              loading={
+                                accionEnCurso === Number(o?.id) &&
+                                accionTipo === "cancelar"
+                              }
+                              onClick={() => handleAccionOrden(o, "cancelar")}
+                            />
+                          </div>
+                        ) : (
+                          <AccionBtn
+                            tono="gris"
+                            icon="bx-block"
+                            tip={motivoSinAccion(statusNorm)}
+                            disabled
+                          />
+                        )}
                       </td>
                     </tr>
                   );

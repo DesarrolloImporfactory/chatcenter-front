@@ -834,7 +834,7 @@ const Estado_contactos = () => {
       </div>
     );
 
-    /* Membresía Imporsuit: solo cuando la cuenta lo activó en /kanban_config
+    /* Membresía Imporsuit: solo cuando la cuenta lo activó en /configuracion_agente
        y el teléfono resolvió a un usuario. Si no hay cuenta Imporsuit detrás
        del número, no se pinta nada (ni un campo vacío). */
     const m = mostrarMembresia ? contacto.membresia : null;
@@ -1492,7 +1492,7 @@ const Estado_contactos = () => {
           {/* CTA */}
           <button
             onClick={() => {
-              window.location.href = "/kanban_config";
+              window.location.href = "/configuracion_agente";
             }}
             style={{
               display: "inline-flex",

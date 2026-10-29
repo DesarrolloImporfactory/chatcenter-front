@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 
@@ -163,7 +169,16 @@ export default function FlujosMasivos() {
   const [paso, setPaso] = useState(1);
 
   // ── Audiencia ──
+  /* Columnas de TODOS los tableros de la cuenta (principal + secundarios):
+     la cuenta puede manejar varios embudos y el flujo debe poder segmentar
+     por cualquiera. `tableroVista` solo filtra qué chips se ven; la
+     selección (estadosSel) es por estado_db, único por cuenta, así que se
+     pueden mezclar columnas de distintos tableros. Un contacto que esté en
+     varios tableros entra UNA sola vez al lote (el backend devuelve una
+     fila por contacto). */
   const [columnas, setColumnas] = useState([]);
+  const [tableros, setTableros] = useState([]);
+  const [tableroVista, setTableroVista] = useState("principal");
   const [estadosSel, setEstadosSel] = useState([]);
   const [soloSinRespuesta, setSoloSinRespuesta] = useState(true);
   const [horasSinResp, setHorasSinResp] = useState(24);
@@ -212,12 +227,45 @@ export default function FlujosMasivos() {
   useEffect(() => {
     if (!id_configuracion) return;
     chatApi
-      .post("/kanban_columnas/listar", { id_configuracion })
-      .then(({ data }) =>
-        setColumnas(Array.isArray(data?.data) ? data.data : []),
-      )
-      .catch(() => setColumnas([]));
+      .post("/kanban_columnas/listar", { id_configuracion, id_tablero: "todos" })
+      .then(({ data }) => {
+        setColumnas(Array.isArray(data?.data) ? data.data : []);
+        setTableros(Array.isArray(data?.tableros) ? data.tableros : []);
+      })
+      .catch(() => {
+        setColumnas([]);
+        setTableros([]);
+      });
   }, [id_configuracion]);
+
+  const nombreTablero = useCallback(
+    (idTablero) =>
+      idTablero == null
+        ? "Principal"
+        : tableros.find((t) => Number(t.id) === Number(idTablero))?.nombre ||
+          `Tablero ${idTablero}`,
+    [tableros],
+  );
+  /* Chips visibles según el tablero elegido (la selección no se pierde al
+     cambiar de tablero: se muestra un contador de lo elegido en otros). */
+  const columnasVista = useMemo(
+    () =>
+      columnas.filter((c) =>
+        tableroVista === "todos"
+          ? true
+          : tableroVista === "principal"
+            ? c.id_tablero == null
+            : Number(c.id_tablero) === Number(tableroVista),
+      ),
+    [columnas, tableroVista],
+  );
+  const seleccionOculta = useMemo(
+    () =>
+      estadosSel.filter(
+        (e) => !columnasVista.some((c) => c.estado_db === e),
+      ).length,
+    [estadosSel, columnasVista],
+  );
 
   useEffect(() => {
     if (!id_configuracion) return;
@@ -866,12 +914,57 @@ export default function FlujosMasivos() {
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               1. Elige columnas del kanban
             </p>
-            <div className="mb-5 flex flex-wrap gap-2">
-              {columnas.map((col) => (
+
+            {/* Selector de tablero: solo si la cuenta tiene más de uno. La
+                selección es por columna (estado_db) y se conserva al cambiar
+                de tablero, así se puede armar una audiencia mezclando
+                embudos. */}
+            {tableros.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <i className="bx bx-layout mr-1" />
+                  Tablero
+                </span>
+                {[
+                  { key: "principal", nombre: "Principal", icono: "bx bx-star" },
+                  ...tableros.map((t) => ({
+                    key: Number(t.id),
+                    nombre: t.nombre,
+                    icono: "bx bx-columns",
+                  })),
+                  { key: "todos", nombre: "Todos", icono: "bx bx-grid-alt" },
+                ].map((t) => {
+                  const activo = tableroVista === t.key;
+                  return (
+                    <button
+                      key={String(t.key)}
+                      type="button"
+                      onClick={() => setTableroVista(t.key)}
+                      className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+                        activo
+                          ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      }`}
+                    >
+                      <i className={t.icono} />
+                      {t.nombre}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mb-2 flex flex-wrap gap-2">
+              {columnasVista.map((col) => (
                 <button
                   key={col.estado_db || col.id}
                   type="button"
                   onClick={() => toggleEstado(col.estado_db)}
+                  title={
+                    tableros.length
+                      ? `Tablero: ${nombreTablero(col.id_tablero)}`
+                      : undefined
+                  }
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                     estadosSel.includes(col.estado_db)
                       ? "border-[#171931] bg-[#171931] text-white"
@@ -879,11 +972,45 @@ export default function FlujosMasivos() {
                   }`}
                 >
                   {col.nombre || col.estado_db}
+                  {tableroVista === "todos" && tableros.length > 0 && (
+                    <span
+                      className={`ml-1.5 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide ${
+                        estadosSel.includes(col.estado_db)
+                          ? "bg-white/20 text-white"
+                          : col.id_tablero
+                            ? "bg-indigo-50 text-indigo-600"
+                            : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {nombreTablero(col.id_tablero)}
+                    </span>
+                  )}
                 </button>
               ))}
               {!columnas.length && (
                 <span className="text-xs text-slate-400">
                   Cargando columnas…
+                </span>
+              )}
+              {columnas.length > 0 && !columnasVista.length && (
+                <span className="text-xs text-slate-400">
+                  Este tablero no tiene columnas.
+                </span>
+              )}
+            </div>
+            <div className="mb-5 min-h-[14px] text-[10px] text-slate-400">
+              {seleccionOculta > 0 && (
+                <span className="text-indigo-600">
+                  <i className="bx bx-check-double mr-1" />
+                  {seleccionOculta} columna{seleccionOculta === 1 ? "" : "s"}{" "}
+                  elegida{seleccionOculta === 1 ? "" : "s"} en otros tableros
+                  (se mantienen).
+                </span>
+              )}
+              {tableros.length > 0 && estadosSel.length > 1 && (
+                <span className={seleccionOculta > 0 ? "ml-2" : ""}>
+                  Un contacto que esté en varias de estas columnas recibe el
+                  mensaje una sola vez.
                 </span>
               )}
             </div>
@@ -1660,18 +1787,44 @@ export default function FlujosMasivos() {
                 <option value="">
                   Se quedan en su columna actual (no mover)
                 </option>
-                {columnas.map((col) => (
-                  <option
-                    key={col.estado_db || col.id}
-                    value={col.estado_db}
-                  >
-                    Mover a “{col.nombre || col.estado_db}”
-                  </option>
-                ))}
+                {/* Con varios tableros, las columnas van agrupadas por
+                    tablero: mover a una columna de un tablero secundario
+                    agrega el contacto ahí sin sacarlo del principal. */}
+                {tableros.length > 0
+                  ? [{ id: null, nombre: "Principal" }, ...tableros].map(
+                      (t) => {
+                        const cols = columnas.filter(
+                          (c) => (c.id_tablero ?? null) === (t.id ?? null),
+                        );
+                        if (!cols.length) return null;
+                        return (
+                          <optgroup key={String(t.id)} label={t.nombre}>
+                            {cols.map((col) => (
+                              <option
+                                key={col.estado_db || col.id}
+                                value={col.estado_db}
+                              >
+                                Mover a “{col.nombre || col.estado_db}”
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      },
+                    )
+                  : columnas.map((col) => (
+                      <option
+                        key={col.estado_db || col.id}
+                        value={col.estado_db}
+                      >
+                        Mover a “{col.nombre || col.estado_db}”
+                      </option>
+                    ))}
               </select>
               <p className="mt-1 text-[10px] text-slate-400">
                 Se mueve contacto por contacto cuando SU mensaje sale con
                 éxito; los que fallen se quedan donde están.
+                {tableros.length > 0 &&
+                  " Si la columna es de un tablero secundario, el contacto se agrega ahí y sigue en su columna del principal."}
               </p>
             </div>
 

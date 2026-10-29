@@ -1,5 +1,5 @@
 // src/pages/kanban/configuracion/componentes/MisPlantillas.jsx
-import React, { useState } from "react";
+import React, { useState, forwardRef, useImperativeHandle } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../../../api/chatcenter";
 
@@ -13,7 +13,13 @@ const Toast = Swal.mixin({
 
 const BG_DARK = "rgb(23, 25, 49)";
 
-const MisPlantillas = ({ id_configuracion, onPlantillaAplicada }) => {
+/* `sinBotones`: la cabecera de Configuración del agente agrupa todo lo de
+   plantillas en un solo menú, así que los dos botones propios se ocultan y
+   los modales se abren desde afuera por `ref` (abrirGuardar / abrirLista). */
+const MisPlantillas = forwardRef(function MisPlantillas(
+  { id_configuracion, onPlantillaAplicada, sinBotones = false },
+  ref,
+) {
   // ── Modal guardar ─────────────────────────────────────────
   const [showGuardar, setShowGuardar] = useState(false);
   const [nombreNueva, setNombreNueva] = useState("");
@@ -132,6 +138,11 @@ const MisPlantillas = ({ id_configuracion, onPlantillaAplicada }) => {
     }
   };
 
+  useImperativeHandle(ref, () => ({
+    abrirGuardar: () => setShowGuardar(true),
+    abrirLista: () => handleAbrirLista(),
+  }));
+
   return (
     <>
       <style>{`
@@ -247,33 +258,37 @@ const MisPlantillas = ({ id_configuracion, onPlantillaAplicada }) => {
       `}</style>
 
       {/* ── Botones disparadores ── */}
-      <button
-        className="mp-btn-save"
-        type="button"
-        onClick={() => setShowGuardar(true)}
-      >
-        <i className="bx bx-bookmark-plus" style={{ fontSize: 15 }} />
-        Guardar plantilla
-      </button>
-
-      <button className="mp-btn-list" type="button" onClick={handleAbrirLista}>
-        <i className="bx bx-collection" style={{ fontSize: 15 }} />
-        Mis plantillas
-        {plantillas.length > 0 && (
-          <span
-            style={{
-              background: "rgba(110,231,183,.2)",
-              color: "#fff",
-              borderRadius: 999,
-              fontSize: ".68rem",
-              padding: "1px 7px",
-              fontWeight: 700,
-            }}
+      {!sinBotones && (
+        <>
+          <button
+            className="mp-btn-save"
+            type="button"
+            onClick={() => setShowGuardar(true)}
           >
-            {plantillas.length}
-          </span>
-        )}
-      </button>
+            <i className="bx bx-bookmark-plus" style={{ fontSize: 15 }} />
+            Guardar plantilla
+          </button>
+
+          <button className="mp-btn-list" type="button" onClick={handleAbrirLista}>
+            <i className="bx bx-collection" style={{ fontSize: 15 }} />
+            Mis plantillas
+            {plantillas.length > 0 && (
+              <span
+                style={{
+                  background: "rgba(110,231,183,.2)",
+                  color: "#fff",
+                  borderRadius: 999,
+                  fontSize: ".68rem",
+                  padding: "1px 7px",
+                  fontWeight: 700,
+                }}
+              >
+                {plantillas.length}
+              </span>
+            )}
+          </button>
+        </>
+      )}
 
       {/* ── Modal Guardar ── */}
       {showGuardar && (
@@ -698,6 +713,6 @@ const MisPlantillas = ({ id_configuracion, onPlantillaAplicada }) => {
       )}
     </>
   );
-};
+});
 
 export default MisPlantillas;

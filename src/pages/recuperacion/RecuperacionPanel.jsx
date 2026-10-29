@@ -8,8 +8,10 @@ import DrawerClienteRecuperacion from "./DrawerClienteRecuperacion";
 import ResultadosRecuperacion from "./ResultadosRecuperacion";
 import AsesoresRecuperacion from "./AsesoresRecuperacion";
 import AutomatizacionesRecuperacion from "./AutomatizacionesRecuperacion";
+import PagosManualesRecuperacion from "./PagosManualesRecuperacion";
 import {
   COHORTE_UI,
+  ESTADO_CASO,
   money,
   num,
   fmtFecha,
@@ -27,6 +29,7 @@ const VISTAS = [
   { id: "agenda", label: "Agenda", icon: "bx-calendar-check" },
   { id: "automatizaciones", label: "Automatizaciones", icon: "bx-bot" },
   { id: "resultados", label: "Resultados", icon: "bx-trophy" },
+  { id: "pagos", label: "Pagos manuales", icon: "bx-receipt", soloSuper: true },
   { id: "asesores", label: "Asesores", icon: "bx-user-pin", soloSuper: true },
 ];
 
@@ -141,6 +144,14 @@ function Telefono({ f, compacto = false }) {
   );
 }
 
+/** Contestó una automatización y el último seguimiento registrado es anterior a esa respuesta (o no hay). */
+function respondioSinSeguimiento(f) {
+  const r = f.automatizacion?.respondio_en;
+  if (!r) return false;
+  const s = f.ultimo_seguimiento?.fecha;
+  return !s || new Date(s) < new Date(r);
+}
+
 /** Sin seguimiento manual, pero sí le salió una automatización: no es «nunca contactado». */
 function ContactoAutomatico({ a }) {
   return (
@@ -152,7 +163,14 @@ function ContactoAutomatico({ a }) {
         Paso {a.paso}{a.titulo ? ` · ${a.titulo}` : ""} · {a.estado === "encolado" ? "en cola" : fmtFechaCorta(a.fecha)}
       </div>
       {a.respondio_en ? (
-        <div className="text-emerald-700 font-semibold">Respondió {fmtFechaCorta(a.respondio_en)}: falta seguimiento manual</div>
+        <>
+          <div className="text-emerald-700 font-semibold">Respondió {fmtFechaCorta(a.respondio_en)}: falta seguimiento manual</div>
+          {a.respuesta_texto && (
+            <div className="text-slate-600 italic truncate" title={a.respuesta_texto}>
+              «{a.respuesta_texto}»
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-slate-400">Sin respuesta · sin seguimiento manual</div>
       )}
@@ -299,6 +317,9 @@ export default function RecuperacionPanel({ onSinPermiso }) {
   const [asignacion, setAsignacion] = useState("todos");
   const [soloSinContacto, setSoloSinContacto] = useState(false);
   const [soloCompartido, setSoloCompartido] = useState(false);
+  // Respondió a una automatización y nadie le registró seguimiento después:
+  // es el cliente que ya levantó la mano, por ahí se empieza.
+  const [soloRespondieron, setSoloRespondieron] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [drawer, setDrawer] = useState(null); // id_usuario
   const [form, setForm] = useState(null); // fila
@@ -356,17 +377,46 @@ export default function RecuperacionPanel({ onSinPermiso }) {
       if (asignacion === "sin" && f.caso?.asignado_a_id) return false;
       if (soloSinContacto && (f.ultimo_seguimiento || f.automatizacion)) return false;
       if (soloCompartido && !f.numero_compartido) return false;
+      if (soloRespondieron && !respondioSinSeguimiento(f)) return false;
       if (!q) return true;
       return [f.empresa, f.email, f.whatsapp, f.nombre_plan, f.caso?.asignado_a_nombre]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [data, cohorte, asignacion, soloSinContacto, soloCompartido, busqueda]);
+  }, [data, cohorte, asignacion, soloSinContacto, soloCompartido, soloRespondieron, busqueda]);
 
   // Solo un cambio de filtro vuelve a la primera página.
   useEffect(() => {
     setPagina(1);
-  }, [cohorte, asignacion, soloSinContacto, soloCompartido, busqueda]);
+  }, [cohorte, asignacion, soloSinContacto, soloCompartido, soloRespondieron, busqueda]);
+
+  // Historial: el embudo solo lista casos ABIERTOS. Cuando el cliente ya se
+  // fue (canceló, venció) desaparece de la lista y nadie sabía qué pasó con
+  // él. Al buscar, el back devuelve también su último caso cerrado.
+  const [historial, setHistorial] = useState([]);
+  useEffect(() => {
+    const q = busqueda.trim();
+    if (q.length < 3) {
+      setHistorial([]);
+      return undefined;
+    }
+    let vivo = true;
+    const t = setTimeout(async () => {
+      try {
+        const { data: r } = await chatApi.get("recuperacion/casos/buscar", { params: { q } });
+        if (vivo) setHistorial((r.data || []).filter((h) => h.estado_caso !== "abierto"));
+      } catch (_) {
+        if (vivo) setHistorial([]);
+      }
+    }, 400);
+    return () => {
+      vivo = false;
+      clearTimeout(t);
+    };
+  }, [busqueda]);
+
+  // Tabla «Trabajo por asesor» (se abre desde la tarjeta «Registrado hoy»).
+  const [mostrarActividad, setMostrarActividad] = useState(false);
 
   const agenda = useMemo(() => {
     if (!data) return { vencidos: [], hoy: [], proximos: [], sinFecha: 0 };
@@ -455,6 +505,15 @@ export default function RecuperacionPanel({ onSinPermiso }) {
   }
 
   const k = data?.kpis;
+  const act = data?.actividad || {
+    hoy: 0,
+    semana: 0,
+    mes: 0,
+    asesores_activos_semana: 0,
+    asesores_total: 0,
+    sin_asignar: { abiertos: 0, sin_tocar: 0 },
+    asesores: [],
+  };
   const vistasVisibles = VISTAS.filter((v) => !v.soloSuper || permisos.puede_gestionar_asesores);
   const totalPaginas = Math.max(1, Math.ceil(filas.length / POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -542,6 +601,9 @@ export default function RecuperacionPanel({ onSinPermiso }) {
       {vista === "resultados" && <ResultadosRecuperacion onAbrirCliente={(id) => setDrawer(id)} />}
       {vista === "automatizaciones" && <AutomatizacionesRecuperacion permisos={permisos} />}
       {vista === "asesores" && permisos.puede_gestionar_asesores && <AsesoresRecuperacion />}
+      {vista === "pagos" && permisos.puede_gestionar_asesores && (
+        <PagosManualesRecuperacion onAbrirCliente={(id) => setDrawer(id)} />
+      )}
 
       {(vista === "embudo" || vista === "agenda") && loading && !data && (
         <div className="py-20 text-center text-slate-500">
@@ -553,8 +615,20 @@ export default function RecuperacionPanel({ onSinPermiso }) {
       {(vista === "embudo" || vista === "agenda") && data && (
         <div className={loading ? "opacity-60 pointer-events-none space-y-4 md:space-y-5" : "space-y-4 md:space-y-5"}>
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 md:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 md:gap-3">
             <Kpi icon="bx-group" accent="rose" label="En riesgo" value={num(k.en_riesgo)} hint={`${money(k.mrr_en_riesgo)} / mes en juego`} />
+            {/* Cuánto se está trabajando: seguimientos registrados. Sin esto el
+                panel mostraba 1.000+ casos asignados y nadie veía que casi no
+                había registros. */}
+            <Kpi
+              icon="bx-edit"
+              accent={act.semana === 0 ? "rose" : "slate"}
+              label="Registrado hoy"
+              value={num(act.hoy)}
+              hint={`${num(act.semana)} en 7 días · ${num(act.asesores_activos_semana)}/${num(act.asesores_total)} asesores activos`}
+              onClick={() => setMostrarActividad((v) => !v)}
+              activo={mostrarActividad}
+            />
             <Kpi
               icon="bx-phone-off"
               accent="amber"
@@ -590,6 +664,70 @@ export default function RecuperacionPanel({ onSinPermiso }) {
               hint={promesas ? `${num(k.promesas_vencidas)} vencidas sin pagar` : "Se crean al registrar «Prometió pagar»"}
             />
           </div>
+
+          {/* Trabajo por asesor: seguimientos registrados y casos sin tocar */}
+          {mostrarActividad && (
+            <div className="bg-white rounded-xl border border-slate-200 p-3 md:p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                <div className="text-sm font-bold text-slate-800">
+                  Trabajo por asesor <span className="text-slate-400 font-normal text-xs">· seguimientos registrados</span>
+                </div>
+                <button onClick={() => setMostrarActividad(false)} className="text-xs font-semibold text-cyan-700 hover:underline">
+                  Ocultar
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-[11px] uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="text-left px-2 py-1.5">Asesor</th>
+                      <th className="text-right px-2 py-1.5">Casos abiertos</th>
+                      <th className="text-right px-2 py-1.5">Sin tocar</th>
+                      <th className="text-right px-2 py-1.5">Hoy</th>
+                      <th className="text-right px-2 py-1.5">7 días</th>
+                      <th className="text-right px-2 py-1.5">30 días</th>
+                      <th className="text-left px-2 py-1.5">Último registro</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {act.asesores.map((a) => (
+                      <tr key={a.id_sub_usuario} className={a.semana === 0 ? "bg-rose-50/40" : ""}>
+                        <td className="px-2 py-1.5 font-semibold text-slate-800">
+                          {a.nombre}
+                          {!a.es_asesor && <span className="ml-1 text-[10px] text-slate-400 font-normal">(no está en la lista de asesores)</span>}
+                        </td>
+                        <td className="px-2 py-1.5 text-right">{num(a.abiertos)}</td>
+                        <td className={`px-2 py-1.5 text-right ${a.sin_tocar ? "text-amber-700 font-semibold" : ""}`}>{num(a.sin_tocar)}</td>
+                        <td className="px-2 py-1.5 text-right font-bold">{num(a.hoy)}</td>
+                        <td className={`px-2 py-1.5 text-right font-bold ${a.semana === 0 ? "text-rose-700" : ""}`}>{num(a.semana)}</td>
+                        <td className="px-2 py-1.5 text-right">{num(a.mes)}</td>
+                        <td className="px-2 py-1.5 text-xs text-slate-600 whitespace-nowrap">
+                          {a.ultimo ? fmtFechaHora(a.ultimo) : <span className="text-rose-700">Ninguno en 30 días</span>}
+                        </td>
+                      </tr>
+                    ))}
+                    {act.sin_asignar.abiertos > 0 && (
+                      <tr className="text-slate-500">
+                        <td className="px-2 py-1.5 italic">Sin asignar</td>
+                        <td className="px-2 py-1.5 text-right">{num(act.sin_asignar.abiertos)}</td>
+                        <td className="px-2 py-1.5 text-right">{num(act.sin_asignar.sin_tocar)}</td>
+                        <td colSpan={4} />
+                      </tr>
+                    )}
+                    {!act.asesores.length && (
+                      <tr>
+                        <td colSpan={7} className="px-2 py-6 text-center text-slate-500">No hay asesores en la lista.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">
+                «Sin tocar» = casos asignados sin ningún seguimiento registrado desde que se abrieron. Solo cuenta lo que se guarda con
+                «Registrar»: una conversación en el chat que no se registra no aparece aquí ni en Resultados.
+              </p>
+            </div>
+          )}
 
           {/* Embudo por cohorte */}
           {vista === "embudo" && (
@@ -669,6 +807,16 @@ export default function RecuperacionPanel({ onSinPermiso }) {
                   Mismo WhatsApp en otra cuenta
                   {data?.filas && (
                     <span className="text-slate-400">({data.filas.filter((f) => f.numero_compartido).length})</span>
+                  )}
+                </label>
+                <label
+                  className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-semibold"
+                  title="El cliente contestó el mensaje automático y nadie le registró un seguimiento después. Ya levantó la mano: por aquí se empieza."
+                >
+                  <input type="checkbox" checked={soloRespondieron} onChange={(e) => setSoloRespondieron(e.target.checked)} />
+                  Respondieron sin seguimiento
+                  {data?.filas && (
+                    <span className="text-emerald-600/70 font-normal">({data.filas.filter(respondioSinSeguimiento).length})</span>
                   )}
                 </label>
                 <input
@@ -806,6 +954,64 @@ export default function RecuperacionPanel({ onSinPermiso }) {
                 porPagina={POR_PAGINA}
                 onCambio={setPagina}
               />
+
+              {/* Casos cerrados que coinciden con la búsqueda: el cliente ya no
+                  está en riesgo (o ya se perdió) y por eso no sale arriba. */}
+              {historial.length > 0 && (
+                <div className="border-t border-slate-200 bg-slate-50/60 p-3">
+                  <div className="text-xs font-bold text-slate-700 mb-2 inline-flex items-center gap-1">
+                    <i className="bx bx-history" /> Historial: casos cerrados que coinciden con «{busqueda.trim()}»
+                  </div>
+                  <ul className="divide-y divide-slate-200">
+                    {historial.map((h) => {
+                      const est = ESTADO_CASO[h.estado_caso] || ESTADO_CASO.descartado;
+                      const sinTrabajo = !!h.id_caso && h.seguimientos_caso === 0;
+                      return (
+                        <li key={h.id_usuario} className="py-2 flex flex-wrap items-start gap-x-5 gap-y-1 text-xs">
+                          <div className="min-w-[180px]">
+                            <button onClick={() => setDrawer(h.id_usuario)} className="font-semibold text-slate-900 hover:text-cyan-700 text-left text-sm">
+                              {h.empresa || h.email || `Usuario ${h.id_usuario}`}
+                            </button>
+                            <div className="text-slate-500">{h.email}</div>
+                          </div>
+                          <div className="min-w-[220px]">
+                            {h.id_caso ? (
+                              <>
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold ring-1 ${est.cls}`}>{est.label}</span>
+                                {h.estado_final_label && <span className="ml-1 text-slate-600 italic">{h.estado_final_label}</span>}
+                                <div className="text-slate-500 mt-0.5">
+                                  Entró por {h.cohorte_label} el {fmtFechaCorta(h.abierto_en)}
+                                  {h.cerrado_en && (
+                                    <>
+                                      {" "}· cerrado {fmtFechaHora(h.cerrado_en)} por {h.cerrado_por || "—"}
+                                    </>
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-slate-500">Nunca estuvo en el embudo</span>
+                            )}
+                          </div>
+                          <div className="text-slate-600">
+                            <div>
+                              Asesor: <b>{h.asignado_a_nombre || "sin asignar"}</b>
+                              {h.asignado_en && <> desde {fmtFechaCorta(h.asignado_en)}</>}
+                            </div>
+                            <div className={sinTrabajo ? "text-rose-700 font-semibold" : ""}>
+                              {num(h.seguimientos_caso)} seguimiento(s) en el caso · {num(h.automatizaciones_enviadas)} mensaje(s) automático(s)
+                            </div>
+                          </div>
+                          <div className="text-slate-500 ml-auto text-right">
+                            Cuenta hoy: <b>{h.estado}</b>
+                            {h.stripe_status && <> · Stripe {h.stripe_status}</>}
+                            {h.canceled_at && <div>Pidió cancelar el {fmtFechaCorta(h.canceled_at)}</div>}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

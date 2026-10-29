@@ -28,6 +28,7 @@ import GuiaWhatsappApiModal from "./Modales/GuiaWhatsappApiModal";
 import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 import EditarConexionModal from "./Modales/EditarConexionModal";
 import { comprobarPagoMeta } from "../../utils/avisoMetodoPagoMeta";
+import { reintentarOpenAI } from "../../utils/checkOpenAIStatus";
 
 /* Cuentas a las que no se les muestra "Eliminar conexión" en el menú de la
    tarjeta. Ese botón no borra nada: llama a configuraciones/toggle_suspension y
@@ -69,6 +70,106 @@ const pill = (classes, text, title) => (
     {text}
   </span>
 );
+
+/* Qué le pasa a la IA de la conexión, para el sello de la tarjeta.
+   null = todo bien. `bloqueante` = el bot NO responde (openai_activo=0, con
+   el motivo ya clasificado por el back en openai_error_codigo); si no, es un
+   aviso: responde, pero el dueño tiene que actuar o acaba de fallar
+   (openai_aviso_*). Antes la tarjeta solo sabía decir "OpenAI sin saldo" y
+   una llave revocada salía como "Servicios al día": el dueño se enteraba
+   cuando un cliente le preguntaba por qué el bot no contestaba (cfg 1325,
+   2026-10-23). Si el listado aún no trae los campos (deploy del back
+   pendiente), se asume OK para no alarmar en falso. */
+const NOMBRE_PROVEEDOR_IA = { openai: "OpenAI", claude: "Claude" };
+const problemaIA = (c) => {
+  const proveedor =
+    NOMBRE_PROVEEDOR_IA[String(c?.proveedor_ia || "openai").toLowerCase()] ||
+    "OpenAI";
+  const activo =
+    c?.openai_activo === undefined || c?.openai_activo === null
+      ? true
+      : Number(c.openai_activo) === 1;
+  if (!activo) {
+    const codigo = c.openai_error_codigo || "SIN_SALDO";
+    const base = {
+      bloqueante: true,
+      codigo,
+      proveedor,
+      desde: c.openai_error_at,
+      msg: c.openai_error_msg || "",
+    };
+    if (codigo === "KEY_INVALIDA") {
+      return {
+        ...base,
+        texto: `API Key de ${proveedor} inválida`,
+        detalle: `La API Key de ${proveedor} ya no es válida o fue revocada y el asistente dejó de responder a tus clientes. Recargar saldo no lo arregla: genera una llave nueva y cárgala en Asistentes AI.`,
+        accion: "asistentes",
+      };
+    }
+    if (codigo === "SIN_SALDO") {
+      return {
+        ...base,
+        texto: `${proveedor} sin saldo`,
+        detalle: `Tu cuenta de ${proveedor} se quedó sin saldo y el asistente está en pausa. Recarga y, si usas OpenAI, compruébalo al instante con "Ya recargué".`,
+        accion: proveedor === "OpenAI" ? "reintentar" : null,
+      };
+    }
+    return {
+      ...base,
+      texto: "El asistente no responde",
+      detalle: `${proveedor} rechazó la última llamada del asistente y está en pausa${
+        base.msg ? `: ${base.msg}` : "."
+      }`,
+      accion: proveedor === "OpenAI" ? "reintentar" : null,
+    };
+  }
+  const aviso = c?.openai_aviso_codigo;
+  if (!aviso) return null;
+  const base = {
+    bloqueante: false,
+    codigo: aviso,
+    proveedor,
+    desde: c.openai_aviso_at,
+    msg: c.openai_aviso_msg || "",
+  };
+  if (aviso === "ORG_NO_VERIFICADA") {
+    return {
+      ...base,
+      texto: "GPT-5 con modelo de respaldo",
+      detalle:
+        base.msg ||
+        "Tu organización de OpenAI no está verificada para GPT-5; el bot responde con un modelo de respaldo.",
+      accion: "asistentes",
+    };
+  }
+  if (aviso === "MODELO_NO_DISPONIBLE") {
+    return {
+      ...base,
+      texto: "Modelo de IA no disponible",
+      detalle:
+        base.msg ||
+        `El modelo elegido en una columna no está disponible en tu cuenta de ${proveedor}.`,
+      accion: "agente",
+    };
+  }
+  return {
+    ...base,
+    texto: "La IA falló",
+    detalle: `${base.msg || `${proveedor} no respondió en el último turno`}. Se reintenta solo; este aviso desaparece cuando la IA vuelva a responder.`,
+    accion: null,
+  };
+};
+
+const haceCuanto = (fecha) => {
+  if (!fecha) return "";
+  const min = Math.round((Date.now() - new Date(fecha).getTime()) / 60000);
+  if (Number.isNaN(min)) return "";
+  if (min < 1) return "hace un momento";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 48) return `hace ${h} h`;
+  return `hace ${Math.round(h / 24)} días`;
+};
 
 const ActionDetailRow = ({ icon, title, desc, tone = "neutral" }) => {
   const toneCls =
@@ -748,6 +849,92 @@ const Conexiones = () => {
   const isMessengerConectado = (c) => Number(c?.messenger_conectado) === 1;
   const isInstagramConectado = (c) => Number(c?.instagram_conectado) === 1;
 
+  /* Desconectar el inbox de Messenger o Instagram (mismo botón que Meta
+     Ads). WhatsApp no se desconecta desde aquí a propósito. El backend borra
+     la fila de la página pero NO los chats: siguen en /chat como historial
+     y, si se vuelve a conectar la misma página, continúan donde iban. */
+  const CANAL_INBOX = {
+    ms: {
+      nombre: "Messenger",
+      endpoint: "/messenger/facebook/disconnect",
+      articulo: "la página",
+    },
+    ig: {
+      nombre: "Instagram",
+      endpoint: "/instagram/facebook/disconnect",
+      articulo: "la cuenta",
+    },
+  };
+  const handleDesconectarInbox = useCallback(async (config, canal) => {
+    const c = CANAL_INBOX[canal];
+    if (!c) return;
+    const ask = await Swal.fire({
+      title: `Desconectar ${c.nombre}`,
+      html: `<div style="text-align:left;font-size:14px;line-height:1.5">
+        <p>Dejarás de recibir y responder mensajes de ${c.nombre} en esta conexión.</p>
+        <p style="margin-top:8px"><b>Los chats no se borran:</b> siguen visibles en el chat como historial.</p>
+        <ul style="margin:8px 0 0 18px;padding:0">
+          <li>Si vuelves a conectar <b>${c.articulo} misma</b>, esas conversaciones continúan donde iban.</li>
+          <li>Si conectas <b>otra</b> ${c.articulo.replace("la ", "")}, los chats nuevos llegan aparte y los anteriores quedan solo como historial.</li>
+        </ul>
+      </div>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Desconectar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#ef4444",
+      reverseButtons: true,
+    });
+    if (!ask.isConfirmed) return;
+    try {
+      await chatApi.post(c.endpoint, { id_configuracion: config.id });
+      await fetchConfiguracionAutomatizada();
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: `${c.nombre} desconectado`,
+        showConfirmButton: false,
+        timer: 1800,
+      });
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "No se pudo desconectar.",
+        "error",
+      );
+    }
+    // Deps vacías por la misma razón que handleDesconectarMetaAds (TDZ).
+  }, []);
+
+  /* Aviso antes de (re)conectar un inbox cuando la conexión ya tuvo chats
+     por ese canal: que sepa que los anteriores siguen ahí y qué pasa según
+     conecte la misma página u otra. Devuelve false si cancela. */
+  const avisarChatsPrevios = async (config, canal) => {
+    const c = CANAL_INBOX[canal];
+    const tiene =
+      canal === "ms"
+        ? Number(config?.messenger_tiene_chats) === 1
+        : Number(config?.instagram_tiene_chats) === 1;
+    if (!c || !tiene) return true;
+    const ask = await Swal.fire({
+      title: `Esta conexión ya tuvo chats de ${c.nombre}`,
+      html: `<div style="text-align:left;font-size:14px;line-height:1.5">
+        <p>Las conversaciones anteriores de ${c.nombre} siguen en el chat.</p>
+        <ul style="margin:8px 0 0 18px;padding:0">
+          <li>Si conectas <b>${c.articulo} misma</b> de antes, esos chats continúan donde iban.</li>
+          <li>Si conectas <b>otra</b>, los chats nuevos llegan aparte y los anteriores quedan solo como historial (no se pueden responder).</li>
+        </ul>
+      </div>`,
+      icon: "info",
+      showCancelButton: true,
+      confirmButtonText: "Continuar",
+      cancelButtonText: "Cancelar",
+      reverseButtons: true,
+    });
+    return ask.isConfirmed;
+  };
+
   const [metaConnecting, setMetaConnecting] = useState(false);
   const [metaConnectText, setMetaConnectText] = useState(
     "Conectando con Meta…",
@@ -776,16 +963,12 @@ const Conexiones = () => {
       data = data.filter((c) => isConectado(c) === objetivo);
     }
     if (filtroPago) {
-      const okOpenai = (c) =>
-        c.openai_activo === undefined || c.openai_activo === null
-          ? true
-          : Number(c.openai_activo) === 1;
       if (filtroPago === "aldia") {
         data = data.filter(
-          (c) => Number(c.metodo_pago) === 1 && okOpenai(c),
+          (c) => Number(c.metodo_pago) === 1 && !problemaIA(c),
         );
       } else if (filtroPago === "openai") {
-        data = data.filter((c) => !okOpenai(c));
+        data = data.filter((c) => problemaIA(c) !== null);
       } else if (filtroPago === "meta") {
         data = data.filter((c) => Number(c.metodo_pago) !== 1);
       }
@@ -970,6 +1153,7 @@ const Conexiones = () => {
 
   const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
   const handleConectarFacebookInbox = async (config) => {
+    if (!(await avisarChatsPrevios(config, "ms"))) return;
     try {
       localStorage.setItem("id_configuracion_fb", String(config.id));
       setIdConfiguracionFB(String(config.id));
@@ -1141,6 +1325,7 @@ const Conexiones = () => {
 
   const IG_FBL_CONFIG_ID = "754174810774119";
   const handleConectarInstagramInbox = async (config) => {
+    if (!(await avisarChatsPrevios(config, "ig"))) return;
     try {
       localStorage.setItem("oauth_provider", "instagram");
       localStorage.setItem("id_configuracion_ig", String(config.id));
@@ -1495,7 +1680,7 @@ const Conexiones = () => {
               >
                 <option value="">Servicios: todos</option>
                 <option value="aldia">Servicios al día</option>
-                <option value="openai">OpenAI sin saldo</option>
+                <option value="openai">Problema con la IA</option>
                 <option value="meta">Pago en Meta Business con problema</option>
               </select>
               {/* Solo administradores: el back responde 403 a los demás. */}
@@ -1612,16 +1797,11 @@ const Conexiones = () => {
                   // "Pendiente", que sugiere que nunca se conectó.
                   const desconectada = yaVinculado && !conectado;
                   const pagoActivo = Number(config.metodo_pago) === 1;
-                  /* openai_activo=0: el motor detectó falta de saldo en la
-                     cuenta de OpenAI del cliente y el asistente está en
-                     pausa. Si el listado aún no trae el campo (deploy del
-                     back pendiente), se asume OK para no alarmar en falso. */
-                  const openaiOk =
-                    config.openai_activo === undefined ||
-                    config.openai_activo === null
-                      ? true
-                      : Number(config.openai_activo) === 1;
-                  const todoAlDia = pagoActivo && openaiOk;
+                  /* Qué le pasa a la IA (ver problemaIA): bot apagado por
+                     saldo o llave, o aviso de modelo/organización/último
+                     turno fallido. null = responde con normalidad. */
+                  const problema = problemaIA(config);
+                  const todoAlDia = pagoActivo && !problema;
                   const msgConectado = isMessengerConectado(config);
                   const igConectado = isInstagramConectado(config);
                   const yaSincronizo =
@@ -1715,10 +1895,11 @@ const Conexiones = () => {
                             )}
                             {/* Estado real de los servicios de ESTA conexión:
                                 un solo sello verde cuando todo funciona; si
-                                algo falla, sale el problema concreto (OpenAI
-                                sin saldo — openai_activo=0 — y/o el cobro de
-                                WhatsApp en Meta — error 131042). Nada de esto
-                                es el plan de la plataforma. */}
+                                algo falla, sale el problema concreto (la IA
+                                apagada por saldo o llave, un aviso de modelo
+                                u organización, el último turno fallido, y/o
+                                el cobro de WhatsApp en Meta — error 131042).
+                                Nada de esto es el plan de la plataforma. */}
                             {todoAlDia
                               ? pill(
                                   "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
@@ -1726,18 +1907,108 @@ const Conexiones = () => {
                                     <i className="bx bx-check-shield text-[13px]" />
                                     Servicios al día
                                   </>,
-                                  "Saldo de OpenAI y cobro de WhatsApp en Meta funcionando. Tu plan de la plataforma va aparte.",
+                                  "La IA responde y el cobro de WhatsApp en Meta funciona. Tu plan de la plataforma va aparte.",
                                 )
                               : (
                                   <>
-                                    {!openaiOk &&
+                                    {problema &&
                                       pill(
-                                        "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+                                        problema.bloqueante
+                                          ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                                          : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
                                         <>
-                                          <i className="bx bx-error-circle text-[13px]" />
-                                          OpenAI sin saldo
+                                          <i
+                                            className={`bx ${
+                                              problema.bloqueante
+                                                ? "bx-error"
+                                                : "bx-error-circle"
+                                            } text-[13px]`}
+                                          />
+                                          {problema.texto}
+                                          {problema.desde && (
+                                            <span className="font-normal opacity-75">
+                                              · {haceCuanto(problema.desde)}
+                                            </span>
+                                          )}
                                         </>,
-                                        "Tu cuenta de OpenAI se quedó sin saldo y el asistente está en pausa. Entra a la conexión para recargar y comprobar al instante.",
+                                        problema.detalle,
+                                      )}
+                                    {/* Acción según el problema: "Ya recargué"
+                                        comprueba contra OpenAI al instante;
+                                        llave u organización llevan a
+                                        Asistentes; modelo, a la configuración
+                                        del agente. El asesor de ventas no
+                                        tiene esas vistas. */}
+                                    {!rolVentas &&
+                                      problema?.accion === "reintentar" && (
+                                        <button
+                                          type="button"
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            const ok = await reintentarOpenAI(
+                                              config.id,
+                                            );
+                                            if (ok) {
+                                              setConfiguracionAutomatizada(
+                                                (prev) =>
+                                                  prev.map((c) =>
+                                                    c.id === config.id
+                                                      ? {
+                                                          ...c,
+                                                          openai_activo: 1,
+                                                          openai_error_codigo:
+                                                            null,
+                                                          openai_error_msg:
+                                                            null,
+                                                          openai_error_at:
+                                                            null,
+                                                        }
+                                                      : c,
+                                                  ),
+                                              );
+                                            }
+                                          }}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition"
+                                          title="Si ya recargaste, hacemos una llamada de prueba a tu cuenta de OpenAI ahora mismo."
+                                        >
+                                          <i className="bx bx-refresh text-[13px]" />
+                                          Ya recargué
+                                        </button>
+                                      )}
+                                    {!rolVentas &&
+                                      (problema?.accion === "asistentes" ||
+                                        problema?.accion === "agente") && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveConfig(config);
+                                            navigate(
+                                              problema.accion === "asistentes"
+                                                ? "/asistentes"
+                                                : "/configuracion_agente",
+                                            );
+                                          }}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200 hover:bg-indigo-100 transition"
+                                          title={
+                                            problema.accion === "asistentes"
+                                              ? "Ir a Asistentes AI de esta conexión"
+                                              : "Ir a la configuración del agente para cambiar el modelo de la columna"
+                                          }
+                                        >
+                                          <i
+                                            className={`bx ${
+                                              problema.accion === "asistentes"
+                                                ? "bx-key"
+                                                : "bx-cog"
+                                            } text-[13px]`}
+                                          />
+                                          {problema.accion === "agente"
+                                            ? "Cambiar modelo"
+                                            : problema.codigo === "KEY_INVALIDA"
+                                              ? "Cargar API Key"
+                                              : "Ver en Asistentes"}
+                                        </button>
                                       )}
                                     {!pagoActivo &&
                                       pill(
@@ -1892,14 +2163,15 @@ const Conexiones = () => {
                           label="Messenger"
                           brandColor="blue"
                           active={msgConectado}
+                          stateLabel={msgConectado ? "Desconectar" : "Conectar"}
                           title={
                             msgConectado
-                              ? "Inbox de Messenger conectado"
+                              ? `Messenger: ${config.messenger_page_name || "conectado"} (click para desconectar)`
                               : "Conectar Inbox de Messenger"
                           }
                           onClick={
                             msgConectado
-                              ? undefined
+                              ? () => handleDesconectarInbox(config, "ms")
                               : () => handleConectarFacebookInbox(config)
                           }
                         />
@@ -1908,14 +2180,15 @@ const Conexiones = () => {
                           label="Instagram"
                           brandColor="pink"
                           active={igConectado}
+                          stateLabel={igConectado ? "Desconectar" : "Conectar"}
                           title={
                             igConectado
-                              ? "Inbox de Instagram conectado"
+                              ? "Inbox de Instagram conectado (click para desconectar)"
                               : "Conectar Inbox de Instagram"
                           }
                           onClick={
                             igConectado
-                              ? undefined
+                              ? () => handleDesconectarInbox(config, "ig")
                               : () => handleConectarInstagramInbox(config)
                           }
                         />

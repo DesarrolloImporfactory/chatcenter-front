@@ -20,6 +20,7 @@ import "./AdministradorPlantillas2.css";
 import Swal from "sweetalert2";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
+import { authDelSocket, vigilarSesionDelSocket } from "../../utils/socketSesion";
 
 import SectionHeader from "../../components/canales/SectionHeader";
 import { ThWithTooltip } from "../../components/canales/Tooltip";
@@ -290,7 +291,9 @@ const AdministradorPlantillas2 = forwardRef(function AdministradorPlantillas2(
     const socket = io(import.meta.env.VITE_socket, {
       transports: ["websocket", "polling"],
       secure: true,
+      auth: authDelSocket(),
     });
+    vigilarSesionDelSocket(socket);
     socket.on("connect", () => {
       socketRef.current = socket;
       setIsSocketConnected(true);

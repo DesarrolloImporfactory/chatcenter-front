@@ -18,7 +18,7 @@ import PlanesView from "./pages/planes/PlanesView";
 import PlanesViewPrueba from "./pages/planes/PlanesViewPrueba";
 import MiPlan from "./pages/facturacion/Miplan";
 import MiPlanPrueba from "./pages/facturacion/MiplanPrueba";
-import LandingHome from "./pages/planes/LandingHome";
+import LandingHome from "./pages/landingHome/LandingHome";
 
 import ListaPlanes from "./pages/planes/listaPlanes";
 
@@ -463,12 +463,18 @@ function App() {
                 />
 
                 <Route
-                  path="/kanban_config"
+                  path="/configuracion_agente"
                   element={
                     <MainLayout>
                       <KanbanConfig />
                     </MainLayout>
                   }
+                />
+                {/* Ruta vieja: la vista pasó a llamarse "Configuración del
+                    agente" (2026-10-23). Se mantiene para enlaces guardados. */}
+                <Route
+                  path="/kanban_config"
+                  element={<Navigate to="/configuracion_agente" replace />}
                 />
 
                 <Route
