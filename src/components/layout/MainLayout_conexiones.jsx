@@ -407,6 +407,14 @@ function MainLayout({ children }) {
               />
             )}
 
+            {isSuperAdmin && (
+              <NavBtn
+                path="/administrador-app-movil"
+                icon="bx-mobile-alt"
+                label="App Android"
+              />
+            )}
+
             {/* Telefonía por saldo (Zadarma): solo super_administrador */}
             {isSuperAdmin && (
               <NavBtn

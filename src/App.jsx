@@ -26,6 +26,7 @@ import ListaPlanes from "./pages/planes/listaPlanes";
 import Productos from "./pages/productos/ProductosView";
 import CampaniasView from "./pages/campanias/CampaniasView";
 import AdminAvisosView from "./pages/adminAvisos/AdminAvisosView";
+import AdminMobileAppView from "./pages/adminMobileApp/AdminMobileAppView";
 import MiPerfilView from "./pages/miPerfil/MiPerfilView";
 import CatalogosView from "./pages/productos/CatalogosView";
 import CatalogoPublicoView from "./pages/productos/CatalogoPublicoView";
@@ -618,6 +619,15 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <AdminAvisosView />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                <Route
+                  path="/administrador-app-movil"
+                  element={
+                    <MainLayout_conexiones>
+                      <AdminMobileAppView />
                     </MainLayout_conexiones>
                   }
                 />
