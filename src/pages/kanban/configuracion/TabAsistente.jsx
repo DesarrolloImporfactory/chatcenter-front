@@ -142,7 +142,13 @@ const TabAsistente = ({
   // crea), así que ahí va el switch de "actualizar", no el de "crear".
   const esColumnaDropiPrincipal = !!columnas?.find((c) => c.id === columnaId)
     ?.es_dropi_principal;
-  const disparaGenerarGuia = tieneAccionGenerarGuia && !esColumnaDropiPrincipal;
+  // Si la principal también vende y ya tiene "crear" encendido, el switch se
+  // muestra para poder verlo y apagarlo (el bot decide por la orden real).
+  const tieneCrearOrden = (acciones || []).some(
+    (a) => a.tipo_accion === "crear_orden_dropi",
+  );
+  const disparaGenerarGuia =
+    tieneAccionGenerarGuia && (!esColumnaDropiPrincipal || tieneCrearOrden);
   // ── Chat de pruebas ──────────────────────────────────────
   const [showChat, setShowChat] = useState(false);
   // "Probar como cliente real": inyecta mensajes por el webhook de WhatsApp en
