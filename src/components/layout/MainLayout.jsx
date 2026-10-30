@@ -4,6 +4,7 @@ import Header from "../shared/Header";
 import { Footer } from "../shared/Footer";
 import chatApi from "../../api/chatcenter";
 import { CAMPANIAS_PILOTO } from "../../pages/campanias/CampaniasView";
+import { remarketingProductoHabilitado } from "../../pages/remarketingProducto/RemarketingProductoView";
 import { jwtDecode } from "jwt-decode";
 import useCasosAcceso from "../../hooks/useCasosAcceso";
 import io from "socket.io-client";
@@ -1033,6 +1034,7 @@ function MainLayout({ children }) {
                 onClick={() => toggleMenu("productos")}
                 className={`group flex items-center justify-between w-full px-5 py-4 text-left hover:bg-gray-100 ${
                   location.pathname === "/productos" ||
+                  location.pathname === "/remarketing" ||
                   location.pathname === "/categorias" ||
                   location.pathname === "/catalogos" ||
                   location.pathname === "/anuncios"
@@ -1056,7 +1058,7 @@ function MainLayout({ children }) {
               <div
                 className="overflow-hidden transition-all duration-[600ms] ease-out"
                 style={{
-                  maxHeight: openMenu === "productos" ? "320px" : "0px",
+                  maxHeight: openMenu === "productos" ? "360px" : "0px",
                 }}
               >
                 <div className="ml-10 flex flex-col py-2">
@@ -1093,6 +1095,22 @@ function MainLayout({ children }) {
                     <i className="bx bx-list-ul text-xl text-gray-600 group-hover:text-blue-600"></i>
                     <span>Listado</span>
                   </a>
+
+                  {/* Remarketing por producto (beta, cuentas piloto) */}
+                  {remarketingProductoHabilitado() && (
+                    <a
+                      href="/remarketing"
+                      onClick={(e) => handleNavClick(e, "/remarketing")}
+                      className={`group flex items-center gap-3 text-left px-4 py-2 hover:text-blue-600 ${
+                        location.pathname === "/remarketing"
+                          ? "font-semibold text-blue-600"
+                          : ""
+                      }`}
+                    >
+                      <i className="bx bx-repost text-xl text-gray-600 group-hover:text-blue-600"></i>
+                      <span>Remarketing</span>
+                    </a>
+                  )}
 
                   <a
                     href="/categorias"

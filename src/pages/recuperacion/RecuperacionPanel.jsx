@@ -24,6 +24,16 @@ import {
 
 const RESULTADO_LABEL = Object.fromEntries(RESULTADOS.map((r) => [r.value, r.label]));
 
+// ¿Se le registró un seguimiento hoy? Para que el asesor vea su jornada en la
+// misma lista (y el admin, el trabajo del día) sin ir a Resultados.
+const trabajadoHoy = (f) => {
+  const s = f.ultimo_seguimiento?.fecha;
+  if (!s) return false;
+  const d = new Date(s);
+  const hoy = new Date();
+  return d.getFullYear() === hoy.getFullYear() && d.getMonth() === hoy.getMonth() && d.getDate() === hoy.getDate();
+};
+
 const VISTAS = [
   { id: "embudo", label: "Embudo", icon: "bx-filter-alt" },
   { id: "agenda", label: "Agenda", icon: "bx-calendar-check" },
@@ -320,6 +330,7 @@ export default function RecuperacionPanel({ onSinPermiso }) {
   // Respondió a una automatización y nadie le registró seguimiento después:
   // es el cliente que ya levantó la mano, por ahí se empieza.
   const [soloRespondieron, setSoloRespondieron] = useState(false);
+  const [soloHoy, setSoloHoy] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [drawer, setDrawer] = useState(null); // id_usuario
   const [form, setForm] = useState(null); // fila
@@ -378,17 +389,18 @@ export default function RecuperacionPanel({ onSinPermiso }) {
       if (soloSinContacto && (f.ultimo_seguimiento || f.automatizacion)) return false;
       if (soloCompartido && !f.numero_compartido) return false;
       if (soloRespondieron && !respondioSinSeguimiento(f)) return false;
+      if (soloHoy && !trabajadoHoy(f)) return false;
       if (!q) return true;
       return [f.empresa, f.email, f.whatsapp, f.nombre_plan, f.caso?.asignado_a_nombre]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [data, cohorte, asignacion, soloSinContacto, soloCompartido, soloRespondieron, busqueda]);
+  }, [data, cohorte, asignacion, soloSinContacto, soloCompartido, soloRespondieron, soloHoy, busqueda]);
 
   // Solo un cambio de filtro vuelve a la primera página.
   useEffect(() => {
     setPagina(1);
-  }, [cohorte, asignacion, soloSinContacto, soloCompartido, soloRespondieron, busqueda]);
+  }, [cohorte, asignacion, soloSinContacto, soloCompartido, soloRespondieron, soloHoy, busqueda]);
 
   // Historial: el embudo solo lista casos ABIERTOS. Cuando el cliente ya se
   // fue (canceló, venció) desaparece de la lista y nadie sabía qué pasó con
@@ -818,6 +830,14 @@ export default function RecuperacionPanel({ onSinPermiso }) {
                   {data?.filas && (
                     <span className="text-emerald-600/70 font-normal">({data.filas.filter(respondioSinSeguimiento).length})</span>
                   )}
+                </label>
+                <label
+                  className="inline-flex items-center gap-1.5 text-xs text-cyan-800 font-semibold"
+                  title="Clientes a los que se les registró un seguimiento hoy. Con «Mis casos» ves tu jornada; el admin ve el trabajo del día."
+                >
+                  <input type="checkbox" checked={soloHoy} onChange={(e) => setSoloHoy(e.target.checked)} />
+                  Trabajados hoy
+                  {data?.filas && <span className="text-cyan-700/70 font-normal">({data.filas.filter(trabajadoHoy).length})</span>}
                 </label>
                 <input
                   value={busqueda}

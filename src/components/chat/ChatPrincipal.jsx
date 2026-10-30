@@ -1276,6 +1276,26 @@ const ChatPrincipal = ({
     setHide24hBanner(false);
   }, [selectedChat?.id, selectedChat?.source]);
 
+  /* Ventana gratuita por anuncio (Meta la llama "free entry point"): si el
+     cliente llegó por un anuncio de clic a WhatsApp, Meta no cobra lo que se
+     envíe durante hasta 72 h (dato que manda Meta en el webhook de estado y
+     se guarda en fep_expira_at). OJO: es una ventana de PRECIO, no de
+     permiso. Pasadas 24 h del último mensaje del cliente WhatsApp sigue
+     exigiendo plantilla; lo único que cambia es que esa plantilla sale
+     gratis. Por eso el aviso de 24 h se mantiene y solo se le suma la nota. */
+  const fepVigenteHasta = (() => {
+    if (selectedChat?.source !== "wa" || !Array.isArray(mensajesOrdenados))
+      return null;
+    let max = null;
+    for (const m of mensajesOrdenados) {
+      if (!m?.fep_expira_at) continue;
+      const t = new Date(m.fep_expira_at).getTime();
+      if (!Number.isNaN(t) && t > Date.now() && (max === null || t > max))
+        max = t;
+    }
+    return max ? new Date(max) : null;
+  })();
+
   const isMessenger = selectedChat?.source === "ms";
   const isInstagram = selectedChat?.source === "ig";
   const isWhatsApp = !isMessenger && !isInstagram;
@@ -3627,6 +3647,26 @@ const ChatPrincipal = ({
                           lista.
                         </p>
                       </div>
+
+                      {fepVigenteHasta ? (
+                        <p className="mt-2 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-800">
+                          <i className="bx bxl-meta align-middle" aria-hidden="true" />{" "}
+                          <b>Este chat llegó desde un anuncio:</b> la ventana gratuita de
+                          Meta sigue abierta hasta el{" "}
+                          <b>
+                            {fepVigenteHasta.toLocaleString("es-EC", {
+                              weekday: "short",
+                              day: "2-digit",
+                              month: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </b>
+                          , así que la plantilla que envíes ahora no se cobra. Eso no
+                          quita la regla de las 24 h: para escribir libre el cliente
+                          tiene que volver a responder.
+                        </p>
+                      ) : null}
 
                       <div className="mt-3 flex gap-2">
                         <button

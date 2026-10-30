@@ -748,7 +748,7 @@ const ProductosView = () => {
                     </th>
                     <SortTh k="fecha_creacion">Creado</SortTh>
                     <SortTh k="bot">Mensaje fijo</SortTh>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center">
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center sticky right-0 bg-slate-50 z-20 shadow-[inset_1px_0_0_#e2e8f0]">
                       Acciones
                     </th>
                   </tr>
@@ -793,7 +793,7 @@ const ProductosView = () => {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="font-semibold text-slate-800 text-sm truncate max-w-[240px]">
+                                <span className="font-semibold text-slate-800 text-sm truncate max-w-[160px] md:max-w-[240px] xl:max-w-[320px]">
                                   {p.nombre}
                                 </span>
                                 {Number(p.es_variable) === 1 && (
@@ -1052,7 +1052,7 @@ const ProductosView = () => {
                           )}
                         </td>
 
-                        <td className="px-4 py-3.5">
+                        <td className="px-4 py-3.5 sticky right-0 bg-white group-hover:bg-[#f5f6fd] shadow-[inset_1px_0_0_#e2e8f0]">
                           <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                             <button
                               onClick={() => abrirWizard(p)}
