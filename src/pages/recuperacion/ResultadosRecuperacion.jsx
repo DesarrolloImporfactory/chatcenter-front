@@ -16,7 +16,9 @@ import { ESTADO_CASO, COHORTE_UI, money, num, fmtFechaCorta, fmtFechaHora, inici
 
 const RESULTADO_LABEL = Object.fromEntries(RESULTADOS.map((r) => [r.value, r.label]));
 const MOTIVO_LABEL = Object.fromEntries(MOTIVOS_CANCELACION.map((m) => [m.value, m.label]));
-const PERIODOS = [7, 30, 60, 90];
+// 0 = hoy (desde las 00:00): lo que cada asesor registró en su jornada.
+const PERIODOS = [0, 7, 30, 60, 90];
+const labelPeriodo = (p) => (p === 0 ? "Hoy" : `Últimos ${p} días`);
 
 function Tarjeta({ label, value, hint, tono = "slate" }) {
   const t = {
@@ -71,7 +73,7 @@ export default function ResultadosRecuperacion({ onAbrirCliente }) {
               dias === p ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-100"
             }`}
           >
-            Últimos {p} días
+            {labelPeriodo(p)}
           </button>
         ))}
         {loading && <i className="bx bx-loader-alt bx-spin text-cyan-600 ml-2" />}
