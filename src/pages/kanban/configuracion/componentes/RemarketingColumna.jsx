@@ -283,7 +283,7 @@ const getDefaultPrompt = (secuenciaIdx) => {
   return PROMPTS_DEFAULT[n] || PROMPTS_DEFAULT[1];
 };
 
-const SECUENCIA_VACIA = () => ({
+const SECUENCIA_VACIA = (estado_destino = "") => ({
   tiempo_espera_minutos: 0,
   nombre_template: "",
   header_format: null,
@@ -292,7 +292,7 @@ const SECUENCIA_VACIA = () => ({
   metodo_dentro_24h: "ninguno",
   id_template_rapido: null,
   prompt_ia: "",
-  estado_destino: "",
+  estado_destino,
 });
 
 /* Detectar si una plantilla tiene variables {{N}} en HEADER o BODY */
@@ -1227,7 +1227,7 @@ const RemarketingColumna = ({
     let vigente = true;
 
     setConfigActiva(false);
-    setSecuencias([SECUENCIA_VACIA()]);
+    setSecuencias([SECUENCIA_VACIA(destinoPorDefecto())]);
 
     if (!id_configuracion || !estado_db) return undefined;
 
@@ -1363,12 +1363,45 @@ const RemarketingColumna = ({
     Toast.fire({ icon: "success", title: "Prompt restaurado" });
   };
 
+  /* Solo el ÚLTIMO seguimiento mueve de columna (los intermedios dejan al
+     cliente donde está para que, si responde, el flujo siga ahí). En Contacto
+     inicial el destino natural es Remarketing: si no se eligió otro, va
+     preseleccionado cuando la columna existe en el tablero. Antes el modal
+     pedía destino en cada seguimiento y la gente ponía Remarketing en todos
+     creyendo que cada uno movía: el flujo se rompía y nadie entendía por qué. */
+  const destinoPorDefecto = () =>
+    estado_db === "contacto_inicial" &&
+    columnas.some((c) => c.estado_db === "remarketing")
+      ? "remarketing"
+      : "";
+  const esNoMover = (d) => !d || d === estado_db;
+
   const agregarSecuencia = () => {
-    if (secuencias.length < 3) setSecuencias((p) => [...p, SECUENCIA_VACIA()]);
+    if (secuencias.length >= 3) return;
+    setSecuencias((p) => {
+      const ultimo = p[p.length - 1];
+      // El destino viaja al nuevo último; el anterior pasa a intermedio.
+      const destino = esNoMover(ultimo?.estado_destino)
+        ? destinoPorDefecto()
+        : ultimo.estado_destino;
+      return [
+        ...p.map((sq, i) => (i === p.length - 1 ? { ...sq, estado_destino: "" } : sq)),
+        SECUENCIA_VACIA(destino),
+      ];
+    });
   };
   const quitarSecuencia = (idx) => {
-    if (secuencias.length > 1)
-      setSecuencias((p) => p.filter((_, i) => i !== idx));
+    if (secuencias.length <= 1) return;
+    setSecuencias((p) => {
+      const eraUltimo = idx === p.length - 1;
+      const destinoUltimo = p[p.length - 1]?.estado_destino || "";
+      const resto = p.filter((_, i) => i !== idx);
+      // Si se quitó el último, su destino pasa al nuevo último.
+      if (eraUltimo && resto.length) {
+        resto[resto.length - 1] = { ...resto[resto.length - 1], estado_destino: destinoUltimo };
+      }
+      return resto;
+    });
   };
 
   const handleAbrir = async () => {
@@ -1432,9 +1465,18 @@ const RemarketingColumna = ({
             estado_destino: r.estado_destino || "",
           })),
         );
+        // El destino solo cuenta en el último seguimiento: si quedó vacío o en
+        // la misma columna (no mover) en Contacto inicial, se propone Remarketing.
+        setSecuencias((p) =>
+          p.map((sq, i) =>
+            i === p.length - 1 && esNoMover(sq.estado_destino)
+              ? { ...sq, estado_destino: destinoPorDefecto() }
+              : sq,
+          ),
+        );
         setConfigActiva(true);
       } else {
-        setSecuencias([SECUENCIA_VACIA()]);
+        setSecuencias([SECUENCIA_VACIA(destinoPorDefecto())]);
         setConfigActiva(false);
       }
     } catch {
@@ -1467,7 +1509,7 @@ const RemarketingColumna = ({
         estado_contacto: estado_db,
       });
       setConfigActiva(false);
-      setSecuencias([SECUENCIA_VACIA()]);
+      setSecuencias([SECUENCIA_VACIA(destinoPorDefecto())]);
       Toast.fire({ icon: "success", title: "Remarketing desactivado" });
       cerrarModal();
     } catch {
@@ -2899,7 +2941,23 @@ const RemarketingColumna = ({
                               </div>
                             )}
 
-                            {/* Estado destino */}
+                            {/* Estado destino: solo el último seguimiento mueve */}
+                            {idx !== secuencias.length - 1 ? (
+                              <div
+                                style={{
+                                  fontSize: ".74rem",
+                                  color: "#6b7280",
+                                  background: "#f9fafb",
+                                  border: "1px dashed #e5e7eb",
+                                  borderRadius: 8,
+                                  padding: "7px 10px",
+                                }}
+                              >
+                                📂 Después de este seguimiento el cliente se queda en{" "}
+                                <b>{nombreColumnaActual}</b>: así, si responde, el flujo sigue aquí.
+                                La columna de destino se elige en el último seguimiento.
+                              </div>
+                            ) : (
                             <div>
                               <div
                                 style={{
@@ -2909,16 +2967,10 @@ const RemarketingColumna = ({
                                   marginBottom: 6,
                                 }}
                               >
-                                📂 Mover a columna al enviar
-                                <span
-                                  style={{
-                                    fontWeight: 400,
-                                    color: "#9ca3af",
-                                    marginLeft: 4,
-                                  }}
-                                >
-                                  (opcional)
-                                </span>
+                                📂{" "}
+                                {secuencias.length > 1
+                                  ? `Si tampoco responde al seguimiento ${secuencias.length} (el último), mover a`
+                                  : "Si no responde, mover a"}
                               </div>
                               <select
                                 className="rm2-select"
@@ -2961,7 +3013,22 @@ const RemarketingColumna = ({
                                   </option>
                                 ))}
                               </select>
+                              {estado_db === "contacto_inicial" &&
+                              esNoMover(sec.estado_destino) &&
+                              columnas.some((c) => c.estado_db === "remarketing") ? (
+                                <div
+                                  style={{
+                                    marginTop: 6,
+                                    fontSize: ".72rem",
+                                    color: "#b45309",
+                                  }}
+                                >
+                                  Recomendado: mover a <b>Remarketing</b>. Si se queda en Contacto
+                                  inicial, el contacto que nunca respondió se mezcla con los nuevos.
+                                </div>
+                              ) : null}
                             </div>
+                            )}
                           </div>
                         </div>
                       </React.Fragment>
