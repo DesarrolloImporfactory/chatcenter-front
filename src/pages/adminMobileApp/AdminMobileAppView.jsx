@@ -96,7 +96,7 @@ const AdminMobileAppView = () => {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-300">
           Distribución Android
         </p>
-        <h1 className="mt-2 text-3xl font-extrabold">ChatCenter Mobile</h1>
+        <h1 className="mt-2 text-3xl font-extrabold">Imporchat Android</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
           Publica el APK firmado. Los teléfonos consultan esta versión al abrir
           la app y descargan el instalador desde el API.
