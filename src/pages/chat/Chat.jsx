@@ -2918,8 +2918,18 @@ const Chat = () => {
             Swal.close();
           }
 
-          // El panel abierto se queda con el encargado al día.
-          if (yaTieneDueno) {
+          const cambioDeDuenoAjeno =
+            yaTieneDueno &&
+            !esMio &&
+            String(selectedChat.id_encargado ?? "") !== String(encargadoId);
+
+          // Al tomar otra persona el chat abierto, se cierra también para
+          // administradores: ya no deben permanecer dentro de esa conversación.
+          if (cambioDeDuenoAjeno) {
+            if (Swal.isVisible()) Swal.close();
+            setSelectedChat(null);
+            setChatMessages([]);
+          } else if (yaTieneDueno) {
             setSelectedChat((prev) =>
               prev && String(prev.id) === String(msg.celular_recibe)
                 ? {
@@ -2933,14 +2943,6 @@ const Chat = () => {
             );
           }
 
-          /* Se cierra el chat abierto solo si ya no se puede atender. Antes
-             se comparaba contra el propio id, así que a un administrador se
-             le cerraba el panel apenas el chat pasaba a otro asesor. */
-          if (!puedoAtenderElChat(encargadoId)) {
-            if (Swal.isVisible()) Swal.close();
-            setSelectedChat(null);
-            setChatMessages([]);
-          }
         }
       }
     };
@@ -3464,6 +3466,12 @@ const Chat = () => {
       // (para el chat abierto a la derecha): no son lo mismo.
       const perteneceALista = esDeMiLista(encargadoId);
       const canSeeChat = puedoAtenderElChat(encargadoId);
+      const cambioDeDuenoAjeno =
+        selectedChat &&
+        String(selectedChat.id) === String(chatId) &&
+        encargadoId != null &&
+        String(encargadoId) !== String(id_sub_usuario_global) &&
+        String(selectedChat.id_encargado ?? "") !== String(encargadoId);
 
       // 1) IZQUIERDA
       setMensajesAcumulados((prevChats) => {
@@ -3562,7 +3570,7 @@ const Chat = () => {
       if (
         selectedChat &&
         String(selectedChat.id) === String(chatId) &&
-        !canSeeChat
+        (cambioDeDuenoAjeno || !canSeeChat)
       ) {
         if (Swal.isVisible()) Swal.close();
         setSelectedChat(null);
