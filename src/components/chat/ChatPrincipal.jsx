@@ -535,7 +535,7 @@ const ChatPrincipal = ({
   const ERROR_TUTORIAL = {
     131042: {
       etiqueta: "Mira cómo solucionarlo aquí",
-      url: "https://www.youtube.com/watch?v=_CzUpgnuXAU",
+      url: "https://youtu.be/hkbsf5eaSno",
     },
   };
 
