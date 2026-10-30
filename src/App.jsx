@@ -24,6 +24,7 @@ import ListaPlanes from "./pages/planes/listaPlanes";
 
 // Páginas de gestión
 import Productos from "./pages/productos/ProductosView";
+import RemarketingProductoView from "./pages/remarketingProducto/RemarketingProductoView";
 import CampaniasView from "./pages/campanias/CampaniasView";
 import AdminAvisosView from "./pages/adminAvisos/AdminAvisosView";
 import MiPerfilView from "./pages/miPerfil/MiPerfilView";
@@ -793,6 +794,17 @@ function App() {
                   element={
                     <MainLayout>
                       <Productos />
+                    </MainLayout>
+                  }
+                />
+
+                {/* Remarketing por producto (beta; piloto en
+                    REMARKETING_PRODUCTO_PILOTO). */}
+                <Route
+                  path="/remarketing"
+                  element={
+                    <MainLayout>
+                      <RemarketingProductoView />
                     </MainLayout>
                   }
                 />
