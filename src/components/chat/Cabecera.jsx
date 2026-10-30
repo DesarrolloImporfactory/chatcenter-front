@@ -66,6 +66,12 @@ const Cabecera = ({
   dataPlanes,
   toggleTagAssignment,
 }) => {
+  const chatCierreProtegido =
+    Number(id_configuracion) === 265 &&
+    String(selectedChat?.celular_cliente ?? '').replace(/\D/g, '') ===
+      '593984722561';
+  const puedeCerrarChatProtegido =
+    Number(userData?.id_sub_usuario) === 274;
   const [estadosKanban, setEstadosKanban] = useState([]);
   const [loadingEstado, setLoadingEstado] = useState(false);
   const [estadoDropdownOpen, setEstadoDropdownOpen] = useState(false);
@@ -2325,32 +2331,46 @@ const Cabecera = ({
 
                       <hr className="my-1.5 border-slate-200/70" />
 
-                      <button
-                        role="menuitem"
-                        onClick={() =>
-                          handleChangeChatStatus(
-                            selectedChat.chat_cerrado === 0 ? 1 : 0,
-                          )
-                        }
-                        className={`${ITEM_MENU} ${
-                          selectedChat.chat_cerrado === 0
-                            ? "text-red-700 hover:bg-red-50"
-                            : "text-emerald-700 hover:bg-emerald-50"
-                        }`}
-                      >
-                        <i
-                          className={`bx bx-power-off text-[17px] ${
+                      {chatCierreProtegido &&
+                        !puedeCerrarChatProtegido &&
+                        selectedChat.chat_cerrado === 0 && (
+                          <p
+                            role="note"
+                            className="px-2.5 py-2 text-xs text-slate-500"
+                          >
+                            Solo Imporfactorypro puede cerrar este chat.
+                          </p>
+                        )}
+                      {(!chatCierreProtegido ||
+                        puedeCerrarChatProtegido ||
+                        selectedChat.chat_cerrado !== 0) && (
+                        <button
+                          role="menuitem"
+                          onClick={() =>
+                            handleChangeChatStatus(
+                              selectedChat.chat_cerrado === 0 ? 1 : 0,
+                            )
+                          }
+                          className={`${ITEM_MENU} ${
                             selectedChat.chat_cerrado === 0
-                              ? "text-red-500"
-                              : "text-emerald-600"
+                              ? "text-red-700 hover:bg-red-50"
+                              : "text-emerald-700 hover:bg-emerald-50"
                           }`}
-                        />
-                        <span className="flex-1 truncate">
-                          {selectedChat.chat_cerrado === 0
-                            ? "Cerrar chat"
-                            : "Abrir chat"}
-                        </span>
-                      </button>
+                        >
+                          <i
+                            className={`bx bx-power-off text-[17px] ${
+                              selectedChat.chat_cerrado === 0
+                                ? "text-red-500"
+                                : "text-emerald-600"
+                            }`}
+                          />
+                          <span className="flex-1 truncate">
+                            {selectedChat.chat_cerrado === 0
+                              ? "Cerrar chat"
+                              : "Abrir chat"}
+                          </span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
