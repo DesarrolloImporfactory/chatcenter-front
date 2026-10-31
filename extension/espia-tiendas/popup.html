@@ -2,22 +2,38 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Espía de tiendas IMPORCHAT</title>
+  <title>Espía de mercado IMPORCHAT</title>
   <style>
-    body { width: 300px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, sans-serif; background: #0b1f3a; color: #fff; }
+    body { width: 320px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, sans-serif; background: #0b1f3a; color: #fff; }
     h1 { font-size: 15px; margin: 0 0 10px; color: #00d4ff; }
+    h2 { font-size: 11px; margin: 14px 0 4px; color: #9fb7d6; text-transform: uppercase; letter-spacing: .08em; }
     .fila { display: flex; justify-content: space-between; gap: 8px; margin: 6px 0; }
     .ok { color: #8cffb0; } .err { color: #ff8c8c; } .suave { color: #9fb7d6; }
     a, button { display: block; width: 100%; box-sizing: border-box; text-align: center; margin-top: 8px; padding: 8px; border-radius: 8px; border: 0; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; }
     a.acento { background: #00d4ff; color: #0b1f3a; }
     button { background: #1f3f6b; color: #fff; }
+    button:disabled { opacity: .5; cursor: default; }
+    .herr { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .herr button { margin: 0; padding: 8px 4px; font-size: 12px; background: #132b4d; }
+    #herrMsg { min-height: 16px; font-size: 11px; margin-top: 6px; }
+    #pagina { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
 </head>
 <body>
-  <h1>Espía de tiendas</h1>
+  <h1>Espía de mercado</h1>
   <div class="fila"><span>Sesión IMPORCHAT</span><span id="sesion" class="suave">comprobando…</span></div>
   <div class="fila"><span>Anuncios enviados hoy</span><span id="hoy">0</span></div>
   <div class="fila suave" id="origen"></div>
+
+  <h2>Herramientas de la página abierta</h2>
+  <div id="pagina" class="suave">—</div>
+  <div class="herr">
+    <button id="desbloquear" title="Reactiva clic derecho, copiar y seleccionar en tiendas que lo bloquean">Clic derecho</button>
+    <button id="multimedia" title="Baja todas las imágenes y videos grandes de la página a Descargas/Espia">Bajar multimedia</button>
+    <button id="celular" title="Abre esta página en una ventana angosta, como en el celular">Ver en celular</button>
+  </div>
+  <div id="herrMsg" class="suave"></div>
+
   <a id="pantalla" class="acento" href="#" target="_blank" rel="noopener">Abrir Espía de mercado</a>
   <a id="biblioteca" href="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=EC&media_type=all" target="_blank" rel="noopener">Abrir Biblioteca de anuncios</a>
   <button id="opciones">Opciones</button>
