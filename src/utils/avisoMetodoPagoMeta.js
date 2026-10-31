@@ -18,7 +18,7 @@ import chatApi from "../api/chatcenter";
    pasa solo en el webhook y al cargar el chat; "ya lo corregí" pide la
    comprobación al instante, sin esperar al siguiente mensaje. */
 
-const TUTORIAL_METODO_PAGO = "https://www.youtube.com/watch?v=_CzUpgnuXAU";
+const TUTORIAL_METODO_PAGO = "https://youtu.be/hkbsf5eaSno";
 
 const TITULOS_FALLO = {
   bloqueado: "Meta todavía no lo refleja",

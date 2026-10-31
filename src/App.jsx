@@ -45,6 +45,7 @@ import TutorialesView from "./pages/tutoriales/TutorialesView";
 import Departamentos from "./pages/departamentos/DepartamentosView";
 import AdministradorPlantillas2 from "./pages/admintemplates/AdministradorPlantillas2";
 import TelefoniaAdmin from "./pages/telefonia/TelefoniaAdmin";
+import EspiaMercadoView from "./pages/espiaMercado/EspiaMercadoView";
 import AdministradorCanales from "./pages/administradorcanales/AdministradorCanales";
 import Comentarios from "./pages/comentarios/Comentarios";
 import AsistenteComentarios from "./pages/comentarios/AsistenteComentarios";
@@ -675,6 +676,17 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <TelefoniaAdmin />
+                    </MainLayout_conexiones>
+                  }
+                />
+                {/* Espía de mercado (Dropkiller propio): ventas de Dropi,
+                    anuncios y tiendas pautando en EC y MX. Solo super
+                    administrador (el back lo exige en cada endpoint). */}
+                <Route
+                  path="/espia-mercado"
+                  element={
+                    <MainLayout_conexiones>
+                      <EspiaMercadoView />
                     </MainLayout_conexiones>
                   }
                 />

@@ -459,6 +459,15 @@ function MainLayout({ children }) {
               />
             )}
 
+            {/* Espía de mercado (Dropkiller propio): solo super_administrador */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/espia-mercado"
+                icon="bx-radar"
+                label="Espía de mercado"
+              />
+            )}
+
             {/* Departamentos: solo el administrador de la cuenta */}
             {esAdministrador && (
               <NavBtn
