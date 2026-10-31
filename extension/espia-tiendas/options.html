@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Opciones · Espía de tiendas IMPORCHAT</title>
+  <style>
+    body { max-width: 560px; margin: 30px auto; padding: 0 16px; font: 14px/1.5 system-ui, sans-serif; color: #0b1f3a; }
+    h1 { color: #0b1f3a; } h1 b { color: #00a7c9; }
+    label { display: block; font-weight: 700; margin-top: 16px; }
+    input, select { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #c7d3e3; border-radius: 8px; font: inherit; margin-top: 4px; }
+    button { margin-top: 12px; margin-right: 8px; padding: 8px 14px; border: 0; border-radius: 8px; background: #0b1f3a; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+    button.acento { background: #00d4ff; color: #0b1f3a; }
+    .estado { margin-top: 14px; padding: 10px; border-radius: 8px; background: #eef4fb; }
+    .ok { color: #0a7a3c; } .err { color: #b00020; }
+    small { color: #5a6b85; }
+  </style>
+</head>
+<body>
+  <h1>Espía de tiendas <b>IMPORCHAT</b></h1>
+  <p>La extensión usa la sesión de IMPORCHAT que ya tengas abierta en este Chrome. Si no la toma sola, pega aquí el token.</p>
+
+  <label for="preset">Backend de IMPORCHAT</label>
+  <select id="preset">
+    <option value="https://chatcenter.imporfactory.app/api/v1">Producción (chatcenter.imporfactory.app)</option>
+    <option value="https://developer.imporfactory.app/api/v1">Desarrollo (developer.imporfactory.app)</option>
+    <option value="http://localhost:3001/api/v1">Local (localhost:3001)</option>
+    <option value="otro">Otra URL…</option>
+  </select>
+  <input id="apiBase" type="url" placeholder="https://servidor/api/v1" />
+  <small>Es la URL base de la API (termina en /api/v1). La pantalla web se abre desde el origen de la sesión.</small>
+
+  <label for="token">Token (opcional, solo si no se tomó solo)</label>
+  <input id="token" type="password" placeholder="pega aquí el token de localStorage de IMPORCHAT" autocomplete="off" />
+
+  <div>
+    <button id="guardar" class="acento">Guardar</button>
+    <button id="probar">Probar sesión</button>
+    <button id="salir">Olvidar sesión</button>
+  </div>
+  <div class="estado" id="estado">—</div>
+  <script src="options.js"></script>
+</body>
+</html>
