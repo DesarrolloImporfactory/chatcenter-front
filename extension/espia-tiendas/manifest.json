@@ -1,12 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Espía de tiendas IMPORCHAT",
-  "version": "0.2.0",
-  "description": "Agrupa por producto los anuncios de una tienda en la Biblioteca de anuncios de Meta, los baja a una carpeta y los manda a IMPORCHAT.",
-  "permissions": ["downloads", "storage"],
+  "name": "Espía de mercado IMPORCHAT",
+  "version": "0.4.3",
+  "description": "Ventas estimadas debajo de cada producto de Dropi, y los anuncios de una tienda en la Biblioteca de anuncios de Meta agrupados por producto, descargables y enviados a IMPORCHAT.",
+  "permissions": ["downloads", "storage", "activeTab", "scripting", "tabs"],
   "host_permissions": [
     "https://www.facebook.com/ads/library/*",
     "https://*.fbcdn.net/*",
+    "https://app.dropi.ec/*",
+    "https://app.dropi.mx/*",
     "https://*.imporfactory.app/*",
     "https://*.imporsuit.ec/*",
     "https://*.imporsuitpro.com/*",
@@ -19,7 +21,7 @@
     "128": "icons/128.png"
   },
   "action": {
-    "default_title": "Espía de tiendas IMPORCHAT",
+    "default_title": "Espía de mercado IMPORCHAT",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/16.png",
@@ -30,6 +32,18 @@
   "options_page": "options.html",
   "background": { "service_worker": "bg.js" },
   "content_scripts": [
+    {
+      "matches": ["https://app.dropi.ec/*", "https://app.dropi.mx/*"],
+      "js": ["dropi-captura.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://app.dropi.ec/*", "https://app.dropi.mx/*"],
+      "js": ["dropi.js"],
+      "css": ["dropi.css"],
+      "run_at": "document_idle"
+    },
     {
       "matches": ["https://www.facebook.com/ads/library/*"],
       "js": ["captura.js"],
