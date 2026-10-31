@@ -689,7 +689,7 @@
   rUi.empezar.addEventListener('click', async () => {
     const previo = await leerRadar();
     if (previo?.activo && previo.pausado) {
-      previo.pausado = false; previo.error = ''; previo.fallos = 0;
+      previo.pausado = false; previo.error = ''; previo.fallos = 0; previo.descansos = 0; previo.descansoHasta = 0;
       await guardarRadar(previo);
       pintarRadar(previo);
       radarContinuar();
@@ -745,6 +745,17 @@
     if (!radar?.activo || radar.pausado) return;
     const actual = radar.cola[radar.idx];
     if (!actual) { radar.activo = false; await guardarRadar(radar); pintarRadar(radar); return; }
+    if (radar.descansoHasta && radar.descansoHasta > Date.now()) {
+      // La pestaña se recargó en medio de un descanso: se respeta lo que falta.
+      decir(`Radar descansando hasta las ${new Date(radar.descansoHasta).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`);
+      await esperar(radar.descansoHasta - Date.now());
+      const sigue = await leerRadar();
+      if (!sigue?.activo || sigue.pausado) { pintarRadar(sigue); return; }
+      sigue.descansoHasta = 0; sigue.error = '';
+      await guardarRadar(sigue);
+      location.assign(urlRadar(sigue.pais, sigue.cola[sigue.idx].termino));
+      return;
+    }
     const q = new URLSearchParams(location.search).get('q') || '';
     if (norm(q) !== norm(actual.termino) || paisDeUrl() !== radar.pais) { location.assign(urlRadar(radar.pais, actual.termino)); return; }
 
@@ -780,18 +791,38 @@
     if (!ok) {
       radar.fallos = (radar.fallos || 0) + 1;
       if (radar.fallos >= 3) {
-        // Tres productos seguidos sin respuesta: Meta no está mostrando resultados o pide verificación.
-        // Se pausa y se avisa; nunca se intenta saltar un bloqueo. Reanudar es decisión de la persona.
-        radar.pausado = true;
-        radar.error = 'Meta dejó de responder tres veces seguidas (puede estar pidiendo verificación o limitando búsquedas). Radar en pausa: revisa la página y pulsa Reanudar.';
+        // Tres productos seguidos sin respuesta: Meta limita las búsquedas (el 31-10 aguantó ~60 seguidas).
+        // Descansa 10 min y sigue solo; al tercer descanso sin avanzar se pausa de verdad y avisa.
+        // Nunca se intenta saltar una verificación: si Meta la pide, la resuelve la persona.
+        radar.fallos = 0;
+        radar.descansos = (radar.descansos || 0) + 1;
+        if (radar.descansos >= 3) {
+          radar.pausado = true;
+          radar.error = 'Meta sigue sin responder después de tres descansos. Radar en pausa: revisa la pestaña (puede pedir verificación) y pulsa Reanudar.';
+          await guardarRadar(radar);
+          pintarRadar(radar);
+          radarPanel.classList.add('ei-abierto');
+          decir('Radar en pausa: Meta no respondió', 'err');
+          return;
+        }
+        radar.descansoHasta = Date.now() + 10 * 60 * 1000;
+        radar.error = `Meta limitó las búsquedas. El radar descansa 10 minutos y sigue solo (${new Date(radar.descansoHasta).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}).`;
         await guardarRadar(radar);
         pintarRadar(radar);
-        radarPanel.classList.add('ei-abierto');
-        decir('Radar en pausa: Meta no respondió', 'err');
+        decir('Radar descansando 10 min por límite de Meta', 'err');
+        await esperar(radar.descansoHasta - Date.now());
+        const sigue = await leerRadar();
+        if (!sigue?.activo || sigue.pausado) { pintarRadar(sigue); return; }
+        sigue.error = '';
+        sigue.descansoHasta = 0;
+        await guardarRadar(sigue);
+        location.assign(urlRadar(sigue.pais, sigue.cola[sigue.idx].termino));
         return;
       }
     } else {
       radar.fallos = 0;
+      radar.descansos = 0;
+      radar.error = '';
       radar.hecho += 1;
     }
     radar.idx += 1;
