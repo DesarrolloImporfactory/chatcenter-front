@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import chatApi from "../../api/chatcenter";
-import { Estilos, FONDO, CYAN, BotonPrimario, SelloMeta } from "../landingHome/ui";
+import { Estilos, SelloMeta } from "../landingHome/ui";
 import { LOGO_BLANCO } from "../landingHome/data";
+import { temaDe } from "./tema";
 
 /* ═══════════════════════════════════════════════════════════════════════
    /agendar — agenda pública de implementación (reemplaza a Calendly).
@@ -117,6 +118,59 @@ const PASOS = [
   { n: 3, label: "Tus datos", icon: "bx-user" },
 ];
 
+/* Apariencia por negocio (fondo y acento de tema.js). La página está escrita
+   con las clases oscuras de la landing (text-white, bg-white/10, cyan-300…);
+   en vez de reescribir cada una, estas reglas las redirigen a las variables
+   --agp-* del tema: con el azul y el cyan de siempre se ve igual que antes,
+   y con un fondo claro los grises se invierten para que el texto se lea.
+   Todo cuelga de .agp para no tocar el resto de la app. */
+const EstilosTema = () => (
+  <style>{`
+    .agp { background: var(--agp-fondo); color: var(--agp-tinta); }
+    .agp .text-white { color: var(--agp-tinta); }
+    .agp .text-slate-300 { color: var(--agp-tinta-2); }
+    .agp .text-slate-400 { color: var(--agp-tinta-3); }
+    .agp .text-slate-500, .agp .placeholder\\:text-slate-500::placeholder { color: var(--agp-tinta-4); }
+    .agp .text-slate-600 { color: var(--agp-tinta-5); }
+    .agp .bg-white\\/10, .agp .bg-white\\/\\[0\\.08\\], .agp .focus\\:bg-white\\/\\[0\\.08\\]:focus { background-color: rgba(var(--agp-velo), 0.08); }
+    .agp .bg-white\\/\\[0\\.05\\], .agp .bg-white\\/\\[0\\.06\\] { background-color: rgba(var(--agp-velo), 0.05); }
+    .agp .hover\\:bg-white\\/10:hover, .agp .hover\\:bg-white\\/15:hover { background-color: rgba(var(--agp-velo), 0.13); }
+    .agp .ring-white\\/10 { --tw-ring-color: rgba(var(--agp-velo), 0.1); }
+    .agp .ring-white\\/15 { --tw-ring-color: rgba(var(--agp-velo), 0.16); }
+    .agp .ring-white { --tw-ring-color: var(--agp-tinta); }
+    .agp .border-white\\/10 { border-color: rgba(var(--agp-velo), 0.12); }
+    .agp .bg-white { background-color: var(--agp-tinta); }
+    .agp .hover\\:bg-slate-100:hover { background-color: color-mix(in srgb, var(--agp-tinta) 88%, var(--agp-fondo)); }
+    .agp .text-\\[\\#0B1426\\] { color: var(--agp-sobre-tinta); }
+    .agp .bg-\\[\\#0B1426\\] { background-color: var(--agp-sobre-tinta); }
+    .agp .text-cyan-300, .agp .text-sky-300 { color: var(--agp-acento); }
+    .agp .text-cyan-200, .agp .text-cyan-100 { color: color-mix(in srgb, var(--agp-acento) 72%, var(--agp-tinta)); }
+    .agp .bg-cyan-300 { background-color: var(--agp-acento); }
+    .agp .text-\\[\\#06111f\\] { color: var(--agp-sobre-acento); }
+    .agp .bg-cyan-300\\/12, .agp .bg-cyan-300\\/15, .agp .bg-cyan-300\\/20 { background-color: color-mix(in srgb, var(--agp-acento) 15%, transparent); }
+    .agp .hover\\:bg-cyan-300\\/20:hover, .agp .hover\\:bg-cyan-300\\/25:hover { background-color: color-mix(in srgb, var(--agp-acento) 26%, transparent); }
+    .agp .bg-cyan-300\\/50 { background-color: color-mix(in srgb, var(--agp-acento) 50%, transparent); }
+    .agp .ring-cyan-300\\/30, .agp .ring-cyan-300\\/35 { --tw-ring-color: color-mix(in srgb, var(--agp-acento) 38%, transparent); }
+    .agp .hover\\:ring-cyan-300\\/50:hover { --tw-ring-color: color-mix(in srgb, var(--agp-acento) 55%, transparent); }
+    .agp .ring-cyan-200, .agp .hover\\:ring-cyan-200:hover { --tw-ring-color: var(--agp-acento); }
+    .agp .focus\\:border-cyan-300\\/60:focus { border-color: color-mix(in srgb, var(--agp-acento) 60%, transparent); }
+    .agp option { background-color: var(--agp-tarjeta); color: var(--agp-tinta); }
+    .agp .agp-tarjeta { background: radial-gradient(110% 80% at 0% 0%, color-mix(in srgb, var(--agp-acento) 20%, transparent) 0%, transparent 55%), var(--agp-tarjeta); }
+    .agp .agp-tarjeta-ok { background: radial-gradient(90% 70% at 50% 0%, rgba(37,211,102,0.16) 0%, transparent 60%), var(--agp-tarjeta); }
+    .agp.claro .agp-tarjeta, .agp.claro .agp-tarjeta-ok { box-shadow: 0 18px 50px rgba(15,23,42,0.08); }
+    .agp .agp-degradado { background-image: linear-gradient(90deg, #25D366 0%, var(--agp-acento) 100%); }
+    .agp.claro .agp-degradado { background-image: linear-gradient(90deg, #15803d 0%, color-mix(in srgb, var(--agp-acento) 80%, #0f172a) 100%); }
+    .agp .agp-boton {
+      color: var(--agp-sobre-acento);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--agp-acento) 72%, #ffffff), var(--agp-acento) 55%, color-mix(in srgb, var(--agp-acento) 78%, #000000));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--agp-acento) 35%, transparent), 0 12px 40px color-mix(in srgb, var(--agp-acento) 32%, transparent);
+    }
+    .agp.claro .text-emerald-200 { color: #047857; }
+    .agp.claro .text-emerald-300 { color: #059669; }
+    .agp.claro .text-rose-200, .agp.claro .text-rose-300 { color: #be123c; }
+  `}</style>
+);
+
 export default function AgendarPublico() {
   const [params] = useSearchParams();
   const { slug } = useParams();
@@ -171,6 +225,7 @@ export default function AgendarPublico() {
      de un negocio que comparte su enlace: cambia el texto, no el flujo. */
   const principal = info ? info.principal !== false : !slug;
   const negocio = info?.negocio || "";
+  const tema = useMemo(() => temaDe(info || {}), [info]);
 
   useEffect(() => {
     document.title = principal
@@ -312,8 +367,9 @@ export default function AgendarPublico() {
       ];
 
   return (
-    <div className="min-h-screen overflow-x-hidden antialiased text-white" style={{ background: FONDO }}>
+    <div className={`agp min-h-screen overflow-x-hidden antialiased text-white ${tema.claro ? "claro" : ""}`} style={tema.vars}>
       <Estilos />
+      <EstilosTema />
 
       {previa && (
         <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-cyan-300 px-4 py-2 text-center text-[12.5px] font-bold text-[#06111f]">
@@ -335,7 +391,15 @@ export default function AgendarPublico() {
             <span className="text-[15px] font-bold">{negocio || "Agenda"}</span>
           </div>
         )}
-        <SelloMeta compacto />
+        {/* La principal lleva el sello de Meta de ImporChat; cada negocio pone
+            su propia insignia desde el panel (o ninguna). */}
+        {principal ? (
+          <SelloMeta compacto />
+        ) : info?.insignia ? (
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold ring-1 ring-white/15">
+            <i className="bx bxs-badge-check text-[15px] text-cyan-300" /> {info.insignia}
+          </span>
+        ) : null}
       </header>
 
       <main className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
@@ -357,7 +421,7 @@ export default function AgendarPublico() {
                   {principal ? (
                     <h1 className="mt-5 text-[34px] font-extrabold leading-[1.05] tracking-tight sm:text-[42px]">
                       {origen === "home" ? "Agenda tu demo" : "Agenda tu implementación"}
-                      <span className="block bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(90deg, #25D366 0%, ${CYAN} 100%)` }}>
+                      <span className="agp-degradado block bg-clip-text text-transparent">
                         con un especialista.
                       </span>
                     </h1>
@@ -365,7 +429,7 @@ export default function AgendarPublico() {
                     <h1 className="mt-5 text-[34px] font-extrabold leading-[1.05] tracking-tight sm:text-[42px]">
                       {info?.titulo || "Agenda tu cita"}
                       {negocio && (
-                        <span className="block bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(90deg, #25D366 0%, ${CYAN} 100%)` }}>
+                        <span className="agp-degradado block bg-clip-text text-transparent">
                           con {negocio}.
                         </span>
                       )}
@@ -417,13 +481,7 @@ export default function AgendarPublico() {
                 </section>
 
                 {/* ─── Derecha: agenda por pasos ─── */}
-                <section
-                  className="rounded-[26px] p-5 ring-1 ring-white/10 sm:p-7"
-                  style={{
-                    background:
-                      "radial-gradient(110% 80% at 0% 0%, rgba(14,165,233,0.22) 0%, rgba(11,20,38,0) 55%), linear-gradient(180deg, #0B1426 0%, #0a1222 100%)",
-                  }}
-                >
+                <section className="agp-tarjeta rounded-[26px] p-5 ring-1 ring-white/10 sm:p-7">
                   {cargando ? (
                     <div className="py-24 text-center text-slate-400">
                       <i className="bx bx-loader-alt bx-spin text-3xl text-cyan-300" />
@@ -641,11 +699,11 @@ export default function AgendarPublico() {
                                     className="w-[150px] shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 text-[14px] text-white outline-none transition focus:border-cyan-300/60"
                                     value={form.cc}
                                     onChange={set("cc")}
-                                    style={{ colorScheme: "dark" }}
+                                    style={{ colorScheme: tema.claro ? "light" : "dark" }}
                                     aria-label="Código de país"
                                   >
                                     {PAISES.map((p) => (
-                                      <option key={p.code} value={p.code} className="bg-[#0B1426]">
+                                      <option key={p.code} value={p.code}>
                                         {p.name} {p.code}
                                       </option>
                                     ))}
@@ -671,9 +729,14 @@ export default function AgendarPublico() {
                             )}
 
                             <div className="mt-5">
-                              <BotonPrimario className="w-full uppercase tracking-[0.08em]" onClick={() => {}}>
+                              <button
+                                type="submit"
+                                disabled={enviando}
+                                className="agp-boton group relative inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-bold uppercase tracking-[0.08em] transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-70"
+                              >
                                 {previa ? "Vista previa (no reserva)" : enviando ? "Reservando…" : principal ? "Confirmar reunión" : "Confirmar cita"}
-                              </BotonPrimario>
+                                <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                              </button>
                               <p className="mt-3 text-center text-[12px] text-slate-500">
                                 {principal ? "Sin costo. " : ""}Si necesitas cambiar la hora, responde el mensaje de confirmación y lo reprogramamos.
                               </p>
@@ -709,11 +772,7 @@ function Confirmacion({ cita, repetida, email, enlaceCalendario, negocio }) {
     <motion.section
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mx-auto max-w-2xl rounded-[26px] p-7 text-center ring-1 ring-white/10 sm:p-10"
-      style={{
-        background:
-          "radial-gradient(90% 70% at 50% 0%, rgba(37,211,102,0.18) 0%, rgba(11,20,38,0) 60%), linear-gradient(180deg, #0B1426 0%, #0a1222 100%)",
-      }}
+      className="agp-tarjeta-ok mx-auto max-w-2xl rounded-[26px] p-7 text-center ring-1 ring-white/10 sm:p-10"
     >
       <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/40">
         <i className="bx bx-check text-4xl text-emerald-300" />
