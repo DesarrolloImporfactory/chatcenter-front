@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Swal from "sweetalert2";
 import { toast } from "react-hot-toast";
 import chatApi from "../../api/chatcenter";
+import { temaDe, esColor, FONDO_INICIAL, ACENTO_INICIAL } from "../agendar/tema";
 
 /**
  * PanelAgendaPublica — configuración de la agenda pública de una cuenta.
@@ -80,6 +81,112 @@ const btnLight =
 const Etiqueta = ({ children }) => (
   <span className="mb-1 block text-[12.5px] font-semibold text-slate-600">{children}</span>
 );
+
+/* Fondos y acentos sugeridos en «Apariencia»; el primero de cada lista es el
+   de ImporChat (lo que sale si no eligen nada). */
+const FONDOS_SUGERIDOS = [FONDO_INICIAL, "#0f172a", "#052e16", "#1e1b4b", "#3b0a1a", "#111111", "#ffffff", "#f1f5f9", "#fef3c7", "#ecfdf5"];
+const ACENTOS_SUGERIDOS = [ACENTO_INICIAL, "#25D366", "#2563eb", "#8b5cf6", "#ec4899", "#f97316", "#facc15", "#14b8a6"];
+
+/* Selector de color: cuadro que abre el picker del navegador, hexadecimal a
+   mano, sugerencias y «Restablecer» (vuelve al color de ImporChat). */
+const ColorCampo = ({ label, hint, valor, porDefecto, sugeridos, disabled, onChange }) => {
+  const actual = esColor(valor) ? valor : porDefecto;
+  return (
+    <div>
+      <Etiqueta>{label}</Etiqueta>
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          className={`relative h-9 w-9 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-300 ${disabled ? "opacity-60" : "cursor-pointer"}`}
+          style={{ background: actual }}
+          title="Elegir color"
+        >
+          <input type="color" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={actual} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+        </label>
+        <input
+          className={`${inputCls} w-28 font-mono uppercase`}
+          value={valor || ""}
+          placeholder={porDefecto}
+          maxLength={7}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label={`${label} en hexadecimal`}
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {sugeridos.map((c) => (
+            <button
+              key={c}
+              type="button"
+              disabled={disabled}
+              title={c}
+              onClick={() => onChange(c === porDefecto ? "" : c)}
+              className={`h-6 w-6 rounded-full ring-2 ring-offset-1 transition ${actual.toLowerCase() === c.toLowerCase() ? "ring-sky-500" : "ring-transparent hover:ring-slate-300"}`}
+              style={{ background: c, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.12)" }}
+            />
+          ))}
+        </div>
+        {valor && !disabled && (
+          <button type="button" onClick={() => onChange("")} className="text-[12px] font-semibold text-slate-500 hover:text-slate-800">
+            Restablecer
+          </button>
+        )}
+      </div>
+      {hint && <span className="mt-1 block text-[12px] text-slate-500">{hint}</span>}
+    </div>
+  );
+};
+
+/* Muestra en vivo de la cabecera y de las horas con los colores elegidos,
+   para no tener que guardar y abrir la vista previa por cada cambio. */
+const MuestraTema = ({ config, negocio }) => {
+  const t = temaDe(config);
+  const velo = t.claro ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.1)";
+  const borde = t.claro ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.14)";
+  const tinta2 = t.vars["--agp-tinta-2"];
+  const nombre = negocio || "Tu negocio";
+  return (
+    <div className="rounded-xl p-4 ring-1 ring-slate-200" style={{ background: t.fondo, color: t.vars["--agp-tinta"] }}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[13px] font-extrabold" style={{ background: velo, boxShadow: `inset 0 0 0 1px ${borde}` }}>
+            {nombre.trim().charAt(0).toUpperCase()}
+          </span>
+          <span className="truncate text-[13px] font-bold">{nombre}</span>
+        </span>
+        {config.principal ? (
+          <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ background: velo, boxShadow: `inset 0 0 0 1px ${borde}` }}>
+            Meta Business Partner
+          </span>
+        ) : config.insignia ? (
+          <span className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ background: velo, boxShadow: `inset 0 0 0 1px ${borde}` }}>
+            <i className="bx bxs-badge-check text-[13px]" style={{ color: t.acento }} /> {config.insignia}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 text-[17px] font-extrabold leading-tight">
+        {config.titulo || "Agenda tu cita"}
+        {!config.principal && (
+          <span className="block" style={{ color: t.claro ? `color-mix(in srgb, ${t.acento} 80%, #0f172a)` : t.acento }}>
+            con {nombre}.
+          </span>
+        )}
+      </div>
+      <div className="mt-1 text-[12px]" style={{ color: tinta2 }}>
+        Elige el horario que mejor te quede.
+      </div>
+      <div className="mt-3 flex gap-1.5">
+        {["09:00", "10:00", "11:00", "12:00"].map((h, i) => (
+          <span
+            key={h}
+            className="rounded-md px-2.5 py-1 text-[11px] font-bold"
+            style={i === 1 ? { background: t.acento, color: t.vars["--agp-sobre-acento"] } : { background: velo, boxShadow: `inset 0 0 0 1px ${borde}` }}
+          >
+            {h}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const fmtFecha = (iso, tz) => {
   if (!iso) return "—";
@@ -290,6 +397,9 @@ export default function PanelAgendaPublica({ idConfiguracion = null, modo = "cue
     "titulo",
     "descripcion",
     "lugar",
+    "insignia",
+    "color_fondo",
+    "color_acento",
     "plantilla_confirmacion",
   ];
   const hayCambios = useMemo(() => {
@@ -324,6 +434,9 @@ export default function PanelAgendaPublica({ idConfiguracion = null, modo = "cue
         titulo: config.titulo,
         descripcion: config.descripcion || "",
         lugar: config.lugar || "",
+        insignia: config.insignia || "",
+        color_fondo: config.color_fondo || "",
+        color_acento: config.color_acento || "",
         plantilla_confirmacion: config.plantilla_confirmacion || "",
       };
       const { data: r } = await chatApi.post(`${base}/config`, body);
@@ -701,6 +814,53 @@ export default function PanelAgendaPublica({ idConfiguracion = null, modo = "cue
                     </span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </Tarjeta>
+
+          {/* Apariencia: insignia de la cabecera y colores de la página */}
+          <Tarjeta icono="bx-palette" titulo="Apariencia" sub="Cómo se ve tu página de agenda. Los colores de ImporChat salen si no eliges nada.">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="grid gap-4">
+                <label className="block text-sm">
+                  <Etiqueta>Insignia en la cabecera</Etiqueta>
+                  <input
+                    className={inputCls}
+                    disabled={!puedeEditar || !!config.principal}
+                    value={config.principal ? "Meta Business Partner" : config.insignia || ""}
+                    onChange={(e) => setConfig((c) => ({ ...c, insignia: e.target.value }))}
+                    maxLength={60}
+                    placeholder="Agencia certificada, Atención 24/7, 10 años de experiencia…"
+                  />
+                  <span className="mt-1 block text-[12px] text-slate-500">
+                    {config.principal
+                      ? "La agenda principal de ImporChat lleva el sello de Meta Business Partner."
+                      : "Texto corto arriba a la derecha, junto al nombre del negocio. Déjalo vacío para no mostrar nada."}
+                  </span>
+                </label>
+                <ColorCampo
+                  label="Color de fondo"
+                  hint="Con un fondo claro el texto pasa solo a oscuro."
+                  valor={config.color_fondo || ""}
+                  porDefecto={FONDO_INICIAL}
+                  sugeridos={FONDOS_SUGERIDOS}
+                  disabled={!puedeEditar}
+                  onChange={(v) => setConfig((c) => ({ ...c, color_fondo: v }))}
+                />
+                <ColorCampo
+                  label="Color de acento"
+                  hint="Botón de confirmar, horas elegidas y días con cupo."
+                  valor={config.color_acento || ""}
+                  porDefecto={ACENTO_INICIAL}
+                  sugeridos={ACENTOS_SUGERIDOS}
+                  disabled={!puedeEditar}
+                  onChange={(v) => setConfig((c) => ({ ...c, color_acento: v }))}
+                />
+              </div>
+              <div>
+                <Etiqueta>Así se ve</Etiqueta>
+                <MuestraTema config={config} negocio={data?.cuenta?.nombre} />
+                <span className="mt-1 block text-[12px] text-slate-500">Guarda y abre «Vista previa» para verla completa.</span>
               </div>
             </div>
           </Tarjeta>
