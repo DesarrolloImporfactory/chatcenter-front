@@ -575,15 +575,23 @@ const MiPlan = () => {
       {/* Espejo de las pestañas de PlanesView: el menú lateral tiene UNA sola
           entrada para planes y facturación, y la alternancia entre las dos
           rutas vive aquí. */}
-      <div className="pt-5 px-3 md:px-6 flex justify-start">
+      {/* Mismo alto y misma x que el switch de PlanesView y Complementos (la
+          raíz ya aporta px-3): así no salta al cambiar de pestaña. */}
+      <div className="pt-3 px-3 sm:px-7 lg:px-11 flex justify-start">
         <div className="inline-flex p-1 rounded-xl bg-slate-100/80 border border-slate-200/70">
           <button
             onClick={() => navigate("/planes")}
-            className="px-4 py-1.5 rounded-lg text-[12.5px] font-semibold text-slate-500 hover:text-[#0B1426] transition-colors"
+            className="px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-slate-500 hover:text-[#0B1426] transition-colors"
           >
             Elegir plan
           </button>
-          <span className="px-4 py-1.5 rounded-lg text-[12.5px] font-semibold bg-white text-[#0B1426] shadow-sm">
+          <button
+            onClick={() => navigate("/complementos")}
+            className="px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-slate-500 hover:text-[#0B1426] transition-colors"
+          >
+            Productos adicionales
+          </button>
+          <span className="px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold bg-white text-[#0B1426] shadow-sm">
             Mi plan y facturación
           </span>
         </div>
@@ -815,7 +823,8 @@ const MiPlan = () => {
               </div>
             )}
             {(Number(plan?.conexiones_adicionales || 0) > 0 ||
-              Number(plan?.subusuarios_adicionales || 0) > 0) && (
+              Number(plan?.subusuarios_adicionales || 0) > 0 ||
+              Number(plan?.imporkiller || 0) > 0) && (
               <div className="rounded-xl border border-indigo-300/20 bg-indigo-500/10 text-indigo-100 px-4 py-3 text-sm flex items-start gap-2">
                 <FaCheckCircle className="mt-0.5 shrink-0" />
                 <div className="min-w-0">
@@ -851,6 +860,20 @@ const MiPlan = () => {
                       (+${Number(plan.subusuarios_adicionales) * 5}/mes).
                     </p>
                   )}
+                  {Number(plan?.imporkiller || 0) > 0 && (
+                    <p className="text-indigo-100/80">
+                      Tu plan incluye el complemento{" "}
+                      <span className="font-semibold">ImporKiller</span>{" "}
+                      (extensión de Chrome y anuncios de Meta, +$10/mes).
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/complementos")}
+                    className="mt-1 text-xs font-semibold text-indigo-100 underline underline-offset-2 hover:text-white"
+                  >
+                    Ver productos adicionales
+                  </button>
                 </div>
               </div>
             )}

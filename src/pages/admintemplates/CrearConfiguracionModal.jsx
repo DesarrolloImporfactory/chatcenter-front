@@ -446,7 +446,13 @@ const CrearConfiguracionModal = ({
                   <i className="bx bx-info-circle text-[12px] mt-px"></i>
                   <span>
                     Ej.: un plan de $29/mes pasaría a $39/mes. La conexión
-                    adicional se mantiene activa mientras tu plan siga activo.
+                    adicional se mantiene activa mientras tu plan siga activo.{" "}
+                    <a
+                      href="/complementos"
+                      className="font-semibold text-[#1d4ed8] underline underline-offset-2 hover:text-[#0a1a36]"
+                    >
+                      Ver todos los productos adicionales
+                    </a>
                   </span>
                 </p>
 

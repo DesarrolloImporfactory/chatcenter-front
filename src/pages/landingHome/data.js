@@ -25,8 +25,9 @@ export const PRODUCT_IMG = productoImg;
  * código de país). Vacío = el botón no se muestra. */
 export const WHATSAPP_VENTAS = "593979120058";
 
-/* Agenda de Calendly para "Agendar demo". Se abre en pestaña nueva. */
-export const CALENDLY_DEMO = "https://calendly.com/comercial-imporchat/30min";
+/* "Agendar demo" abre la agenda pública de ImporChat (/agendar) en pestaña
+ * nueva. Hasta el 2026-11-04 era un Calendly. */
+export const AGENDA_DEMO = "/agendar?origen=home";
 
 /* Palabras que giran en el titular del hero. Cortas para que nunca partan
  * línea. */

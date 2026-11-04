@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
+import { abrirExtension } from "./Complemento";
 import { TOKENS, URL_EXTENSION_WEB_STORE, btnBlanco, btnOscuro, nombrePais, urlBiblioteca, useCopiar } from "../ui";
 
 /* ═══════════════════════════════════════════════════════════════════════
    Panel vacío que ENSEÑA. Anuncios y Tiendas solo se llenan con la
-   extensión de Chrome «Espía de tiendas»: si no hay nada, en vez de un
+   extensión de Chrome «ImporKiller»: si no hay nada, en vez de un
    «sin resultados» se muestran los 3 pasos para empezar, con la URL de la
    Biblioteca lista para copiar y el enlace a la carpeta de la extensión.
    ═══════════════════════════════════════════════════════════════════════ */
@@ -11,7 +12,7 @@ import { TOKENS, URL_EXTENSION_WEB_STORE, btnBlanco, btnOscuro, nombrePais, urlB
 const PASOS = [
   {
     icon: "bxl-chrome",
-    titulo: "Instala la extensión «Espía de tiendas»",
+    titulo: "Instala la extensión «ImporKiller»",
     detalle: URL_EXTENSION_WEB_STORE ? (
       <>
         Instálala desde la Chrome Web Store con un clic. Con Imporchat abierto en ese mismo Chrome, la extensión toma tu sesión sola.
@@ -21,8 +22,10 @@ const PASOS = [
       </>
     ) : (
       <>
-        Pide la extensión al equipo de Imporfactory (carpeta <code className="rounded bg-white/10 px-1.5 py-0.5 text-[11px] text-sky-200">espia-tiendas</code>) y cárgala en{" "}
-        <code className="rounded bg-white/10 px-1.5 py-0.5 text-[11px] text-sky-200">chrome://extensions</code> con <b>Modo de desarrollador → Cargar descomprimida</b>. Con Imporchat abierto en ese mismo Chrome, la extensión toma tu sesión sola.
+        Descárgala desde aquí y cárgala en <code className="rounded bg-white/10 px-1.5 py-0.5 text-[11px] text-sky-200">chrome://extensions</code> con <b>Modo de desarrollador → Cargar descomprimida</b>. Con Imporchat abierto en ese mismo Chrome, la extensión toma tu sesión sola.
+        <button type="button" onClick={abrirExtension} className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-[12px] font-extrabold text-[#0B1426] shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)] hover:bg-sky-50">
+          <i className="bx bx-download" /> Descargar extensión y ver los pasos
+        </button>
       </>
     ),
   },

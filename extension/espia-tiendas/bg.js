@@ -46,10 +46,18 @@ async function api(method, path, body) {
   let json = null;
   try { json = await r.json(); } catch { /* sin cuerpo */ }
   if (!r.ok) {
-    const message = json?.message || (r.status === 401 ? 'La sesión de IMPORCHAT venció' : r.status === 403 ? 'Tu usuario no tiene permiso (solo super administrador)' : `Error ${r.status}`);
-    return { ok: false, status: r.status, message, data: json?.data };
+    // ADDON_REQUIRED (403): la cuenta no tiene el complemento ImporKiller.
+    // El mensaje del backend ya explica qué es y dónde se activa.
+    const message = json?.message || (r.status === 401 ? 'La sesión de IMPORCHAT venció' : r.status === 403 ? 'Tu usuario de IMPORCHAT no tiene permiso para esto' : `Error ${r.status}`);
+    return { ok: false, status: r.status, code: json?.code || null, message, data: json?.data, redirectTo: json?.redirectTo || null };
   }
   return { ok: true, status: r.status, data: json?.data ?? json };
+}
+
+// Dónde vive la pantalla (la web de IMPORCHAT, no la API): se deduce del origen de la sesión.
+async function webImporchat() {
+  const { tokenOrigen } = await leerConfig();
+  return tokenOrigen && tokenOrigen !== 'manual' ? tokenOrigen : 'https://chatcenter.imporfactory.app';
 }
 
 // ───────────── Herramientas de página (como AdGrab): se inyectan en la pestaña activa ─────────────
@@ -153,8 +161,13 @@ chrome.runtime.onMessage.addListener((m, _s, responder) => {
       case 'cerrarSesion':
         await chrome.storage.local.remove(['token', 'tokenOrigen', 'tokenFecha']);
         return { ok: true };
-      case 'ping':
-        return api('GET', '/extension/ping');
+      case 'ping': {
+        // Devuelve también `web` (para armar enlaces a la pantalla) y `addon`
+        // ({ activo, precio, nombre }: sin él, Dropi y la Biblioteca lo dicen).
+        const r = await api('GET', '/extension/ping');
+        if (r.ok && r.data) r.data.web = await webImporchat();
+        return r;
+      }
       case 'enviarAnuncios': {
         const r = await api('POST', '/anuncios', m.body);
         if (r.ok) await sumarEnviados((m.body?.anuncios || []).length);

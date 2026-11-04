@@ -151,7 +151,7 @@ function MainLayout({ children }) {
      /conexiones, y solo al administrador: es configuración de la cuenta. */
   const [needsCapture, setNeedsCapture] = useState(false);
 
-  /* Invitación a agendar la implementación (Calendly comercial). Solo al
+  /* Invitación a agendar la implementación (agenda pública /agendar). Solo al
      administrador de una cuenta que no ha empezado: una conexión como máximo
      y ninguna conectada. El back decide y guarda la respuesta por cuenta
      (agendó / no por ahora 3 días / no volver a mostrar). Espera a que se
@@ -391,15 +391,6 @@ function MainLayout({ children }) {
               />
             )}
 
-            {/* Auditoría de Cartera: solo super_administrador */}
-            {isSuperAdmin && (
-              <NavBtn
-                path="/auditoria-cartera"
-                icon="bx-receipt"
-                label="Auditoría de Cartera"
-              />
-            )}
-
             {/* Mis Subusuarios: solo super_administrador */}
             {isSuperAdmin && (
               <NavBtn
@@ -442,6 +433,15 @@ function MainLayout({ children }) {
               />
             )}
 
+            {/* Agenda pública de implementación: solo super_administrador */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/administrador-agenda"
+                icon="bx-calendar-check"
+                label="Agenda de implementación"
+              />
+            )}
+
             {isSuperAdmin && (
               <NavBtn
                 path="/administrador-app-movil"
@@ -459,14 +459,11 @@ function MainLayout({ children }) {
               />
             )}
 
-            {/* Espía de mercado (Dropkiller propio): solo super_administrador */}
-            {isSuperAdmin && (
-              <NavBtn
-                path="/espia-mercado"
-                icon="bx-radar"
-                label="Espía de mercado"
-              />
-            )}
+            {/* ImporKiller (Dropkiller propio): para todos. El buscador de
+                productos va con cualquier plan; la extensión y los anuncios
+                son el complemento ($10/mes) y la propia pantalla lo vende.
+                No cuelga de una conexión: por eso vive aquí y no en el chat. */}
+            <NavBtn path="/imporkiller" icon="bx-radar" label="ImporKiller" />
 
             {/* Departamentos: solo el administrador de la cuenta */}
             {esAdministrador && (
@@ -486,7 +483,7 @@ function MainLayout({ children }) {
                 path="/planes"
                 icon="bxs-credit-card"
                 label="Planes y facturación"
-                activeWhen={["/planes", "/plan"]}
+                activeWhen={["/planes", "/plan", "/complementos"]}
               />
             )}
 
@@ -554,6 +551,7 @@ function MainLayout({ children }) {
         <ModalAgendarImplementacion
           datos={implementacion}
           claveSesion={claveImplementacion}
+          idCuenta={userData.id_usuario || userData.id_users || null}
           onCerrar={() => setImplementacion(null)}
         />
       )}

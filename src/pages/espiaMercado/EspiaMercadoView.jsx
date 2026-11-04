@@ -6,11 +6,20 @@ import Segmentos from "./componentes/Segmentos";
 import TabProductos from "./TabProductos";
 import TabAnuncios from "./TabAnuncios";
 import TabTiendas from "./TabTiendas";
-import { EstadoLista, Modal, PAISES, btnSuave, fmtFecha, tarjeta, useConsulta, useCopiar } from "./ui";
+import { BloqueoComplemento, EV_COMPLEMENTO, EV_EXTENSION, ModalComplemento, ModalExtension, accesoDe } from "./componentes/Complemento";
+import { EstadoLista, Modal, PAISES, btnSuave, fmtNum, haceCuanto, nombrePais, tarjeta, useConsulta, useCopiar } from "./ui";
 
 /**
- * /espia-mercado — Dropkiller propio de GRUPO IMPOR. Solo super administrador
- * (el back lo exige en cada endpoint).
+ * /imporkiller — ImporKiller, el Dropkiller propio de GRUPO IMPOR.
+ *
+ * Quién ve qué (lo decide el back y llega en /espia/estado → acceso):
+ *   - Cualquier usuario con plan activo: buscador de productos, ficha y
+ *     métricas (pestaña Productos), reporte.
+ *   - Complemento «ImporKiller» ($10/mes): la extensión de Chrome y las
+ *     pestañas Anuncios y Tiendas. Sin él, salen con candado y un panel que
+ *     explica y vende (componentes/Complemento).
+ *   - Super administrador: además opera el recolector y las cuentas de
+ *     mapeo desde el Hero.
  *
  * Estructura:
  *   - Hero oscuro: país, KPIs, estado del recolector (avance en vivo),
@@ -52,23 +61,110 @@ function leerGuardados() {
   }
 }
 
-function ReporteModal({ pais, onClose }) {
+/* Resumen del día: tres listas (los más vendidos / sin escalar / nuevos con
+   tracción) pintadas como filas con la foto del producto; cada fila abre la
+   ficha y cada bloque lleva a la lista completa con ese atajo. El texto plano
+   (el que sale por WhatsApp a las 7:30) solo lo copia el super admin. */
+function ReporteModal({ pais, acceso, onClose, onIr, onProducto }) {
   const { data, cargando, error, recargar } = useConsulta("/espia/reporte", { pais });
   const { copiado, copiar } = useCopiar();
+  const dias = Number(data?.dias_medidos || 0);
+  const metrica = (sec, p) => {
+    if (sec.clave === "subieron") {
+      return data?.compara_semanas
+        ? { valor: fmtNum(p.ventas_7d), nota: `antes ${fmtNum(p.ventas_7d_prev)}` }
+        : { valor: fmtNum(p.ventas_7d), nota: "en 7 días" };
+    }
+    if (sec.clave === "sin_escalar") return { valor: fmtNum(p.ventas_7d), nota: `7 d · ${fmtNum(p.ventas_30d)} en 30 d` };
+    return { valor: fmtNum(p.ventas_total), nota: `en total · ${fmtNum(p.ventas_7d)} esta semana` };
+  };
   return (
     <Modal
-      titulo={`Reporte de hoy · ${pais}`}
-      subtitulo={data?.generado_en ? `Generado ${fmtFecha(data.generado_en)}` : "Es el mismo texto que llega por WhatsApp a las 7:30"}
+      titulo={`Resumen de hoy · ${nombrePais(pais)}`}
+      subtitulo={
+        data
+          ? `${fmtNum(data.catalogo)} productos analizados · ${fmtNum(dias)} ${dias === 1 ? "día" : "días"} de historial${data.actualizado_en ? ` · actualizado ${haceCuanto(data.actualizado_en)}` : ""}`
+          : "Lo que se movió en Dropi en las últimas semanas"
+      }
       onClose={onClose}
-      ancho="max-w-2xl"
+      ancho="max-w-3xl"
       acciones={
-        <button type="button" className={btnSuave} disabled={!data?.texto} onClick={() => copiar(data?.texto)}>
-          <i className={`bx ${copiado ? "bx-check" : "bx-copy"}`} /> {copiado ? "Copiado" : "Copiar"}
-        </button>
+        acceso?.superAdmin ? (
+          <button type="button" className={btnSuave} disabled={!data?.texto} onClick={() => copiar(data?.texto)} title="Texto plano, el mismo que sale por WhatsApp">
+            <i className={`bx ${copiado ? "bx-check" : "bx-copy"}`} /> {copiado ? "Copiado" : "Copiar texto"}
+          </button>
+        ) : null
       }
     >
-      <EstadoLista cargando={cargando} error={error} vacio={!cargando && !error && !data?.texto} textoVacio="Todavía no hay datos para armar el reporte." onReintentar={recargar} />
-      {data?.texto ? <pre className="whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 font-sans text-sm leading-6 text-slate-800 ring-1 ring-slate-100">{data.texto}</pre> : null}
+      <EstadoLista cargando={cargando} error={error} vacio={!cargando && !error && !data?.secciones?.length} textoVacio="Todavía no hay datos para armar el resumen." onReintentar={recargar} />
+      {data?.secciones?.length ? (
+        <div className="space-y-5">
+          {data.secciones.map((sec) => {
+            const faltan = sec.necesita_dias && dias < sec.necesita_dias ? sec.necesita_dias - dias : 0;
+            return (
+              <section key={sec.clave}>
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                  <div className="min-w-0">
+                    <h4 className="text-[15px] font-extrabold text-slate-900">{sec.titulo}</h4>
+                    <p className="text-[12px] text-slate-500">{sec.descripcion}</p>
+                  </div>
+                  <button type="button" className={`${btnSuave} px-3 py-1.5 text-xs`} onClick={() => onIr(sec.filtros)}>
+                    Ver la lista completa <i className="bx bx-right-arrow-alt" />
+                  </button>
+                </div>
+                {sec.items.length ? (
+                  <ol className="mt-2.5 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200">
+                    {sec.items.map((p, i) => {
+                      const m = metrica(sec, p);
+                      return (
+                        <li key={`${sec.clave}-${p.dropi_product_id}`}>
+                          <button type="button" onClick={() => onProducto(p.dropi_product_id)} className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-slate-50">
+                            <span className="w-5 shrink-0 text-center text-[12px] font-extrabold text-slate-400">{i + 1}</span>
+                            <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                              {p.imagen_url ? <img src={p.imagen_url} alt="" className="h-full w-full object-cover" loading="lazy" /> : <i className="bx bx-package text-xl text-slate-400" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[13px] font-bold text-slate-800">{p.nombre}</span>
+                              <span className="block truncate text-[11.5px] text-slate-500">
+                                {p.proveedor ? `${p.proveedor} · ` : ""}stock {fmtNum(p.stock)}
+                                {p.n_anuncios ? ` · ${fmtNum(p.n_anuncios)} anuncios` : ""}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-right">
+                              <span className="block text-[15px] font-extrabold tabular-nums text-slate-900">{m.valor}</span>
+                              <span className="block text-[10.5px] text-slate-400">{m.nota}</span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <p className="mt-2.5 rounded-2xl bg-slate-50 px-4 py-3 text-[12.5px] text-slate-500 ring-1 ring-slate-100">
+                    {faltan ? `Esta lista necesita ${sec.necesita_dias} días de historial y llevamos ${fmtNum(dias)}: aparece en ${fmtNum(faltan)} ${faltan === 1 ? "día" : "días"}.` : "Hoy ningún producto cumple estas condiciones."}
+                  </p>
+                )}
+              </section>
+            );
+          })}
+          {data.tiendas?.length ? (
+            <section>
+              <h4 className="text-[15px] font-extrabold text-slate-900">Tiendas que sigues</h4>
+              <ul className="mt-2 divide-y divide-slate-100 overflow-hidden rounded-2xl ring-1 ring-slate-200">
+                {data.tiendas.map((t) => (
+                  <li key={t.dominio} className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]">
+                    <span className="truncate font-semibold text-slate-800">{t.nombre || t.dominio}</span>
+                    <span className="shrink-0 text-slate-500">
+                      {fmtNum(t.anuncios_activos)} activos{t.nuevos ? ` · ${fmtNum(t.nuevos)} nuevos` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          <p className="text-[11px] text-slate-400">Ventas estimadas por la baja de stock en Dropi; un traslado o ajuste de inventario puede verse como venta.</p>
+        </div>
+      ) : null}
     </Modal>
   );
 }
@@ -77,6 +173,21 @@ function ReporteModal({ pais, onClose }) {
 export default function EspiaMercadoView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [verReporte, setVerReporte] = useState(false);
+  const [verComplemento, setVerComplemento] = useState(false);
+  const [verExtension, setVerExtension] = useState(false);
+
+  /* Cualquier pieza (Hero, ficha, guía vacía) abre la venta o la descarga
+     sin pasar props: escucha los eventos de componentes/Complemento. */
+  useEffect(() => {
+    const abrirC = () => setVerComplemento(true);
+    const abrirE = () => setVerExtension(true);
+    window.addEventListener(EV_COMPLEMENTO, abrirC);
+    window.addEventListener(EV_EXTENSION, abrirE);
+    return () => {
+      window.removeEventListener(EV_COMPLEMENTO, abrirC);
+      window.removeEventListener(EV_EXTENSION, abrirE);
+    };
+  }, []);
 
   const tab = TABS.some((t) => t.id === searchParams.get("tab")) ? searchParams.get("tab") : "productos";
   const pais = useMemo(() => {
@@ -149,14 +260,18 @@ export default function EspiaMercadoView() {
     setEnVivo(corriendo);
   }, [estado.data]);
 
+  const acceso = accesoDe(estado.data);
+  // Anuncios y Tiendas son del complemento: con candado hasta que se sepa que lo tiene.
+  const bloqueada = (id) => id !== "productos" && acceso.cargado && !acceso.addon;
   const segmentos = TABS.map((t) => ({
     ...t,
+    bloqueado: bloqueada(t.id),
     count: t.id === "productos" ? estado.data?.productos_total : t.id === "anuncios" ? estado.data?.extension?.anuncios_total : estado.data?.extension?.tiendas_total,
   }));
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5 p-3 sm:p-4 md:p-6">
-      <Hero pais={pais} onPais={cambiarPais} estado={estado.data} cargando={estado.cargando} error={estado.error} onRecargar={estado.recargar} onVerReporte={() => setVerReporte(true)} />
+      <Hero pais={pais} onPais={cambiarPais} estado={estado.data} cargando={estado.cargando} error={estado.error} onRecargar={estado.recargar} onVerReporte={() => setVerReporte(true)} acceso={acceso} />
 
       <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center justify-between gap-3 px-1 py-2 backdrop-blur-sm" style={{ background: "linear-gradient(180deg, rgba(243,244,246,0.95) 60%, rgba(243,244,246,0))" }}>
         <Segmentos opciones={segmentos} valor={tab} onChange={cambiarTab} />
@@ -166,16 +281,43 @@ export default function EspiaMercadoView() {
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={`${tab}-${pais}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className={`${tarjeta} p-4 sm:p-5`}>
+        <motion.div key={`${tab}-${pais}-${bloqueada(tab) ? "b" : "a"}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className={bloqueada(tab) ? "" : `${tarjeta} p-4 sm:p-5`}>
           {tab === "productos" ? (
             <TabProductos pais={pais} filtros={filtros} setFiltros={setFiltros} productoInicial={productoUrl} onCerrarProducto={cerrarProducto} diasMedidos={estado.data?.dias_con_ventas} />
           ) : null}
-          {tab === "anuncios" ? <TabAnuncios pais={pais} filtros={filtros} setFiltros={setFiltros} onVerTienda={verTienda} /> : null}
-          {tab === "tiendas" ? <TabTiendas key={filtros.dominio || "lista"} pais={pais} filtros={filtros} setFiltros={setFiltros} onVerAnuncios={verAnunciosDe} /> : null}
+          {tab !== "productos" && bloqueada(tab) ? <BloqueoComplemento seccion={tab} acceso={acceso} /> : null}
+          {tab === "anuncios" && !bloqueada(tab) ? <TabAnuncios pais={pais} filtros={filtros} setFiltros={setFiltros} onVerTienda={verTienda} /> : null}
+          {tab === "tiendas" && !bloqueada(tab) ? <TabTiendas key={filtros.dominio || "lista"} pais={pais} filtros={filtros} setFiltros={setFiltros} onVerAnuncios={verAnunciosDe} /> : null}
         </motion.div>
       </AnimatePresence>
 
-      {verReporte ? <ReporteModal pais={pais} onClose={() => setVerReporte(false)} /> : null}
+      {verReporte ? (
+        <ReporteModal
+          pais={pais}
+          acceso={acceso}
+          onClose={() => setVerReporte(false)}
+          onIr={(f) => {
+            setVerReporte(false);
+            escribir("productos", pais, f);
+          }}
+          onProducto={(id) => {
+            setVerReporte(false);
+            escribir("productos", pais, tab === "productos" ? filtros : filtrosPorDefecto("productos"), id);
+          }}
+        />
+      ) : null}
+      {verComplemento ? (
+        <ModalComplemento
+          acceso={acceso}
+          onClose={() => setVerComplemento(false)}
+          onActivado={(siguiente) => {
+            setVerComplemento(false);
+            estado.recargar();
+            if (siguiente === "extension") setVerExtension(true);
+          }}
+        />
+      ) : null}
+      {verExtension ? <ModalExtension acceso={acceso} onClose={() => setVerExtension(false)} /> : null}
     </div>
   );
 }

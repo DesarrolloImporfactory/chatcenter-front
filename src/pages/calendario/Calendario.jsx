@@ -9,6 +9,7 @@ import chatApi from "../../api/chatcenter";
 import Swal from "sweetalert2";
 import "./Calendario.css";
 import PageHeader from "../Header/pageHeader";
+import PanelAgendaPublica from "../agendaPublica/PanelAgendaPublica";
 import SolicitudesCitas from "./SolicitudesCitas";
 
 const WEEKDAYS = ["D", "L", "Ma", "Mi", "J", "V", "S"];
@@ -120,6 +121,10 @@ export default function Calendario() {
   //GoogleAuth
   const [googleLinked, setGoogleLinked] = useState(false);
   const [googleEmail, setGoogleEmail] = useState(null);
+  /* null = sin dato; false = vinculado pero sin el permiso de calendario
+     (el token solo trae correo y perfil: Google responde 403 y ninguna cita
+     llega). Pasó con un asesor el 2026-11-04: la pantalla decía conectado. */
+  const [googleScope, setGoogleScope] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [includeUnassigned, setIncludeUnassigned] = useState(true);
@@ -163,10 +168,12 @@ export default function Calendario() {
       });
       setGoogleLinked(!!data?.linked);
       setGoogleEmail(data?.google_email || null);
+      setGoogleScope(data?.calendar_scope ?? null);
     } catch (e) {
       console.error("google/status error:", e);
       setGoogleLinked(false);
       setGoogleEmail(null);
+      setGoogleScope(null);
     } finally {
       setGoogleLoading(false);
     }
@@ -203,7 +210,14 @@ export default function Calendario() {
           });
           setGoogleLinked(!!st?.linked);
           setGoogleEmail(st?.google_email || null);
-          if (st?.linked) {
+          setGoogleScope(st?.calendar_scope ?? null);
+          if (st?.linked && st?.calendar_scope === false) {
+            Swal.fire(
+              "Falta un permiso",
+              "Google quedó vinculado pero sin el permiso de calendario: las citas no llegarán a tu Google Calendar. Vuelve a vincular y acepta «ver y editar calendarios».",
+              "warning",
+            );
+          } else if (st?.linked) {
             await syncNow(true); // pull silencioso inmediato
             Swal.fire(
               "Listo",
@@ -845,6 +859,11 @@ export default function Calendario() {
                   ? "is-cancelled"
                   : null,
                 assigned == null ? "is-unassigned" : null,
+                // La reservó el cliente solo desde /agendar: se distingue
+                // de un vistazo (barra cian + etiqueta) sin abrir la cita.
+                e?.extendedProps?.origen === "agenda_publica"
+                  ? "is-public-booking"
+                  : null,
               ].filter(Boolean),
               // normaliza assigned en extendedProps (evita NaN)
               extendedProps: { ...e.extendedProps, assigned_user_id: assigned },
@@ -1229,6 +1248,7 @@ export default function Calendario() {
           profesional: e.extendedProps?.profesional?.nombre || null,
           id_profesional: e.extendedProps?.id_profesional ?? null,
           sede: e.extendedProps?.sede?.nombre || null,
+          publica: e.extendedProps?.origen === "agenda_publica",
           created_at:
             e.extendedProps?.created_at || e.created_at || e.createdAt || null,
         }));
@@ -1399,6 +1419,18 @@ export default function Calendario() {
           >
             <i className="fas fa-list"></i> Lista de Citas
           </button>
+
+          <button
+            className={`pb-2 flex items-center gap-2 transition-colors duration-200 ${
+              tab === "settings"
+                ? "text-blue-600 border-b-2 border-blue-600 font-semibold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
+            onClick={() => setTab("settings")}
+            title="Enlace público para que tus clientes agenden solos"
+          >
+            <i className="bx bx-link"></i> Agenda pública
+          </button>
         </div>
       </div>
 
@@ -1408,49 +1440,47 @@ export default function Calendario() {
           <div className="grid grid-cols-12 gap-4">
             {/* Calendario principal */}
             <div className="col-span-12 lg:col-span-9">
-              <div className="bg-white rounded-md shadow-sm border">
+              <div className="cal-card">
                 {/* Toolbar del calendario */}
-                <div className="flex items-center justify-between px-3 py-2">
+                <div className="cal-toolbar">
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={gotoToday}
-                      className="px-3 py-1.5 rounded border hover:bg-gray-50"
-                    >
+                    <button onClick={gotoToday} className="cal-btn">
                       Hoy
                     </button>
-                    <div className="flex">
-                      <button
-                        onClick={gotoPrev}
-                        className="px-2 py-1.5 rounded-l border hover:bg-gray-50"
-                        title="Anterior"
-                      >
-                        ‹
+                    <div className="cal-nav">
+                      <button onClick={gotoPrev} title="Anterior">
+                        <i className="bx bx-chevron-left" />
                       </button>
-                      <button
-                        onClick={gotoNext}
-                        className="px-2 py-1.5 rounded-r border hover:bg-gray-50"
-                        title="Siguiente"
-                      >
-                        ›
+                      <button onClick={gotoNext} title="Siguiente">
+                        <i className="bx bx-chevron-right" />
                       </button>
                     </div>
-                    <div className="ml-3 font-medium">
-                      {api()?.view?.title || ""}
-                    </div>
+                    <div className="cal-title">{api()?.view?.title || ""}</div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
-                      {gmtBadgeFromNow()}
+                    <span className="cal-chip" title="Zona horaria del navegador">
+                      <i className="bx bx-world" /> {gmtBadgeFromNow()}
                     </span>
 
                     {/* >>> AQUÍ: Google connect / unlink <<< */}
                     {googleLinked ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700">
-                          Google Calendar conectado
-                          {googleEmail ? ` (${googleEmail})` : ""}
-                        </span>
+                        {googleScope === false ? (
+                          <button
+                            onClick={connectGoogle}
+                            className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1 hover:bg-amber-100"
+                            title="Al vincular no se aceptó el permiso de calendario: las citas no llegan a Google. Clic para volver a vincular aceptando todos los permisos."
+                          >
+                            <i className="bx bx-error" /> Conectado sin permiso de calendario
+                            {googleEmail ? ` (${googleEmail})` : ""} · volver a vincular
+                          </button>
+                        ) : (
+                          <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700">
+                            Google Calendar conectado
+                            {googleEmail ? ` (${googleEmail})` : ""}
+                          </span>
+                        )}
 
                         <button
                           onClick={() => syncNow(false)}
@@ -1500,44 +1530,55 @@ export default function Calendario() {
                       </button>
                     )}
 
-                    <div className="hidden md:flex items-center gap-1">
-                      <button
-                        onClick={() => changeView("timeGridDay")}
-                        className={`px-3 py-1.5 rounded border hover:bg-gray-50 ${
-                          view === "timeGridDay" ? "bg-gray-100" : ""
-                        }`}
-                      >
-                        Día
-                      </button>
-                      <button
-                        onClick={() => changeView("timeGridWeek")}
-                        className={`px-3 py-1.5 rounded border hover:bg-gray-50 ${
-                          view === "timeGridWeek" ? "bg-gray-100" : ""
-                        }`}
-                      >
-                        Semana
-                      </button>
-                      <button
-                        onClick={() => changeView("dayGridMonth")}
-                        className={`px-3 py-1.5 rounded border hover:bg-gray-50 ${
-                          view === "dayGridMonth" ? "bg-gray-100" : ""
-                        }`}
-                      >
-                        Mes
-                      </button>
+                    <div className="cal-seg hidden md:flex">
+                      {[
+                        ["timeGridDay", "Día"],
+                        ["timeGridWeek", "Semana"],
+                        ["dayGridMonth", "Mes"],
+                      ].map(([v, label]) => (
+                        <button
+                          key={v}
+                          onClick={() => changeView(v)}
+                          className={view === v ? "is-active" : ""}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
 
-                    <button
-                      onClick={handleNewClick}
-                      className="ml-2 px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      + Nuevo
+                    <button onClick={handleNewClick} className="cal-btn-primary">
+                      <i className="bx bx-plus" /> Nueva cita
                     </button>
                   </div>
                 </div>
 
+                {/* Leyenda: solo lo que no se lee del color del encargado
+                    (los nombres ya están a la derecha con su color) */}
+                <div className="cal-legend">
+                  <span className="cal-legend-item">
+                    <span
+                      className="cal-legend-dot is-dashed"
+                      style={{ borderColor: UNASSIGNED_COLOR }}
+                    />
+                    Sin asignar
+                  </span>
+                  <span className="cal-legend-item">
+                    <span
+                      className="cal-legend-dot"
+                      style={{ background: CANCELLED_COLOR }}
+                    />
+                    Cancelada
+                  </span>
+                  <span className="cal-legend-item">
+                    <span className="cal-legend-web">
+                      <i className="bx bx-globe" /> Agenda web
+                    </span>
+                    reservó el cliente por el enlace
+                  </span>
+                </div>
+
                 {/* Calendario */}
-                <div className="border-t relative">
+                <div className="cal-body relative">
                   {loading && (
                     <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-10 text-sm">
                       Cargando eventos…
@@ -1628,6 +1669,21 @@ export default function Calendario() {
                         cuerpo.after(tag);
                       }
 
+                      /* Reserva hecha por el cliente desde la agenda pública
+                         (/agendar): etiqueta "Agenda web" dentro del bloque. */
+                      const esPublica = props.origen === "agenda_publica";
+                      if (
+                        esPublica &&
+                        cuerpo &&
+                        !info.el.querySelector(".fc-origen-tag")
+                      ) {
+                        const tag = document.createElement("span");
+                        tag.className = "fc-origen-tag";
+                        tag.textContent = "Agenda web";
+                        tag.title = "Reservada por el cliente desde /agendar";
+                        cuerpo.after(tag);
+                      }
+
                       /* Una cita de 15 minutos nunca va a mostrarlo todo por
                          mucho que se apriete el texto. El tooltip del sistema
                          resuelve eso sin ocupar espacio: se pasa el mouse y
@@ -1650,6 +1706,9 @@ export default function Calendario() {
                           ? `Tel: ${invitado.phone}`
                           : null,
                         props.status ? `Estado: ${props.status}` : null,
+                        esPublica
+                          ? "Origen: el cliente la reservó desde la agenda web"
+                          : null,
                       ]
                         .filter(Boolean)
                         .join("\n");
@@ -1693,9 +1752,9 @@ export default function Calendario() {
                 idConfiguracion={accountId}
                 onCitaCreada={() => api()?.refetchEvents()}
               />
-              <div className="bg-white rounded-md shadow-sm border p-3 mb-4">
+              <div className="cal-card p-3 mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="font-medium capitalize">
+                  <div className="font-semibold capitalize text-[#0b1426]">
                     {currentDate.toLocaleString("es-EC", {
                       month: "long",
                       year: "numeric",
@@ -1769,8 +1828,8 @@ export default function Calendario() {
               </div>
 
               {/* Filtros: Usuarios */}
-              <div className="bg-white rounded-md shadow-sm border p-3">
-                <div className="font-medium mb-2">Usuarios</div>
+              <div className="cal-card p-3">
+                <div className="font-semibold mb-2 text-[#0b1426]">Usuarios</div>
                 <div className="space-y-2">
                   {usuarios.map((u, idx) => (
                     <label key={u.id} className="flex items-center gap-2">
@@ -1820,82 +1879,60 @@ export default function Calendario() {
         )}
 
         {tab === "list" && (
-          <div className="bg-white rounded-md border shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3">
+          <div className="cal-card">
+            <div className="cal-toolbar cal-list-toolbar">
               {/* Filtros a la izquierda */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setListFilter("proximas")}
-                  className={`px-3 py-1.5 rounded border text-sm flex items-center gap-1 ${
-                    listFilter === "proximas"
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "hover:bg-gray-50"
-                  }`}
-                  title="Citas futuras (no canceladas)"
-                >
-                  <i className="bx bx-time"></i> Próximas
-                </button>
-                <button
-                  onClick={() => setListFilter("cancelado")}
-                  className={`px-3 py-1.5 rounded border text-sm flex items-center gap-1 ${
-                    listFilter === "cancelado"
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "hover:bg-gray-50"
-                  }`}
-                  title="Solo canceladas"
-                >
-                  <i className="bx bx-x-circle"></i> Canceladas
-                </button>
-                <button
-                  onClick={() => setListFilter("todos")}
-                  className={`px-3 py-1.5 rounded border text-sm flex items-center gap-1 ${
-                    listFilter === "todos"
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "hover:bg-gray-50"
-                  }`}
-                  title="Todas las citas"
-                >
-                  <i className="bx bx-list-ul"></i> Todas
-                </button>
+              <div className="cal-seg">
+                {[
+                  ["proximas", "bx-time", "Próximas", "Citas futuras (no canceladas)"],
+                  ["cancelado", "bx-x-circle", "Canceladas", "Solo canceladas"],
+                  ["todos", "bx-list-ul", "Todas", "Todas las citas"],
+                ].map(([v, ic, label, title]) => (
+                  <button
+                    key={v}
+                    onClick={() => setListFilter(v)}
+                    className={listFilter === v ? "is-active" : ""}
+                    title={title}
+                  >
+                    <i className={`bx ${ic}`} /> {label}
+                  </button>
+                ))}
               </div>
 
               {/* Orden + búsqueda a la derecha */}
-              <div className="flex items-center gap-3">
-                <div className="hidden md:flex items-center gap-2">
-                  <i className="bx bx-sort text-gray-600" />
-                  <span className="text-xs text-gray-600">Ordenar por:</span>
+              <div className="flex items-center gap-2">
+                <label className="cal-select hidden md:inline-flex" title="Ordenar por">
+                  <i className="bx bx-sort" />
                   <select
                     value={listSort}
                     onChange={(e) => setListSort(e.target.value)}
-                    className="border rounded px-2 py-1 text-sm"
                   >
-                    <option value="createdAsc">
-                      Fecha añadida - Ascendente
-                    </option>
-                    <option value="createdDesc">
-                      Fecha añadida - Descendente
-                    </option>
-                    <option value="startAsc">
-                      Hora de la cita - Ascendente
-                    </option>
-                    <option value="startDesc">
-                      Hora de la cita - Descendente
-                    </option>
+                    <option value="startAsc">Cita más próxima primero</option>
+                    <option value="startDesc">Cita más lejana primero</option>
+                    <option value="createdDesc">Añadida recientemente</option>
+                    <option value="createdAsc">Añadida hace más tiempo</option>
                   </select>
-                </div>
+                </label>
 
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por título"
-                  className="border rounded px-3 py-1.5 text-sm w-72"
-                />
+                <label className="cal-search">
+                  <i className="bx bx-search" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar por título"
+                  />
+                  {search && (
+                    <button onClick={() => setSearch("")} title="Limpiar">
+                      <i className="bx bx-x" />
+                    </button>
+                  )}
+                </label>
               </div>
             </div>
 
             <div className="overflow-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+              <table className="min-w-full text-sm cal-table">
+                <thead>
                   <tr>
                     <th className="px-4 py-2 text-left w-10">#</th>
                     <th className="px-4 py-2 text-left">Título</th>
@@ -2002,6 +2039,14 @@ export default function Calendario() {
                                 />
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{r.title}</span>
+                                  {r.publica && (
+                                    <span
+                                      className="cal-chip cal-chip-web"
+                                      title="Reservada por el cliente desde /agendar"
+                                    >
+                                      <i className="bx bx-globe" /> Agenda web
+                                    </span>
+                                  )}
                                   {linkHref && (
                                     <a
                                       href={linkHref}
@@ -2134,11 +2179,16 @@ export default function Calendario() {
           </div>
         )}
 
-        {tab === "settings" && (
-          <div className="bg-white rounded-md border p-6 text-sm text-gray-600">
-            Aquí puede colocar futuras opciones de configuración del calendario.
-          </div>
-        )}
+        {/* Agenda pública: el enlace que el negocio comparte para que sus
+            clientes reserven solos; cae en este mismo calendario. */}
+        {tab === "settings" &&
+          (accountId ? (
+            <PanelAgendaPublica idConfiguracion={accountId} modo="cuenta" />
+          ) : (
+            <div className="cal-card p-6 text-sm text-gray-600">
+              Cargando la cuenta…
+            </div>
+          ))}
       </div>
     </div>
   );

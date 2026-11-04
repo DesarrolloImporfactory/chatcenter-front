@@ -1,11 +1,13 @@
-# Espía de mercado IMPORCHAT (extensión de Chrome)
+# ImporKiller IMPORCHAT (extensión de Chrome)
+
+Antes se llamaba «Espía de mercado» / «Espía de tiendas»; la carpeta y las rutas conservan el nombre `espia`.
 
 Hace dos cosas:
 
-1. **Capa sobre Dropi** (`app.dropi.ec`, `app.dropi.mx`): debajo de cada producto que tengas a la vista en el catálogo pinta las ventas estimadas por IMPORCHAT (24 h / 7 d / 30 d), la tendencia contra la semana anterior, el stock, una mini-gráfica de 14 días y cuántos proveedores venden lo mismo, con enlace al detalle en IMPORCHAT. En la ficha de un producto abre un panel flotante con lo mismo en grande. Es lo que Dropkiller muestra «debajo de cada producto», pero con nuestros datos. Solo lee los ids de producto de la página y los consulta en IMPORCHAT (`POST /espia/productos/lote`, hasta 200 por llamada); no toca la cuenta de Dropi del usuario ni manda nada de ella. Si no hay sesión de IMPORCHAT, lo dice una sola vez y no estorba.
-2. **Espía de tiendas** en la Biblioteca de anuncios de Meta (lo que sigue).
+1. **Capa sobre Dropi** (`app.dropi.ec`, `app.dropi.mx`, `app.dropi.co`): debajo de cada producto que tengas a la vista en el catálogo pinta las ventas estimadas por IMPORCHAT (24 h / 7 d / 30 d), la tendencia contra la semana anterior, el stock, una mini-gráfica de 14 días y cuántos proveedores venden lo mismo, con enlace al detalle en IMPORCHAT. En la ficha de un producto abre un panel flotante con lo mismo en grande. Es lo que Dropkiller muestra «debajo de cada producto», pero con nuestros datos. Solo lee los ids de producto de la página y los consulta en IMPORCHAT (`POST /espia/productos/lote`, hasta 200 por llamada); no toca la cuenta de Dropi del usuario ni manda nada de ella. Si no hay sesión de IMPORCHAT, lo dice una sola vez y no estorba.
+2. **Espía de tiendas** (barra ImporKiller) en la Biblioteca de anuncios de Meta (lo que sigue).
 
-Agrupa por producto los anuncios activos de una tienda en la **Biblioteca de anuncios de Meta**, los ordena y filtra, baja todos los anuncios de un producto a una carpeta y manda lo visto a IMPORCHAT para las pestañas **Anuncios** y **Tiendas** de la pantalla *Espía de mercado*.
+Agrupa por producto los anuncios activos de una tienda en la **Biblioteca de anuncios de Meta**, los ordena y filtra, baja todos los anuncios de un producto a una carpeta y manda lo visto a IMPORCHAT para las pestañas **Anuncios** y **Tiendas** de la pantalla *ImporKiller*.
 
 Es la versión propia de lo que muestra el Loom de referencia (AdGrab): no depende de Dropkiller ni de ninguna API de Meta; lee la pantalla de la Biblioteca en el Chrome del equipo.
 
@@ -14,12 +16,14 @@ Es la versión propia de lo que muestra el Loom de referencia (AdGrab): no depen
 1. `chrome://extensions` → activar **Modo de desarrollador**.
 2. **Cargar descomprimida** → elegir esta carpeta (`extension/espia-tiendas`).
 3. Si faltan los íconos: `node extension/espia-tiendas/icons/generar.cjs` (los crea en `icons/`).
-4. Abrir IMPORCHAT en una pestaña con un usuario **super administrador**: la extensión toma la sesión sola (no pide usuario ni clave). Si no la toma, en **Opciones** se puede pegar el token y elegir el backend (producción, desarrollo o local).
+4. Abrir IMPORCHAT en una pestaña con tu usuario: la extensión toma la sesión sola (no pide usuario ni clave). Si no la toma, en **Opciones** se puede pegar el token y elegir el backend (producción, desarrollo o local).
+
+Desde el 04-11-2026 la extensión es parte del **complemento ImporKiller** ($10/mes, se compra en IMPORCHAT → Planes y facturación → Productos adicionales, o desde la pantalla ImporKiller). Sin él, la sesión funciona pero la capa de Dropi, el envío de anuncios y el radar responden `403 ADDON_REQUIRED` y la extensión muestra dónde activarlo. El super administrador y las cuentas permanentes lo tienen incluido.
 
 ## Usar
 
-1. Abrir la Biblioteca de anuncios de Meta, elegir país (EC o MX) y buscar el **dominio** de la tienda (p. ej. `tiendamultimarca.com.co`).
-2. Abajo aparece la barra **Espía de tiendas** con el total de anuncios cargados y los productos (agrupados por enlace de destino y título).
+1. Abrir la Biblioteca de anuncios de Meta, elegir país (EC, MX o CO) y buscar el **dominio** de la tienda (p. ej. `tiendamultimarca.com.co`).
+2. Abajo aparece la barra **ImporKiller** con el total de anuncios cargados y los productos (agrupados por enlace de destino y título).
 3. **Cargar más**: baja la página sola hasta el **Tope** (por defecto 120, se recuerda). Muestra el avance y se puede detener. Al terminar, si hay sesión y «Envío automático» está activo, manda lo cargado a IMPORCHAT.
 4. **Solo nuevos**: oculta los anuncios que IMPORCHAT ya conocía (si no hay sesión, los que ya se vieron en este Chrome).
 5. **Más activos / Más nuevos**: reordena las tarjetas por días en circulación o por fecha de inicio.
@@ -43,7 +47,7 @@ Ritmo real: unos 25 s por producto con la pausa recomendada → 300 productos �
 
 ## Qué manda al backend
 
-Base: `<API>/api/v1/espia` con el token de la sesión (`Authorization: Bearer`). Solo super administrador.
+Base: `<API>/api/v1/espia` con el token de la sesión (`Authorization: Bearer`). Plan activo para `/extension/ping`; complemento ImporKiller para el resto (`403 ADDON_REQUIRED` si falta).
 
 - `GET /extension/ping` → comprueba la sesión.
 - `POST /anuncios` → `{ pais, dominio_buscado, fuente: 'meta_ad_library', anuncios: [{ ad_archive_id, pagina_id, pagina_nombre, dominio, url_destino, producto, texto, titulo, tipo, media_url, imagen_url, inicio, n_duplicados, plataformas }] }` (máx. 200 por envío). Responde `nuevos_ids` y `conocidos_ids`.

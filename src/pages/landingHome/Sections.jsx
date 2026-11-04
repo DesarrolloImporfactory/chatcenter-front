@@ -21,7 +21,7 @@ import {
   PLANES,
   FAQ,
   WHATSAPP_VENTAS,
-  CALENDLY_DEMO,
+  AGENDA_DEMO,
 } from "./data";
 import {
   NAVY,
@@ -46,7 +46,7 @@ import {
 import { Telefono, ChatAnimado, ChatEstatico } from "./HeroPhone";
 
 const ir = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-const agendarDemo = () => window.open(CALENDLY_DEMO, "_blank", "noopener");
+const agendarDemo = () => window.open(AGENDA_DEMO, "_blank", "noopener");
 
 const ENLACES = [
   { id: "producto", t: "Producto" },

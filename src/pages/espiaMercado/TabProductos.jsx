@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { TAMANOS, usePorPagina } from "./componentes/BarraHerramientas";
 import FichaProducto from "./componentes/FichaProducto";
 import { Sparkline } from "./componentes/Sparkline";
-import { Buscador, Chip, CopiarId, Esqueleto, EstadoLista, Foto, PAISES, Paginacion, btnChico, btnPrimario, btnSuave, fmtDia, fmtMoneda, fmtNum, input, monedaDe, select, tarjeta, useConsulta } from "./ui";
+import { Buscador, Chip, CopiarId, Esqueleto, EstadoLista, Foto, PAISES, Paginacion, btnChico, btnPrimario, btnSuave, fmtDia, fmtMoneda, fmtNum, input, monedaDe, select, tarjeta, useConsulta, ventanasVentas } from "./ui";
 
 /* ═══════════════════════════════════════════════════════════════════════
    Pestaña Productos al estilo Dropkiller.
@@ -57,6 +57,30 @@ const RANGOS = [
 ];
 const CLAVES_AVANZADAS = [...RANGOS.flatMap((r) => [`min_${r.base}`, `max_${r.base}`]), "min_ganancia", "creado_dias", "proveedor", "categoria"];
 
+/* Etiquetas de ventanas (orden, rangos, chips) con los días medidos reales:
+   con pocos días «30 días» pasa a «6 días» y desaparecen las que repiten. */
+const ETIQUETA_VENTANA = {
+  v7: (v) => v.label7,
+  v30: (v) => v.label30,
+  fact7: (v) => v.labelFact7,
+  fact30: (v) => v.labelFact,
+};
+function conVentanas(lista, v, larga = false) {
+  return lista
+    .filter((o) => {
+      const id = o.id || o.base;
+      if ((id === "v7" || id === "fact7") && !v.ver7) return false;
+      if (id === "total" && !v.verTotal) return false;
+      return true;
+    })
+    .map((o) => {
+      const f = ETIQUETA_VENTANA[o.id || o.base];
+      if (!f) return o;
+      const label = larga ? f(v).replace(/ d$/, " días") : f(v);
+      return { ...o, label };
+    });
+}
+
 /* Columnas ordenables: cabecera → orden del back (precio alterna asc/desc). */
 const COLUMNAS_ORDEN = { v7: ["v7"], v30: ["v30"], total: ["total"], fact30: ["fact30"], ganancia: ["ganancia"], precio: ["precio_desc", "precio"], nuevos: ["nuevos"], anuncios: ["anuncios"] };
 
@@ -73,7 +97,13 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
     if (productoInicial) setDetalle(String(productoInicial));
   }, [productoInicial]);
 
-  const orden = filtros.orden || (atajo === "top_7d" ? "v7" : atajo === "todos" ? "total" : "v30");
+  /* Ventanas de ventas según los días medidos (columnas, orden y rangos). */
+  const vv = useMemo(() => ventanasVentas(diasMedidos), [diasMedidos]);
+  const ordenes = useMemo(() => conVentanas(ORDENES, vv, true), [vv]);
+  const rangos = useMemo(() => conVentanas(RANGOS, vv), [vv]);
+  // Sin historial de más de 30 días, «totales» y «30 d» son lo mismo: se ordena por 30 d.
+  const ordenPorDefecto = atajo === "top_7d" ? "v7" : atajo === "todos" && vv.verTotal ? "total" : "v30";
+  const orden = filtros.orden && ordenes.some((o) => o.id === filtros.orden) ? filtros.orden : ordenPorDefecto;
   const params = {
     pais,
     atajo,
@@ -115,7 +145,7 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
 
   /* Chips de filtros activos. */
   const chipsActivos = [];
-  RANGOS.forEach((r) => {
+  rangos.forEach((r) => {
     const min = filtros[`min_${r.base}`];
     const max = filtros[`max_${r.base}`];
     if (!min && !max) return;
@@ -140,7 +170,7 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
           <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
             <span className="hidden lg:inline">Ordenar por</span>
             <select className={`${select} w-auto min-w-[190px]`} value={orden} onChange={(e) => set({ orden: e.target.value })} aria-label="Ordenar por">
-              {ORDENES.map((o) => (
+              {ordenes.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.label}
                 </option>
@@ -207,9 +237,15 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
         </div>
 
         {panel ? (
-          <PanelFiltros pais={pais} filtros={filtros} categorias={listaCategorias} onAplicar={(f) => setFiltros({ ...filtros, ...f, page: 1 })} onLimpiar={limpiarAvanzados} />
+          <PanelFiltros pais={pais} filtros={filtros} rangos={rangos} categorias={listaCategorias} onAplicar={(f) => setFiltros({ ...filtros, ...f, page: 1 })} onLimpiar={limpiarAvanzados} />
         ) : null}
       </div>
+
+      {vv.nota && !vacio && !cargando ? (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <i className="bx bx-time-five mr-1" /> {vv.nota}
+        </p>
+      ) : null}
 
       {atajo30 && Number(diasMedidos) > 0 && Number(diasMedidos) < 14 && !vacio ? (
         <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
@@ -277,18 +313,22 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
                   <th className="px-3 py-3 font-bold" title="Ventas estimadas de los últimos 7 días">
                     Gráfica
                   </th>
-                  <Th col="v7" orden={orden} onClick={ordenarPor} align="right" title={TIP_VENTAS}>
-                    Ventas 7 d
+                  {vv.ver7 ? (
+                    <Th col="v7" orden={orden} onClick={ordenarPor} align="right" title={TIP_VENTAS}>
+                      {vv.label7}
+                    </Th>
+                  ) : null}
+                  <Th col="v30" orden={orden} onClick={ordenarPor} align="right" title={vv.sub30 ? `${TIP_VENTAS} · ${vv.sub30}` : TIP_VENTAS}>
+                    {vv.label30}
                   </Th>
-                  <Th col="v30" orden={orden} onClick={ordenarPor} align="right" title={TIP_VENTAS}>
-                    Ventas 30 d
+                  <Th col="fact30" orden={orden} onClick={ordenarPor} align="right" title={`${vv.label30} × precio del proveedor`}>
+                    {vv.labelFact}
                   </Th>
-                  <Th col="fact30" orden={orden} onClick={ordenarPor} align="right" title="Ventas 30 d × precio del proveedor">
-                    Facturación 30 d
-                  </Th>
-                  <Th col="total" orden={orden} onClick={ordenarPor} align="right" title="Desde que lo vigilamos">
-                    Totales
-                  </Th>
+                  {vv.verTotal ? (
+                    <Th col="total" orden={orden} onClick={ordenarPor} align="right" title="Desde que lo vigilamos">
+                      Totales
+                    </Th>
+                  ) : null}
                   <Th col="anuncios" orden={orden} onClick={ordenarPor} align="right" title="Anuncios activos en Meta vinculados a este producto por el radar de la extensión">
                     Anuncios
                   </Th>
@@ -356,14 +396,16 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
                           <span className="block h-[34px] w-[96px] rounded-md bg-slate-50 ring-1 ring-slate-100" title="Sin ventas estimadas en los últimos 7 días" />
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right text-base font-extrabold text-slate-900 tabular-nums" title={TIP_VENTAS}>
-                        {fmtNum(p.ventas_7d)}
-                      </td>
-                      <td className="px-3 py-3 text-right font-bold text-slate-800 tabular-nums" title={TIP_VENTAS}>
+                      {vv.ver7 ? (
+                        <td className="px-3 py-3 text-right text-base font-extrabold text-slate-900 tabular-nums" title={TIP_VENTAS}>
+                          {fmtNum(p.ventas_7d)}
+                        </td>
+                      ) : null}
+                      <td className={`px-3 py-3 text-right tabular-nums ${vv.ver7 ? "font-bold text-slate-800" : "text-base font-extrabold text-slate-900"}`} title={TIP_VENTAS}>
                         {fmtNum(p.ventas_30d)}
                       </td>
                       <td className={`px-3 py-3 text-right font-bold tabular-nums ${fact30 > 0 ? "text-emerald-600" : "text-slate-400"}`}>{fmtMoneda(fact30, pais)}</td>
-                      <td className="px-3 py-3 text-right font-bold text-slate-700 tabular-nums">{fmtNum(p.ventas_total)}</td>
+                      {vv.verTotal ? <td className="px-3 py-3 text-right font-bold text-slate-700 tabular-nums">{fmtNum(p.ventas_total)}</td> : null}
                       <td className="px-3 py-3 text-right">
                         {Number(p.n_anuncios) > 0 ? (
                           <span className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-1 text-xs font-extrabold text-violet-700 tabular-nums" title={`${fmtNum(p.n_anuncios)} anuncios activos en Meta · buscado ${fmtDia(p.radar_en)}`}>
@@ -407,7 +449,7 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
         </div>
       ) : null}
 
-      {detalle ? <FichaProducto pais={pais} id={detalle} onClose={cerrarDetalle} onSeguido={(s) => marcarSeguido(detalle, s)} /> : null}
+      {detalle ? <FichaProducto pais={pais} id={detalle} diasMedidos={diasMedidos} onClose={cerrarDetalle} onSeguido={(s) => marcarSeguido(detalle, s)} /> : null}
     </div>
   );
 }
@@ -428,7 +470,7 @@ function Th({ col, orden, onClick, align = "left", title, children }) {
 }
 
 /* ── Panel de filtros avanzados (borrador local, se aplica con el botón) ── */
-function PanelFiltros({ pais, filtros, categorias, onAplicar, onLimpiar }) {
+function PanelFiltros({ pais, filtros, rangos = RANGOS, categorias, onAplicar, onLimpiar }) {
   const [b, setB] = useState(() => Object.fromEntries(CLAVES_AVANZADAS.map((k) => [k, filtros[k] || ""])));
   useEffect(() => {
     setB(Object.fromEntries(CLAVES_AVANZADAS.map((k) => [k, filtros[k] || ""])));
@@ -484,7 +526,7 @@ function PanelFiltros({ pais, filtros, categorias, onAplicar, onLimpiar }) {
 
         {/* Rangos */}
         <div className="grid gap-3 sm:grid-cols-2">
-          {RANGOS.map((r) => (
+          {rangos.map((r) => (
             <div key={r.base}>
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 <i className={`bx ${r.icon} mr-1`} />

@@ -17,6 +17,7 @@ import Chat from "./pages/chat/Chat";
 import PlanesView from "./pages/planes/PlanesView";
 import PlanesViewPrueba from "./pages/planes/PlanesViewPrueba";
 import MiPlan from "./pages/facturacion/Miplan";
+import Complementos from "./pages/facturacion/Complementos";
 import MiPlanPrueba from "./pages/facturacion/MiplanPrueba";
 import LandingHome from "./pages/landingHome/LandingHome";
 
@@ -32,12 +33,13 @@ import MiPerfilView from "./pages/miPerfil/MiPerfilView";
 import CatalogosView from "./pages/productos/CatalogosView";
 import CatalogoPublicoView from "./pages/productos/CatalogoPublicoView";
 import EncuestaPublica from "./pages/encuestas/EncuestaPublica";
+import AgendarPublico from "./pages/agendar/AgendarPublico";
+import AdminAgendaPublicaView from "./pages/agendaPublica/AdminAgendaPublicaView";
 import Categorias from "./pages/categorias/CategoriasView";
 import Establecimientos from "./pages/establecimientos/EstablecimientosView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import AdminUsuarios from "./components/admin/usuarios/AdminUsuarios";
 import AdminDashboard from "./components/admin/dashboard/AdminDashboard";
-import AuditoriaCarteraView from "./pages/auditoria/AuditoriaCarteraView";
 import SeguimientoIA from "./pages/seguimientoIA/SeguimientoIA";
 import SeguimientoCasos from "./pages/seguimientoCasos/SeguimientoCasos";
 import RecuperacionView from "./pages/recuperacion/RecuperacionView";
@@ -124,6 +126,13 @@ import EncuestasView from "./pages/encuestas/EncuestasView";
 import Adsboard from "./components/metaAsd/Adsboard";
 import PlantillasGlobalesAdmin from "./pages/kanbanAdmin/PlantillasGlobalesAdmin";
 
+/* /espia-mercado fue el nombre interno de ImporKiller: los enlaces viejos
+   (reportes por WhatsApp, extensión 0.6.0) siguen funcionando. */
+function RedirigirImporKiller() {
+  const { search } = useLocation();
+  return <Navigate to={`/imporkiller${search}`} replace />;
+}
+
 function App() {
   const location = useLocation();
 
@@ -204,6 +213,12 @@ function App() {
           <Route path="/encuesta-publica/:id" element={<EncuestaPublica />} />
 
           <Route path="/home" element={<LandingHome />} />
+
+          {/* Agenda pública: sin slug es la principal de ImporChat (reemplaza
+              a Calendly); con slug, la de cada cuenta (Calendario → Agenda
+              pública) */}
+          <Route path="/agendar" element={<AgendarPublico />} />
+          <Route path="/agendar/:slug" element={<AgendarPublico />} />
 
           {/* Rutas protegidas */}
           <Route element={<ProtectedRoutes />}>
@@ -631,6 +646,17 @@ function App() {
                   }
                 />
 
+                {/* Agenda pública: asesores, horario y reservas (solo super
+                    admin; el backend valida con requireSuperAdmin) */}
+                <Route
+                  path="/administrador-agenda"
+                  element={
+                    <MainLayout_conexiones>
+                      <AdminAgendaPublicaView />
+                    </MainLayout_conexiones>
+                  }
+                />
+
                 <Route
                   path="/administrador-app-movil"
                   element={
@@ -679,17 +705,20 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
-                {/* Espía de mercado (Dropkiller propio): ventas de Dropi,
-                    anuncios y tiendas pautando en EC y MX. Solo super
-                    administrador (el back lo exige en cada endpoint). */}
+                {/* ImporKiller (espía de mercado, Dropkiller propio): ventas de
+                    Dropi, anuncios y tiendas pautando en EC, MX y CO. Para todos
+                    (buscador con cualquier plan; extensión y anuncios con el
+                    complemento); operar el recolector sigue siendo del super admin. */}
                 <Route
-                  path="/espia-mercado"
+                  path="/imporkiller"
                   element={
                     <MainLayout_conexiones>
                       <EspiaMercadoView />
                     </MainLayout_conexiones>
                   }
                 />
+                {/* Ruta vieja (enlaces del reporte y de la extensión 0.6.0). */}
+                <Route path="/espia-mercado" element={<RedirigirImporKiller />} />
 
                 {/*dashboard de usuariosadmin */}
                 <Route
@@ -730,16 +759,6 @@ function App() {
                     <MainLayout>
                       <SeguimientoIA />
                     </MainLayout>
-                  }
-                />
-
-                {/* auditoría de cartera imporsuit */}
-                <Route
-                  path="/auditoria-cartera"
-                  element={
-                    <MainLayout_conexiones>
-                      <AuditoriaCarteraView />
-                    </MainLayout_conexiones>
                   }
                 />
 
@@ -788,6 +807,18 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <MiPlan />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                {/* Productos adicionales: tercera pestaña de Planes y
+                    facturación. Usuarios y conexiones extra e ImporKiller,
+                    que antes solo se vendían desde el modal de límite. */}
+                <Route
+                  path="/complementos"
+                  element={
+                    <MainLayout_conexiones>
+                      <Complementos />
                     </MainLayout_conexiones>
                   }
                 />

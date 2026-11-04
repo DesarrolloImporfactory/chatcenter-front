@@ -564,6 +564,15 @@ export default function AdminUsuarios() {
           loading={detalleLoading}
           data={detalleData}
           onClose={() => setDetalleOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+          planes={planes}
+          onActualizado={(usuario) => {
+            // El back devuelve la fila ya actualizada: se refresca el drawer
+            // sin cerrarlo, y la tabla y los KPIs por detrás.
+            if (usuario) setDetalleData((d) => (d ? { ...d, usuario } : d));
+            fetchLista();
+            fetchKpisAndPlans();
+          }}
         />
       )}
     </div>
