@@ -39,7 +39,6 @@ import Establecimientos from "./pages/establecimientos/EstablecimientosView";
 import Usuarios from "./pages/usuarios/UsuariosView";
 import AdminUsuarios from "./components/admin/usuarios/AdminUsuarios";
 import AdminDashboard from "./components/admin/dashboard/AdminDashboard";
-import AuditoriaCarteraView from "./pages/auditoria/AuditoriaCarteraView";
 import SeguimientoIA from "./pages/seguimientoIA/SeguimientoIA";
 import SeguimientoCasos from "./pages/seguimientoCasos/SeguimientoCasos";
 import RecuperacionView from "./pages/recuperacion/RecuperacionView";
@@ -749,16 +748,6 @@ function App() {
                     <MainLayout>
                       <SeguimientoIA />
                     </MainLayout>
-                  }
-                />
-
-                {/* auditoría de cartera imporsuit */}
-                <Route
-                  path="/auditoria-cartera"
-                  element={
-                    <MainLayout_conexiones>
-                      <AuditoriaCarteraView />
-                    </MainLayout_conexiones>
                   }
                 />
 

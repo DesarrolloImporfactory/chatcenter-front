@@ -111,32 +111,3 @@ export const ESTADO_DEUDA = {
   1: "Pagada",
   2: "Anulada",
 };
-
-/**
- * Acciones registradas por la auditoría de cartera (columna `accion`).
- * Para mostrar etiquetas e iconos en la vista de auditoría.
- */
-export const ACCIONES_AUDITORIA = {
-  crear_cliente: {
-    label: "Crear / asignar cliente",
-    icon: "bx-user-plus",
-    color: "indigo",
-  },
-  generar_cartera: {
-    label: "Generar cartera",
-    icon: "bx-wallet",
-    color: "emerald",
-  },
-  agregar_deuda: { label: "Agregar deuda", icon: "bx-receipt", color: "amber" },
-  agregar_pago: {
-    label: "Registrar pago",
-    icon: "bx-dollar-circle",
-    color: "green",
-  },
-  eliminar_deuda: { label: "Eliminar deuda", icon: "bx-trash", color: "red" },
-  subir_comprobante: {
-    label: "Subir comprobante",
-    icon: "bx-upload",
-    color: "amber",
-  },
-};
