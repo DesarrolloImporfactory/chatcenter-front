@@ -459,14 +459,11 @@ function MainLayout({ children }) {
               />
             )}
 
-            {/* Espía de mercado (Dropkiller propio): solo super_administrador */}
-            {isSuperAdmin && (
-              <NavBtn
-                path="/espia-mercado"
-                icon="bx-radar"
-                label="Espía de mercado"
-              />
-            )}
+            {/* ImporKiller (Dropkiller propio): para todos. El buscador de
+                productos va con cualquier plan; la extensión y los anuncios
+                son el complemento ($10/mes) y la propia pantalla lo vende.
+                No cuelga de una conexión: por eso vive aquí y no en el chat. */}
+            <NavBtn path="/imporkiller" icon="bx-radar" label="ImporKiller" />
 
             {/* Departamentos: solo el administrador de la cuenta */}
             {esAdministrador && (
@@ -486,7 +483,7 @@ function MainLayout({ children }) {
                 path="/planes"
                 icon="bxs-credit-card"
                 label="Planes y facturación"
-                activeWhen={["/planes", "/plan"]}
+                activeWhen={["/planes", "/plan", "/complementos"]}
               />
             )}
 

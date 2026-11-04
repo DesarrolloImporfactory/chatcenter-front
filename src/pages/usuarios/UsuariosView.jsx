@@ -1123,7 +1123,13 @@ const UsuariosView = () => {
                       <span>
                         Ej.: un plan de $29/mes pasaría a $34/mes. El subusuario
                         adicional se mantiene activo mientras tu plan siga
-                        activo.
+                        activo.{" "}
+                        <Link
+                          to="/complementos"
+                          className="font-semibold text-[#1d4ed8] underline underline-offset-2 hover:text-[#0a1a36]"
+                        >
+                          Ver todos los productos adicionales
+                        </Link>
                       </span>
                     </p>
 

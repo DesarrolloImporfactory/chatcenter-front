@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import chatApi from "../../api/chatcenter";
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Utilidades y piezas básicas de /espia-mercado.
+   Utilidades y piezas básicas de /imporkiller (ImporKiller).
 
    Lenguaje visual: el mismo del modal de implementación (navy #0B1426,
    acentos sky/cyan, verde WhatsApp para «éxito», sombras suaves y radios
@@ -24,6 +24,7 @@ export const TOKENS = {
 export const PAISES = [
   { code: "EC", nombre: "Ecuador", bandera: "🇪🇨" },
   { code: "MX", nombre: "México", bandera: "🇲🇽" },
+  { code: "CO", nombre: "Colombia", bandera: "🇨🇴" },
   // QA = datos de prueba (pasadas con respuestas guardadas). Solo aparece si
   // la URL lo trae (?pais=QA) o ya se eligió antes.
   ...(/[?&]pais=QA/i.test(window.location.search) ||
@@ -48,6 +49,20 @@ export const urlBiblioteca = (pais = "EC", q = "") =>
    la guía muestra entonces «Instalar desde Chrome Web Store». */
 export const URL_EXTENSION_WEB_STORE = null;
 
+/* Complemento «ImporKiller» ($10/mes): la extensión de Chrome (ventas
+   estimadas debajo de cada producto de Dropi) y todo lo de anuncios de la
+   Biblioteca de Meta. El buscador de productos va incluido en cualquier plan.
+   Se compra como las conexiones y subusuarios adicionales (addons_chat_center,
+   clave imporkiller); el back lo exige con code ADDON_REQUIRED. */
+export const ADDON_IMPORKILLER = { clave: "imporkiller", nombre: "ImporKiller", precio: 10 };
+
+/* La extensión todavía no está en la Chrome Web Store: se descarga como zip y
+   se carga en chrome://extensions con «Modo de desarrollador». El zip vive en
+   public/descargas (lo sirve el propio front); si se aloja en otro lado, basta
+   con cambiar VITE_IMPORKILLER_EXTENSION_URL o esta constante. */
+export const EXTENSION_VERSION = "0.6.2";
+export const URL_EXTENSION_ZIP = import.meta.env.VITE_IMPORKILLER_EXTENSION_URL || `/descargas/imporkiller-imporchat-v${EXTENSION_VERSION}.zip`;
+
 /* ── Clases base ─────────────────────────────────────────────────────── */
 export const input =
   "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100";
@@ -68,6 +83,32 @@ export const tarjeta = "rounded-2xl border border-slate-200/80 bg-white shadow-[
 /* ── Formato ─────────────────────────────────────────────────────────── */
 export const fmtNum = (n) =>
   n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("es-EC");
+/* Ventanas de ventas según los días medidos. Con pocos días de fotos, «7 d»,
+   «30 d» y «Totales» son el mismo número y confunden (6 días medidos → tres
+   columnas con 1.837): se muestran solo las ventanas que distinguen algo y
+   se etiquetan con los días reales. Con 0 (estado sin cargar) sale todo. */
+export function ventanasVentas(diasMedidos) {
+  const d = Math.max(0, Math.floor(Number(diasMedidos) || 0));
+  const corto = d > 0 && d < 30;
+  const diasTxt = `${fmtNum(d)} ${d === 1 ? "día" : "días"}`;
+  return {
+    dias: d,
+    corto,
+    // Con menos de 7 días medidos, 7 d y 30 d coinciden: una sola columna.
+    ver7: d === 0 || d >= 7,
+    // Con 30 días o menos, los totales son iguales a los 30 d.
+    verTotal: d === 0 || d > 30,
+    label7: "Vendidos en 7 d",
+    label30: corto ? `Vendidos en ${d} días` : "Vendidos en 30 d",
+    labelFact: corto ? `Facturación ${d} días` : "Facturación 30 d",
+    labelFact7: "Facturación 7 d",
+    sub30: corto ? "desde la primera foto" : null,
+    nota: corto
+      ? `Vendidos = unidades que bajaron del stock del proveedor entre una foto del catálogo y la siguiente. Llevamos ${diasTxt} de fotos; a los 7 y a los 30 días aparecen esas columnas.`
+      : null,
+  };
+}
+
 export const fmtCorto = (n) => {
   if (n === null || n === undefined || n === "") return "—";
   const v = Number(n);
@@ -91,9 +132,16 @@ export const fmtFecha = (f) => {
   if (Number.isNaN(d.getTime())) return String(f);
   return d.toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" });
 };
+/* Una fecha «YYYY-MM-DD» se interpreta como día local: new Date() la toma
+   como medianoche UTC y en Ecuador (-5) caía en el día anterior (la primera
+   foto del 31-oct salía como «30-oct»). */
+const fechaLocal = (f) => {
+  const m = typeof f === "string" && f.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(f);
+};
 export const fmtDia = (f) => {
   if (!f) return "—";
-  const d = new Date(f);
+  const d = fechaLocal(f);
   if (Number.isNaN(d.getTime())) return String(f);
   return d.toLocaleDateString("es-EC", { day: "2-digit", month: "short" });
 };
@@ -125,7 +173,9 @@ export const haceCuanto = (f) => {
 export function textoError(err) {
   const status = err?.response?.status;
   const msg = err?.response?.data?.message;
-  if (status === 403) return "Esta pantalla es solo para super administradores.";
+  const code = err?.response?.data?.code;
+  if (code === "ADDON_REQUIRED") return msg || `Esta función es parte del complemento ${ADDON_IMPORKILLER.nombre} ($${ADDON_IMPORKILLER.precio}/mes).`;
+  if (status === 403) return msg || "Tu usuario no tiene permiso para esto.";
   if (status === 401) return "Tu sesión venció. Vuelve a iniciar sesión.";
   if (msg) return msg;
   if (!err?.response) return "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.";

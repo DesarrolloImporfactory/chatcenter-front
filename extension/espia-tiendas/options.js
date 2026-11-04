@@ -15,7 +15,7 @@
   });
 
   const pintarSesion = () => {
-    if (!cfg.token) return estado('Sin sesión. Abre IMPORCHAT en otra pestaña (con tu usuario super administrador) o pega el token.', 'err');
+    if (!cfg.token) return estado('Sin sesión. Abre IMPORCHAT en otra pestaña con tu usuario o pega el token.', 'err');
     estado(`Hay un token guardado (${cfg.tokenOrigen || 'origen desconocido'}, ${cfg.tokenFecha ? new Date(cfg.tokenFecha).toLocaleString() : ''}). Pulsa «Probar sesión».`);
   };
   pintarSesion();
@@ -31,7 +31,10 @@
   $('#probar').addEventListener('click', async () => {
     estado('Probando…');
     const r = await chrome.runtime.sendMessage({ tipo: 'ping' });
-    if (r.ok) estado(`Sesión OK: ${r.data?.usuario?.nombre || ''} (${r.data?.usuario?.rol || ''})`, 'ok');
+    if (r.ok) {
+      const a = r.data?.addon;
+      estado(`Sesión OK: ${r.data?.usuario?.nombre || ''} (${r.data?.usuario?.rol || ''})${a ? ` · complemento ImporKiller ${a.activo ? 'activo' : 'NO activo: actívalo en ' + (r.data?.web || 'IMPORCHAT') + '/complementos'}` : ''}`, a && !a.activo ? 'err' : 'ok');
+    }
     else estado(`Falló: ${r.message || 'sin detalle'}${r.status ? ` (HTTP ${r.status})` : ''}`, 'err');
   });
   $('#salir').addEventListener('click', async () => {

@@ -17,6 +17,7 @@ import Chat from "./pages/chat/Chat";
 import PlanesView from "./pages/planes/PlanesView";
 import PlanesViewPrueba from "./pages/planes/PlanesViewPrueba";
 import MiPlan from "./pages/facturacion/Miplan";
+import Complementos from "./pages/facturacion/Complementos";
 import MiPlanPrueba from "./pages/facturacion/MiplanPrueba";
 import LandingHome from "./pages/landingHome/LandingHome";
 
@@ -124,6 +125,13 @@ import RutaNoEncontrada from "./pages/shared/RutaNoEncontrada";
 import EncuestasView from "./pages/encuestas/EncuestasView";
 import Adsboard from "./components/metaAsd/Adsboard";
 import PlantillasGlobalesAdmin from "./pages/kanbanAdmin/PlantillasGlobalesAdmin";
+
+/* /espia-mercado fue el nombre interno de ImporKiller: los enlaces viejos
+   (reportes por WhatsApp, extensión 0.6.0) siguen funcionando. */
+function RedirigirImporKiller() {
+  const { search } = useLocation();
+  return <Navigate to={`/imporkiller${search}`} replace />;
+}
 
 function App() {
   const location = useLocation();
@@ -697,17 +705,20 @@ function App() {
                     </MainLayout_conexiones>
                   }
                 />
-                {/* Espía de mercado (Dropkiller propio): ventas de Dropi,
-                    anuncios y tiendas pautando en EC y MX. Solo super
-                    administrador (el back lo exige en cada endpoint). */}
+                {/* ImporKiller (espía de mercado, Dropkiller propio): ventas de
+                    Dropi, anuncios y tiendas pautando en EC, MX y CO. Para todos
+                    (buscador con cualquier plan; extensión y anuncios con el
+                    complemento); operar el recolector sigue siendo del super admin. */}
                 <Route
-                  path="/espia-mercado"
+                  path="/imporkiller"
                   element={
                     <MainLayout_conexiones>
                       <EspiaMercadoView />
                     </MainLayout_conexiones>
                   }
                 />
+                {/* Ruta vieja (enlaces del reporte y de la extensión 0.6.0). */}
+                <Route path="/espia-mercado" element={<RedirigirImporKiller />} />
 
                 {/*dashboard de usuariosadmin */}
                 <Route
@@ -796,6 +807,18 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <MiPlan />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                {/* Productos adicionales: tercera pestaña de Planes y
+                    facturación. Usuarios y conexiones extra e ImporKiller,
+                    que antes solo se vendían desde el modal de límite. */}
+                <Route
+                  path="/complementos"
+                  element={
+                    <MainLayout_conexiones>
+                      <Complementos />
                     </MainLayout_conexiones>
                   }
                 />

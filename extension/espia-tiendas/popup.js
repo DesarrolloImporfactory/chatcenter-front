@@ -4,7 +4,7 @@
   $('#hoy').textContent = cfg.enviadosHoy?.total || 0;
   // La pantalla vive en la web de IMPORCHAT, no en la API: se deduce del origen de la sesión.
   const web = cfg.tokenOrigen && cfg.tokenOrigen !== 'manual' ? cfg.tokenOrigen : 'https://chatcenter.imporfactory.app';
-  $('#pantalla').href = `${web}/espia-mercado`;
+  $('#pantalla').href = `${web}/imporkiller`;
   $('#origen').textContent = cfg.tokenOrigen ? `sesión tomada de ${cfg.tokenOrigen}` : 'abre IMPORCHAT en una pestaña para tomar la sesión';
   $('#opciones').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
@@ -36,6 +36,21 @@
 
   const r = await chrome.runtime.sendMessage({ tipo: 'ping' });
   const s = $('#sesion');
-  if (r.ok) { s.textContent = r.data?.usuario?.nombre || 'conectado'; s.className = 'ok'; }
-  else { s.textContent = r.message || 'sin sesión'; s.className = 'err'; }
+  const c = $('#complemento');
+  if (r.ok) {
+    s.textContent = r.data?.usuario?.nombre || 'conectado'; s.className = 'ok';
+    const a = r.data?.addon;
+    if (a?.activo) { c.textContent = 'activo'; c.className = 'ok'; }
+    else {
+      // Sin complemento: Dropi y la Biblioteca lo dicen; aquí va el enlace directo a comprarlo.
+      c.innerHTML = '';
+      const enlace = document.createElement('a');
+      enlace.href = `${web}/complementos`;
+      enlace.target = '_blank';
+      enlace.rel = 'noopener';
+      enlace.textContent = `activar ($${a?.precio || 10}/mes)`;
+      enlace.className = 'err enlace';
+      c.appendChild(enlace);
+    }
+  } else { s.textContent = r.message || 'sin sesión'; s.className = 'err'; c.textContent = '—'; c.className = 'suave'; }
 })();
