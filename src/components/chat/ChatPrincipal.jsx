@@ -12,6 +12,7 @@ import TemplateBody from "./TemplateBody";
 import { renderTextoWhatsapp, aplicarVariables } from "../../utils/waFormat";
 import { formatFechaProgramada } from "../../services/programados.service";
 import ModalEnlacePago from "./ModalEnlacePago";
+import { avisoErrorEnvioWhatsApp } from "../../utils/avisoErrorEnvioWhatsApp";
 
 /* === Estado del cobro pegado a la burbuja del enlace de pago === */
 const ESTADO_ENLACE = {
@@ -649,7 +650,7 @@ const ChatPrincipal = ({
 
       if (result.error) {
         console.error("Error al enviar la imagen a WhatsApp:", result.error);
-        alert(`Error: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
@@ -690,7 +691,7 @@ const ChatPrincipal = ({
 
       if (result.error) {
         console.error("Error al enviar audio:", result.error);
-        alert(`Error: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
@@ -739,7 +740,7 @@ const ChatPrincipal = ({
 
       if (result.error) {
         console.error("Error al enviar video:", result.error);
-        alert(`Error: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
@@ -800,7 +801,7 @@ const ChatPrincipal = ({
 
       if (result.error) {
         console.error("Error al enviar documento:", result.error);
-        alert(`Error: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
@@ -841,7 +842,7 @@ const ChatPrincipal = ({
 
       if (result.error) {
         console.error("Error al reenviar texto:", result.error);
-        alert(`Error: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
@@ -992,7 +993,7 @@ const ChatPrincipal = ({
 
       if (result.error) {
         console.error("❌ Error al reenviar template:", result.error);
-        alert(`Error: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
