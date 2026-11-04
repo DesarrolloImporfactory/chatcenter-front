@@ -32,6 +32,8 @@ import MiPerfilView from "./pages/miPerfil/MiPerfilView";
 import CatalogosView from "./pages/productos/CatalogosView";
 import CatalogoPublicoView from "./pages/productos/CatalogoPublicoView";
 import EncuestaPublica from "./pages/encuestas/EncuestaPublica";
+import AgendarPublico from "./pages/agendar/AgendarPublico";
+import AdminAgendaPublicaView from "./pages/agendaPublica/AdminAgendaPublicaView";
 import Categorias from "./pages/categorias/CategoriasView";
 import Establecimientos from "./pages/establecimientos/EstablecimientosView";
 import Usuarios from "./pages/usuarios/UsuariosView";
@@ -204,6 +206,12 @@ function App() {
           <Route path="/encuesta-publica/:id" element={<EncuestaPublica />} />
 
           <Route path="/home" element={<LandingHome />} />
+
+          {/* Agenda pública: sin slug es la principal de ImporChat (reemplaza
+              a Calendly); con slug, la de cada cuenta (Calendario → Agenda
+              pública) */}
+          <Route path="/agendar" element={<AgendarPublico />} />
+          <Route path="/agendar/:slug" element={<AgendarPublico />} />
 
           {/* Rutas protegidas */}
           <Route element={<ProtectedRoutes />}>
@@ -627,6 +635,17 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <AdminAvisosView />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                {/* Agenda pública: asesores, horario y reservas (solo super
+                    admin; el backend valida con requireSuperAdmin) */}
+                <Route
+                  path="/administrador-agenda"
+                  element={
+                    <MainLayout_conexiones>
+                      <AdminAgendaPublicaView />
                     </MainLayout_conexiones>
                   }
                 />

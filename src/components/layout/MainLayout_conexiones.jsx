@@ -151,7 +151,7 @@ function MainLayout({ children }) {
      /conexiones, y solo al administrador: es configuración de la cuenta. */
   const [needsCapture, setNeedsCapture] = useState(false);
 
-  /* Invitación a agendar la implementación (Calendly comercial). Solo al
+  /* Invitación a agendar la implementación (agenda pública /agendar). Solo al
      administrador de una cuenta que no ha empezado: una conexión como máximo
      y ninguna conectada. El back decide y guarda la respuesta por cuenta
      (agendó / no por ahora 3 días / no volver a mostrar). Espera a que se
@@ -442,6 +442,15 @@ function MainLayout({ children }) {
               />
             )}
 
+            {/* Agenda pública de implementación: solo super_administrador */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/administrador-agenda"
+                icon="bx-calendar-check"
+                label="Agenda de implementación"
+              />
+            )}
+
             {isSuperAdmin && (
               <NavBtn
                 path="/administrador-app-movil"
@@ -554,6 +563,7 @@ function MainLayout({ children }) {
         <ModalAgendarImplementacion
           datos={implementacion}
           claveSesion={claveImplementacion}
+          idCuenta={userData.id_usuario || userData.id_users || null}
           onCerrar={() => setImplementacion(null)}
         />
       )}

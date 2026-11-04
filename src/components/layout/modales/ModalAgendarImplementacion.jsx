@@ -12,8 +12,11 @@ import chatApi from "../../../api/chatcenter";
    lo ve aunque una esté sin conectar: ya pagó la segunda y maneja el sistema.
 
    Salidas:
-     · Agendar             → abre Calendly con nombre y correo prellenados y
-                             no vuelve a salir (guardado por cuenta).
+     · Agendar             → abre la agenda pública (/agendar) con nombre y
+                             correo prellenados y la cuenta (u=) para que la
+                             reserva quede ligada; cuando reserva de verdad,
+                             el back no lo vuelve a mostrar hasta pasada la
+                             cita. Hasta el 2026-11-04 abría un Calendly.
      · No por ahora        → vuelve a salir a los 3 días (por cuenta).
      · No volver a mostrar → nunca más (por cuenta).
      · X / Escape / clic afuera → solo cierra: no toca la base. Se recuerda
@@ -48,21 +51,21 @@ const PASOS = [
 
 const VERDE = "#25D366";
 
-function urlCalendly(base, dueno) {
+function urlAgenda(base, dueno, idCuenta) {
   try {
-    const u = new URL(base);
-    if (dueno?.nombre) u.searchParams.set("name", dueno.nombre);
+    const u = new URL(base || "/agendar?origen=modal", window.location.origin);
+    if (!u.searchParams.get("origen")) u.searchParams.set("origen", "modal");
+    if (idCuenta) u.searchParams.set("u", String(idCuenta));
+    if (dueno?.nombre) u.searchParams.set("nombre", dueno.nombre);
     if (dueno?.email) u.searchParams.set("email", dueno.email);
-    u.searchParams.set("utm_source", "imporchat");
-    u.searchParams.set("utm_medium", "modal_implementacion");
     return u.toString();
   } catch (_) {
-    return base;
+    return "/agendar?origen=modal";
   }
 }
 
 // El nombre llega como lo escribió el cliente, a veces con entidades HTML
-// («Mar&iacute;a»): se limpia para el saludo y para Calendly.
+// («Mar&iacute;a»): se limpia para el saludo y para prellenar la agenda.
 function limpiarNombre(n) {
   const t = document.createElement("textarea");
   t.innerHTML = String(n || "");
@@ -108,7 +111,7 @@ function FlujoAutomatico() {
   );
 }
 
-export default function ModalAgendarImplementacion({ datos, claveSesion, onCerrar }) {
+export default function ModalAgendarImplementacion({ datos, claveSesion, idCuenta, onCerrar }) {
   const [enviando, setEnviando] = useState(null);
   const dueno = { ...(datos?.dueno || {}), nombre: limpiarNombre(datos?.dueno?.nombre) };
   const nombre = dueno.nombre.split(/\s+/)[0] || "";
@@ -134,7 +137,7 @@ export default function ModalAgendarImplementacion({ datos, claveSesion, onCerra
     if (accion === "agendo") {
       // Primero la pestaña: si se abre después del await, el navegador la
       // bloquea como popup.
-      window.open(urlCalendly(datos?.calendly_url, dueno), "_blank", "noopener");
+      window.open(urlAgenda(datos?.agenda_url, dueno, idCuenta), "_blank", "noopener");
     }
     try {
       await chatApi.post("onboarding/implementacion/respuesta", { accion });
