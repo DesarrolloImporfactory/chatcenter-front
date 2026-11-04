@@ -7,6 +7,7 @@ import { ensureProgramados } from "./programadosChatStore";
 import { invalidarResumenProgramados } from "./useProgramadosChats";
 import { formatFechaProgramada } from "../../services/programados.service";
 import { enviarWhatsAppConReintento } from "../../utils/enviarWhatsAppConReintento";
+import { avisoErrorEnvioWhatsApp } from "../../utils/avisoErrorEnvioWhatsApp";
 
 const Modales = ({
   numeroModal,
@@ -713,7 +714,7 @@ const Modales = ({
 
       if (result.error) {
         console.error("Error al enviar la imagen a WhatsApp:", result.error);
-        alert(`Error: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
@@ -907,7 +908,7 @@ const Modales = ({
 
       if (result.error) {
         console.error("Error al enviar el documento a WhatsApp:", result.error);
-        alert(`Error: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
@@ -1240,7 +1241,7 @@ const Modales = ({
       });
 
       if (result.error) {
-        alert(`Error enviando mensaje: ${result.error.message}`);
+        avisoErrorEnvioWhatsApp(result.error);
         return;
       }
 
