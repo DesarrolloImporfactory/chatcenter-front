@@ -1,5 +1,5 @@
 // src/pages/remarketingProducto/RemarketingProductoView.jsx
-// Remarketing por producto (menú Productos → Remarketing). Beta.
+// Remarketing por producto (menú Productos → Remarketing).
 //
 // Lista de productos con su recordatorio propio: el que llega con botones
 // («⭐ Ver opiniones» / «✅ Sí, lo quiero») a quien escribió por un anuncio
@@ -7,8 +7,9 @@
 // sus recordatorios (1 a 3); sin configurar, sigue el de la columna
 // Contacto inicial. Misma tarjeta blanca, tabla y paginación que /productos.
 //
-// REMARKETING_PRODUCTO_PILOTO: cuentas que ven el ítem del menú y la vista
-// mientras es beta. Vacío = todas. El backend tiene la misma lista
+// REMARKETING_PRODUCTO_PILOTO: cuentas que ven el ítem del menú y la vista.
+// Vacío = todas (abierto a todas las cuentas desde el 05-11-2026; el piloto
+// fue 10, 610 y 822). El backend tiene la misma lista
 // (REMARKETING_PRODUCTO_PILOTO en remarketing_producto.service.js).
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -17,7 +18,7 @@ import chatApi from "../../api/chatcenter";
 import Header from "../Header/pageHeader";
 import EditorRemarketingProducto from "./EditorRemarketingProducto";
 
-export const REMARKETING_PRODUCTO_PILOTO = [10, 610, 822];
+export const REMARKETING_PRODUCTO_PILOTO = [];
 
 export const remarketingProductoHabilitado = () =>
   REMARKETING_PRODUCTO_PILOTO.length === 0 ||

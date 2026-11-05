@@ -851,8 +851,8 @@ function App() {
                   }
                 />
 
-                {/* Remarketing por producto (beta; piloto en
-                    REMARKETING_PRODUCTO_PILOTO). */}
+                {/* Remarketing por producto (abierto a todos;
+                    REMARKETING_PRODUCTO_PILOTO vacío). */}
                 <Route
                   path="/remarketing"
                   element={

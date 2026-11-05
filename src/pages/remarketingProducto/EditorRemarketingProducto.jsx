@@ -1028,9 +1028,19 @@ const acumuladoHasta = (pasos, idx) =>
 
 /* Vista previa WhatsApp: muestra la conversación tal como la vería el
    cliente hasta el recordatorio activo (los anteriores quedaron sin
-   respuesta), con el tiempo de espera entre uno y otro. */
-function Previa({ config, pasoIdx, producto, vars, plantillas = [] }) {
+   respuesta), con el tiempo de espera entre uno y otro.
+
+   Antes del primer recordatorio va la RESPUESTA del negocio al «Hola, quiero
+   info» (respuestaInicial, la manda /remarketing-producto/obtener): el
+   mensaje fijo de los ajustes avanzados del producto si los tiene, o una
+   respuesta tipo del bot si no. Sin eso la previa daba a entender que nadie
+   le contestó al cliente; el recordatorio sale porque ÉL dejó de responder.
+   Los recordatorios 2 y 3 no llevan nada delante más que el anterior. */
+function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaInicial = null }) {
   const pasos = config.pasos.slice(0, pasoIdx + 1);
+  const mediaInicial = (respuestaInicial?.media || []).slice(0, 4);
+  const imagenesInicial = mediaInicial.filter((m) => m.tipo === "image");
+  const otrosInicial = mediaInicial.filter((m) => m.tipo !== "image");
   // Al cambiar de pestaña, la previa baja sola hasta el recordatorio activo:
   // con 3 recordatorios el tercero quedaba abajo y tocaba buscarlo a mano.
   const refActivo = useRef(null);
@@ -1041,7 +1051,11 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [] }) {
       const lista = refLista.current;
       const el = refActivo.current;
       if (!lista || !el) return;
-      lista.scrollTo({ top: Math.max(0, el.offsetTop - 8), behavior: "smooth" });
+      // Recordatorio 1: se baja hasta el final (la lista solo pinta hasta el
+      // activo), así se ve la respuesta inicial del negocio justo arriba del
+      // «⏱ 1 hora sin respuesta…». Del 2 en adelante, el activo arriba.
+      const top = pasoIdx === 0 ? lista.scrollHeight - lista.clientHeight : el.offsetTop - 8;
+      lista.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     }, 60);
     return () => clearTimeout(t);
   }, [pasoIdx, config.pasos.length]);
@@ -1061,6 +1075,39 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [] }) {
               Hola, quiero info del producto
             </div>
           </div>
+          {respuestaInicial ? (
+            <>
+              <div className="text-center text-[10px] text-slate-500 py-0.5">
+                {respuestaInicial.origen === "wizard"
+                  ? "Respuesta del producto (ajustes avanzados)"
+                  : "Respuesta del bot (ejemplo)"}
+              </div>
+              {imagenesInicial.length ? (
+                <div className="flex justify-end">
+                  <div className={`grid gap-1 max-w-[88%] ${imagenesInicial.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+                    {imagenesInicial.map((m, i) => (
+                      <div key={i} className="bg-[#dcf8c6] rounded-lg p-1 shadow-sm">
+                        <img src={m.url} alt="" className="w-full h-20 object-cover rounded-md" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {otrosInicial.map((m, i) => (
+                <div key={i} className="flex justify-end">
+                  <div className="bg-[#dcf8c6] rounded-lg rounded-tr-sm px-2.5 py-1.5 text-[11px] shadow-sm max-w-[88%] flex items-center gap-1.5 text-slate-700">
+                    <i className={`bx ${m.tipo === "video" ? "bx-play-circle" : "bxs-file-pdf"} text-base`} />
+                    <span className="truncate">{m.etiqueta || (m.tipo === "video" ? "Video del producto" : "Documento")}</span>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-end">
+                <div className="bg-[#dcf8c6] rounded-lg rounded-tr-sm px-2.5 py-1.5 text-[12px] shadow-sm max-w-[88%] whitespace-pre-line break-words">
+                  {respuestaInicial.texto || <span className="text-slate-400">(sin texto)</span>}
+                </div>
+              </div>
+            </>
+          ) : null}
           {pasos.map((paso, k) => {
             const fuera = acumuladoHasta(config.pasos, k) > LIMITE_VENTANA_MIN;
             const esActivo = k === pasoIdx;
@@ -1239,6 +1286,9 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
   const [guardando, setGuardando] = useState(false);
   const [config, setConfig] = useState(null);
   const [existe, setExiste] = useState(false);
+  // Respuesta al primer mensaje del cliente (mensaje fijo del wizard o
+  // respuesta tipo del bot), solo para la vista previa.
+  const [respuestaInicial, setRespuestaInicial] = useState(null);
   const [pasoPrevia, setPasoPrevia] = useState(0);
   const [telPrueba, setTelPrueba] = useState(localStorage.getItem("rmkp_tel_prueba") || "");
   const [probando, setProbando] = useState(false);
@@ -1283,6 +1333,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
         c.botones = (c.botones || []).map((b) => ({ ...b, accion: b.accion === "bloque" ? "bloque" : "cerrar" }));
         setConfig(c);
         setExiste(!!data.data.existe);
+        setRespuestaInicial(data.data.respuesta_inicial || null);
       } catch (e) {
         Swal.fire({ icon: "error", title: e?.response?.data?.message || e.message });
         onClose(false);
@@ -1792,7 +1843,14 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
               <div className="text-xs text-slate-500 text-center">
                 Vista previa{config.pasos.length > 1 ? ` · recordatorio ${pasoPrevia + 1}` : ""}
               </div>
-              <Previa config={config} pasoIdx={pasoPrevia} producto={producto} vars={vars} plantillas={plantillas} />
+              <Previa
+                config={config}
+                pasoIdx={pasoPrevia}
+                producto={producto}
+                vars={vars}
+                plantillas={plantillas}
+                respuestaInicial={respuestaInicial}
+              />
               <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2 shadow-sm">
                 <div className="text-sm font-semibold text-slate-800">Mándamelo a mi WhatsApp</div>
                 <input
