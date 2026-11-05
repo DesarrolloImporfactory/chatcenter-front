@@ -182,6 +182,14 @@ export default function useCreateOrder({
   const onCreateErrRef = useRef(null);
   const onShipOkRef = useRef(null);
   const onShipErrRef = useRef(null);
+  // Tope de espera de la cotización (ver emitCotizaTransportadoras).
+  const shipTimerRef = useRef(null);
+  /* Único texto que ve el usuario cuando la cotización no sale (decisión de
+     Daniel, 05-11-2026): sin stock, sin ciudad de bodega, Dropi mudo… todo es
+     "interferencias, inténtalo en Dropi". El motivo real queda en la
+     auditoría del server (dropi_auditoria_acciones). */
+  const DROPI_INTERFERENCIAS_MSG =
+    "Dropi está presentando interferencias en este momento. Por favor, vuelve a intentarlo en unos minutos o crea la orden directamente en Dropi.";
 
   // ── auto-preselección de provincia/ciudad desde el pedido ──
   const [autoGeo, setAutoGeo] = useState({ provincia: null, ciudad: null });
@@ -377,6 +385,14 @@ export default function useCreateOrder({
       // el 2026-09-16): no hace falta cod_dane ni ciudad de la bodega.
       if (!selectedCityId || !/^\d{5}$/.test(zipCode || "")) return;
     } else if (!selectedCityCodDane || !remitCodDane) {
+      /* Antes el botón no hacía nada y no decía por qué. Sin cod_dane de la
+         bodega (el detalle del producto no trajo bodega) o de la ciudad no se
+         puede cotizar: que se vea. */
+      setShippingQuotesError(
+        !selectedCityCodDane
+          ? "Elige la ciudad de destino para cotizar."
+          : DROPI_INTERFERENCIAS_MSG,
+      );
       return;
     }
 
@@ -384,6 +400,19 @@ export default function useCreateOrder({
     setShippingQuotesError(null);
     setShippingQuotes([]);
     setSelectedShipping(null);
+
+    /* Si el socket se reconecta mientras Dropi responde, la respuesta se
+       pierde y el panel se quedaba "cargando" para siempre. El backend hace
+       hasta 5 llamadas a Dropi (provincias, ciudades, detalle del producto,
+       cotización) de 20 s cada una, así que el tope va holgado. */
+    if (shipTimerRef.current) clearTimeout(shipTimerRef.current);
+    shipTimerRef.current = setTimeout(() => {
+      shipTimerRef.current = null;
+      setShippingQuotesLoading(false);
+      setShippingQuotes([]);
+      setSelectedShipping(null);
+      setShippingQuotesError(DROPI_INTERFERENCIAS_MSG);
+    }, 90000);
 
     const fullCityDestino =
       cities.find((c) => Number(c.id) === Number(selectedCityId)) ||
@@ -1035,10 +1064,18 @@ export default function useCreateOrder({
     };
 
     const onShipOk = (resp) => {
+      if (shipTimerRef.current) clearTimeout(shipTimerRef.current);
+      shipTimerRef.current = null;
       setShippingQuotesLoading(false);
       const list =
         resp?.data?.objects || resp?.data?.data?.objects || resp?.objects || [];
       const arr = Array.isArray(list) ? list : [];
+      /* Dropi contestó bien pero sin ninguna transportadora: antes el panel
+         apagaba el "cargando" y no pintaba nada (hasQuoted queda en falso con
+         lista vacía), así que el botón volvía a aparecer sin explicación. */
+      if (!arr.length) {
+        setShippingQuotesError(DROPI_INTERFERENCIAS_MSG);
+      }
       setShippingQuotes(arr);
       setSelectedShipping((prev) => {
         if (!prev?.transportadora_id) return null;
@@ -1051,6 +1088,8 @@ export default function useCreateOrder({
       });
     };
     const onShipErr = (resp) => {
+      if (shipTimerRef.current) clearTimeout(shipTimerRef.current);
+      shipTimerRef.current = null;
       setShippingQuotesLoading(false);
       setShippingQuotesError(
         resp?.message || "Error cotizando transportadoras",
