@@ -1096,7 +1096,7 @@ function MainLayout({ children }) {
                     <span>Listado</span>
                   </a>
 
-                  {/* Remarketing por producto (beta, cuentas piloto) */}
+                  {/* Remarketing por producto (abierto a todos; REMARKETING_PRODUCTO_PILOTO vacío) */}
                   {remarketingProductoHabilitado() && (
                     <a
                       href="/remarketing"

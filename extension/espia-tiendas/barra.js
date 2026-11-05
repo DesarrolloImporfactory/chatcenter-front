@@ -702,7 +702,7 @@
       el('label', { class: 'ei-campo' }, ['Repetir solo', rSel.auto]),
       el('div', { class: 'ei-campo' }, ['Países del automático', el('div', { class: 'ei-paises' }, rPaises)]),
     ]),
-    el('p', { class: 'ei-auto', text: 'Con «Repetir solo» el radar termina un país, sigue con el siguiente y, hecha la vuelta, espera las horas elegidas y repite mientras esta pestaña siga abierta. Para un Chrome que queda encendido: desactiva el ahorro de memoria de Chrome y deja IMPORCHAT abierto en otra pestaña.' }),
+    el('p', { class: 'ei-auto', text: 'Con «Repetir solo» el radar termina un país, sigue con el siguiente y, hecha la vuelta, espera las horas elegidas y repite mientras esta pestaña siga abierta. Para un Chrome que queda encendido: desactiva el ahorro de memoria de Chrome y deja IMPORCHAT abierto en otra pestaña. Si IMPORCHAT o Meta dejan de responder, el radar espera y reintenta solo; únicamente se detiene si Meta pide una verificación.' }),
     rUi.prog, rUi.estado, rUi.actual,
     el('div', { class: 'ei-acciones' }, [rUi.empezar, rUi.pausar, rUi.parar]),
   );
@@ -790,6 +790,14 @@
     decir(`Radar detenido: ${radar.hecho} productos · ${radar.anuncios} anuncios guardados`, 'ok');
   });
 
+  // Meta pide verificación (captcha, «confirma que eres humano», inicio de sesión forzado): la resuelve
+  // una persona. Es lo único que deja el radar en pausa; todo lo demás se reintenta solo.
+  const RE_VERIFICACION = /confirma que eres|no eres un robot|comprobaci[oó]n de seguridad|security check|verifica tu identidad|confirm you.re human|captcha|inicia sesi[oó]n para continuar|log in to continue|suspicious activity|actividad sospechosa/i;
+  const metaPideVerificacion = () => RE_VERIFICACION.test((document.body.innerText || '').slice(0, 4000));
+  // Descansos crecientes cuando Meta se queda en blanco: 10, 30 y luego 60 min cada vez.
+  const minutosDescanso = (n) => (n <= 1 ? 10 : n === 2 ? 30 : 60);
+  const horaDe = (t) => new Date(t).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+
   // Espera a que Meta pinte los resultados: tarjetas estables 3 lecturas seguidas, «0 resultados», o 35 s.
   async function esperarResultados() {
     let antes = -1, quietos = 0;
@@ -843,7 +851,11 @@
       leerTarjetas();
     }
     pintar();
+    // Dos fallos distintos: Meta no pintó nada (se descansa) o IMPORCHAT no recibió lo
+    // que se le mandó (sesión caída, API mal apuntada, servidor reiniciando: se espera
+    // 2 min y se vuelve a intentar el mismo producto, sin contarlo como fallo de Meta).
     let ok = false;
+    let fallaImporchat = '';
     if (estado === 'sin-respuesta') {
       ok = false;
     } else if (tarjetas.size) {
@@ -852,32 +864,50 @@
       const r = await enviar({ productoRadar: actual.dropi_product_id, pais: radar.pais });
       ok = Boolean(r?.ok);
       if (ok) { radar.anuncios += ids.length; radar.conAnuncios += 1; }
+      else fallaImporchat = r?.message || (sesion?.ok ? 'sin respuesta' : 'sin sesión');
     } else {
       const r = await mensaje('radarMarcar', { body: { pais: radar.pais, dropi_product_id: actual.dropi_product_id, ad_ids: [] } });
       ok = Boolean(r.ok);
+      if (!ok) fallaImporchat = r.message || 'sin respuesta';
+    }
+    if (!ok && fallaImporchat) {
+      sesion = null; // que el siguiente intento vuelva a preguntar por la sesión
+      radar.descansoHasta = Date.now() + 2 * 60 * 1000;
+      radar.error = `IMPORCHAT no respondió (${fallaImporchat}). Meta sí responde. Reintento el mismo producto a las ${horaDe(radar.descansoHasta)}; si es la sesión, abre o recarga la pestaña de IMPORCHAT.`;
+      await guardarRadar(radar);
+      pintarRadar(radar);
+      decir('Radar: IMPORCHAT no respondió, reintento en 2 min', 'err');
+      await esperar(radar.descansoHasta - Date.now());
+      const sigue = await leerRadar();
+      if (!sigue?.activo || sigue.pausado) { pintarRadar(sigue); return; }
+      sigue.descansoHasta = 0;
+      await guardarRadar(sigue);
+      location.assign(urlRadar(sigue.pais, sigue.cola[sigue.idx].termino));
+      return;
     }
     if (!ok) {
       radar.fallos = (radar.fallos || 0) + 1;
       if (radar.fallos >= 3) {
         // Tres productos seguidos sin respuesta: Meta limita las búsquedas (el 31-10 aguantó ~60 seguidas).
-        // Descansa 10 min y sigue solo; al tercer descanso sin avanzar se pausa de verdad y avisa.
-        // Nunca se intenta saltar una verificación: si Meta la pide, la resuelve la persona.
+        // Descansa 10, 30 y luego 60 min cada vez, y sigue solo sin límite de descansos.
+        // Nunca se intenta saltar una verificación: si Meta la pide, se pausa y la resuelve la persona.
         radar.fallos = 0;
         radar.descansos = (radar.descansos || 0) + 1;
-        if (radar.descansos >= 3) {
+        if (metaPideVerificacion()) {
           radar.pausado = true;
-          radar.error = 'Meta sigue sin responder después de tres descansos. Radar en pausa: revisa la pestaña (puede pedir verificación) y pulsa Reanudar.';
+          radar.error = 'Meta pide una verificación en esta pestaña. Resuélvela y pulsa Reanudar; el radar no la salta solo.';
           await guardarRadar(radar);
           pintarRadar(radar);
           radarPanel.classList.add('ei-abierto');
-          decir('Radar en pausa: Meta no respondió', 'err');
+          decir('Radar en pausa: Meta pide verificación', 'err');
           return;
         }
-        radar.descansoHasta = Date.now() + 10 * 60 * 1000;
-        radar.error = `Meta limitó las búsquedas. El radar descansa 10 minutos y sigue solo (${new Date(radar.descansoHasta).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}).`;
+        const min = minutosDescanso(radar.descansos);
+        radar.descansoHasta = Date.now() + min * 60 * 1000;
+        radar.error = `Meta no pintó resultados en 3 búsquedas seguidas (descanso ${radar.descansos}). El radar descansa ${min} min y sigue solo a las ${horaDe(radar.descansoHasta)}.`;
         await guardarRadar(radar);
         pintarRadar(radar);
-        decir('Radar descansando 10 min por límite de Meta', 'err');
+        decir(`Radar descansando ${min} min: Meta no responde`, 'err');
         await esperar(radar.descansoHasta - Date.now());
         const sigue = await leerRadar();
         if (!sigue?.activo || sigue.pausado) { pintarRadar(sigue); return; }
@@ -925,7 +955,7 @@
   // no queda ninguno, programa la próxima vuelta (cadaMs) y espera con la pestaña
   // abierta. Si la pestaña se recarga a mitad de la espera, radarContinuar vuelve
   // a entrar aquí y respeta la hora guardada. Nunca salta una verificación de Meta:
-  // tres descansos sin avanzar pausan el radar igual que en el modo manual.
+  // si la pide, se pausa igual que en el modo manual; todo lo demás se reintenta solo.
   async function autoSiguiente(radar) {
     const a = radar.auto;
     if (!a) return;
@@ -950,12 +980,17 @@
       decir(`Radar automático: pidiendo a IMPORCHAT los productos de ${pais}…`);
       const r = await mensaje('radarCola', { pais, limit: cfg.radar.cantidad, dias: cfg.radar.dias });
       if (!r.ok) {
-        radar.pausado = true;
-        radar.error = `No se pudo pedir la cola de ${pais}: ${r.message || 'error'}. Revisa la sesión de IMPORCHAT y pulsa Reanudar.`;
+        // IMPORCHAT no contestó (sesión vencida, servidor reiniciando, API mal apuntada):
+        // el país vuelve a la cola, se espera 2 min y se reintenta; nunca se pausa solo.
+        a.pendientes.unshift(pais);
+        radar.error = `No se pudo pedir la cola de ${pais}: ${r.message || 'error'}. Reintento en 2 min; si es la sesión, abre o recarga la pestaña de IMPORCHAT.`;
         await guardarRadar(radar);
         pintarRadar(radar);
-        radarPanel.classList.add('ei-abierto');
-        return;
+        sesion = null;
+        await esperar(2 * 60 * 1000);
+        const sigue = await leerRadar();
+        if (!sigue?.activo || sigue.pausado || !sigue.auto) { pintarRadar(sigue); return; }
+        continue;
       }
       const cola = (r.data?.items || []).map((p) => ({ dropi_product_id: p.dropi_product_id, nombre: String(p.nombre || '').slice(0, 120), termino: p.termino }));
       if (!cola.length) continue; // nada pendiente en este país: al siguiente
