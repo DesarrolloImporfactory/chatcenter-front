@@ -16,7 +16,7 @@
 
   const pintarSesion = () => {
     if (!cfg.token) return estado('Sin sesión. Abre IMPORCHAT en otra pestaña con tu usuario o pega el token.', 'err');
-    estado(`Hay un token guardado (${cfg.tokenOrigen || 'origen desconocido'}, ${cfg.tokenFecha ? new Date(cfg.tokenFecha).toLocaleString() : ''}). Pulsa «Probar sesión».`);
+    estado(`Hay un token guardado (${cfg.tokenOrigen || 'origen desconocido'}, ${cfg.tokenFecha ? new Date(cfg.tokenFecha).toLocaleString() : ''}). API: ${cfg.apiBase}${cfg.apiOrigen === 'manual' ? ' (escrita a mano)' : cfg.apiOrigen === 'sesion' ? ' (tomada de la web de IMPORCHAT)' : ' (por defecto)'}. Pulsa «Probar sesión».`);
   };
   pintarSesion();
 
