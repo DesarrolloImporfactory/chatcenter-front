@@ -94,6 +94,7 @@ const nuevoPaso = (i) => ({
   minutos: MINUTOS_DEFECTO_POR_PASO[i] || 480,
   mensaje: "",
   con_imagen: false,
+  imagen_url: null, // null = foto del producto
   con_botones: true,
   botones: copiaJson(BOTONES_DEFECTO_POR_PASO[Math.min(i, 2)]),
 });
@@ -113,6 +114,8 @@ const pasosConPropios = (config) =>
     return {
       ...resto,
       botones: copiaJson(botones).map((b) => ({ ...b, accion: b.accion === "bloque" ? "bloque" : "cerrar" })),
+      // Foto propia del paso; lo guardado antes tenía una sola (config.imagen_url).
+      imagen_url: "imagen_url" in (p || {}) ? p.imagen_url || null : config.imagen_url || null,
     };
   });
 
@@ -1157,7 +1160,7 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaIni
             let pie = null;
             let botones = [];
             if (!fuera) {
-              imagen = paso?.con_imagen ? config.imagen_url || producto.imagen_url : null;
+              imagen = paso?.con_imagen ? paso?.imagen_url || producto.imagen_url : null;
               texto = rellenar(paso?.mensaje, vars);
               botones = paso?.con_botones ? (paso?.botones || []).map((b) => b.titulo || "Botón") : [];
             } else if (tpl) {
@@ -1499,7 +1502,8 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
     try {
       const r = await subir(file);
       if (r.tipo !== "image") throw new Error("La foto debe ser una imagen.");
-      set({ imagen_url: r.url });
+      // La foto es del recordatorio activo; cada uno tiene la suya.
+      setPaso(pasoPrevia, { imagen_url: r.url });
     } catch (e) {
       Swal.fire({ icon: "error", title: e?.response?.data?.message || e.message });
     } finally {
@@ -1508,7 +1512,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
     }
   };
 
-  const fotoActual = config?.imagen_url || producto.imagen_url || "";
+  const fotoActual = pasoActivo?.imagen_url || producto.imagen_url || "";
   // Tarjeta 3 solo si el recordatorio activo manda botones y alguno manda contenido.
   const hayContenido = !!pasoActivo && !pasoActivoEsPlantilla && pasoActivo.con_botones !== false && botonesBloque.length > 0;
   // El paso visible cae fuera de las 24 h y no tiene mensaje libre: solo plantilla.
@@ -1632,15 +1636,18 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                               onClick={() => inputCabecera.current?.click()}
                               className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-50"
                             >
-                              {subiendoCabecera ? "Subiendo…" : config.imagen_url ? "Cambiar foto" : "Usar otra foto"}
+                              {subiendoCabecera ? "Subiendo…" : p.imagen_url ? "Cambiar foto" : "Subir foto"}
                             </button>
-                            {config.imagen_url ? (
-                              <button type="button" onClick={() => set({ imagen_url: null })} className="text-xs text-slate-500 hover:underline">
-                                volver a la del producto
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-400">(la del producto)</span>
-                            )}
+                            {/* Sin «volver a la del producto»: el cliente ya vio la foto
+                                principal en la primera respuesta; cada recordatorio lleva
+                                otra. Sin foto propia sale la del producto. */}
+                            <span className="text-xs text-slate-400">
+                              {p.imagen_url
+                                ? config.pasos.length > 1
+                                  ? "solo para este recordatorio"
+                                  : ""
+                                : "mejor una distinta: la principal ya la vio en la primera respuesta"}
+                            </span>
                           </div>
                         ) : null}
                         <label className="flex items-center gap-2 text-sm text-slate-700">
