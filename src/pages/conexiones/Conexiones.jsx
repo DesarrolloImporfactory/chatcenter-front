@@ -1246,8 +1246,17 @@ const Conexiones = () => {
             id: p.page_id,
             name: `${p.page_name} — @${p.ig_username}`,
           }));
-          if (!selectable.length)
-            throw new Error("No hay páginas con IG conectado.");
+          if (!selectable.length) {
+            // Meta no compartió ninguna página: suele pasar cuando en el
+            // onboarding se marca la cuenta de IG pero no su página de Facebook.
+            await Swal.fire({
+              icon: "info",
+              title: "Meta no compartió ninguna página",
+              html: `<div style="text-align:left"><p>Para conectar Instagram necesitamos también la <b>página de Facebook</b> vinculada a esa cuenta.</p><p>Vuelve a intentarlo y, en la ventana de Meta, marca la página de Facebook además de la cuenta de Instagram.</p></div>`,
+              confirmButtonText: "Entendido",
+            });
+            return;
+          }
           const pageId = await pickPageWithSwal(selectable);
           if (!pageId) {
             window.history.replaceState(
