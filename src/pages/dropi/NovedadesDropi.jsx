@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { useLocation } from "react-router-dom";
 import chatApi from "../../api/chatcenter";
+import { FilterDropdown } from "./OrdenesDropi";
 
 /* Novedades Dropi pendientes por solucionar.
    Consulta EN VIVO a Dropi (no al cache): el back pide /orders/myorders con
-   haveIncidenceProcesamiento=true. Por ahora es de solo lectura; el botón de
-   solventar llega cuando tengamos el endpoint de solución de Dropi. */
+   haveIncidenceProcesamiento=true. Se solventan desde el modal (o se manda a
+   devolución). Misma cabecera, tarjeta de filtros y tabla que Gestión de
+   Pedidos (OrdenesDropi.jsx), de donde se toma el desplegable de filtro. */
 
 const PAGE_SIZE = 20;
 
@@ -21,7 +23,7 @@ const TRANSPORTADORAS = {
 };
 const claseTransportadora = (nombre) =>
   TRANSPORTADORAS[String(nombre || "").toUpperCase().replace(/\s+/g, "")] ||
-  "bg-slate-50 text-slate-600 border-slate-200";
+  "bg-gray-50 text-gray-600 border-gray-200";
 
 const fmtFecha = (s) => {
   if (!s) return "—";
@@ -51,15 +53,6 @@ const horasDesde = (s) =>
 const fmtMonto = (v) =>
   v === null || v === undefined || v === "" ? "—" : `$${Number(v).toFixed(2)}`;
 
-const iniciales = (nombre) =>
-  String(nombre || "?")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase();
-
 const errMsg = (error, def) =>
   error?.response?.data?.message ||
   error?.response?.data?.error ||
@@ -83,7 +76,7 @@ const copiar = (texto) => {
 /* ───────────────────────── piezas pequeñas ───────────────────────── */
 
 function BadgeTransportadora({ nombre }) {
-  if (!nombre) return <span className="text-xs text-slate-400">—</span>;
+  if (!nombre) return <span className="text-xs text-gray-400">—</span>;
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${claseTransportadora(
@@ -98,15 +91,92 @@ function BadgeTransportadora({ nombre }) {
 
 function Kpi({ icono, color, valor, label }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <div className={`grid h-10 w-10 place-items-center rounded-xl ${color}`}>
+    <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-gray-100">
+      <span
+        className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}
+      >
         <i className={`bx ${icono} text-xl`} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xl font-bold leading-none text-gray-900">{valor}</p>
+        <p className="mt-1 truncate text-[11px] text-gray-500">{label}</p>
       </div>
+    </div>
+  );
+}
+
+/* Encabezado de tarjeta, igual al de "Filtros de búsqueda" en Pedidos. */
+function TituloTarjeta({ icono, titulo, subtitulo }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#171931]/[0.06] text-[#171931]">
+        <i className={`bx ${icono} text-lg`} />
+      </span>
       <div>
-        <p className="text-xl font-extrabold leading-none text-slate-800">
-          {valor}
-        </p>
-        <p className="mt-1 text-xs text-slate-500">{label}</p>
+        <h3 className="text-sm font-bold leading-tight text-gray-900">
+          {titulo}
+        </h3>
+        {subtitulo && <p className="text-[11px] text-gray-400">{subtitulo}</p>}
+      </div>
+    </div>
+  );
+}
+
+/* Botón redondo de chat, el mismo de la tabla de Pedidos. */
+function BotonChat({ onClick, disabled }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!disabled) onClick();
+      }}
+      disabled={disabled}
+      title={disabled ? "No hay conversación" : "Abrir chat"}
+      aria-label={disabled ? "No hay conversación" : "Abrir chat"}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition focus:outline-none focus:ring-4 focus:ring-emerald-200 ${
+        disabled
+          ? "cursor-not-allowed bg-gray-200 text-gray-400"
+          : "bg-emerald-600 text-white hover:bg-emerald-700"
+      }`}
+    >
+      <i className="bx bxs-chat text-[18px]" />
+    </button>
+  );
+}
+
+/* Paginación del pie, igual a la de Pedidos. */
+function Paginacion({ page, totalPaginas, hayMas, cargando, onCambiar, texto }) {
+  const sinAnterior = page <= 1 || cargando;
+  const sinSiguiente = cargando || (totalPaginas ? page >= totalPaginas : !hayMas);
+  return (
+    <div className="mt-5 flex flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-xs text-gray-400">{texto}</span>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+            sinAnterior ? "cursor-not-allowed text-gray-300" : "text-gray-700 hover:bg-gray-100"
+          }`}
+          disabled={sinAnterior}
+          onClick={() => onCambiar(Math.max(1, page - 1))}
+        >
+          ‹ Anterior
+        </button>
+        <span className="min-w-[110px] rounded-lg bg-[#171931] px-3 py-1.5 text-center text-sm font-semibold text-white">
+          Página {page}
+          {totalPaginas ? ` de ${totalPaginas}` : ""}
+        </span>
+        <button
+          type="button"
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+            sinSiguiente ? "cursor-not-allowed text-gray-300" : "text-gray-700 hover:bg-gray-100"
+          }`}
+          disabled={sinSiguiente}
+          onClick={() => onCambiar(page + 1)}
+        >
+          Siguiente ›
+        </button>
       </div>
     </div>
   );
@@ -115,13 +185,13 @@ function Kpi({ icono, color, valor, label }) {
 function Dato({ icono, label, valor, copiable = false }) {
   return (
     <div className="flex items-start gap-2.5">
-      <i className={`bx ${icono} mt-0.5 text-lg text-slate-400`} />
+      <i className={`bx ${icono} mt-0.5 text-lg text-gray-400`} />
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] uppercase tracking-wide text-slate-400">
+        <p className="text-[11px] uppercase tracking-wide text-gray-400">
           {label}
         </p>
         <div className="flex items-center gap-1.5">
-          <p className="break-words font-medium text-slate-800">
+          <p className="break-words font-medium text-gray-800">
             {valor || "—"}
           </p>
           {copiable && valor && (
@@ -129,7 +199,7 @@ function Dato({ icono, label, valor, copiable = false }) {
               type="button"
               onClick={() => copiar(valor)}
               title="Copiar"
-              className="text-slate-400 transition hover:text-slate-700"
+              className="text-gray-400 transition hover:text-gray-700"
             >
               <i className="bx bx-copy" />
             </button>
@@ -140,15 +210,13 @@ function Dato({ icono, label, valor, copiable = false }) {
   );
 }
 
-function FilaCargando() {
+function FilaCargando({ columnas = 9 }) {
   return (
     <tr className="animate-pulse">
-      {[140, 220, 110, 160, 160, 60, 90, 70].map((w, i) => (
-        <td key={i} className="px-4 py-4">
-          <div className="h-3 rounded bg-slate-100" style={{ width: w }} />
-          {i < 4 && (
-            <div className="mt-2 h-2.5 w-16 rounded bg-slate-100" />
-          )}
+      {Array.from({ length: columnas }).map((_, j) => (
+        <td key={j} className="px-3 py-3">
+          <div className="h-3 w-full max-w-[140px] rounded bg-gray-100" />
+          {j === 1 && <div className="mt-2 h-2 w-24 rounded bg-gray-100" />}
         </td>
       ))}
     </tr>
@@ -164,20 +232,20 @@ function BadgesRegistro({ registro }) {
   return (
     <div className="mt-1.5 flex flex-wrap gap-1">
       {numero > 1 && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
           <i className="bx bx-revision" />
           {numero}ª novedad
         </span>
       )}
       {veces > 0 && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+        <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
           Ofrecida {veces} {veces === 1 ? "vez" : "veces"}
         </span>
       )}
       {asesor && (
         <span
           title={registro.motivo_asesor || "Debe gestionarla un asesor"}
-          className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700"
+          className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700"
         >
           <i className="bx bx-user-voice" />
           Requiere asesor
@@ -188,17 +256,17 @@ function BadgesRegistro({ registro }) {
 }
 
 const ESTADOS_REGISTRO = {
-  pendiente: { label: "Pendiente", clase: "bg-amber-100 text-amber-700" },
-  solventada: { label: "Solución enviada", clase: "bg-sky-100 text-sky-700" },
-  en_ruta: { label: "Se volvió a ofrecer", clase: "bg-indigo-100 text-indigo-700" },
-  cerrada: { label: "Cerrada", clase: "bg-slate-100 text-slate-600" },
+  pendiente: { label: "Pendiente", clase: "bg-amber-50 text-amber-700 border-amber-200" },
+  solventada: { label: "Solución enviada", clase: "bg-sky-50 text-sky-700 border-sky-200" },
+  en_ruta: { label: "Se volvió a ofrecer", clase: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  cerrada: { label: "Cerrada", clase: "bg-gray-50 text-gray-600 border-gray-200" },
 };
 const RESULTADOS_REGISTRO = {
-  entregada: { label: "Entregada", clase: "bg-emerald-100 text-emerald-700" },
-  devolucion: { label: "Devuelta", clase: "bg-rose-100 text-rose-700" },
-  cancelada: { label: "Cancelada", clase: "bg-slate-200 text-slate-600" },
-  indemnizada: { label: "Indemnizada", clase: "bg-slate-200 text-slate-600" },
-  nueva_novedad: { label: "Volvió a novedad", clase: "bg-rose-100 text-rose-700" },
+  entregada: { label: "Entregada", clase: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  devolucion: { label: "Devuelta", clase: "bg-rose-50 text-rose-700 border-rose-200" },
+  cancelada: { label: "Cancelada", clase: "bg-red-50 text-red-700 border-red-200" },
+  indemnizada: { label: "Indemnizada", clase: "bg-gray-50 text-gray-600 border-gray-200" },
+  nueva_novedad: { label: "Volvió a novedad", clase: "bg-rose-50 text-rose-700 border-rose-200" },
 };
 const TIPOS_SOLUCION = {
   volver_a_ofrecer: "Volver a ofrecer",
@@ -212,9 +280,9 @@ const EVENTOS_REGISTRO = {
   sugerencia_ia: { icono: "bx-bot", color: "text-violet-500" },
   solventada: { icono: "bx-send", color: "text-emerald-600" },
   devolucion: { icono: "bx-undo", color: "text-rose-600" },
-  solventada_externa: { icono: "bx-transfer", color: "text-slate-500" },
+  solventada_externa: { icono: "bx-transfer", color: "text-gray-500" },
   en_ruta: { icono: "bxs-truck", color: "text-indigo-500" },
-  cerrada: { icono: "bx-check-double", color: "text-slate-500" },
+  cerrada: { icono: "bx-check-double", color: "text-gray-500" },
   error_dropi: { icono: "bx-x-circle", color: "text-rose-500" },
 };
 
@@ -351,17 +419,17 @@ const PLANTILLAS = [
 ];
 
 const claseInput =
-  "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10";
+  "mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 outline-none focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10";
 
 function Campo({ label, obligatorio, children, ayuda }) {
   return (
     <label className="block">
-      <span className="text-[13px] font-semibold text-slate-700">
+      <span className="text-[13px] font-semibold text-gray-700">
         {label}
         {obligatorio && <span className="text-rose-500"> *</span>}
       </span>
       {children}
-      {ayuda && <span className="mt-1 block text-[11px] text-slate-400">{ayuda}</span>}
+      {ayuda && <span className="mt-1 block text-[11px] text-gray-400">{ayuda}</span>}
     </label>
   );
 }
@@ -554,30 +622,31 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[60] grid place-items-center bg-gray-900/50 p-4 backdrop-blur-[2px]"
       onClick={() => !enviando && onClose()}
     >
       <div
         className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className={`h-1 bg-gradient-to-r ${
-            esDevolucionGintracom
-              ? "from-rose-500 via-rose-400 to-orange-400"
-              : "from-emerald-400 via-teal-400 to-sky-500"
-          }`}
-        />
-        {/* Cabecera */}
-        <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50">
-            <i className="bx bx-wrench text-2xl text-emerald-600" />
+        {/* Cabecera (azul de la marca, como la de Pedidos) */}
+        <div className="flex items-start gap-3 bg-[#171931] px-5 py-4 text-white">
+          <div
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${
+              esDevolucionGintracom ? "bg-rose-400/20" : "bg-white/10"
+            }`}
+          >
+            <i
+              className={`bx ${
+                esDevolucionGintracom ? "bx-undo text-rose-200" : "bx-wrench text-white"
+              } text-2xl`}
+            />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-extrabold text-slate-800">
-              Solventar novedad
+            <h2 className="text-lg font-bold">
+              {esDevolucionGintracom ? "Devolver pedido" : "Solventar novedad"}
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-white/60">
               Orden #{novedad.order_id} · {novedad.cliente?.nombre || "Cliente"}
             </p>
           </div>
@@ -585,7 +654,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
             type="button"
             onClick={onClose}
             disabled={enviando}
-            className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="grid h-8 w-8 place-items-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white"
             title="Cerrar (Esc)"
           >
             <i className="bx bx-x text-2xl" />
@@ -629,17 +698,17 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
           )}
 
           {/* IA en modo sugerencia */}
-          <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+          <div className="rounded-xl border border-gray-200 bg-white p-3.5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <div className="grid h-8 w-8 place-items-center rounded-lg bg-violet-50">
-                  <i className="bx bx-bot text-lg text-violet-600" />
+                <div className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-50">
+                  <i className="bx bx-bot text-lg text-indigo-600" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-bold text-slate-800">
+                  <p className="text-[13px] font-bold text-gray-800">
                     Sugerencia de la IA
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-gray-500">
                     Lee el chat con el cliente y propone la respuesta. Tú la
                     revisas y la envías.
                   </p>
@@ -649,7 +718,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                 type="button"
                 onClick={sugerirConIA}
                 disabled={pensando || enviando}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#171931] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50"
               >
                 <i className={`bx ${pensando ? "bx-loader-alt bx-spin" : "bx-magic-wand"}`} />
                 {pensando ? "Leyendo el chat…" : ia ? "Volver a sugerir" : "Sugerir"}
@@ -657,7 +726,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
             </div>
 
             {ia && (
-              <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-xs">
+              <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 text-xs">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span
                     className={`rounded-full px-2 py-0.5 font-bold ${
@@ -674,16 +743,16 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                         ? "Falta respuesta del cliente"
                         : "Recomienda que lo vea un asesor"}
                   </span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-600">
                     Confianza {ia.confianza}
                   </span>
                   {!ia.tiene_chat && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-600">
                       Sin conversación en ChatCenter
                     </span>
                   )}
                 </div>
-                {ia.motivo && <p className="text-slate-700">{ia.motivo}</p>}
+                {ia.motivo && <p className="text-gray-700">{ia.motivo}</p>}
                 {(ia.avisos || []).map((a, i) => (
                   <p key={i} className="flex items-start gap-1 text-rose-700">
                     <i className="bx bx-error-circle mt-0.5" />
@@ -710,18 +779,18 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                     </p>
                   ))}
                 {ia.mensaje_para_cliente && (
-                  <div className="rounded-lg bg-slate-50 p-2.5">
-                    <p className="mb-1 font-bold text-slate-600">
+                  <div className="rounded-lg bg-gray-50 p-2.5">
+                    <p className="mb-1 font-bold text-gray-600">
                       Mensaje sugerido para el cliente
                     </p>
-                    <p className="whitespace-pre-wrap text-slate-700">
+                    <p className="whitespace-pre-wrap text-gray-700">
                       {ia.mensaje_para_cliente}
                     </p>
                     <div className="mt-2 flex gap-2">
                       <button
                         type="button"
                         onClick={() => copiar(ia.mensaje_para_cliente)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100"
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 font-semibold text-gray-600 hover:bg-gray-100"
                       >
                         <i className="bx bx-copy" /> Copiar
                       </button>
@@ -735,7 +804,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                               "noopener,noreferrer",
                             )
                           }
-                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-1 font-semibold text-white hover:bg-emerald-600"
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1 font-semibold text-white hover:bg-emerald-700"
                         >
                           <i className="bx bx-message-rounded-dots" /> Abrir chat
                         </button>
@@ -764,7 +833,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                           ? roja
                             ? "border-rose-500 bg-rose-50 text-rose-700 ring-2 ring-rose-500/15"
                             : "border-[#171931] bg-[#171931] text-white"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                       }`}
                     >
                       {o.descripcion}
@@ -776,9 +845,9 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
           )}
 
           {campos.noSoportada ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-slate-700">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 text-gray-700">
               <p className="flex items-center gap-1.5 font-bold">
-                <i className="bx bx-info-circle text-lg text-slate-500" />
+                <i className="bx bx-info-circle text-lg text-gray-500" />
                 Esta novedad se solventa desde Dropi
               </p>
               <p className="mt-1 text-xs leading-relaxed">
@@ -842,8 +911,8 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                 campos.telefonoEnDireccion ||
                 campos.direccion ||
                 campos.referencia) && (
-                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
                     Datos de entrega que pide {novedad.transportadora}
                   </p>
                   {campos.nombre && (
@@ -902,7 +971,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
 
               {/* Plantillas */}
               <div>
-                <p className="text-[13px] font-semibold text-slate-700">
+                <p className="text-[13px] font-semibold text-gray-700">
                   Respuestas rápidas
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -919,7 +988,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                           }),
                         )
                       }
-                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-[#171931]/40 hover:text-[#171931]"
                     >
                       <i className={`bx ${p.icono} text-sm`} />
                       {p.label}
@@ -930,12 +999,12 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
 
               {/* Texto de la solución */}
               <label className="block">
-                <span className="flex items-center justify-between text-[13px] font-semibold text-slate-700">
+                <span className="flex items-center justify-between text-[13px] font-semibold text-gray-700">
                   <span>
                     {campos.gintracom ? "Observaciones" : "Solución"}
                     <span className="text-rose-500"> *</span>
                   </span>
-                  <span className="text-[11px] font-normal text-slate-400">
+                  <span className="text-[11px] font-normal text-gray-400">
                     {solucion.length}/200
                   </span>
                 </span>
@@ -948,7 +1017,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
                 />
               </label>
 
-              <p className="flex items-start gap-1.5 text-xs text-slate-500">
+              <p className="flex items-start gap-1.5 text-xs text-gray-500">
                 <i className="bx bx-info-circle mt-0.5 text-sm" />
                 Contacta al cliente antes de enviar. Si la solución no es
                 efectiva, la transportadora puede devolver el pedido.
@@ -958,7 +1027,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
         </div>
 
         {/* Acciones */}
-        <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+        <div className="flex items-center gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3">
           {!campos.gintracom && !campos.noSoportada && (
             <button
               type="button"
@@ -974,7 +1043,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
             type="button"
             onClick={onClose}
             disabled={enviando}
-            className={`rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 ${
+            className={`rounded-xl bg-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-300 disabled:opacity-50 ${
               campos.gintracom || campos.noSoportada ? "ml-auto" : ""
             }`}
           >
@@ -991,7 +1060,7 @@ function ModalSolventar({ idConfiguracion, novedad, onClose, onSolventada }) {
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 ${
               esDevolucionGintracom
                 ? "bg-rose-600 hover:bg-rose-700"
-                : "bg-emerald-600 hover:bg-emerald-700"
+                : "bg-[#171931] hover:opacity-95"
             }`}
           >
             <i
@@ -1070,11 +1139,11 @@ function DetalleNovedad({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex justify-end bg-gray-900/40 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
-        className="flex h-full w-full max-w-xl flex-col bg-slate-50 shadow-2xl"
+        className="flex h-full w-full max-w-xl flex-col bg-gray-50 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera */}
@@ -1125,7 +1194,7 @@ function DetalleNovedad({
               type="button"
               onClick={() => onAbrirChat(novedad)}
               disabled={!novedad.has_chat || !novedad.chat_id_cliente}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40"
             >
               <i className="bx bx-message-rounded-dots text-sm" />
               {novedad.has_chat ? "Abrir chat" : "Sin chat"}
@@ -1146,8 +1215,8 @@ function DetalleNovedad({
           ) : (
             <>
               {/* Cliente y envío */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <section className="rounded-2xl border border-gray-200 bg-white p-4">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">
                   Cliente y envío
                 </h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1176,13 +1245,13 @@ function DetalleNovedad({
                   </div>
                 </div>
                 {d.productos?.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                  <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3">
                     {d.productos.map((p, i) => (
                       <span
                         key={i}
-                        className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-700"
+                        className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-700"
                       >
-                        <i className="bx bx-package text-slate-400" />
+                        <i className="bx bx-package text-gray-400" />
                         {p.cantidad}× {p.nombre}
                       </span>
                     ))}
@@ -1191,8 +1260,8 @@ function DetalleNovedad({
               </section>
 
               {/* Gestiones */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <section className="rounded-2xl border border-gray-200 bg-white p-4">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">
                   Gestiones de la novedad
                 </h3>
                 {detalle?.gestiones?.length ? (
@@ -1209,7 +1278,7 @@ function DetalleNovedad({
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <p className="font-semibold text-slate-800">
+                            <p className="font-semibold text-gray-800">
                               {g.novedad || g.comentario || "—"}
                             </p>
                             <span
@@ -1222,29 +1291,29 @@ function DetalleNovedad({
                               {resuelta ? "Con solución" : "Sin solucionar"}
                             </span>
                           </div>
-                          <p className="mt-0.5 text-xs text-slate-500">
+                          <p className="mt-0.5 text-xs text-gray-500">
                             {fmtFecha(g.created_at)}
                           </p>
                           {g.solucion && (
                             <p className="mt-2">
-                              <span className="text-slate-500">Solución: </span>
+                              <span className="text-gray-500">Solución: </span>
                               {g.solucion}
                             </p>
                           )}
                           {g.aclaracion && (
                             <p>
-                              <span className="text-slate-500">Aclaración: </span>
+                              <span className="text-gray-500">Aclaración: </span>
                               {g.aclaracion}
                             </p>
                           )}
                           {g.observacion && (
                             <p>
-                              <span className="text-slate-500">Observación: </span>
+                              <span className="text-gray-500">Observación: </span>
                               {g.observacion}
                             </p>
                           )}
                           {g.fecha_solucion && (
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-gray-500">
                               Solucionada el {fmtFecha(g.fecha_solucion)}
                             </p>
                           )}
@@ -1253,7 +1322,7 @@ function DetalleNovedad({
                     })}
                   </ul>
                 ) : (
-                  <p className="text-slate-500">Sin gestiones registradas.</p>
+                  <p className="text-gray-500">Sin gestiones registradas.</p>
                 )}
               </section>
 
@@ -1261,9 +1330,9 @@ function DetalleNovedad({
               {(detalle?.total_novedades > 1 ||
                 detalle?.veces_ofrecida > 0 ||
                 detalle?.registro?.eventos?.length > 0) && (
-                <section className="rounded-2xl border border-slate-200 bg-white p-4">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">
                       Historial de la novedad
                     </h3>
                     <div className="flex flex-wrap gap-1.5">
@@ -1271,14 +1340,14 @@ function DetalleNovedad({
                         className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                           detalle.total_novedades > 1
                             ? "bg-rose-100 text-rose-700"
-                            : "bg-slate-100 text-slate-600"
+                            : "bg-gray-100 text-gray-600"
                         }`}
                       >
                         {detalle.total_novedades || 1}{" "}
                         {detalle.total_novedades > 1 ? "novedades" : "novedad"} en
                         este pedido
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
                         Ofrecido {detalle.veces_ofrecida || 0}{" "}
                         {detalle.veces_ofrecida === 1 ? "vez" : "veces"}
                       </span>
@@ -1289,14 +1358,14 @@ function DetalleNovedad({
                       {detalle.registro.eventos.map((e) => {
                         const ev = EVENTOS_REGISTRO[e.evento] || {
                           icono: "bx-dots-horizontal-rounded",
-                          color: "text-slate-400",
+                          color: "text-gray-400",
                         };
                         return (
                           <li key={e.id} className="flex items-start gap-2.5">
                             <i className={`bx ${ev.icono} mt-0.5 text-lg ${ev.color}`} />
                             <div className="min-w-0">
-                              <p className="text-slate-800">{e.descripcion || e.evento}</p>
-                              <p className="text-xs text-slate-500">
+                              <p className="text-gray-800">{e.descripcion || e.evento}</p>
+                              <p className="text-xs text-gray-500">
                                 {fmtFecha(e.created_at)}
                                 {e.nombre_usuario ? ` · ${e.nombre_usuario}` : ""}
                                 {e.origen === "ia" ? " · IA" : ""}
@@ -1307,7 +1376,7 @@ function DetalleNovedad({
                       })}
                     </ul>
                   ) : (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-gray-500">
                       ChatCenter empezó a registrar este pedido ahora; las
                       gestiones anteriores están arriba, tal como las guarda
                       Dropi.
@@ -1318,11 +1387,11 @@ function DetalleNovedad({
 
               {/* Historial de estados (más reciente arriba) */}
               {estados.length > 0 && (
-                <section className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">
                     Recorrido del pedido
                   </h3>
-                  <ol className="relative ml-2 border-l-2 border-slate-100">
+                  <ol className="relative ml-2 border-l-2 border-gray-100">
                     {estados.map((e, i) => {
                       const esNovedad = /NOVEDAD/i.test(e.status || "");
                       return (
@@ -1333,17 +1402,17 @@ function DetalleNovedad({
                                 ? esNovedad
                                   ? "bg-amber-500"
                                   : "bg-[#171931]"
-                                : "bg-slate-300"
+                                : "bg-gray-300"
                             }`}
                           />
                           <p
                             className={`font-semibold ${
-                              esNovedad ? "text-amber-700" : "text-slate-800"
+                              esNovedad ? "text-amber-700" : "text-gray-800"
                             }`}
                           >
                             {e.status}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-gray-500">
                             {fmtFecha(e.created_at)}
                           </p>
                           {e.novedad && (
@@ -1363,13 +1432,13 @@ function DetalleNovedad({
                 <button
                   type="button"
                   onClick={() => setVerJson((v) => !v)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800"
                 >
                   <i className={`bx ${verJson ? "bx-chevron-up" : "bx-code-alt"}`} />
                   {verJson ? "Ocultar respuesta completa" : "Ver respuesta completa"}
                 </button>
                 {verJson && (
-                  <pre className="mt-2 max-h-96 overflow-auto rounded-xl bg-slate-900 p-3 text-[11px] text-slate-100">
+                  <pre className="mt-2 max-h-96 overflow-auto rounded-xl bg-gray-900 p-3 text-[11px] text-gray-100">
                     {JSON.stringify(detalle, null, 2)}
                   </pre>
                 )}
@@ -1440,14 +1509,14 @@ function RegistroNovedades({ idConfiguracion }) {
 
   if (!disponible) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white px-6 py-14 text-center shadow-sm">
-        <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-slate-100">
-          <i className="bx bx-data text-3xl text-slate-400" />
+      <div className="rounded-2xl bg-white px-6 py-14 text-center shadow-sm ring-1 ring-gray-100">
+        <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gray-100">
+          <i className="bx bx-data text-3xl text-gray-400" />
         </div>
-        <p className="font-bold text-slate-700">
+        <h3 className="mb-1 text-lg font-bold text-gray-800">
           El historial todavía no está activado
-        </p>
-        <p className="mt-1 text-sm text-slate-500">
+        </h3>
+        <p className="text-sm text-gray-500">
           Falta crear las tablas del registro de novedades en la base de datos.
         </p>
       </div>
@@ -1463,62 +1532,67 @@ function RegistroNovedades({ idConfiguracion }) {
 
   return (
     <>
-      <p className="mb-2 text-xs text-slate-500">Últimos 30 días</p>
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Kpi icono="bx-error" color="bg-amber-50 text-amber-500" valor={r.total || 0} label="Novedades registradas" />
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Kpi icono="bx-error" color="bg-amber-50 text-amber-600" valor={r.total || 0} label="Novedades registradas" />
         <Kpi icono="bx-user-voice" color="bg-violet-50 text-violet-600" valor={r.requieren_asesor || 0} label="Requieren asesor" />
-        <Kpi icono="bx-revision" color="bg-rose-50 text-rose-500" valor={r.reincidencias || 0} label="Reincidencias" />
+        <Kpi icono="bx-revision" color="bg-rose-50 text-rose-600" valor={r.reincidencias || 0} label="Reincidencias" />
         <Kpi icono="bx-check-circle" color="bg-emerald-50 text-emerald-600" valor={r.entregadas || 0} label="Entregadas tras la novedad" />
-        <Kpi icono="bx-trending-up" color="bg-sky-50 text-sky-600" valor={efectividad} label="Efectividad de las soluciones" />
+        <Kpi icono="bx-trending-up" color="bg-[#171931]/[0.06] text-[#171931]" valor={efectividad} label="Efectividad de las soluciones" />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        {FILTROS_REGISTRO.map((f) => (
-          <button
-            key={f.id || "todas"}
-            type="button"
-            onClick={() => {
-              setEstado(f.id);
-              setPage(1);
-            }}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-              estado === f.id
-                ? "border-[#171931] bg-[#171931] text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+        <TituloTarjeta
+          icono="bx-history"
+          titulo="Historial de novedades"
+          subtitulo="Lo que registró ChatCenter en los últimos 30 días"
+        />
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50/80 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[13px] font-semibold text-gray-700">Estado</span>
+          {FILTROS_REGISTRO.map((f) => {
+            const activa = estado === f.id;
+            return (
+              <button
+                key={f.id || "todas"}
+                type="button"
+                onClick={() => {
+                  setEstado(f.id);
+                  setPage(1);
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-[13px] font-semibold transition ${
+                  activa
+                    ? "border-[#171931] bg-[#171931] text-white"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-[#171931]/40"
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 overflow-auto rounded-xl border border-gray-100">
+          <table className="w-full min-w-[1000px] text-[13px]">
+            <thead className="bg-gray-50 text-gray-700">
               <tr>
-                <th className="px-4 py-3">Pedido</th>
-                <th className="px-4 py-3">Novedad</th>
-                <th className="px-4 py-3">Transportadora</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3">Solución</th>
-                <th className="px-4 py-3">Fechas</th>
+                <th className="px-3 py-2.5 text-left font-semibold"># Orden</th>
+                <th className="px-3 py-2.5 text-left font-semibold">Novedad</th>
+                <th className="px-3 py-2.5 text-left font-semibold">Transportadora</th>
+                <th className="px-3 py-2.5 text-left font-semibold">Estado</th>
+                <th className="px-3 py-2.5 text-left font-semibold">Solución</th>
+                <th className="px-3 py-2.5 text-left font-semibold">Fechas</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-gray-100">
               {cargando && !filas.length ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
-                    Cargando historial…
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <FilaCargando key={`sk-${i}`} columnas={6} />
+                ))
               ) : !filas.length ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-14 text-center">
-                    <p className="font-bold text-slate-700">Sin registros</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Las novedades se registran a medida que Dropi las reporta.
-                    </p>
+                  <td colSpan={6} className="px-4 py-6 text-gray-500">
+                    Sin registros con ese filtro. Las novedades se registran a
+                    medida que Dropi las reporta.
                   </td>
                 </tr>
               ) : (
@@ -1526,14 +1600,14 @@ function RegistroNovedades({ idConfiguracion }) {
                   const est = ESTADOS_REGISTRO[f.estado] || ESTADOS_REGISTRO.pendiente;
                   const resu = RESULTADOS_REGISTRO[f.resultado];
                   return (
-                    <tr key={f.id} className="align-top">
-                      <td className="px-4 py-3.5">
-                        <p className="font-bold text-slate-800">#{f.dropi_order_id}</p>
-                        <p className="font-mono text-xs text-slate-500">
-                          {f.shipping_guide || "Sin guía"}
-                        </p>
+                    <tr key={f.id} className="align-top hover:bg-gray-50">
+                      <td className="px-3 py-2.5">
+                        <div className="font-semibold text-gray-900">#{f.dropi_order_id}</div>
+                        <div className="text-xs text-gray-500">
+                          Guía: {f.shipping_guide || "Sin guía"}
+                        </div>
                       </td>
-                      <td className="max-w-[240px] px-4 py-3.5">
+                      <td className="max-w-[240px] px-3 py-2.5">
                         <p className="line-clamp-2 font-medium text-amber-700">
                           {f.novedad || "—"}
                         </p>
@@ -1547,38 +1621,54 @@ function RegistroNovedades({ idConfiguracion }) {
                           }}
                         />
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-3 py-2.5">
                         <BadgeTransportadora nombre={f.transportadora} />
                       </td>
-                      <td className="px-4 py-3.5">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${est.clase}`}>
-                          {est.label}
-                        </span>
-                        {resu && (
-                          <span className={`ml-1 inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${resu.clase}`}>
-                            {resu.label}
+                      <td className="px-3 py-2.5">
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold ${est.clase}`}
+                          >
+                            <span className="h-2 w-2 rounded-full bg-current opacity-60" />
+                            {est.label}
                           </span>
-                        )}
+                          {resu && (
+                            <span
+                              className={`inline-flex items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold ${resu.clase}`}
+                            >
+                              <span className="h-2 w-2 rounded-full bg-current opacity-60" />
+                              {resu.label}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="max-w-[260px] px-4 py-3.5 text-xs">
+                      <td className="max-w-[260px] px-3 py-2.5 text-xs">
                         {f.tipo_solucion ? (
                           <>
-                            <p className="font-semibold text-slate-700">
+                            <p className="font-semibold text-gray-800">
                               {TIPOS_SOLUCION[f.tipo_solucion] || f.tipo_solucion}
-                              {f.solventada_por === "ia" ? " · IA" : ""}
+                              {f.solventada_por === "ia" && (
+                                <span className="ml-1.5 inline-flex items-center gap-1 rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-600">
+                                  <i className="bx bx-bot text-xs" />
+                                  IA
+                                </span>
+                              )}
                             </p>
                             {f.solucion && (
-                              <p className="line-clamp-2 text-slate-500">{f.solucion}</p>
+                              <p className="mt-0.5 line-clamp-2 text-gray-500">{f.solucion}</p>
                             )}
                           </>
                         ) : (
-                          <span className="text-slate-400">Sin solución</span>
+                          <span className="text-gray-400">Sin solución</span>
                         )}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-slate-500">
-                        <p>Detectada: {fmtFecha(f.detectada_at)}</p>
-                        {f.solventada_at && <p>Solución: {fmtFecha(f.solventada_at)}</p>}
-                        {f.cerrada_at && <p>Cierre: {fmtFecha(f.cerrada_at)}</p>}
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-500">
+                        <div>
+                          <i className="bx bx-calendar mr-0.5 align-middle text-gray-400" />
+                          Detectada: {fmtFecha(f.detectada_at)}
+                        </div>
+                        {f.solventada_at && <div>Solución: {fmtFecha(f.solventada_at)}</div>}
+                        {f.cerrada_at && <div>Cierre: {fmtFecha(f.cerrada_at)}</div>}
                       </td>
                     </tr>
                   );
@@ -1587,32 +1677,14 @@ function RegistroNovedades({ idConfiguracion }) {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm">
-          <span className="text-slate-500">
-            Página <span className="font-semibold text-slate-800">{page}</span> de{" "}
-            {totalPaginas} · {total} registros
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1 || cargando}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-            >
-              <i className="bx bx-chevron-left" />
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page >= totalPaginas || cargando}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-            >
-              Siguiente
-              <i className="bx bx-chevron-right" />
-            </button>
-          </div>
-        </div>
+
+        <Paginacion
+          page={page}
+          totalPaginas={totalPaginas}
+          cargando={cargando}
+          onCambiar={setPage}
+          texto={`${total.toLocaleString()} registros encontrados`}
+        />
       </div>
     </>
   );
@@ -1733,334 +1805,350 @@ export default function NovedadesDropi() {
   );
 
   return (
-    <div className="min-h-full bg-slate-50 p-4 md:p-6">
-      {/* Encabezado */}
-      <div className="mb-5 overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="h-1 bg-gradient-to-r from-amber-400 via-[#FF6B35] to-rose-500" />
-        <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-amber-50">
-              <i className="bx bx-error-circle text-2xl text-amber-500" />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-800">
-                Novedades Dropi
-              </h1>
-              <p className="text-sm text-slate-500">
-                Pedidos con novedad pendiente por solucionar, en vivo desde
-                Dropi.
-              </p>
+    <div className="p-5">
+      {/* HEADER (mismo de Gestión de Pedidos) */}
+      <div className="mb-6 rounded-2xl bg-[#171931] p-6 text-white shadow-lg">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold md:text-3xl">Novedades Dropi</h1>
+            <p className="mt-1 text-sm opacity-90">
+              Pedidos con novedad por solucionar, su historial y la sugerencia
+              de la IA.
+            </p>
+            <div className="mt-2 flex items-center gap-2 text-[11px] text-white/60">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  cargando ? "animate-pulse bg-amber-400" : "bg-emerald-400"
+                }`}
+              />
+              {cargando ? "Consultando a Dropi…" : "En vivo desde Dropi"}
+              <button
+                type="button"
+                onClick={cargar}
+                disabled={cargando}
+                className="ml-2 inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/10 px-2 py-0.5 text-white/80 transition hover:bg-white/20 disabled:opacity-50"
+              >
+                <i className={`bx bx-refresh text-sm ${cargando ? "animate-spin" : ""}`} />
+                Actualizar
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={cargar}
-            disabled={cargando}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#171931] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-          >
-            <i className={`bx bx-refresh text-lg ${cargando ? "bx-spin" : ""}`} />
-            Actualizar
-          </button>
-        </div>
-      </div>
 
-      {/* Pestañas */}
-      <div className="mb-5 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-        {[
-          { id: "pendientes", label: "Pendientes", icono: "bx-error-circle" },
-          { id: "historial", label: "Historial", icono: "bx-history" },
-        ].map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              tab === t.id
-                ? "bg-[#171931] text-white"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            <i className={`bx ${t.icono}`} />
-            {t.label}
-          </button>
-        ))}
+          {/* Pestañas */}
+          <div className="inline-flex self-start rounded-xl border border-white/15 bg-white/10 p-1 md:self-auto">
+            {[
+              { id: "pendientes", label: "Pendientes", icono: "bx-error-circle" },
+              { id: "historial", label: "Historial", icono: "bx-history" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                  tab === t.id
+                    ? "bg-white text-[#171931] shadow-sm"
+                    : "text-white/75 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <i className={`bx ${t.icono}`} />
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {tab === "historial" && <RegistroNovedades idConfiguracion={idConfiguracion} />}
 
       <div className={tab === "pendientes" ? "" : "hidden"}>
-      {/* KPIs */}
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          icono="bx-error"
-          color="bg-amber-50 text-amber-500"
-          valor={hasMore ? `${kpis.total}+` : kpis.total}
-          label="Novedades pendientes"
-        />
-        <Kpi
-          icono="bx-message-rounded-dots"
-          color="bg-emerald-50 text-emerald-600"
-          valor={kpis.conChat}
-          label="Con conversación en ChatCenter"
-        />
-        <Kpi
-          icono="bx-time-five"
-          color="bg-rose-50 text-rose-500"
-          valor={kpis.viejas}
-          label="Llevan más de 24 h"
-        />
-        <Kpi
-          icono="bx-user-voice"
-          color="bg-violet-50 text-violet-600"
-          valor={kpis.asesor}
-          label="Requieren asesor"
-        />
-      </div>
-
-      {/* Filtros */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[240px] flex-1">
-          <i className="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por cliente, teléfono, guía, ciudad o novedad…"
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-[#171931] focus:ring-2 focus:ring-[#171931]/10"
+        {/* KPIs */}
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Kpi
+            icono="bx-error"
+            color="bg-amber-50 text-amber-600"
+            valor={hasMore ? `${kpis.total}+` : kpis.total}
+            label="Novedades pendientes"
+          />
+          <Kpi
+            icono="bxs-chat"
+            color="bg-emerald-50 text-emerald-600"
+            valor={kpis.conChat}
+            label="Con conversación en ChatCenter"
+          />
+          <Kpi
+            icono="bx-time-five"
+            color="bg-rose-50 text-rose-600"
+            valor={kpis.viejas}
+            label="Llevan más de 24 h"
+          />
+          <Kpi
+            icono="bx-user-voice"
+            color="bg-violet-50 text-violet-600"
+            valor={kpis.asesor}
+            label="Requieren asesor"
           />
         </div>
-        {transportadoras.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            {["", ...transportadoras].map((t) => (
+
+        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+          <TituloTarjeta
+            icono="bx-filter-alt"
+            titulo="Filtros de búsqueda"
+            subtitulo="Filtra por cliente, guía, transportadora o gestión de la novedad"
+          />
+
+          <div className="mt-5 grid grid-cols-1 items-start gap-3 md:grid-cols-4 xl:grid-cols-6">
+            {/* Buscar */}
+            <div className="flex h-full flex-col md:col-span-2">
+              <label className="text-[13px] font-semibold text-gray-700">Buscar</label>
+              <input
+                type="text"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Cliente, teléfono, guía, ciudad o novedad…"
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-[7px] text-[13px] transition focus:border-[#171931] focus:outline-none focus:ring-2 focus:ring-[#171931]/10"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Busca automáticamente mientras escribe.
+              </p>
+            </div>
+
+            <FilterDropdown
+              label="Transportadora"
+              icon="bx-truck"
+              value={transportadora}
+              placeholder="Todas"
+              options={[
+                { value: "", label: "Todas" },
+                ...transportadoras.map((t) => ({
+                  value: t,
+                  label: t,
+                  count: novedades.filter((n) => n.transportadora === t).length,
+                })),
+              ]}
+              onChange={setTransportadora}
+            />
+
+            <FilterDropdown
+              label="Gestión"
+              icon="bx-user-voice"
+              value={soloAsesor ? "asesor" : ""}
+              placeholder="Todas"
+              options={[
+                { value: "", label: "Todas" },
+                { value: "asesor", label: "Requieren asesor", count: kpis.asesor },
+              ]}
+              onChange={(val) => setSoloAsesor(val === "asesor")}
+            />
+
+            {/* Limpiar */}
+            <div className="flex h-full flex-col">
+              <label className="select-none text-[13px] font-semibold text-gray-700 opacity-0">
+                Limpiar
+              </label>
               <button
-                key={t || "todas"}
                 type="button"
-                onClick={() => setTransportadora(t)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  transportadora === t
-                    ? "border-[#171931] bg-[#171931] text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                }`}
+                onClick={() => {
+                  setBusqueda("");
+                  setTransportadora("");
+                  setSoloAsesor(false);
+                }}
+                className="mt-1 w-full rounded-xl bg-gray-200 px-3 py-[7px] text-[13px] font-semibold text-gray-800 shadow-sm transition hover:bg-gray-300"
               >
-                {t || "Todas"}
+                Limpiar
               </button>
-            ))}
+              <div className="mt-1 select-none text-[11px] opacity-0">.</div>
+            </div>
           </div>
-        )}
-        <button
-          type="button"
-          onClick={() => setSoloAsesor((v) => !v)}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-            soloAsesor
-              ? "border-violet-600 bg-violet-600 text-white"
-              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-          }`}
-        >
-          <i className="bx bx-user-voice" />
-          Requieren asesor
-        </button>
-      </div>
 
-      {/* Tabla */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50/80 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Pedido</th>
-                <th className="px-4 py-3">Novedad</th>
-                <th className="px-4 py-3">Transportadora</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Productos</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3">Agente</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {cargando && !novedades.length ? (
-                [1, 2, 3, 4, 5].map((i) => <FilaCargando key={i} />)
-              ) : !visibles.length ? (
+          {/* Alerta: reincidencias que debe ver un asesor */}
+          {!cargando && kpis.asesor > 0 && (
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <i className="bx bxs-error mt-0.5 shrink-0 text-lg" />
+              <div>
+                <span className="font-semibold">
+                  {kpis.asesor} novedad(es) requieren asesor.
+                </span>{" "}
+                Ya se volvieron a ofrecer y regresaron a novedad: conviene que
+                un asesor hable con el cliente antes de solventarlas otra vez.
+              </div>
+            </div>
+          )}
+
+          {/* TABLA */}
+          <div className="mt-6 overflow-auto rounded-xl border border-gray-100">
+            <table className="w-full min-w-[1150px] text-[13px]">
+              <thead className="bg-gray-50 text-gray-700">
                 <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center">
-                    <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50">
-                      <i
-                        className={`bx ${
-                          novedades.length ? "bx-search-alt" : "bx-check-circle"
-                        } text-3xl text-emerald-500`}
-                      />
-                    </div>
-                    <p className="font-bold text-slate-700">
-                      {novedades.length
-                        ? "Ninguna novedad coincide con el filtro"
-                        : "No hay novedades pendientes"}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {novedades.length
-                        ? "Prueba con otra búsqueda o transportadora."
-                        : "Todos tus pedidos con novedad ya están gestionados."}
-                    </p>
-                  </td>
+                  <th className="px-3 py-2.5 text-left font-semibold"># Orden</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Cliente</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Novedad</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Transportadora</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Producto</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Total</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Agente</th>
+                  <th className="px-3 py-2.5 text-center font-semibold">Chat</th>
+                  <th className="px-3 py-2.5 text-center font-semibold">Acciones</th>
                 </tr>
-              ) : (
-                visibles.map((n) => {
-                  const urgente = horasDesde(n.updated_at) >= 24;
-                  return (
-                    <tr
-                      key={n.order_id}
-                      onClick={() => setSeleccionada(n)}
-                      className="cursor-pointer align-top transition hover:bg-slate-50"
-                    >
-                      <td className="px-4 py-3.5">
-                        <p className="font-bold text-slate-800">#{n.order_id}</p>
-                        <p className="font-mono text-xs text-slate-500">
-                          {n.guia || "Sin guía"}
-                        </p>
-                      </td>
-                      <td className="max-w-[260px] px-4 py-3.5">
-                        <p className="line-clamp-2 font-medium text-amber-700">
-                          {n.novedad || "—"}
-                        </p>
-                        {hace(n.updated_at) && (
-                          <span
-                            className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              urgente
-                                ? "bg-rose-50 text-rose-600"
-                                : "bg-slate-100 text-slate-500"
-                            }`}
-                          >
-                            <i className="bx bx-time-five" />
-                            {hace(n.updated_at)}
-                          </span>
-                        )}
-                        <BadgesRegistro registro={n.registro} />
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <BadgeTransportadora nombre={n.transportadora} />
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#171931]/5 text-xs font-bold text-[#171931]">
-                            {iniciales(n.cliente?.nombre)}
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {cargando && !novedades.length ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <FilaCargando key={`sk-${i}`} columnas={9} />
+                  ))
+                ) : !visibles.length ? (
+                  <tr>
+                    <td className="px-4 py-6 text-gray-500" colSpan={9}>
+                      {novedades.length
+                        ? "Ninguna novedad coincide con esos filtros."
+                        : "No hay novedades pendientes: todos tus pedidos con novedad ya están gestionados."}
+                    </td>
+                  </tr>
+                ) : (
+                  visibles.map((n) => {
+                    const urgente = horasDesde(n.updated_at) >= 24;
+                    const hasAgent = n.agent_assigned && n.agent_assigned !== "Sin agente";
+                    const prods = n.productos || [];
+                    return (
+                      <tr
+                        key={n.order_id}
+                        onClick={() => setSeleccionada(n)}
+                        className="cursor-pointer align-top hover:bg-gray-50"
+                      >
+                        <td className="px-3 py-2.5 font-semibold text-gray-900">
+                          #{n.order_id}
+                        </td>
+
+                        {/* Cliente + guía */}
+                        <td className="px-3 py-2.5 text-gray-700">
+                          <div className="max-w-[190px] truncate font-semibold text-gray-900">
+                            {n.cliente?.nombre || "Sin nombre"}
                           </div>
-                          <div className="min-w-0">
-                            <p className="max-w-[170px] truncate font-medium text-slate-800">
-                              {n.cliente?.nombre || "—"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {n.cliente?.telefono || ""}
-                              {n.cliente?.ciudad ? ` · ${n.cliente.ciudad}` : ""}
-                            </p>
+                          <div className="text-xs text-gray-500">
+                            Tel: {n.cliente?.telefono || "Sin teléfono"}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="max-w-[200px] space-y-0.5 text-xs text-slate-600">
-                          {(n.productos || []).slice(0, 2).map((p, i) => (
-                            <p key={i} className="truncate">
-                              <span className="font-semibold text-slate-800">
-                                {p.cantidad}×
-                              </span>{" "}
-                              {p.nombre}
-                            </p>
-                          ))}
-                          {(n.productos || []).length > 2 && (
-                            <p className="text-slate-400">
-                              +{n.productos.length - 2} más
-                            </p>
+                          {n.cliente?.ciudad && (
+                            <div className="text-xs text-gray-500">{n.cliente.ciudad}</div>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-slate-800">
-                        {fmtMonto(n.total)}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {n.agent_assigned && n.agent_assigned !== "Sin agente" ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
-                            <i className="bx bx-user-circle text-base text-slate-400" />
-                            {n.agent_assigned}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-400">Sin agente</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setASolventar(n);
-                            }}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#171931] px-3.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.98]"
-                          >
-                            <i className="bx bx-wrench text-sm" />
-                            Solventar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              abrirChat(n);
-                            }}
+                          <div className="text-xs text-gray-500">
+                            Guía: {n.guia || "Sin guía"}
+                          </div>
+                        </td>
+
+                        {/* Novedad */}
+                        <td className="max-w-[260px] px-3 py-2.5">
+                          <p className="line-clamp-2 font-medium text-amber-700">
+                            {n.novedad || "—"}
+                          </p>
+                          {hace(n.updated_at) && (
+                            <span
+                              className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                                urgente
+                                  ? "border-red-200 bg-red-50 text-red-700"
+                                  : "border-gray-200 bg-gray-50 text-gray-500"
+                              }`}
+                            >
+                              <i className="bx bx-time-five" />
+                              {hace(n.updated_at)}
+                            </span>
+                          )}
+                          <BadgesRegistro registro={n.registro} />
+                        </td>
+
+                        <td className="px-3 py-2.5">
+                          <BadgeTransportadora nombre={n.transportadora} />
+                        </td>
+
+                        {/* Producto */}
+                        <td className="px-3 py-2.5 text-gray-700">
+                          <div className="flex items-center gap-2.5">
+                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gray-100">
+                              <i className="bx bx-package text-lg text-gray-300" />
+                            </div>
+                            <div className="min-w-0 max-w-[200px]">
+                              <div className="line-clamp-2">
+                                {prods.length
+                                  ? prods
+                                      .map((p) => `${p.cantidad}× ${p.nombre}`)
+                                      .join(" + ")
+                                  : "-"}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-3 py-2.5 text-right font-semibold text-gray-900">
+                          {fmtMonto(n.total)}
+                        </td>
+
+                        {/* Agente (sin asignar + hay chat → Bot) */}
+                        <td className="px-3 py-2.5 text-gray-700">
+                          {hasAgent ? (
+                            <span className="inline-flex max-w-[120px] items-start gap-1.5">
+                              <i className="bx bx-user-circle mt-0.5 shrink-0 text-base text-gray-400" />
+                              <span className="whitespace-normal break-words text-xs leading-tight">
+                                {n.agent_assigned}
+                              </span>
+                            </span>
+                          ) : n.has_chat ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">
+                              <i className="bx bx-bot text-sm" />
+                              Bot
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+
+                        <td className="px-3 py-2.5 text-center">
+                          <BotonChat
                             disabled={!n.has_chat || !n.chat_id_cliente}
-                            title={
-                              n.has_chat
-                                ? "Abrir chat"
-                                : "Sin conversación en ChatCenter"
-                            }
-                            className="grid h-9 w-9 place-items-center rounded-full bg-emerald-500 text-white shadow-sm transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300 disabled:shadow-none"
-                          >
-                            <i className="bx bx-message-rounded-dots text-lg" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSeleccionada(n);
-                            }}
-                            title="Ver detalle"
-                            className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                          >
-                            <i className="bx bx-chevron-right text-xl" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                            onClick={() => abrirChat(n)}
+                          />
+                        </td>
 
-        {/* Paginación */}
-        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm">
-          <span className="text-slate-500">
-            Página <span className="font-semibold text-slate-800">{page}</span>
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1 || cargando}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-            >
-              <i className="bx bx-chevron-left" />
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => p + 1)}
-              disabled={!hasMore || cargando}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-            >
-              Siguiente
-              <i className="bx bx-chevron-right" />
-            </button>
+                        <td className="px-3 py-2.5 text-center">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setASolventar(n);
+                              }}
+                              className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-[#171931] px-3 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 active:scale-[0.98]"
+                            >
+                              <i className="bx bx-wrench text-sm" />
+                              Solventar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSeleccionada(n);
+                              }}
+                              title="Ver detalle"
+                              aria-label="Ver detalle"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:bg-gray-50 hover:text-gray-800"
+                            >
+                              <i className="bx bx-show text-[18px]" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
-      </div>
 
+          <Paginacion
+            page={page}
+            hayMas={hasMore}
+            cargando={cargando}
+            onCambiar={setPage}
+            texto={`${visibles.length} novedad(es) en esta página${hasMore ? " · hay más en la siguiente" : ""}`}
+          />
+        </div>
       </div>
 
       {seleccionada && (

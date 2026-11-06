@@ -175,7 +175,7 @@ const ORIGEN_OPTIONS = [
    (con buscador, decenas de opciones y nombres largos) y Origen. Panel
    redondeado, scroll propio, animación de apertura y "×" para quitar el
    filtro sin abrir el panel. */
-const FilterDropdown = ({
+export const FilterDropdown = ({
   label,
   icon = "bx-filter-alt",
   value,
