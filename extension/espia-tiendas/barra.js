@@ -300,7 +300,7 @@
     #ei-radarpanel label.ei-campo{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#9fb7d6}
     #ei-radarpanel select{background:#132b4d;color:#fff;border:1px solid #1f3f6b;border-radius:6px;padding:6px 8px;font:inherit}
     #ei-radarpanel .ei-acciones{display:flex;gap:8px}
-    #ei-radarpanel .ei-paises{display:flex;gap:10px;padding-top:4px}
+    #ei-radarpanel .ei-paises{display:flex;flex-wrap:wrap;gap:6px 10px;padding-top:4px}
     #ei-radarpanel .ei-paises label{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#fff;cursor:pointer}
     #ei-radarpanel .ei-auto{font-size:11px;color:#c4b5fd}
     #ei-radarpanel button{flex:1;border:0;border-radius:8px;padding:8px 10px;font:inherit;font-weight:700;cursor:pointer;background:#1f3f6b;color:#fff}
@@ -667,7 +667,10 @@
     auto: el('select', {}, [opcion(0, 'No: una sola vez'), opcion(6, 'Sí, cada 6 h'), opcion(12, 'Sí, cada 12 h'), opcion(24, 'Sí, cada 24 h')]),
   };
   rSel.cantidad.value = '300'; rSel.dias.value = '7'; rSel.ritmo.value = '20'; rSel.auto.value = '0';
-  const rPaises = ['EC', 'MX', 'CO'].map((p) => el('label', { 'data-pais': p }, [el('input', { type: 'checkbox', checked: '' }), p]));
+  // Todos los países de Dropi; por defecto solo EC, MX y CO marcados (los demás se
+  // marcan cuando IMPORCHAT ya tenga fotos de ese país, si no la cola sale vacía).
+  const RADAR_PAISES = ['EC', 'MX', 'CO', 'PE', 'CL', 'AR', 'PA', 'CR', 'GT', 'PY', 'VE'];
+  const rPaises = RADAR_PAISES.map((p) => el('label', { 'data-pais': p }, [el('input', ['EC', 'MX', 'CO'].includes(p) ? { type: 'checkbox', checked: '' } : { type: 'checkbox' }), p]));
   const guardarRadarCfg = () => {
     cfg.radar = {
       cantidad: Number(rSel.cantidad.value) || 300,

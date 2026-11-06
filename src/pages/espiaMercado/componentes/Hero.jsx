@@ -107,25 +107,22 @@ export default function Hero({ pais, onPais, estado, cargando, error, onRecargar
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            <div role="radiogroup" aria-label="País" className="inline-flex rounded-2xl border border-white/10 bg-white/[0.06] p-1 backdrop-blur">
-              {PAISES.map((p) => {
-                const activo = p.code === pais;
-                return (
-                  <button
-                    key={p.code}
-                    type="button"
-                    role="radio"
-                    aria-checked={activo}
-                    onClick={() => onPais(p.code)}
-                    className={`relative inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-bold transition ${activo ? "text-[#0B1426]" : "text-slate-300 hover:text-white"}`}
-                  >
-                    {activo ? <motion.span layoutId="pais-activo" className="absolute inset-0 rounded-xl bg-white shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]" transition={{ type: "spring", stiffness: 420, damping: 34 }} /> : null}
-                    <span className="relative text-base leading-none">{p.bandera}</span>
-                    <span className="relative">{p.nombre}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Once países de Dropi: un desplegable en vez de la fila de botones. */}
+            <label className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] py-2 pl-3 pr-2 backdrop-blur">
+              <span className="text-base leading-none">{PAISES.find((p) => p.code === pais)?.bandera}</span>
+              <select
+                aria-label="País"
+                value={pais}
+                onChange={(e) => onPais(e.target.value)}
+                className="cursor-pointer bg-transparent pr-1 text-sm font-bold text-white outline-none [&>option]:text-[#0B1426]"
+              >
+                {PAISES.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" className={btnOscuro} onClick={onRecargar} title="Refrescar estado" aria-label="Refrescar estado">
                 <i className={`bx bx-refresh ${cargando ? "animate-spin" : ""}`} />

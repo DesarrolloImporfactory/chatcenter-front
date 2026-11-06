@@ -1,4 +1,4 @@
-// Capa «ImporKiller» sobre el catálogo de Dropi (app.dropi.ec / app.dropi.mx / app.dropi.co).
+// Capa «ImporKiller» sobre el catálogo de Dropi (app.dropi.<país>: todos los países de Latinoamérica).
 // Debajo de cada producto que el usuario tiene a la vista pinta las ventas
 // estimadas por IMPORCHAT (1 d / 7 d / 30 d), la tendencia, el stock y cuántos
 // proveedores venden lo mismo; en la ficha de un producto abre un panel con el
@@ -6,7 +6,10 @@
 // usuario: solo lee los ids de producto que ya están en la página y pide sus
 // métricas al backend de IMPORCHAT (POST /espia/productos/lote, vía bg.js).
 (() => {
-  const PAIS = { 'app.dropi.ec': 'EC', 'app.dropi.mx': 'MX', 'app.dropi.co': 'CO' }[location.hostname];
+  const PAIS = {
+    'app.dropi.ec': 'EC', 'app.dropi.mx': 'MX', 'app.dropi.co': 'CO', 'app.dropi.pe': 'PE', 'app.dropi.cl': 'CL', 'app.dropi.ar': 'AR',
+    'app.dropi.pa': 'PA', 'app.dropi.cr': 'CR', 'app.dropi.gt': 'GT', 'app.dropi.com.py': 'PY', 'app.dropi.com.ve': 'VE',
+  }[location.hostname];
   if (!PAIS) return;
 
   const RE_ID = [/product-details\/(\d+)/i, /\/products?\/(\d+)(?:[/?#]|$)/i, /[?&]product_id=(\d+)/i, /\/producto\/(\d+)/i];

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import chatApi from "../../../api/chatcenter";
-import { Aviso, Campo, Etiqueta, PAISES, TOKENS, btnChico, btnPrimario, btnSuave, fmtFecha, haceCuanto, input, nombrePais, select, textoError } from "../ui";
+import { Aviso, Campo, Etiqueta, DOMINIO_DROPI, PAISES, TOKENS, btnChico, btnPrimario, btnSuave, fmtFecha, haceCuanto, input, nombrePais, select, textoError } from "../ui";
 
 /* ═══════════════════════════════════════════════════════════════════════
    Cuentas de mapeo: las cuentas de Dropi (correo + token de integración)
@@ -179,7 +179,7 @@ export default function CuentasDropi({ pais: paisInicial = "EC", onClose, onCamb
                 <p className="mt-0.5 text-[13px] text-slate-600">Cuentas de Dropi con las que ImporKiller fotografía el catálogo de cada país. El token se guarda cifrado y no vuelve a mostrarse.</p>
               </div>
             </div>
-            <div role="radiogroup" aria-label="País" className="mt-4 inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+            <div role="radiogroup" aria-label="País" className="mt-4 inline-flex flex-wrap rounded-2xl border border-slate-200 bg-slate-50 p-1">
               {PAISES_CUENTA.map((p) => {
                 const activo = p.code === filtro;
                 const r = resumen[p.code] || {};
@@ -287,7 +287,7 @@ export default function CuentasDropi({ pais: paisInicial = "EC", onClose, onCamb
                       <select className={select} value={form.pais} onChange={(e) => { setForm((f) => ({ ...f, pais: e.target.value })); setPrueba(null); }}>
                         {PAISES_CUENTA.map((p) => (
                           <option key={p.code} value={p.code}>
-                            {p.nombre} (app.dropi.{p.code === "EC" ? "ec" : p.code === "MX" ? "mx" : "co"})
+                            {p.nombre} ({DOMINIO_DROPI[p.code]})
                           </option>
                         ))}
                       </select>
