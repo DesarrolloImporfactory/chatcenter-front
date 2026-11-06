@@ -17,6 +17,7 @@ import TablaContactos from "./TablaContactos";
 import FlujosMasivos from "./FlujosMasivos";
 import FilterBar from "./FilterBar";
 import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
+import { obtenerTodasLasPlantillas } from "../../utils/obtenerTodasLasPlantillas";
 
 /* =================== Helpers SweetAlert2 =================== */
 const swalConfirm = async (title, text, confirmText = "Sí, continuar") => {
@@ -887,21 +888,7 @@ export default function Contactos() {
 
     setLoadingTemplates(true);
     try {
-      const { data } = await chatApi.post(
-        "/whatsapp_managment/obtenerTemplatesWhatsapp",
-        {
-          id_configuracion: cfgId,
-          limit: 100,
-        },
-      );
-
-      const arr = Array.isArray(data?.templates)
-        ? data.templates
-        : Array.isArray(data?.data)
-          ? data.data
-          : Array.isArray(data)
-            ? data
-            : [];
+      const arr = await obtenerTodasLasPlantillas(cfgId);
 
       setTemplates(arr);
       templatesCacheRef.current[cfgId] = arr; // cache
