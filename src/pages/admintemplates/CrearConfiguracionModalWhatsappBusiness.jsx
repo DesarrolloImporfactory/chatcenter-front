@@ -58,9 +58,15 @@ const CrearConfiguracionModalWhatsappBusiness = ({
       );
 
       if (resp.data.status === 200) {
+        /* La conexión ya tenía asistente y la WABA cambió (número nuevo):
+           el backend recrea sus plantillas en segundo plano. */
+        const recreando =
+          resp.data?.plantillas_asistente?.estado === "recreando";
         setStatusMessage?.({
           type: "success",
-          text: "Configuración de WhatsApp Business agregada correctamente.",
+          text: recreando
+            ? "Configuración de WhatsApp Business agregada correctamente. Como esta conexión ya tenía su asistente configurado, estamos creando de nuevo sus plantillas en el número nuevo; Meta suele aprobarlas en minutos."
+            : "Configuración de WhatsApp Business agregada correctamente.",
         });
         onClose?.();
         fetchConfiguraciones?.();
