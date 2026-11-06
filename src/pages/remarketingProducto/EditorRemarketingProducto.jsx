@@ -1884,7 +1884,12 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                 respuestaInicial={respuestaInicial}
               />
               <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2 shadow-sm">
-                <div className="text-sm font-semibold text-slate-800">Mándamelo a mi WhatsApp</div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#25D366]/15 text-[#25D366]">
+                    <i className="bx bxl-whatsapp text-lg" />
+                  </span>
+                  Mándamelo a mi WhatsApp
+                </div>
                 <input
                   value={telPrueba}
                   onChange={(e) => setTelPrueba(e.target.value)}
@@ -1902,7 +1907,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                 <p className="text-[11px] text-slate-500">
                   {soloPlantilla
                     ? "Este recordatorio sale como plantilla de Meta; las plantillas se prueban desde el chat con «Responder con plantilla»."
-                    : "Tu número tiene que haberle escrito al negocio en las últimas 24 h."}
+                    : "Tu número tiene que haberle escrito al negocio en las últimas 24 h. Llega con tu nombre de contacto y queda en el chat, como un envío real."}
                 </p>
               </div>
             </div>
