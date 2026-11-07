@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { TOKENS, fmtDia, fmtNum } from "../ui";
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -153,9 +153,30 @@ export function GraficaLinea({ serie, campo = "unidades", alto = 220, color = TO
   const ticks = Math.min(6, n);
   const idxTicks = Array.from({ length: ticks }, (_, i) => Math.round((i / (ticks - 1)) * (n - 1)));
   const niveles = [0.25, 0.5, 0.75];
+
+  /* Hover (Daniel, 07-11-2026: «sin un detalle es algo muerto»): el día
+     más cercano al mouse se marca con línea vertical, punto sobre la curva y
+     una tarjeta con fecha, unidades y variación contra el día anterior. Como
+     el SVG se estira (preserveAspectRatio none), el punto y la tarjeta van
+     en HTML posicionados por porcentaje, no dentro del SVG. */
+  const [hov, setHov] = useState(null);
+  const onMove = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (!r.width) return;
+    const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    setHov(Math.round(f * (n - 1)));
+  };
+  const hp = hov == null ? null : datos[hov];
+  const hv = hov == null ? 0 : valores[hov];
+  const prev = hov > 0 ? valores[hov - 1] : null;
+  const dif = prev == null ? null : hv - prev;
+  const leftPct = hov == null ? 0 : (hov / (n - 1)) * 100;
+  const topPct = hov == null ? 0 : (py(hv) / H) * 100;
+  const ladoTarjeta = leftPct < 22 ? "left-0" : leftPct > 78 ? "right-0" : "-translate-x-1/2";
+
   return (
     <div className="w-full">
-      <div className="relative">
+      <div className="relative cursor-crosshair select-none" onMouseMove={onMove} onMouseLeave={() => setHov(null)}>
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block w-full" style={{ height: H }} role="img" aria-label={`Evolución de ${etiqueta}`}>
           <defs>
             <linearGradient id={`gl${id}`} x1="0" x2="0" y1="0" y2="1">
@@ -171,13 +192,43 @@ export function GraficaLinea({ serie, campo = "unidades", alto = 220, color = TO
           ))}
           <polygon points={area} fill={`url(#gl${id})`} />
           <polyline points={linea} fill="none" stroke={color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-          {datos.map((p, i) => (
-            <rect key={p.fecha || i} x={px(i) - W / n / 2} y={0} width={W / n} height={H} fill="transparent">
-              <title>{`${fmtDia(p.fecha)}: ${fmtNum(valores[i])} ${etiqueta}${p.reabastecido ? " · reabastecido" : ""}`}</title>
-            </rect>
-          ))}
+          {hov != null ? (
+            <line x1={px(hov)} x2={px(hov)} y1={0} y2={H} stroke={color} strokeWidth="1" vectorEffect="non-scaling-stroke" strokeDasharray="3 3" opacity="0.7" />
+          ) : null}
         </svg>
         <span className="pointer-events-none absolute left-1 top-0 text-[10px] font-bold text-slate-400">máx. {fmtNum(max)}</span>
+
+        {hp ? (
+          <>
+            <span
+              className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+              style={{ left: `${leftPct}%`, top: `${topPct}%`, background: hp.reabastecido ? TOKENS.ambar : color }}
+            />
+            <div
+              className={`pointer-events-none absolute top-1 z-10 min-w-[150px] rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-[11px] shadow-xl backdrop-blur ${ladoTarjeta}`}
+              style={{ left: ladoTarjeta === "-translate-x-1/2" ? `${leftPct}%` : undefined }}
+            >
+              <p className="font-bold text-slate-800">{fmtDia(hp.fecha)}</p>
+              <p className="mt-0.5 text-[18px] font-black leading-none tabular-nums text-slate-900">
+                {fmtNum(hv)} <span className="text-[11px] font-semibold text-slate-400">{etiqueta}</span>
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-slate-500">
+                {dif == null ? (
+                  <span>primer día medido</span>
+                ) : dif === 0 ? (
+                  <span>igual que el día anterior</span>
+                ) : (
+                  <span className={`inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 font-bold ${dif > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"}`}>
+                    <i className={`bx ${dif > 0 ? "bx-up-arrow-alt" : "bx-down-arrow-alt"}`} />
+                    {dif > 0 ? "+" : ""}
+                    {fmtNum(dif)} vs. día anterior
+                  </span>
+                )}
+                {hp.reabastecido ? <span className="rounded-md bg-amber-50 px-1 py-0.5 font-bold text-amber-700">reabastecido</span> : null}
+              </p>
+            </div>
+          </>
+        ) : null}
       </div>
       <div className="mt-1 flex justify-between text-[10px] text-slate-400">
         {idxTicks.map((i) => (
