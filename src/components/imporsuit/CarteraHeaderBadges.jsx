@@ -5,6 +5,7 @@ import {
   getDeudasUsuario,
 } from "../../services/imporsuit";
 import { tieneCartera } from "./useCarteraCliente";
+import InsigniaImporblack from "./InsigniaImporblack";
 import {
   campoPorMoneda,
   contarVencimientos,
@@ -74,13 +75,19 @@ function infoMembresia(fechaSuscripcion) {
 /**
  * Pills de contexto Imporsuit para la cabecera del chat: desde cuándo el
  * contacto es cliente (users.date_added) y, si tiene deudas con saldo, el
- * total pendiente. Reutiliza la cartera (buscar_cliente + deudas) y solo se
+ * total pendiente; y la insignia ImporBlack si su cuenta lo es (salvo que la
+ * cabecera ya la haya puesto por el contacto). Reutiliza la cartera (buscar_cliente + deudas) y solo se
  * muestra en la(s) config(s) de VENTAS (CARTERA_CONFIGS_HABILITADAS).
  *
  * Carga silenciosa: si el correo no existe en Imporsuit o algo falla, no
  * renderiza nada (la cabecera nunca se rompe por esto).
  */
-export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
+export default function CarteraHeaderBadges({
+  selectedChat,
+  idConfiguracion,
+  // La cabecera ya pintó la insignia ImporBlack (por el contacto del chat).
+  ocultarImporblack = false,
+}) {
   const habilitado = CARTERA_CONFIGS_HABILITADAS.includes(
     Number(idConfiguracion),
   );
@@ -114,6 +121,9 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
           setInfo({
             fechaRegistro: data.fecha_registro || null,
             fechaSuscripcion: data.fecha_suscripcion || null,
+            // `buscar_cliente` trae users.imporblack / imporblack_hasta.
+            imporblack: Number(data.imporblack) === 1,
+            imporblackHasta: data.imporblack_hasta || null,
             ...resumen,
           });
         }
@@ -131,6 +141,11 @@ export default function CarteraHeaderBadges({ selectedChat, idConfiguracion }) {
 
   return (
     <>
+      {/* ImporBlack, leído de la cuenta de Imporsuit (users.imporblack). */}
+      {info.imporblack && !ocultarImporblack && (
+        <InsigniaImporblack hasta={info.imporblackHasta} className="self-center" />
+      )}
+
       {/* Cliente desde */}
       {info.fechaRegistro && (
         <div

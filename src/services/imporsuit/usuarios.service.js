@@ -71,7 +71,9 @@ export async function getPlantillasCorreo({ signal } = {}) {
  *                  manda a usuarios existentes: la plantilla trae credenciales.
  *
  * @returns {Promise<{status, title, message, id_users?, cursosAsignados?,
- *   whatsapp?: {enviado, plantilla, motivo}, correo?: {enviado, nombre_plantilla, motivo}}>}
+ *   whatsapp?: {enviado, plantilla, motivo}, correo?: {enviado, nombre_plantilla, motivo},
+ *   imporblack?: {ok: boolean, hasta?: string, motivo?: string}}>}
+ *   `imporblack` solo viene si se mandó `imporblack: 1`.
  *   `id_users` solo viene cuando se CREA uno nuevo (no cuando ya existía).
  */
 export async function crearUsuarioFull(payload, { signal } = {}) {
@@ -88,6 +90,9 @@ export async function crearUsuarioFull(payload, { signal } = {}) {
     "dropsystem",
     "kit_importador",
     "motor_ventas",
+    // Con 1 el back da ImporBlack (2 años, con sus programas y cursos). Con 0
+    // NO lo quita: quitarlo es solo desde el panel de Imporsuit.
+    "imporblack",
   ];
 
   const body = {

@@ -6,6 +6,8 @@ import Swal from "sweetalert2";
 // Asistente de la cuenta: diseño "Lienzo" con métricas del "Tablero". La variante Tablero pura está en ../layout/AsistenteCuentaTablero
 import FloatingSupportChat from "../layout/FloatingSupportChat";
 import CarteraHeaderBadges from "../imporsuit/CarteraHeaderBadges";
+import InsigniaImporblack from "../imporsuit/InsigniaImporblack";
+import { esImporblack } from "../imporsuit/imporblack";
 import ImporchatHeaderBadges from "../imporchat/ImporchatHeaderBadges";
 import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
@@ -1751,6 +1753,11 @@ const Cabecera = ({
                         : "SELECCIONE UN CHAT"}
                     </span>
 
+                    {/* ImporBlack: siempre visible (shrink-0), aun en angosto. */}
+                    {selectedChat && esImporblack(selectedChat, dataPlanes) && (
+                      <InsigniaImporblack />
+                    )}
+
                     {/* Sin wrap: los planes llegan ~1 s después de abrir el
                         chat y, si saltaban de línea, la cabecera crecía con
                         ellos. Si no hay sitio se truncan el nombre y (en
@@ -1764,7 +1771,10 @@ const Cabecera = ({
                         Object.entries(dataPlanes)
                           .filter(
                             ([key, value]) =>
-                              value === 1 && key !== "fecha_suscripcion",
+                              value === 1 &&
+                              key !== "fecha_suscripcion" &&
+                              // ImporBlack va con su insignia negra, al lado del nombre.
+                              key !== "imporblack",
                           )
                           .map(([planName]) => (
                             <span
@@ -2498,6 +2508,8 @@ const Cabecera = ({
               <CarteraHeaderBadges
                 selectedChat={selectedChat}
                 idConfiguracion={id_configuracion}
+                // Si la insignia ya salió junto al nombre, no se repite acá.
+                ocultarImporblack={esImporblack(selectedChat, dataPlanes)}
               />
 
               {/* Cuenta ImporChat del contacto resumida (embudo de recuperación,

@@ -17,6 +17,7 @@ import { AgregarDeudaForm } from "./AgregarDeudaForm";
 import { RegistrarPagoForm } from "./RegistrarPagoForm";
 import { SubirComprobanteForm } from "./SubirComprobanteForm";
 import { FacturarDeudaModal } from "./FacturarDeudaModal";
+import InsigniaImporblack from "./InsigniaImporblack";
 
 /** Cada monto con la moneda de SU deuda; nunca se suman monedas distintas. */
 const CHIP_MONEDA = {
@@ -288,9 +289,13 @@ export function CarteraClientePanel({
 
             {/* Chips de paquetes activos */}
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {PAQUETES.filter((p) => Number(cliente[p.key]) === 1).map((p) => (
-                <span key={p.key} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{p.label}</span>
-              ))}
+              {PAQUETES.filter((p) => Number(cliente[p.key]) === 1).map((p) =>
+                p.key === "imporblack" ? (
+                  <InsigniaImporblack key={p.key} hasta={cliente.imporblack_hasta} />
+                ) : (
+                  <span key={p.key} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{p.label}</span>
+                ),
+              )}
               {PAQUETES.every((p) => Number(cliente[p.key]) !== 1) && (
                 <span className="text-[11px] text-gray-400">Sin paquetes asignados</span>
               )}

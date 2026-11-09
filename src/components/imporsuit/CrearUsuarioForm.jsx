@@ -13,6 +13,7 @@ import {
 } from "../../services/imporsuit";
 import { VentaFields, useVentaForm } from "./VentaFields";
 import { PAISES } from "../../services/imporsuit/paises";
+import { fmtHastaImporblack } from "./imporblack";
 import { Field, Overlay, inputCls, btnPrimary, btnGhost } from "./ui";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -98,7 +99,11 @@ export function CrearUsuarioForm({
     dropsystem: toFlag(clienteExistente?.dropsystem),
     kit_importador: toFlag(clienteExistente?.kit_importador),
     motor_ventas: toFlag(clienteExistente?.motor_ventas),
+    imporblack: toFlag(clienteExistente?.imporblack),
   }));
+
+  // Ya era ImporBlack: desmarcarlo acá NO se lo quita (el back solo lo da).
+  const eraImporblack = toFlag(clienteExistente?.imporblack);
 
   const [cursos, setCursos] = useState([]);
   // Pre-selecciona los cursos que el usuario ya tiene (ids de cursos_usuarios).
@@ -321,6 +326,9 @@ export function CrearUsuarioForm({
         dropsystem: form.dropsystem,
         kit_importador: form.kit_importador,
         motor_ventas: form.motor_ventas,
+        // Solo el flag: los programas y cursos que trae ImporBlack (con su
+        // vigencia de 2 años) los pone el back.
+        imporblack: form.imporblack,
         cursos: Array.from(cursosSel),
         // Siempre explícito: "0" = no enviar, "<id>" = esa plantilla.
         id_plantilla: idPlantillaActiva,
@@ -437,6 +445,23 @@ export function CrearUsuarioForm({
               `<small>${wa.motivo}</small>`,
           });
         }
+      }
+
+      // ImporBlack es un paso aparte del alta: el usuario puede quedar guardado
+      // y el programa no, y el agente tiene que saberlo.
+      const ib = resultado?.imporblack;
+      if (ib?.ok) {
+        toast.success(
+          ib.hasta
+            ? `ImporBlack activo hasta el ${fmtHastaImporblack(ib.hasta)}`
+            : "ImporBlack activo",
+        );
+      } else if (ib) {
+        Swal.fire({
+          icon: "warning",
+          title: "El usuario se guardó, pero ImporBlack NO",
+          text: ib.motivo ?? "Actívalo desde el panel de Imporsuit.",
+        });
       }
 
       if (mail?.enviado)
@@ -590,12 +615,37 @@ export function CrearUsuarioForm({
             )}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {PAQUETES.map((p) => (
-                <label key={p.key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:border-blue-300">
-                  <input type="checkbox" checked={!!form[p.key]} onChange={set(p.key)} disabled={submitting} className="h-4 w-4 accent-blue-600" />
-                  {p.label}
+                <label key={p.key} className={`flex cursor-pointer gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:border-blue-300 ${p.desc ? "items-start" : "items-center"}`}>
+                  <input type="checkbox" checked={!!form[p.key]} onChange={set(p.key)} disabled={submitting} className={`h-4 w-4 accent-blue-600 ${p.desc ? "mt-0.5" : ""}`} />
+                  {p.desc ? (
+                    <span>
+                      <span className="block">{p.label}</span>
+                      <span className="mt-0.5 block text-[11px] text-gray-500">
+                        {p.desc}
+                        {p.key === "imporblack" && eraImporblack && clienteExistente?.imporblack_hasta && (
+                          <> · vigente hasta el {fmtHastaImporblack(clienteExistente.imporblack_hasta)}</>
+                        )}
+                      </span>
+                    </span>
+                  ) : (
+                    p.label
+                  )}
                 </label>
               ))}
             </div>
+            {form.imporblack && (
+              <p className="mt-2 text-[11px] text-gray-500">
+                ImporBlack enciende por su cuenta Importaciones, Dropsystem y 50
+                Tiendas (Bóveda USA), y da sus cursos con vigencia de 2 años: no
+                hace falta marcarlos.
+              </p>
+            )}
+            {eraImporblack && !form.imporblack && (
+              <p className="mt-2 text-[11px] text-amber-600">
+                Desmarcarlo acá no le quita ImporBlack: eso se hace desde el
+                panel de Imporsuit.
+              </p>
+            )}
           </section>
 
           <section className={`rounded-xl border border-gray-200 p-3 ${esVenta ? "hidden" : ""}`}>
