@@ -218,6 +218,38 @@ const ultimaCita = (inicio, fin, dur) => {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 
+const aMin = (hhmm) => {
+  const [h, m] = String(hhmm || "").split(":").map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+};
+const aHora = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+/* Qué bloquea la pausa (pausa ± margen) y qué citas de la rejilla caen por
+   pisarla. Misma regla que generarHuecos en el backend: una cita cae si
+   empieza antes del fin del bloque y termina después de su inicio. */
+const resumenPausa = (cfg) => {
+  const ini = aMin(cfg?.pausa_inicio);
+  const fin = aMin(cfg?.pausa_fin);
+  if (ini == null && fin == null) return { desde: null };
+  if (ini == null || fin == null) return { error: "La pausa necesita hora de salida y de vuelta (o deja las dos vacías)." };
+  if (fin <= ini) return { error: "La vuelta de la pausa debe ser después de la salida." };
+  const apertura = aMin(cfg?.hora_inicio);
+  const cierre = aMin(cfg?.hora_fin);
+  if (apertura != null && cierre != null && (ini < apertura || fin > cierre))
+    return { error: "La pausa debe quedar dentro del horario de atención." };
+  const margen = Math.min(120, Math.max(0, Number(cfg?.pausa_margen_min) || 0));
+  const desde = ini - margen;
+  const hasta = fin + margen;
+  const dur = Number(cfg?.duracion_min) || 0;
+  const caen = [];
+  if (apertura != null && cierre != null && dur > 0) {
+    for (let c = apertura; c + dur <= cierre; c += dur) {
+      if (c < hasta && c + dur > desde) caen.push(aHora(c));
+    }
+  }
+  return { desde: aHora(Math.max(0, desde)), hasta: aHora(hasta), margen, caen };
+};
+
 const nombreZona = (tz) =>
   ({
     "America/Guayaquil": "Ecuador",
@@ -393,6 +425,9 @@ export default function PanelAgendaPublica({ idConfiguracion = null, modo = "cue
     "dias",
     "anticipacion_horas",
     "dias_adelante",
+    "pausa_inicio",
+    "pausa_fin",
+    "pausa_margen_min",
     "time_zone",
     "titulo",
     "descripcion",
@@ -430,6 +465,9 @@ export default function PanelAgendaPublica({ idConfiguracion = null, modo = "cue
         dias: config.dias,
         anticipacion_horas: Number(config.anticipacion_horas),
         dias_adelante: Number(config.dias_adelante),
+        pausa_inicio: config.pausa_inicio || "",
+        pausa_fin: config.pausa_fin || "",
+        pausa_margen_min: Number(config.pausa_margen_min) || 0,
         time_zone: config.time_zone,
         titulo: config.titulo,
         descripcion: config.descripcion || "",
@@ -596,6 +634,7 @@ export default function PanelAgendaPublica({ idConfiguracion = null, modo = "cue
   const reservas = data?.reservas || [];
   const tz = config?.time_zone;
   const ultima = ultimaCita(config.hora_inicio, config.hora_fin, config.duracion_min);
+  const pausa = resumenPausa(config);
   const activa = !!Number(config.activo);
   const listaParaRecibir = activos.length > 0;
   const google = data?.google || { vinculo: null, opciones: [], mio: null };
@@ -718,6 +757,49 @@ export default function PanelAgendaPublica({ idConfiguracion = null, modo = "cue
                   <i className="bx bx-error align-[-2px]" /> Entre apertura y cierre no cabe una cita de esa duración.
                 </>
               )}
+            </div>
+
+            {/* Pausa de almuerzo con margen: nació con Juan (Soporte Expertos):
+                sale 12:30–13:30 y quiere 15 min antes para dejar los chats
+                resueltos y 15 min después para retomarlos sin una reunión
+                esperando. Vacía = sin pausa. */}
+            <div className="mt-5">
+              <Etiqueta>Pausa diaria (almuerzo)</Etiqueta>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block text-sm">
+                  <span className="mb-1 block text-[12px] text-slate-500">Sale a las</span>
+                  <input type="time" className={inputCls} disabled={!puedeEditar} value={config.pausa_inicio || ""} onChange={(e) => setConfig((c) => ({ ...c, pausa_inicio: e.target.value }))} />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block text-[12px] text-slate-500">Vuelve a las</span>
+                  <input type="time" className={inputCls} disabled={!puedeEditar} value={config.pausa_fin || ""} onChange={(e) => setConfig((c) => ({ ...c, pausa_fin: e.target.value }))} />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block text-[12px] text-slate-500">Margen antes y después (min)</span>
+                  <input type="number" min={0} max={120} step={5} className={inputCls} disabled={!puedeEditar} value={config.pausa_margen_min ?? 0} onChange={(e) => setConfig((c) => ({ ...c, pausa_margen_min: e.target.value }))} />
+                </label>
+              </div>
+              <div className={`mt-3 rounded-lg px-3 py-2 text-[12.5px] ring-1 ${pausa.error ? "bg-rose-50 text-rose-700 ring-rose-200" : "bg-slate-50 text-slate-600 ring-slate-200"}`}>
+                {pausa.error ? (
+                  <>
+                    <i className="bx bx-error align-[-2px]" /> {pausa.error}
+                  </>
+                ) : pausa.desde ? (
+                  <>
+                    <i className="bx bx-coffee align-[-2px]" /> Ninguna cita empieza ni termina entre <b className="text-slate-800">{pausa.desde}</b> y{" "}
+                    <b className="text-slate-800">{pausa.hasta}</b>: {pausa.margen} min para cerrar los chats antes de salir y {pausa.margen} min para retomarlos al volver.
+                    {pausa.caen.length > 0 && (
+                      <>
+                        {" "}Se quitan las citas de las <b className="text-slate-800">{pausa.caen.join(", ")}</b>.
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <i className="bx bx-info-circle align-[-2px]" /> Sin pausa: se ofrecen citas de corrido entre apertura y cierre.
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="mt-5">
