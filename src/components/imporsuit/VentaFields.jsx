@@ -189,6 +189,9 @@ const INITIAL_VENTA = {
  * aprueba una nueva, hay que sumarla acá o el aviso mentirá.
  *
  * `kit_importador` no tiene plantilla propia: reusa `kitdearranque`.
+ * `imporblack` tampoco: lleva el Club, así que sale la bienvenida del Club
+ * (`VentaModel` la manda con `importacion = 1`). Sus programas y cursos con
+ * vigencia de 2 años los da el back al registrar la venta.
  */
 const PAQUETES_CON_PLANTILLA = [
   "ecommerce",
@@ -196,6 +199,7 @@ const PAQUETES_CON_PLANTILLA = [
   "kit",
   "kit_importador",
   "dropsystem",
+  "imporblack",
 ];
 
 /**

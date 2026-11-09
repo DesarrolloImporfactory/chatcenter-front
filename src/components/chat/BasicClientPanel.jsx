@@ -9,6 +9,8 @@ import ChecklistImporsuitSection from "../imporsuit/ChecklistImporsuitSection";
 import AnalisisIAImporsuitSection from "../imporsuit/AnalisisIAImporsuitSection";
 import ImporchatCuentaSection from "../imporchat/ImporchatCuentaSection";
 import CotizacionChatSection from "../imporsuit/CotizacionChatSection";
+import InsigniaImporblack from "../imporsuit/InsigniaImporblack";
+import { esImporblack } from "../imporsuit/imporblack";
 
 export default function BasicClientPanel({
   selectedChat,
@@ -61,6 +63,9 @@ export default function BasicClientPanel({
                       <p className="text-white font-semibold text-xs truncate">
                         {selectedChat?.nombre_cliente || "Cliente sin nombre"}
                       </p>
+                      {esImporblack(selectedChat) && (
+                        <InsigniaImporblack className="ring-1 ring-white/25" />
+                      )}
                       <span className="text-[9px] text-white/40">
                         {selectedChat?.psid
                           ? `PSID ${selectedChat.psid}`

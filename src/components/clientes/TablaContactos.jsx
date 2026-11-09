@@ -4,6 +4,7 @@ import chatApi from "../../api/chatcenter";
 import useCatalogoProductos, {
   programasDeContacto,
 } from "../imporsuit/useCatalogoProductos";
+import InsigniaImporblack from "../imporsuit/InsigniaImporblack";
 
 const TablaContactos = ({
   items,
@@ -435,7 +436,10 @@ const TablaContactos = ({
                       return <span className="text-slate-400">—</span>;
                     return (
                       <div className="flex max-w-[180px] flex-wrap gap-1">
-                        {progs.map((p) => (
+                        {progs.map((p) =>
+                          /imporblack/i.test(p.nombre) ? (
+                            <InsigniaImporblack key={p.id} />
+                          ) : (
                           <span
                             key={p.id}
                             className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-cyan-500/10 px-2 py-0.5 text-[11px] font-medium text-cyan-700"
@@ -444,7 +448,8 @@ const TablaContactos = ({
                             <i className="bx bx-package flex-shrink-0 text-xs" />
                             <span className="truncate">{p.nombre}</span>
                           </span>
-                        ))}
+                          ),
+                        )}
                       </div>
                     );
                   })()}
