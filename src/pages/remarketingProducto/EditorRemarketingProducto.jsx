@@ -1,13 +1,18 @@
 // src/pages/remarketingProducto/EditorRemarketingProducto.jsx
 // Configuración del remarketing de UN producto, en cuatro pasos numerados:
-//   1. El recordatorio (cuánto esperar, el mensaje, la foto). Las variables
-//      se meten con chips, nadie escribe llaves a mano.
-//   2. Los botones: cada uno «manda contenido» o «el bot sigue cerrando la
-//      venta» (respuestas rápidas del wizard → IA, como siempre).
-//   3. El contenido de cada botón que manda contenido: capturas de opiniones,
-//      fotos, video o PDF en una cuadrícula (subida múltiple, arrastrar para
-//      ordenar) y un texto de cierre.
-//   4. Qué pasa después (mover de columna; un segundo recordatorio opcional).
+//   1. Los recordatorios (hasta 3, una pestaña cada uno): cuánto esperar, el
+//      mensaje, la foto. Las variables se meten con chips, nadie escribe
+//      llaves a mano.
+//   2. Los botones DEL RECORDATORIO ACTIVO: cada uno «manda contenido» o «el
+//      bot sigue cerrando la venta» (respuestas rápidas del wizard → IA).
+//   3. El contenido del producto, por cada botón que manda contenido:
+//      capturas de opiniones, fotos, video o PDF en una cuadrícula (subida
+//      múltiple, arrastrar para ordenar) y la pregunta de cierre. Es uno
+//      solo: «ver opiniones» manda lo mismo desde cualquier recordatorio.
+//   4. Qué pasa después (mover de columna).
+// Cada recordatorio guarda sus propios botones (paso.botones); al cambiar de
+// pestaña la tarjeta 2 muestra los de ese recordatorio y «Guardar» graba los
+// tres (o uno o dos) tal como quedaron.
 // A la derecha, la vista previa estilo WhatsApp y el envío de prueba.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
@@ -63,18 +68,55 @@ const largo = (s) => [...String(s || "")].length;
 /* Tiempos por defecto al agregar recordatorios: 1 h → 5 h → 8 h suman 14 h,
    así los tres caen dentro de las 24 h y salen con botones. */
 const MINUTOS_DEFECTO_POR_PASO = [60, 300, 480];
-/* Textos de botón sugeridos para el 2.º y 3.º recordatorio: misma acción,
-   otra forma de decirlo, para que la secuencia no se lea repetida. */
-const TITULOS_DEFECTO_POR_PASO = [
-  null,
-  { opiniones: "👀 Ver qué opinan", quiero: "🛒 Pedirlo ahora" },
-  { opiniones: "⭐ Opiniones reales", quiero: "✅ Quiero el mío" },
+/* Cada recordatorio tiene SUS botones y SU contenido (tarjetas 2 y 3 muestran
+   los del recordatorio activo). Botones sugeridos al agregar uno: misma
+   intención, otra forma de decirlo, para que la secuencia no se lea
+   repetida. Las claves 'opiniones' y 'quiero' se mantienen porque las
+   métricas cuentan por clave. */
+const BOTONES_DEFECTO_POR_PASO = [
+  [
+    { clave: "opiniones", titulo: "⭐ Ver opiniones", accion: "bloque" },
+    { clave: "quiero", titulo: "✅ Sí, lo quiero", accion: "cerrar" },
+  ],
+  [
+    { clave: "opiniones", titulo: "👀 Ver qué opinan", accion: "bloque" },
+    { clave: "quiero", titulo: "🛒 Pedirlo ahora", accion: "cerrar" },
+  ],
+  [
+    { clave: "opiniones", titulo: "⭐ Opiniones reales", accion: "bloque" },
+    { clave: "quiero", titulo: "✅ Quiero el mío", accion: "cerrar" },
+  ],
 ];
-/* Botones de un paso: los de la tarjeta 2 con el texto propio del paso. */
-const botonesDelPaso = (config, paso) =>
-  (config.botones || []).map((b) => {
-    const t = String(paso?.botones_titulos?.[b.clave] || "").trim();
-    return t ? { ...b, titulo: t } : b;
+const copiaJson = (v) => JSON.parse(JSON.stringify(v));
+/* Recordatorio nuevo (pestaña «Agregar otro»): mensaje limpio y sus propios
+   botones sugeridos. El contenido es el del producto (tarjeta 3). */
+const nuevoPaso = (i) => ({
+  minutos: MINUTOS_DEFECTO_POR_PASO[i] || 480,
+  mensaje: "",
+  con_imagen: false,
+  imagen_url: null, // null = foto del producto
+  con_botones: true,
+  botones: copiaJson(BOTONES_DEFECTO_POR_PASO[Math.min(i, 2)]),
+});
+/* Lo guardado antes del 06-11-2026 tenía una sola lista de botones por
+   producto y, por recordatorio, solo otro texto para los mismos botones
+   (botones_titulos). Al cargar se le da a cada paso los suyos (el backend ya
+   lo manda así; esto cubre una respuesta vieja). */
+const pasosConPropios = (config) =>
+  (config.pasos || []).map((p) => {
+    const { botones_titulos, ...resto } = p || {};
+    const botones = Array.isArray(p?.botones)
+      ? p.botones
+      : (config.botones || []).map((b) => {
+          const t = String(botones_titulos?.[b.clave] || "").trim();
+          return t ? { ...b, titulo: t } : b;
+        });
+    return {
+      ...resto,
+      botones: copiaJson(botones).map((b) => ({ ...b, accion: b.accion === "bloque" ? "bloque" : "cerrar" })),
+      // Foto propia del paso; lo guardado antes tenía una sola (config.imagen_url).
+      imagen_url: "imagen_url" in (p || {}) ? p.imagen_url || null : config.imagen_url || null,
+    };
   });
 
 /* Plantillas de Meta utilizables en un recordatorio que cae fuera de las
@@ -1028,9 +1070,19 @@ const acumuladoHasta = (pasos, idx) =>
 
 /* Vista previa WhatsApp: muestra la conversación tal como la vería el
    cliente hasta el recordatorio activo (los anteriores quedaron sin
-   respuesta), con el tiempo de espera entre uno y otro. */
-function Previa({ config, pasoIdx, producto, vars, plantillas = [] }) {
+   respuesta), con el tiempo de espera entre uno y otro.
+
+   Antes del primer recordatorio va la RESPUESTA del negocio al «Hola, quiero
+   info» (respuestaInicial, la manda /remarketing-producto/obtener): el
+   mensaje fijo de los ajustes avanzados del producto si los tiene, o una
+   respuesta tipo del bot si no. Sin eso la previa daba a entender que nadie
+   le contestó al cliente; el recordatorio sale porque ÉL dejó de responder.
+   Los recordatorios 2 y 3 no llevan nada delante más que el anterior. */
+function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaInicial = null }) {
   const pasos = config.pasos.slice(0, pasoIdx + 1);
+  const mediaInicial = (respuestaInicial?.media || []).slice(0, 4);
+  const imagenesInicial = mediaInicial.filter((m) => m.tipo === "image");
+  const otrosInicial = mediaInicial.filter((m) => m.tipo !== "image");
   // Al cambiar de pestaña, la previa baja sola hasta el recordatorio activo:
   // con 3 recordatorios el tercero quedaba abajo y tocaba buscarlo a mano.
   const refActivo = useRef(null);
@@ -1041,7 +1093,11 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [] }) {
       const lista = refLista.current;
       const el = refActivo.current;
       if (!lista || !el) return;
-      lista.scrollTo({ top: Math.max(0, el.offsetTop - 8), behavior: "smooth" });
+      // Recordatorio 1: se baja hasta el final (la lista solo pinta hasta el
+      // activo), así se ve la respuesta inicial del negocio justo arriba del
+      // «⏱ 1 hora sin respuesta…». Del 2 en adelante, el activo arriba.
+      const top = pasoIdx === 0 ? lista.scrollHeight - lista.clientHeight : el.offsetTop - 8;
+      lista.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     }, 60);
     return () => clearTimeout(t);
   }, [pasoIdx, config.pasos.length]);
@@ -1061,6 +1117,39 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [] }) {
               Hola, quiero info del producto
             </div>
           </div>
+          {respuestaInicial ? (
+            <>
+              <div className="text-center text-[10px] text-slate-500 py-0.5">
+                {respuestaInicial.origen === "wizard"
+                  ? "Respuesta del producto (ajustes avanzados)"
+                  : "Respuesta del bot (ejemplo)"}
+              </div>
+              {imagenesInicial.length ? (
+                <div className="flex justify-end">
+                  <div className={`grid gap-1 max-w-[88%] ${imagenesInicial.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+                    {imagenesInicial.map((m, i) => (
+                      <div key={i} className="bg-[#dcf8c6] rounded-lg p-1 shadow-sm">
+                        <img src={m.url} alt="" className="w-full h-20 object-cover rounded-md" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {otrosInicial.map((m, i) => (
+                <div key={i} className="flex justify-end">
+                  <div className="bg-[#dcf8c6] rounded-lg rounded-tr-sm px-2.5 py-1.5 text-[11px] shadow-sm max-w-[88%] flex items-center gap-1.5 text-slate-700">
+                    <i className={`bx ${m.tipo === "video" ? "bx-play-circle" : "bxs-file-pdf"} text-base`} />
+                    <span className="truncate">{m.etiqueta || (m.tipo === "video" ? "Video del producto" : "Documento")}</span>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-end">
+                <div className="bg-[#dcf8c6] rounded-lg rounded-tr-sm px-2.5 py-1.5 text-[12px] shadow-sm max-w-[88%] whitespace-pre-line break-words">
+                  {respuestaInicial.texto || <span className="text-slate-400">(sin texto)</span>}
+                </div>
+              </div>
+            </>
+          ) : null}
           {pasos.map((paso, k) => {
             const fuera = acumuladoHasta(config.pasos, k) > LIMITE_VENTANA_MIN;
             const esActivo = k === pasoIdx;
@@ -1071,9 +1160,9 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [] }) {
             let pie = null;
             let botones = [];
             if (!fuera) {
-              imagen = paso?.con_imagen ? config.imagen_url || producto.imagen_url : null;
+              imagen = paso?.con_imagen ? paso?.imagen_url || producto.imagen_url : null;
               texto = rellenar(paso?.mensaje, vars);
-              botones = paso?.con_botones ? botonesDelPaso(config, paso).map((b) => b.titulo || "Botón") : [];
+              botones = paso?.con_botones ? (paso?.botones || []).map((b) => b.titulo || "Botón") : [];
             } else if (tpl) {
               const cab = cabeceraPlantilla(tpl);
               imagen = cab.header_format === "IMAGE" ? cab.header_media_url : null;
@@ -1239,6 +1328,9 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
   const [guardando, setGuardando] = useState(false);
   const [config, setConfig] = useState(null);
   const [existe, setExiste] = useState(false);
+  // Respuesta al primer mensaje del cliente (mensaje fijo del wizard o
+  // respuesta tipo del bot), solo para la vista previa.
+  const [respuestaInicial, setRespuestaInicial] = useState(null);
   const [pasoPrevia, setPasoPrevia] = useState(0);
   const [telPrueba, setTelPrueba] = useState(localStorage.getItem("rmkp_tel_prueba") || "");
   const [probando, setProbando] = useState(false);
@@ -1279,10 +1371,11 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
           id_producto: producto.id,
         });
         const c = data.data.config;
-        // Acciones antiguas ('ia') se muestran como «sigue cerrando».
-        c.botones = (c.botones || []).map((b) => ({ ...b, accion: b.accion === "bloque" ? "bloque" : "cerrar" }));
-        setConfig(c);
+        // Cada paso con sus botones (acciones antiguas 'ia' → «sigue
+        // cerrando») y su contenido.
+        setConfig({ ...c, pasos: pasosConPropios(c) });
         setExiste(!!data.data.existe);
+        setRespuestaInicial(data.data.respuesta_inicial || null);
       } catch (e) {
         Swal.fire({ icon: "error", title: e?.response?.data?.message || e.message });
         onClose(false);
@@ -1304,29 +1397,42 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
 
   const set = (patch) => setConfig((c) => ({ ...c, ...patch }));
   const setPaso = (i, patch) => set({ pasos: config.pasos.map((p, k) => (k === i ? { ...p, ...patch } : p)) });
-  const setBoton = (i, patch) => set({ botones: config.botones.map((b, k) => (k === i ? { ...b, ...patch } : b)) });
 
-  const botonesBloque = useMemo(() => (config?.botones || []).filter((b) => b.accion === "bloque"), [config]);
+  // Las tarjetas 2 (botones) y 3 (contenido) editan SOLO el recordatorio de
+  // la pestaña activa; cada uno guarda lo suyo y se graban todos juntos.
+  const pasoActivo = config?.pasos?.[pasoPrevia] || null;
+  const botonesActivo = pasoActivo?.botones || [];
+  const setBotonesActivo = (botones) => setPaso(pasoPrevia, { botones });
+  const setBoton = (i, patch) => setBotonesActivo(botonesActivo.map((b, k) => (k === i ? { ...b, ...patch } : b)));
+  // El contenido es uno por producto, por clave de botón: lo toque desde el
+  // recordatorio que lo toque, «ver opiniones» manda lo mismo.
+  const setBloque = (clave, bl) => set({ bloques: { ...(config?.bloques || {}), [clave]: bl } });
+
+  const botonesBloque = useMemo(() => botonesActivo.filter((b) => b.accion === "bloque"), [botonesActivo]);
   // El recordatorio visible cae fuera de las 24 h: sale como plantilla, así que
   // botones y contenido no le aplican (sí a los otros recordatorios).
   const pasoActivoEsPlantilla = !!config && acumuladoHasta(config.pasos, pasoPrevia) > LIMITE_VENTANA_MIN;
   const pasosConBotones = config
     ? config.pasos.map((p, i) => i + 1).filter((n) => acumuladoHasta(config.pasos, n - 1) <= LIMITE_VENTANA_MIN)
     : [];
-
   const validar = () => {
     if (!config.pasos.length) return "Escribe el mensaje del recordatorio.";
     for (let i = 0; i < config.pasos.length; i++) {
-      if (!String(config.pasos[i].mensaje || "").trim()) return `El recordatorio ${i + 1} no tiene mensaje.`;
-    }
-    for (const b of config.botones) {
-      if (!String(b.titulo || "").trim()) return "Hay un botón sin texto.";
-      if (largo(b.titulo) > MAX_TITULO) return `El botón «${b.titulo}» supera ${MAX_TITULO} caracteres.`;
-    }
-    for (const b of botonesBloque) {
-      const bl = config.bloques?.[b.clave];
-      if (!bl || (!(bl.items || []).length && !String(bl.remate || "").trim())) {
-        return `El botón «${b.titulo}» manda contenido pero aún no le subiste nada.`;
+      const p = config.pasos[i];
+      const fuera = acumuladoHasta(config.pasos, i) > LIMITE_VENTANA_MIN;
+      if (fuera) continue; // sale como plantilla: mensaje, botones y contenido no aplican
+      const n = config.pasos.length > 1 ? ` del recordatorio ${i + 1}` : "";
+      if (!String(p.mensaje || "").trim()) return `El recordatorio ${i + 1} no tiene mensaje.`;
+      if (p.con_botones === false) continue;
+      for (const b of p.botones || []) {
+        if (!String(b.titulo || "").trim()) return `Hay un botón sin texto${n}.`;
+        if (largo(b.titulo) > MAX_TITULO) return `El botón «${b.titulo}»${n} supera ${MAX_TITULO} caracteres.`;
+      }
+      for (const b of (p.botones || []).filter((x) => x.accion === "bloque")) {
+        const bl = config.bloques?.[b.clave];
+        if (!bl || (!(bl.items || []).length && !String(bl.remate || "").trim())) {
+          return `El botón «${b.titulo}»${n} manda contenido pero aún no le subiste nada.`;
+        }
       }
     }
     return null;
@@ -1396,7 +1502,8 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
     try {
       const r = await subir(file);
       if (r.tipo !== "image") throw new Error("La foto debe ser una imagen.");
-      set({ imagen_url: r.url });
+      // La foto es del recordatorio activo; cada uno tiene la suya.
+      setPaso(pasoPrevia, { imagen_url: r.url });
     } catch (e) {
       Swal.fire({ icon: "error", title: e?.response?.data?.message || e.message });
     } finally {
@@ -1405,7 +1512,9 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
     }
   };
 
-  const fotoActual = config?.imagen_url || producto.imagen_url || "";
+  const fotoActual = pasoActivo?.imagen_url || producto.imagen_url || "";
+  // Tarjeta 3 solo si el recordatorio activo manda botones y alguno manda contenido.
+  const hayContenido = !!pasoActivo && !pasoActivoEsPlantilla && pasoActivo.con_botones !== false && botonesBloque.length > 0;
   // El paso visible cae fuera de las 24 h y no tiene mensaje libre: solo plantilla.
   const soloPlantilla =
     !!config &&
@@ -1481,18 +1590,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                     <button
                       type="button"
                       onClick={() => {
-                        set({
-                          pasos: [
-                            ...config.pasos,
-                            {
-                              minutos: MINUTOS_DEFECTO_POR_PASO[config.pasos.length] || 480,
-                              mensaje: "",
-                              con_imagen: false,
-                              con_botones: true,
-                              botones_titulos: TITULOS_DEFECTO_POR_PASO[config.pasos.length] || null,
-                            },
-                          ],
-                        });
+                        set({ pasos: [...config.pasos, nuevoPaso(config.pasos.length)] });
                         setPasoPrevia(config.pasos.length);
                       }}
                       className="-mb-px ml-1 inline-flex items-center gap-1 rounded-t-lg px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
@@ -1538,54 +1636,28 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                               onClick={() => inputCabecera.current?.click()}
                               className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-50"
                             >
-                              {subiendoCabecera ? "Subiendo…" : config.imagen_url ? "Cambiar foto" : "Usar otra foto"}
+                              {subiendoCabecera ? "Subiendo…" : p.imagen_url ? "Cambiar foto" : "Subir foto"}
                             </button>
-                            {config.imagen_url ? (
-                              <button type="button" onClick={() => set({ imagen_url: null })} className="text-xs text-slate-500 hover:underline">
-                                volver a la del producto
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-400">(la del producto)</span>
-                            )}
+                            {/* Sin «volver a la del producto»: el cliente ya vio la foto
+                                principal en la primera respuesta; cada recordatorio lleva
+                                otra. Sin foto propia sale la del producto. */}
+                            <span className="text-xs text-slate-400">
+                              {p.imagen_url
+                                ? config.pasos.length > 1
+                                  ? "solo para este recordatorio"
+                                  : ""
+                                : "mejor una distinta: la principal ya la vio en la primera respuesta"}
+                            </span>
                           </div>
                         ) : null}
                         <label className="flex items-center gap-2 text-sm text-slate-700">
                           <input type="checkbox" checked={p.con_botones !== false} onChange={(e) => setPaso(i, { con_botones: e.target.checked })} />
                           Con botones
                         </label>
+                        {p.con_botones !== false && config.pasos.length > 1 ? (
+                          <span className="text-xs text-slate-400">(los de este recordatorio se configuran abajo)</span>
+                        ) : null}
                       </div>
-
-                      {i > 0 && p.con_botones !== false ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                          <div className="text-sm font-medium text-slate-700">Texto de los botones en este recordatorio</div>
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            Hacen lo mismo que en el recordatorio 1 (tarjeta 2); solo cambia cómo se leen, para no repetir.
-                          </p>
-                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {config.botones.map((b) => {
-                              const t = p.botones_titulos?.[b.clave] ?? "";
-                              return (
-                                <div key={b.clave} className="flex items-center gap-2">
-                                  <input
-                                    value={t}
-                                    onChange={(e) =>
-                                      setPaso(i, { botones_titulos: { ...(p.botones_titulos || {}), [b.clave]: e.target.value } })
-                                    }
-                                    maxLength={MAX_TITULO + 4}
-                                    placeholder={b.titulo || "Botón"}
-                                    className={`w-full rounded-lg border bg-white px-3 py-1.5 text-sm ${
-                                      largo(t) > MAX_TITULO ? "border-red-400" : "border-slate-300"
-                                    }`}
-                                  />
-                                  <span className={`text-[11px] shrink-0 ${largo(t) > MAX_TITULO ? "text-red-500 font-semibold" : "text-slate-400"}`}>
-                                    {largo(t || b.titulo)}/{MAX_TITULO}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : null}
                     </>
                   );
 
@@ -1660,16 +1732,18 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
               ) : null}
 
               {/* 2. Botones */}
-              {pasoActivoEsPlantilla ? null : (
+              {pasoActivoEsPlantilla || !pasoActivo ? null : (
               <Tarjeta
                 numero={2}
-                titulo="Los botones"
-                ayuda={`Hasta 3 botones de máximo ${MAX_TITULO} caracteres (límite de WhatsApp). Elige qué pasa al tocar cada uno.`}
+                titulo={config.pasos.length > 1 ? `Los botones del recordatorio ${pasoPrevia + 1}` : "Los botones"}
+                ayuda={`Hasta 3 botones de máximo ${MAX_TITULO} caracteres (límite de WhatsApp). Elige qué pasa al tocar cada uno.${
+                  config.pasos.length > 1 ? " Cada recordatorio tiene los suyos." : ""
+                }`}
                 derecha={
-                  config.botones.length < 3 ? (
+                  pasoActivo.con_botones === false ? null : botonesActivo.length < 3 ? (
                     <button
                       type="button"
-                      onClick={() => set({ botones: [...config.botones, { clave: `boton_${config.botones.length + 1}`, titulo: "", accion: "cerrar" }] })}
+                      onClick={() => setBotonesActivo([...botonesActivo, { clave: `boton_${botonesActivo.length + 1}`, titulo: "", accion: "cerrar" }])}
                       className="text-xs text-blue-600 hover:underline whitespace-nowrap"
                     >
                       + Otro botón
@@ -1677,8 +1751,13 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                   ) : null
                 }
               >
+                {pasoActivo.con_botones === false ? (
+                  <p className="text-sm text-slate-500">
+                    Este recordatorio sale sin botones (casilla «Con botones» en la tarjeta 1). Si el cliente responde, el bot sigue la conversación.
+                  </p>
+                ) : (
                 <div className="space-y-3">
-                  {config.botones.map((b, i) => (
+                  {botonesActivo.map((b, i) => (
                     <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <input
@@ -1691,8 +1770,8 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                         <span className={`text-[11px] ${largo(b.titulo) > MAX_TITULO ? "text-red-500 font-semibold" : "text-slate-400"}`}>
                           {largo(b.titulo)}/{MAX_TITULO}
                         </span>
-                        {config.botones.length > 1 ? (
-                          <button type="button" onClick={() => set({ botones: config.botones.filter((_, k) => k !== i) })} className="ml-auto text-xs text-red-500 hover:underline">
+                        {botonesActivo.length > 1 ? (
+                          <button type="button" onClick={() => setBotonesActivo(botonesActivo.filter((_, k) => k !== i))} className="ml-auto text-xs text-red-500 hover:underline">
                             Quitar
                           </button>
                         ) : null}
@@ -1708,7 +1787,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                               b.accion === op.v ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
                             }`}
                           >
-                            <input type="radio" name={`accion_${i}`} checked={b.accion === op.v} onChange={() => setBoton(i, { accion: op.v })} className="mt-0.5" />
+                            <input type="radio" name={`accion_${pasoPrevia}_${i}`} checked={b.accion === op.v} onChange={() => setBoton(i, { accion: op.v })} className="mt-0.5" />
                             <span>
                               <span className="font-medium text-slate-800">{op.t}</span>
                               <span className="block text-xs text-slate-500">{op.d}</span>
@@ -1719,15 +1798,19 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                     </div>
                   ))}
                 </div>
+                )}
               </Tarjeta>
               )}
 
-              {/* 3. Contenido */}
-              {botonesBloque.length && !pasoActivoEsPlantilla ? (
+              {/* 3. Contenido: uno por producto, se muestra para los botones
+                     «manda contenido» del recordatorio activo */}
+              {hayContenido ? (
                 <Tarjeta
                   numero={3}
                   titulo="El contenido"
-                  ayuda="Opiniones reales de clientes (capturas de WhatsApp o comentarios), fotos del producto en uso, un video corto."
+                  ayuda={`Opiniones reales de clientes (capturas de WhatsApp o comentarios), fotos del producto en uso, un video corto.${
+                    config.pasos.length > 1 ? " Es el mismo desde cualquier recordatorio." : ""
+                  }`}
                 >
                   <div className="space-y-6">
                     {botonesBloque.map((b) => (
@@ -1737,7 +1820,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                         bloque={config.bloques?.[b.clave] || { items: [], remate: "" }}
                         subir={subir}
                         producto={producto}
-                        onChange={(bl) => set({ bloques: { ...(config.bloques || {}), [b.clave]: bl } })}
+                        onChange={(bl) => setBloque(b.clave, bl)}
                       />
                     ))}
                   </div>
@@ -1746,7 +1829,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
 
               {/* 4. Después */}
               <Tarjeta
-                numero={botonesBloque.length && !pasoActivoEsPlantilla ? 4 : pasoActivoEsPlantilla ? 2 : 3}
+                numero={hayContenido ? 4 : pasoActivoEsPlantilla ? 2 : 3}
                 titulo={config.pasos.length > 1 ? "Si no responde a ningún recordatorio" : "Si no responde al recordatorio"}
                 ayuda="Si el cliente responde en cualquier momento, la secuencia se corta y el bot sigue la conversación donde está."
               >
@@ -1792,9 +1875,21 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
               <div className="text-xs text-slate-500 text-center">
                 Vista previa{config.pasos.length > 1 ? ` · recordatorio ${pasoPrevia + 1}` : ""}
               </div>
-              <Previa config={config} pasoIdx={pasoPrevia} producto={producto} vars={vars} plantillas={plantillas} />
+              <Previa
+                config={config}
+                pasoIdx={pasoPrevia}
+                producto={producto}
+                vars={vars}
+                plantillas={plantillas}
+                respuestaInicial={respuestaInicial}
+              />
               <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2 shadow-sm">
-                <div className="text-sm font-semibold text-slate-800">Mándamelo a mi WhatsApp</div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#25D366]/15 text-[#25D366]">
+                    <i className="bx bxl-whatsapp text-lg" />
+                  </span>
+                  Mándamelo a mi WhatsApp
+                </div>
                 <input
                   value={telPrueba}
                   onChange={(e) => setTelPrueba(e.target.value)}
@@ -1812,7 +1907,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                 <p className="text-[11px] text-slate-500">
                   {soloPlantilla
                     ? "Este recordatorio sale como plantilla de Meta; las plantillas se prueban desde el chat con «Responder con plantilla»."
-                    : "Tu número tiene que haberle escrito al negocio en las últimas 24 h."}
+                    : "Tu número tiene que haberle escrito al negocio en las últimas 24 h. Llega con tu nombre de contacto y queda en el chat, como un envío real."}
                 </p>
               </div>
             </div>

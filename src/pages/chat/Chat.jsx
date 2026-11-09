@@ -25,6 +25,7 @@ import Swal from "sweetalert2";
 import { aplicarEventoProgramado } from "../../components/chat/programadosChatStore";
 import { useMemo } from "react";
 import { avisoMetodoPagoMeta } from "../../utils/avisoMetodoPagoMeta";
+import { obtenerTodasLasPlantillas } from "../../utils/obtenerTodasLasPlantillas";
 import { useAlertasSinRespuesta } from "../../hooks/useAlertasSinRespuesta";
 import ModalChatsSinRespuesta from "../../components/chat/ModalChatsSinRespuesta";
 import {
@@ -324,15 +325,7 @@ const Chat = () => {
 
     setLoadingTemplates(true);
     try {
-      const resp = await chatApi.post(
-        "whatsapp_managment/obtenerTemplatesWhatsapp",
-        {
-          id_configuracion,
-          limit: 100, // o 50
-        },
-      );
-
-      const list = resp.data?.data || [];
+      const list = await obtenerTodasLasPlantillas(id_configuracion);
       setTemplatesAll(list);
       setTemplateResults(list);
     } catch (e) {

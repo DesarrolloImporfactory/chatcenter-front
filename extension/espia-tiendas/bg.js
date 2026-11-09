@@ -1,7 +1,11 @@
 // Service worker: guarda la sesión de IMPORCHAT, habla con el backend y baja los anuncios.
 // Los content scripts no llaman al backend directo (CORS desde facebook.com): todo pasa por aquí.
 
-const API_POR_DEFECTO = 'https://chatcenter.imporfactory.app/api/v1';
+// La API de producción vive en chat.imporfactory.app; chatcenter.imporfactory.app es la
+// pantalla (devuelve el HTML de la app para cualquier ruta, también /api/v1/...).
+const API_POR_DEFECTO = 'https://chat.imporfactory.app/api/v1';
+// Valor que traían las versiones hasta la 0.6.2: era la web, no la API. Se corrige solo.
+const API_VIEJA = 'https://chatcenter.imporfactory.app/api/v1';
 
 const limpio = (t) =>
   String(t || '')
@@ -13,12 +17,13 @@ const limpio = (t) =>
 const hoy = () => new Date().toISOString().slice(0, 10);
 
 async function leerConfig() {
-  const c = await chrome.storage.local.get(['token', 'tokenOrigen', 'tokenFecha', 'apiBase', 'enviadosHoy']);
+  const c = await chrome.storage.local.get(['token', 'tokenOrigen', 'tokenFecha', 'apiBase', 'apiOrigen', 'enviadosHoy']);
   return {
     token: c.token || '',
     tokenOrigen: c.tokenOrigen || '',
     tokenFecha: c.tokenFecha || '',
-    apiBase: (c.apiBase || API_POR_DEFECTO).replace(/\/+$/, ''),
+    apiBase: ((!c.apiBase || c.apiBase.replace(/\/+$/, '') === API_VIEJA) ? API_POR_DEFECTO : c.apiBase).replace(/\/+$/, ''),
+    apiOrigen: c.apiOrigen || '', // 'sesion' (la mandó la web de IMPORCHAT) o 'manual' (Opciones)
     enviadosHoy: c.enviadosHoy && c.enviadosHoy.fecha === hoy() ? c.enviadosHoy : { fecha: hoy(), total: 0 },
   };
 }
@@ -45,11 +50,25 @@ async function api(method, path, body) {
   }
   let json = null;
   try { json = await r.json(); } catch { /* sin cuerpo */ }
+  if (json === null || typeof json !== 'object') {
+    // Una página HTML en vez de JSON: la URL apunta a la web y no a la API (o un proxy
+    // devolvió otra cosa). Antes esto pasaba por «ok» con datos vacíos y la barra decía
+    // «sin sesión» sin explicar nada.
+    return { ok: false, status: r.status, code: 'NO_JSON', message: `La URL del backend no responde como API (${apiBase}): revisa las opciones de la extensión` };
+  }
   if (!r.ok) {
-    const message = json?.message || (r.status === 401 ? 'La sesión de IMPORCHAT venció' : r.status === 403 ? 'Tu usuario no tiene permiso (solo super administrador)' : `Error ${r.status}`);
-    return { ok: false, status: r.status, message, data: json?.data };
+    // ADDON_REQUIRED (403): la cuenta no tiene el complemento ImporKiller.
+    // El mensaje del backend ya explica qué es y dónde se activa.
+    const message = json?.message || (r.status === 401 ? 'La sesión de IMPORCHAT venció' : r.status === 403 ? 'Tu usuario de IMPORCHAT no tiene permiso para esto' : `Error ${r.status}`);
+    return { ok: false, status: r.status, code: json?.code || null, message, data: json?.data, redirectTo: json?.redirectTo || null };
   }
   return { ok: true, status: r.status, data: json?.data ?? json };
+}
+
+// Dónde vive la pantalla (la web de IMPORCHAT, no la API): se deduce del origen de la sesión.
+async function webImporchat() {
+  const { tokenOrigen } = await leerConfig();
+  return tokenOrigen && tokenOrigen !== 'manual' ? tokenOrigen : 'https://chatcenter.imporfactory.app';
 }
 
 // ───────────── Herramientas de página (como AdGrab): se inyectan en la pestaña activa ─────────────
@@ -131,17 +150,25 @@ chrome.runtime.onMessage.addListener((m, _s, responder) => {
       case 'sesion': {
         // Viene de sesion.js (la web de IMPORCHAT abierta en este Chrome).
         if (!m.token) return { ok: false };
-        const actual = await chrome.storage.local.get(['token']);
-        if (actual.token !== m.token) {
-          await chrome.storage.local.set({ token: m.token, tokenOrigen: m.origen || '', tokenFecha: new Date().toISOString() });
-        }
+        const actual = await chrome.storage.local.get(['token', 'apiBase', 'apiOrigen']);
+        const cambios = {};
+        if (actual.token !== m.token) Object.assign(cambios, { token: m.token, tokenOrigen: m.origen || '', tokenFecha: new Date().toISOString() });
+        // La web dice en qué API vive: se toma tal cual salvo que alguien haya escrito
+        // una URL a mano en Opciones (apiOrigen 'manual'), que manda sobre la de la sesión.
+        const api = typeof m.api === 'string' && /^https?:\/\//.test(m.api) ? m.api.trim().replace(/\/+$/, '') : '';
+        if (api && actual.apiOrigen !== 'manual' && actual.apiBase !== api) Object.assign(cambios, { apiBase: api, apiOrigen: 'sesion' });
+        if (Object.keys(cambios).length) await chrome.storage.local.set(cambios);
         return { ok: true };
       }
       case 'config':
         return leerConfig();
       case 'guardarConfig': {
         const cambios = {};
-        if (typeof m.apiBase === 'string') cambios.apiBase = m.apiBase.trim().replace(/\/+$/, '') || API_POR_DEFECTO;
+        if (typeof m.apiBase === 'string') {
+          cambios.apiBase = m.apiBase.trim().replace(/\/+$/, '') || API_POR_DEFECTO;
+          // Vacío = volver a tomar la de la sesión; escrito = manda sobre la de la sesión.
+          cambios.apiOrigen = m.apiBase.trim() ? 'manual' : '';
+        }
         if (typeof m.token === 'string') {
           cambios.token = m.token.trim();
           cambios.tokenOrigen = 'manual';
@@ -153,8 +180,13 @@ chrome.runtime.onMessage.addListener((m, _s, responder) => {
       case 'cerrarSesion':
         await chrome.storage.local.remove(['token', 'tokenOrigen', 'tokenFecha']);
         return { ok: true };
-      case 'ping':
-        return api('GET', '/extension/ping');
+      case 'ping': {
+        // Devuelve también `web` (para armar enlaces a la pantalla) y `addon`
+        // ({ activo, precio, nombre }: sin él, Dropi y la Biblioteca lo dicen).
+        const r = await api('GET', '/extension/ping');
+        if (r.ok && r.data) r.data.web = await webImporchat();
+        return r;
+      }
       case 'enviarAnuncios': {
         const r = await api('POST', '/anuncios', m.body);
         if (r.ok) await sumarEnviados((m.body?.anuncios || []).length);

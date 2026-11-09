@@ -17,6 +17,18 @@ const chatApi = axios.create({
   },
 });
 
+// La extensión ImporKiller (sesion.js) toma de aquí la URL de la API junto con el
+// token, así apunta sola al backend que usa esta web (producción, desarrollo o local)
+// sin que nadie la configure. Se resuelve a absoluta por si VITE_API_URL es relativa.
+try {
+  localStorage.setItem(
+    "imporchat_api",
+    new URL(APP_CONFIG.api.baseURL, window.location.origin).href.replace(/\/+$/, "")
+  );
+} catch {
+  /* sin localStorage */
+}
+
 // ═══════════════════════════════════════════════════════
 // Códigos del middleware checkPlanActivo que disparan
 // el modal global en MainLayout
@@ -182,7 +194,7 @@ chatApi.interceptors.response.use(
                     No se cobra nada hoy
                   </div>
                   <div style="color:#15803D; font-size:12px;">
-                    El cobro de $29/mes inicia cuando termine tu período incluido.
+                    Tus 3 meses incluidos empiezan a contar desde hoy. El cobro de $29/mes inicia cuando terminen.
                   </div>
                 </div>
               </div>

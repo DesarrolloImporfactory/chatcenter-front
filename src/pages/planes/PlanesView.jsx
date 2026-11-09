@@ -1078,6 +1078,12 @@ const PlanesView = () => {
                 Elegir plan
               </span>
               <button
+                onClick={() => navigate("/complementos")}
+                className="px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-slate-500 hover:text-[#0B1426] transition-colors"
+              >
+                Productos adicionales
+              </button>
+              <button
                 onClick={() => navigate("/plan")}
                 className="px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold text-slate-500 hover:text-[#0B1426] transition-colors"
               >

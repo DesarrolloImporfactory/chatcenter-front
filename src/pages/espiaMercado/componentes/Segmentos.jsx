@@ -28,7 +28,11 @@ export default function Segmentos({ opciones, valor, onChange, className = "" })
             ) : null}
             <i className={`bx ${o.icon} relative text-lg ${activo ? "text-sky-300" : "text-slate-400"}`} />
             <span className="relative">{o.label}</span>
-            {o.count !== undefined && o.count !== null ? (
+            {o.bloqueado ? (
+              <span className={`relative grid h-5 w-5 place-items-center rounded-full ${activo ? "bg-amber-300/20 text-amber-200" : "bg-amber-50 text-amber-600 ring-1 ring-amber-200"}`} title="Parte del complemento ImporKiller">
+                <i className="bx bx-lock-alt text-[13px]" />
+              </span>
+            ) : o.count !== undefined && o.count !== null ? (
               <span className={`relative rounded-full px-2 py-0.5 text-[11px] font-extrabold tabular-nums ${activo ? "bg-white/15 text-sky-100" : "bg-white text-slate-500 ring-1 ring-slate-200"}`}>
                 {fmtCorto(o.count)}
               </span>

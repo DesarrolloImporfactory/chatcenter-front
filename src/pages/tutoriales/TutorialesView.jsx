@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
 import PageShell from "../../components/layout/PageShell";
@@ -26,6 +27,85 @@ function formatDur(sec) {
 }
 
 const TIPO_ICON = { video: "bx-play", texto: "bx-file-blank", reto: "bx-trophy" };
+
+/* Slug para la URL: «Cómo conectar WhatsApp» → como-conectar-whatsapp.
+   Sin tildes, minúsculas, solo letras/números y guiones. */
+function slugDe(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+/* Parámetro de la URL: «<id>-<slug del título>», p. ej.
+   ?clase=123-como-conectar-whatsapp. El título es para que se lea; lo que
+   decide es el id (vive en la BD de cursos y no cambia aunque se suban
+   videos antes o después ni se renombre la clase). */
+const paramClase = (item) => {
+  const slug = slugDe(item.titulo);
+  return slug ? `${item.id_contenido}-${slug}` : String(item.id_contenido);
+};
+
+const enlaceClase = (item) =>
+  `${window.location.origin}/tutoriales?clase=${paramClase(item)}`;
+
+async function copiarTexto(texto) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    }
+  } catch {
+    /* sin permiso o sin contexto seguro: respaldo abajo */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = texto;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/* Busca la clase que pide la URL. El parámetro es «<id>-<slug>»: si empieza
+   con número se resuelve por ese id (el resto del texto es solo para leer).
+   Si no trae número (alguien escribió el título a mano) se busca por el slug
+   del título; ahí, si hay dos iguales en módulos distintos, gana la del
+   módulo indicado (?modulo=) o la primera. null si no está publicada. */
+function buscarClase(mods, param, modulo) {
+  const clave = String(param || "").trim();
+  if (!clave) return null;
+  const id = Number((clave.match(/^(\d+)(?:-|$)/) || [])[1]) || 0;
+  const slug = id ? "" : slugDe(clave);
+  const coincide = (c) =>
+    id ? Number(c.id_contenido) === id : slug && slugDe(c.titulo) === slug;
+  const ordenados = modulo
+    ? [...mods].sort((a, b) => esModulo(b, modulo) - esModulo(a, modulo))
+    : mods;
+  for (const m of ordenados) {
+    const c = (m.contenidos || []).find(coincide);
+    if (c) return { ...c, id_modulo: m.id_modulo };
+  }
+  return null;
+}
+
+/* ¿El módulo es el que pide la URL? Por slug del nombre o por id. */
+function esModulo(m, param) {
+  const clave = String(param || "").trim();
+  if (!clave) return false;
+  if (/^\d+$/.test(clave)) return Number(m.id_modulo) === Number(clave);
+  return slugDe(m.nombre_modulo) === slugDe(clave);
+}
 
 /* Anillo de progreso (SVG) para el hero */
 function ProgressRing({ pct, size = 66, stroke = 7 }) {
@@ -259,23 +339,52 @@ export default function TutorialesView() {
   const [selected, setSelected] = useState(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const iframeRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Último id abierto: `load` se vuelve a llamar desde el panel admin y ahí
+  // conviene conservar la clase en pantalla en vez de volver a la primera.
+  const selectedIdRef = useRef(null);
+  selectedIdRef.current = selected?.id_contenido ?? null;
 
   const isSuperAdmin =
     (localStorage.getItem("user_role") || "") === "super_administrador";
 
-  const load = async () => {
+  /* Qué clase abrir al cargar: la del enlace (?clase=<id>-<titulo>), la
+     primera del módulo del enlace (?modulo=<id o nombre>), la que ya estaba
+     abierta, o la primera de todas. Si el enlace apunta a una clase que ya
+     no está publicada se avisa y se abre la primera. */
+  const resolverInicial = (mods, { clase, modulo, preferida }) => {
+    if (clase) {
+      const c = buscarClase(mods, clase, modulo);
+      if (c) return c;
+      Toast.fire({
+        icon: "info",
+        title: "Esa clase ya no está disponible",
+      });
+    }
+    if (modulo) {
+      const m = mods.find((x) => esModulo(x, modulo) && x.contenidos?.length);
+      if (m) return { ...m.contenidos[0], id_modulo: m.id_modulo };
+    }
+    if (preferida) {
+      const c = buscarClase(mods, String(preferida));
+      if (c) return c;
+    }
+    const firstMod = mods.find((m) => m.contenidos?.length);
+    return firstMod
+      ? { ...firstMod.contenidos[0], id_modulo: firstMod.id_modulo }
+      : null;
+  };
+
+  const load = async (opts = {}) => {
     setLoading(true);
     try {
       const { data } = await chatApi.get("/tutoriales");
       const mods = data?.data?.modulos || [];
       setModulos(mods);
-      const firstMod = mods.find((m) => m.contenidos?.length);
-      if (firstMod) {
-        setOpenModulo(firstMod.id_modulo);
-        setSelected({
-          ...firstMod.contenidos[0],
-          id_modulo: firstMod.id_modulo,
-        });
+      const inicial = resolverInicial(mods, opts);
+      if (inicial) {
+        setOpenModulo(inicial.id_modulo);
+        setSelected(inicial);
       } else {
         setSelected(null);
       }
@@ -286,8 +395,39 @@ export default function TutorialesView() {
     }
   };
   useEffect(() => {
-    load();
+    load({
+      clase: searchParams.get("clase"),
+      modulo: searchParams.get("modulo"),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* La barra de direcciones siempre lleva la clase abierta: basta copiarla
+     (o usar «Copiar enlace») para mandarle a alguien el video exacto. Se
+     usa replace para no llenar el historial con cada clase. */
+  useEffect(() => {
+    if (!selected) return;
+    const param = paramClase(selected);
+    if (searchParams.get("clase") === param) return;
+    setSearchParams({ clase: param }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id_contenido]);
+
+  /* Al llegar por enlace (o al avanzar) la clase activa queda a la vista en
+     la lista lateral, aunque el módulo tenga muchas clases. */
+  useEffect(() => {
+    if (loading || !selected) return;
+    const el = document.querySelector(".tut-lesson.active");
+    el?.scrollIntoView?.({ block: "nearest" });
+  }, [loading, selected?.id_contenido]);
+
+  const copiarEnlace = async (item) => {
+    const ok = await copiarTexto(enlaceClase(item));
+    Toast.fire({
+      icon: ok ? "success" : "error",
+      title: ok ? "Enlace copiado" : "No se pudo copiar el enlace",
+    });
+  };
 
   const totalGlobal = useMemo(
     () => modulos.reduce((a, m) => a + (m.total || 0), 0),
@@ -561,6 +701,14 @@ export default function TutorialesView() {
                             : "Marcar como completada"}
                         </span>
                       </label>
+                      <button
+                        type="button"
+                        className="tut-link-btn"
+                        onClick={() => copiarEnlace(selected)}
+                        title="Copiar el enlace directo a esta clase"
+                      >
+                        <i className="bx bx-link" /> Copiar enlace
+                      </button>
                       {nextContenido && (
                         <button className="tut-next-btn" onClick={goNext}>
                           Siguiente clase{" "}
@@ -652,6 +800,28 @@ export default function TutorialesView() {
                                   {formatDur(c.duracion_segundos)}
                                 </span>
                               ) : null}
+                              {/* span y no button: no puede ir un botón
+                                  dentro de otro botón */}
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                className="tut-lesson-link"
+                                title="Copiar enlace a esta clase"
+                                aria-label="Copiar enlace a esta clase"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  copiarEnlace(c);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    copiarEnlace(c);
+                                  }
+                                }}
+                              >
+                                <i className="bx bx-link" />
+                              </span>
                             </button>
                           );
                         })}
@@ -667,7 +837,10 @@ export default function TutorialesView() {
       </PageShell>
 
       {adminOpen && (
-        <AdminPanel onClose={() => setAdminOpen(false)} onChanged={load} />
+        <AdminPanel
+          onClose={() => setAdminOpen(false)}
+          onChanged={() => load({ preferida: selectedIdRef.current })}
+        />
       )}
     </>
   );
@@ -715,6 +888,10 @@ const css = `
   .tut-check.done i { color:#22c55e; }
   .tut-check span { font-size:.82rem; font-weight:700; color:#334155; }
   .tut-check.done span { color:#15803d; }
+  .tut-link-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:10px; border:1.5px solid #e2e8f0; background:#fff;
+    color:#334155; font-weight:700; font-size:.82rem; cursor:pointer; font-family:inherit; transition:all .15s; }
+  .tut-link-btn:hover { border-color:#c7d2fe; background:#fafbff; color:#3730a3; }
+  .tut-link-btn i { font-size:1.1rem; }
   .tut-next-btn { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:9px 17px; border-radius:11px; border:none;
     background:linear-gradient(135deg, ${BG_DARK}, #34366b); color:#fff; font-weight:700; font-size:.82rem; cursor:pointer; font-family:inherit;
     box-shadow:0 6px 16px rgba(23,25,49,.25); transition:transform .12s, box-shadow .12s; }
@@ -760,6 +937,12 @@ const css = `
   .tut-lesson.active .tut-lesson-title { color:#3730a3; font-weight:700; }
   .tut-lesson.done .tut-lesson-title { color:#64748b; }
   .tut-lesson-dur { font-size:.7rem; color:#94a3b8; font-weight:700; flex-shrink:0; }
+  /* Copiar enlace por clase: solo aparece al pasar el mouse (o con teclado) */
+  .tut-lesson-link { width:24px; height:24px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    color:#94a3b8; opacity:0; transition:opacity .15s, background .15s, color .15s; }
+  .tut-lesson:hover .tut-lesson-link, .tut-lesson-link:focus-visible { opacity:1; }
+  .tut-lesson-link:hover { background:#e0e7ff; color:#4338ca; }
+  .tut-lesson-link i { font-size:1rem; }
 
   /* estados */
   .tut-loading { display:flex; align-items:center; gap:10px; color:#64748b; font-weight:600; padding:20px; }

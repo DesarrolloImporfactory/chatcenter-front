@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { loginThunk } from "./../../store/slices/user.slice";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const MeshBg = () => (
@@ -154,7 +154,28 @@ const EyeIcon = ({ show }) => (
 export default function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPwd, setShowPwd] = useState(false);
+
+  /* A dónde iba el usuario antes de caer en el login. ProtectedRoutes lo
+     manda en state.from (ruta + query), p. ej. un enlace directo a una clase
+     /tutoriales?clase=123 que se le envió a un cliente: tras entrar debe
+     llegar a esa clase, no a /conexiones. Solo rutas internas; y solo se
+     respeta cuando el plan deja entrar (los casos que van a /planes siguen
+     yendo a /planes). */
+  const from = location.state?.from;
+  const destinoPrevio =
+    from &&
+    typeof from.pathname === "string" &&
+    from.pathname.startsWith("/") &&
+    !from.pathname.startsWith("//") &&
+    !["/", "/login", "/register", "/forgot_password"].includes(from.pathname)
+      ? `${from.pathname}${from.search || ""}${from.hash || ""}`
+      : null;
+  const irAlInicio = (ruta, opts) =>
+    destinoPrevio
+      ? navigate(destinoPrevio, { replace: true })
+      : navigate(ruta, opts);
 
   const {
     register,
@@ -173,7 +194,7 @@ export default function Login() {
 
         // Super admin → directo
         if (role === "super_administrador") {
-          navigate("/administrador-conexiones");
+          irAlInicio("/administrador-conexiones");
           return;
         }
 
@@ -189,7 +210,7 @@ export default function Login() {
 
         // Permanente → conexiones (con animación de bienvenida)
         if (Number(permanente) === 1) {
-          navigate("/conexiones", { state: { bienvenida: true } });
+          irAlInicio("/conexiones", { state: { bienvenida: true } });
           return;
         }
 
@@ -201,19 +222,19 @@ export default function Login() {
 
         // Trial Stripe vigente → conexiones (con animación de bienvenida)
         if (estado === "activo" && trial_end && ahora <= new Date(trial_end)) {
-          navigate("/conexiones", { state: { bienvenida: true } });
+          irAlInicio("/conexiones", { state: { bienvenida: true } });
           return;
         }
 
         // Trial por uso (Insta Landing) → conexiones (con animación de bienvenida)
         if (estado === "trial_usage") {
-          navigate("/conexiones", { state: { bienvenida: true } });
+          irAlInicio("/conexiones", { state: { bienvenida: true } });
           return;
         }
 
         // Promo usage (código promocional) → conexiones (con animación de bienvenida)
         if (estado === "promo_usage") {
-          navigate("/conexiones", { state: { bienvenida: true } });
+          irAlInicio("/conexiones", { state: { bienvenida: true } });
           return;
         }
 
@@ -242,7 +263,7 @@ export default function Login() {
         }
 
         // Todo OK → conexiones (con animación de bienvenida)
-        navigate("/conexiones", { state: { bienvenida: true } });
+        irAlInicio("/conexiones", { state: { bienvenida: true } });
       })
       .catch((e) => {
         setError("root", {

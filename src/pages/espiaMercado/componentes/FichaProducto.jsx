@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import BotonSeguir from "./BotonSeguir";
 import { Delta, GraficaLinea } from "./Sparkline";
-import { CopiarId, Creativo, Esqueleto, EstadoLista, Etiqueta, EtiquetaPlataforma, Foto, PAISES, TOKENS, btnChico, fmtDia, fmtMoneda, fmtNum, haceCuanto, select, tarjeta, urlDropi, urlMeta, useConsulta } from "../ui";
+import { abrirComplemento } from "./Complemento";
+import { ADDON_IMPORKILLER, CopiarId, Creativo, Esqueleto, EstadoLista, Etiqueta, EtiquetaPlataforma, Foto, PAISES, TOKENS, btnBlanco, btnChico, btnPrimario, fmtDia, fmtMoneda, fmtNum, haceCuanto, select, tarjeta, urlDropi, urlMeta, useConsulta, ventanasVentas } from "../ui";
 
 /* Búsqueda en la Biblioteca de Meta con el mismo término que usa el radar. */
 const urlBiblioteca = (pais, termino) =>
@@ -46,8 +47,10 @@ function variacion(serie) {
   return { tipo: "pct", pct: Math.round(((b - a) / a) * 100) };
 }
 
-export default function FichaProducto({ pais, id, onClose, onSeguido }) {
+export default function FichaProducto({ pais, id, diasMedidos, onClose, onSeguido }) {
   const [dias, setDias] = useState(30);
+  const vv = useMemo(() => ventanasVentas(diasMedidos), [diasMedidos]);
+  const nKpis = 4 + (vv.ver7 ? 1 : 0) + (vv.verTotal ? 1 : 0);
   const [ordenAnuncios, setOrdenAnuncios] = useState("recientes");
   const { data, cargando, error, recargar, setData } = useConsulta(`/espia/productos/${pais}/${id}`, { dias });
   const p = data?.producto;
@@ -59,6 +62,8 @@ export default function FichaProducto({ pais, id, onClose, onSeguido }) {
     else lista.sort((a, b) => String(b.inicio || "").localeCompare(String(a.inicio || "")));
     return lista;
   }, [data, ordenAnuncios]);
+  // Sin el complemento el back no manda los anuncios: solo cuántos hay.
+  const anunciosBloqueados = data?.anuncios_bloqueados !== undefined && data?.anuncios_bloqueados !== null ? Number(data.anuncios_bloqueados) : null;
   const serie = useMemo(() => serieContinua(data?.historial, dias), [data, dias]);
   const diasConDatos = (data?.historial || []).length;
   const totalPeriodo = serie.reduce((s, x) => s + x.unidades, 0);
@@ -170,14 +175,20 @@ export default function FichaProducto({ pais, id, onClose, onSeguido }) {
             {p ? (
               <div className="space-y-5 px-5 py-5 sm:px-7">
                 {/* ── KPIs ── */}
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                  <Kpi label="Últimas 24 h" valor={fmtNum(p.ventas_1d)} />
-                  <Kpi label="7 días" valor={fmtNum(p.ventas_7d)} extra={<Delta actual={p.ventas_7d} previo={p.ventas_7d_prev} chico />} />
-                  <Kpi label="30 días" valor={fmtNum(p.ventas_30d)} />
-                  <Kpi label="Totales" valor={fmtNum(p.ventas_total)} sub="desde que lo vigilamos" />
-                  <Kpi label="Facturación 30 d" valor={fmtMoneda(Number(p.ventas_30d || 0) * Number(p.precio || 0), pais)} sub="ventas × precio" />
+                {/* Con pocos días medidos, 7 d, 30 d y totales son el mismo
+                    número: se muestran solo las ventanas que distinguen algo. */}
+                <div className={`grid grid-cols-3 gap-2 ${nKpis === 6 ? "sm:grid-cols-6" : nKpis === 5 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
+                  <Kpi label="Vendidos ayer" valor={fmtNum(p.ventas_1d)} sub="unidades estimadas" />
+                  {vv.ver7 ? <Kpi label="Vendidos en 7 días" valor={fmtNum(p.ventas_7d)} sub="unidades estimadas" extra={vv.dias === 0 || vv.dias >= 14 ? <Delta actual={p.ventas_7d} previo={p.ventas_7d_prev} chico /> : null} /> : null}
+                  <Kpi label={vv.corto ? `Vendidos en ${vv.dias} días` : "Vendidos en 30 días"} valor={fmtNum(p.ventas_30d)} sub={vv.corto ? `desde el ${fmtDia(p.primera_vez)}, cuando empezamos a medirlo` : "unidades estimadas"} />
+                  {vv.verTotal ? <Kpi label="Vendidos en total" valor={fmtNum(p.ventas_total)} sub={`desde el ${fmtDia(p.primera_vez)}`} /> : null}
+                  <Kpi label={vv.corto ? `Facturación en ${vv.dias} días` : "Facturación en 30 días"} valor={fmtMoneda(Number(p.ventas_30d || 0) * Number(p.precio || 0), pais)} sub={`${fmtNum(p.ventas_30d)} unidades × ${fmtMoneda(p.precio, pais)}`} />
                   <Kpi label="Proveedores" valor={fmtNum((Number(p.n_iguales) || 0) + 1)} sub={Number(p.n_iguales) > 0 ? "venden lo mismo" : "solo este"} />
                 </div>
+                <p className="text-xs leading-5 text-slate-500">
+                  <i className="bx bx-info-circle mr-1" /> Las ventas son estimadas: unidades que bajan del stock del proveedor entre una foto del catálogo y la siguiente.
+                  {vv.corto ? ` Llevamos ${vv.dias} ${vv.dias === 1 ? "día" : "días"} de fotos; a los 7 y a los 30 días aparecen esas ventanas.` : ""}
+                </p>
 
                 {/* ── Evolución ── */}
                 <section className={`${tarjeta} p-4 sm:p-5`}>
@@ -237,7 +248,13 @@ export default function FichaProducto({ pais, id, onClose, onSeguido }) {
                     </h3>
                     {suma && suma.proveedores > 1 ? (
                       <span className="text-xs text-slate-500">
-                        Entre todos: <b className="text-slate-800">{fmtNum(suma.ventas_30d)}</b> en 30 d · <b className="text-slate-800">{fmtNum(suma.ventas_total)}</b> totales
+                        Entre todos: <b className="text-slate-800">{fmtNum(suma.ventas_30d)}</b> en {vv.corto ? `${vv.dias} d` : "30 d"}
+                        {vv.verTotal ? (
+                          <>
+                            {" · "}
+                            <b className="text-slate-800">{fmtNum(suma.ventas_total)}</b> totales
+                          </>
+                        ) : null}
                       </span>
                     ) : null}
                   </div>
@@ -248,8 +265,8 @@ export default function FichaProducto({ pais, id, onClose, onSeguido }) {
                           <th className="px-4 py-2 font-bold sm:px-5">Proveedor</th>
                           <th className="px-3 py-2 text-right font-bold">Precio</th>
                           <th className="px-3 py-2 text-right font-bold">Stock</th>
-                          <th className="px-3 py-2 text-right font-bold">Ventas 30 d</th>
-                          <th className="px-3 py-2 text-right font-bold">Totales</th>
+                          <th className="px-3 py-2 text-right font-bold">{vv.label30}</th>
+                          {vv.verTotal ? <th className="px-3 py-2 text-right font-bold">Totales</th> : null}
                           <th className="px-3 py-2" />
                         </tr>
                       </thead>
@@ -270,7 +287,7 @@ export default function FichaProducto({ pais, id, onClose, onSeguido }) {
                             <td className="px-3 py-2 text-right tabular-nums">{fmtMoneda(g.precio, pais)}</td>
                             <td className={`px-3 py-2 text-right font-bold tabular-nums ${Number(g.stock_actual) > 0 ? "text-emerald-600" : "text-rose-500"}`}>{fmtNum(g.stock_actual)}</td>
                             <td className="px-3 py-2 text-right font-bold text-slate-900 tabular-nums">{fmtNum(g.ventas_30d)}</td>
-                            <td className="px-3 py-2 text-right text-slate-600 tabular-nums">{fmtNum(g.ventas_total)}</td>
+                            {vv.verTotal ? <td className="px-3 py-2 text-right text-slate-600 tabular-nums">{fmtNum(g.ventas_total)}</td> : null}
                             <td className="px-3 py-2 text-right">
                               <a href={urlDropi(pais, g.dropi_product_id)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-[#0B1426]" title="Ver en Dropi" aria-label="Ver en Dropi">
                                 <i className="bx bx-link-external text-lg" />
@@ -286,6 +303,30 @@ export default function FichaProducto({ pais, id, onClose, onSeguido }) {
                 </section>
 
                 {/* ── Anuncios ── */}
+                {anunciosBloqueados !== null ? (
+                  <section className="relative overflow-hidden rounded-2xl text-white ring-1 ring-white/10" style={{ background: "linear-gradient(135deg, #0B1426 0%, #102a5c 100%)" }}>
+                    <div className="pointer-events-none absolute inset-0 opacity-[0.12]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.4) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+                    <div className="relative flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+                      <div className="min-w-0">
+                        <h3 className="flex items-center gap-2 text-[15px] font-extrabold">
+                          <i className="bx bx-lock-alt text-amber-300" /> Anuncios relacionados
+                          <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs text-sky-100">{fmtNum(anunciosBloqueados)}</span>
+                        </h3>
+                        <p className="mt-1 max-w-[62ch] text-[12.5px] leading-5 text-slate-300">
+                          {anunciosBloqueados > 0
+                            ? `ImporChat tiene ${fmtNum(anunciosBloqueados)} ${anunciosBloqueados === 1 ? "anuncio de Meta vinculado" : "anuncios de Meta vinculados"} a este producto: días activos, copias y creativos descargables.`
+                            : "Los anuncios de Meta de cada producto, con días activos, copias y creativos descargables."}{" "}
+                          Son parte del complemento <b className="text-white">ImporKiller</b> (${ADDON_IMPORKILLER.precio}/mes), junto con la extensión que muestra las ventas dentro de Dropi.
+                        </p>
+                      </div>
+                      {/* btnBlanco y no btnPrimario pisado con bg-white: Tailwind
+                          no garantiza el orden y el texto salía blanco sobre blanco. */}
+                      <button type="button" className={`${btnBlanco} shrink-0`} onClick={abrirComplemento}>
+                        <i className="bx bx-bolt-circle" /> Activar por ${ADDON_IMPORKILLER.precio}/mes
+                      </button>
+                    </div>
+                  </section>
+                ) : (
                 <section>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -379,6 +420,7 @@ export default function FichaProducto({ pais, id, onClose, onSeguido }) {
                     </p>
                   )}
                 </section>
+                )}
               </div>
             ) : null}
           </div>

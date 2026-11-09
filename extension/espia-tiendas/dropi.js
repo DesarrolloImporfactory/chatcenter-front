@@ -1,4 +1,4 @@
-// Capa «Espía de mercado» sobre el catálogo de Dropi (app.dropi.ec / app.dropi.mx).
+// Capa «ImporKiller» sobre el catálogo de Dropi (app.dropi.<país>: todos los países de Latinoamérica).
 // Debajo de cada producto que el usuario tiene a la vista pinta las ventas
 // estimadas por IMPORCHAT (1 d / 7 d / 30 d), la tendencia, el stock y cuántos
 // proveedores venden lo mismo; en la ficha de un producto abre un panel con el
@@ -6,7 +6,10 @@
 // usuario: solo lee los ids de producto que ya están en la página y pide sus
 // métricas al backend de IMPORCHAT (POST /espia/productos/lote, vía bg.js).
 (() => {
-  const PAIS = { 'app.dropi.ec': 'EC', 'app.dropi.mx': 'MX' }[location.hostname];
+  const PAIS = {
+    'app.dropi.ec': 'EC', 'app.dropi.mx': 'MX', 'app.dropi.co': 'CO', 'app.dropi.pe': 'PE', 'app.dropi.cl': 'CL', 'app.dropi.ar': 'AR',
+    'app.dropi.pa': 'PA', 'app.dropi.cr': 'CR', 'app.dropi.gt': 'GT', 'app.dropi.com.py': 'PY', 'app.dropi.com.ve': 'VE',
+  }[location.hostname];
   if (!PAIS) return;
 
   const RE_ID = [/product-details\/(\d+)/i, /\/products?\/(\d+)(?:[/?#]|$)/i, /[?&]product_id=(\d+)/i, /\/producto\/(\d+)/i];
@@ -23,6 +26,7 @@
   const esperando = new Map(); // id → [elementos a pintar]
   let temporizador = null;
   let sinSesion = false;
+  let sinAddon = false; // la cuenta no tiene el complemento ImporKiller (403 ADDON_REQUIRED)
   let diasMedidos = null;
   let webImporchat = 'https://chatcenter.imporfactory.app';
 
@@ -56,10 +60,10 @@
   // Tarjeta compacta al estilo Dropkiller: cabe en los 212 px útiles de la tarjeta de Dropi.
   // Dropi ya muestra proveedor, precio y stock, así que aquí van solo las ventas estimadas.
   function htmlBadge(id, m) {
-    const url = esc((m && m.url_imporchat) || `${webImporchat}/espia-mercado?pais=${PAIS}&tab=productos&producto=${id}`);
+    const url = esc((m && m.url_imporchat) || `${webImporchat}/imporkiller?pais=${PAIS}&tab=productos&producto=${id}`);
     if (m === null) {
       return `
-        <div class="imp-espia-cab"><span class="imp-espia-logo">IMPORCHAT</span><span class="imp-espia-sub">Espía de mercado</span></div>
+        <div class="imp-espia-cab"><span class="imp-espia-logo">IMPORCHAT</span><span class="imp-espia-sub">ImporKiller</span></div>
         <div class="imp-espia-nota">Sin datos todavía: entra al catálogo público en la próxima pasada.</div>`;
     }
     const t = tendencia(m);
@@ -88,6 +92,11 @@
     const m = cache.has(id) ? cache.get(id) : undefined;
     for (const el of nodos) {
       if (!el.isConnected) continue;
+      if (sinAddon) {
+        el.dataset.estado = 'sin-addon';
+        el.innerHTML = `<div class="imp-espia-cab"><span class="imp-espia-logo">IMPORCHAT</span><span class="imp-espia-sub">ImporKiller</span></div><div class="imp-espia-nota">Ventas estimadas: activa el complemento ImporKiller en IMPORCHAT.</div><a class="imp-espia-btn" href="${esc(webImporchat)}/complementos" target="_blank" rel="noopener">Activar ($10/mes) ›</a>`;
+        continue;
+      }
       if (sinSesion) {
         el.dataset.estado = 'sin-sesion';
         el.innerHTML = `<div class="imp-espia-cab"><span class="imp-espia-logo">IMPORCHAT</span></div><div class="imp-espia-nota">Abre IMPORCHAT en otra pestaña para ver las ventas estimadas.</div>`;
@@ -111,10 +120,14 @@
       r = { ok: false, status: 0 };
     }
     if (!r?.ok) {
-      if (r?.status === 401 || r?.status === 0 || r?.status === 403) {
+      if (r?.code === 'ADDON_REQUIRED') {
+        // Hay sesión, pero la cuenta no tiene el complemento: se vende aquí mismo.
+        sinAddon = true;
+        avisar('Las ventas estimadas debajo de cada producto son parte del complemento <b>ImporKiller</b> ($10/mes) de IMPORCHAT: extensión en Dropi + descargador de anuncios de Meta.', `${webImporchat}/complementos`, 'Activar ImporKiller');
+      } else if (r?.status === 401 || r?.status === 0 || r?.status === 403) {
         sinSesion = true;
         avisar(r?.status === 403
-          ? 'Tu usuario de IMPORCHAT no tiene acceso al <b>Espía de mercado</b>.'
+          ? `Tu usuario de IMPORCHAT no tiene acceso a <b>ImporKiller</b>: ${esc(r?.message || '')}`
           : 'Abre <b>IMPORCHAT</b> en otra pestaña con tu sesión para ver las ventas estimadas debajo de cada producto.');
       }
       ids.forEach(pintar);
@@ -122,6 +135,7 @@
       return;
     }
     sinSesion = false;
+    sinAddon = false;
     diasMedidos = r.data?.dias_medidos ?? diasMedidos;
     const porId = new Map((r.data?.items || []).map((m) => [Number(m.dropi_product_id), m]));
     for (const id of ids) cache.set(id, porId.get(id) || null);
@@ -237,7 +251,7 @@
     document.querySelector('.imp-espia-panel')?.remove();
     const panel = document.createElement('div');
     panel.className = 'imp-espia-panel';
-    panel.innerHTML = `<button class="imp-espia-cerrar" aria-label="Cerrar">✕</button><h4>Espía de mercado · IMPORCHAT</h4><div class="imp-espia-nombre">Calculando…</div>`;
+    panel.innerHTML = `<button class="imp-espia-cerrar" aria-label="Cerrar">✕</button><h4>ImporKiller · IMPORCHAT</h4><div class="imp-espia-nombre">Calculando…</div>`;
     panel.querySelector('.imp-espia-cerrar').addEventListener('click', () => panel.remove());
     document.body.appendChild(panel);
     const render = () => {
@@ -250,7 +264,7 @@
       const t = tendencia(m);
       panel.innerHTML = `
         <button class="imp-espia-cerrar" aria-label="Cerrar">✕</button>
-        <h4>Espía de mercado · IMPORCHAT</h4>
+        <h4>ImporKiller · IMPORCHAT</h4>
         <div class="imp-espia-nombre">${esc(m.nombre)}</div>
         <div class="imp-espia-grid">
           <span class="imp-espia-k"><small>24 h</small><b>${fmt(m.ventas_1d)}</b></span>
@@ -271,9 +285,11 @@
     // Se encola el id con un nodo suelto (pintar lo ignora) y se renderiza cuando llega al caché.
     pedir(id, document.createElement('div'));
     const esperar = setInterval(() => {
-      if (cache.has(id) || sinSesion) {
+      if (cache.has(id) || sinSesion || sinAddon) {
         clearInterval(esperar);
-        if (sinSesion) panel.querySelector('.imp-espia-nombre').textContent = 'Abre IMPORCHAT en otra pestaña para ver las ventas estimadas.';
+        if (sinAddon) {
+          panel.querySelector('.imp-espia-nombre').innerHTML = `Las ventas estimadas son parte del complemento ImporKiller ($10/mes). <a class="imp-espia-btn" href="${esc(webImporchat)}/complementos" target="_blank" rel="noopener">Activar en IMPORCHAT ›</a>`;
+        } else if (sinSesion) panel.querySelector('.imp-espia-nombre').textContent = 'Abre IMPORCHAT en otra pestaña para ver las ventas estimadas.';
         else render();
       }
     }, 200);
@@ -281,12 +297,12 @@
   }
 
   let avisado = false;
-  function avisar(html) {
+  function avisar(html, href = `${webImporchat}/imporkiller`, texto = 'Abrir IMPORCHAT') {
     if (avisado) return;
     avisado = true;
     const n = document.createElement('div');
     n.className = 'imp-espia-aviso';
-    n.innerHTML = `<button aria-label="Cerrar">✕</button>${html} <a href="${webImporchat}/espia-mercado" target="_blank" rel="noopener">Abrir IMPORCHAT</a>`;
+    n.innerHTML = `<button aria-label="Cerrar">✕</button>${html} <a href="${esc(href)}" target="_blank" rel="noopener">${esc(texto)}</a>`;
     n.querySelector('button').addEventListener('click', () => n.remove());
     document.body.appendChild(n);
     setTimeout(() => n.remove(), 15000);

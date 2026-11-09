@@ -43,8 +43,6 @@ export {
   guardarNotaChecklist,
 } from "./checklist.service";
 
-export { listarAuditoria } from "./auditoria.service";
-
 export {
   prepararFacturaDeuda,
   emitirFacturaDeuda,
@@ -86,5 +84,4 @@ export {
   IA_AGENTES_HABILITADOS,
   LINEAS_AUTOASIGNACION_COTIZACION,
   ESTADO_DEUDA,
-  ACCIONES_AUDITORIA,
 } from "./constants";

@@ -298,6 +298,13 @@ const WaHero = ({
   // texto deja claro que hay que volver a vincular, no vincular por primera
   // vez.
   reconectar,
+  // El cliente cambió el número desde «Cambiar número o nombre»: la
+  // conexión conserva todo (Dropi, asistente, tablero) y solo falta
+  // vincular el número nuevo con Meta. Mismo botón, otro mensaje: no se
+  // "perdió" nada.
+  numeroCambiado,
+  // El usuario pulsó «Desconectar número»: tampoco se "perdió" nada.
+  desconectadoManual,
   yaSincronizo,
   telefono,
   onConectarApi,
@@ -307,6 +314,7 @@ const WaHero = ({
   syncing,
 }) => {
   const tieneTelefono = telefono && String(telefono).trim();
+  const perdida = reconectar && !numeroCambiado && !desconectadoManual;
 
   return (
     <div className="mt-3 p-3.5 rounded-xl bg-emerald-50 ring-1 ring-emerald-200">
@@ -326,7 +334,20 @@ const WaHero = ({
               <div className="text-[14px] font-semibold text-emerald-800 leading-tight mt-1 truncate">
                 {tieneTelefono ? telefono : "Conecta tu WhatsApp"}
               </div>
-              {reconectar && (
+              {reconectar && numeroCambiado && (
+                <div className="text-[11px] text-amber-700 flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Número cambiado: conecta el número nuevo para terminar.
+                </div>
+              )}
+              {reconectar && desconectadoManual && !numeroCambiado && (
+                <div className="text-[11px] text-slate-600 flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  Número desconectado. Cámbialo desde el menú o vuelve a
+                  conectarlo.
+                </div>
+              )}
+              {perdida && (
                 <div className="text-[11px] text-rose-700 flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                   Se perdió la conexión con Meta. Vuelve a vincular tu número.
@@ -1032,6 +1053,69 @@ const Conexiones = () => {
     }
   };
 
+  /* «Desconectar número»: la conexión se queda (chats, asistente, tablero);
+     solo se suelta el número en Meta y en la BD, y la tarjeta pasa a
+     «Conectar». Si el número sigue en la app de WhatsApp Business
+     (coexistencia) Meta no deja desregistrarlo por API: se le indica al
+     usuario el paso que falta dentro de la app. */
+  const [desconectandoId, setDesconectandoId] = useState(null);
+  const confirmarDesconectar = async (config) => {
+    if (!userData) return;
+    const res = await Swal.fire({
+      title: "Desconectar número",
+      html:
+        `<div style="font-size:14px;line-height:1.55;text-align:left">` +
+        `<p>El número <b>${config.telefono}</b> dejará de recibir y enviar mensajes desde ChatCenter.</p>` +
+        `<p style="margin-top:8px">La conexión no se borra: tus chats, tu asistente y tu tablero se conservan. Después podrás cambiar el número o volver a conectar este mismo.</p>` +
+        `</div>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, desconectar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#d97706",
+      reverseButtons: true,
+    });
+    if (!res.isConfirmed) return;
+    try {
+      setDesconectandoId(config.id);
+      const r = await chatApi.post(
+        "/whatsapp_managment/desconectarNumero",
+        { id_configuracion: config.id },
+        { silentError: true },
+      );
+      const data = r.data?.data || {};
+      setConfiguracionAutomatizada((prev) =>
+        prev.map((c) => (c.id === config.id ? { ...c, ...data } : c)),
+      );
+      if (r.data?.coexistencia) {
+        await Swal.fire({
+          title: "Falta un paso en tu celular",
+          html:
+            `<div style="font-size:14px;line-height:1.55;text-align:left">` +
+            `<p>El número quedó desconectado de ChatCenter, pero como sigue en tu app de WhatsApp Business, Meta pide que lo desvincules desde la app:</p>` +
+            `<p style="margin-top:8px"><b>WhatsApp Business → Ajustes → Cuenta → Plataforma empresarial → Desconectar cuenta</b>.</p>` +
+            `<p style="margin-top:8px;color:#475569">Cuando quieras volver a usarlo, pulsa Conectar en la tarjeta.</p>` +
+            `</div>`,
+          icon: "info",
+          confirmButtonText: "Entendido",
+          confirmButtonColor: "#1d4ed8",
+        });
+      }
+      setStatusMessage({
+        type: "success",
+        text: `Número ${config.telefono} desconectado. Ahora puedes cambiarlo desde el menú o volver a conectarlo.`,
+      });
+    } catch (err) {
+      setStatusMessage({
+        type: "error",
+        text:
+          err?.response?.data?.message || "No se pudo desconectar el número.",
+      });
+    } finally {
+      setDesconectandoId(null);
+    }
+  };
+
   useEffect(() => {
     if (!document.getElementById("facebook-jssdk")) {
       const script = document.createElement("script");
@@ -1087,13 +1171,22 @@ const Conexiones = () => {
                 ).trim(),
               },
             );
+            /* La conexión ya tenía asistente/automatizaciones y la WABA es
+               otra (número cambiado): el backend está recreando las
+               plantillas en segundo plano. Se le dice al usuario para que
+               no crea que el asistente quedó mudo. */
+            const recreando =
+              data?.plantillas_asistente?.estado === "recreando";
+            const avisoPlantillas = recreando
+              ? ` Como esta conexión ya tenía su asistente configurado, estamos creando de nuevo sus ${Number(data.plantillas_asistente.total) || ""} plantillas de WhatsApp en el número nuevo; Meta suele aprobarlas en minutos y los avisos automáticos se reanudan solos.`
+              : "";
             if (data?.success) {
               setMetaConnectText("¡Listo! Actualizando conexiones…");
               await fetchConfiguracionAutomatizada();
               setMetaConnecting(false);
               setStatusMessage({
                 type: "success",
-                text: "Número conectado correctamente.",
+                text: `Número conectado correctamente.${avisoPlantillas}`,
               });
               return;
             }
@@ -1101,7 +1194,7 @@ const Conexiones = () => {
               setMetaConnecting(false);
               setStatusMessage({
                 type: "warning",
-                text: data.message,
+                text: `${data.message}${avisoPlantillas}`,
                 extra: data.soporte,
               });
               return;
@@ -1246,8 +1339,17 @@ const Conexiones = () => {
             id: p.page_id,
             name: `${p.page_name} — @${p.ig_username}`,
           }));
-          if (!selectable.length)
-            throw new Error("No hay páginas con IG conectado.");
+          if (!selectable.length) {
+            // Meta no compartió ninguna página: suele pasar cuando en el
+            // onboarding se marca la cuenta de IG pero no su página de Facebook.
+            await Swal.fire({
+              icon: "info",
+              title: "Meta no compartió ninguna página",
+              html: `<div style="text-align:left"><p>Para conectar Instagram necesitamos también la <b>página de Facebook</b> vinculada a esa cuenta.</p><p>Vuelve a intentarlo y, en la ventana de Meta, marca la página de Facebook además de la cuenta de Instagram.</p></div>`,
+              confirmButtonText: "Entendido",
+            });
+            return;
+          }
           const pageId = await pickPageWithSwal(selectable);
           if (!pageId) {
             window.history.replaceState(
@@ -2089,13 +2191,15 @@ const Conexiones = () => {
                                 <i className="bx bx-copy text-base text-slate-500" />
                                 Copiar número
                               </button>
-                              {/* Editar: solo si la conexión NUNCA estuvo
-                                  vinculada a WhatsApp (para corregir un
-                                  número mal escrito antes de conectar). Un
-                                  número desconectado o suspendido sigue
-                                  bloqueado: cambiarlo partiría el historial
-                                  entre el número viejo y el nuevo. */}
-                              {!yaVinculado && (
+                              {/* Editar nombre y número. En una conexión ya
+                                  vinculada el modal avisa que los chats del
+                                  número viejo y del nuevo convivirán en la
+                                  misma bandeja y, tras guardar, pide volver
+                                  a conectar; el backend recrea las
+                                  plantillas del asistente al vincular.
+                                  Solo administrador: la ruta responde 403
+                                  a los demás roles. */}
+                              {rolAdministrador && (
                                 <button
                                   type="button"
                                   role="menuitem"
@@ -2107,7 +2211,32 @@ const Conexiones = () => {
                                   className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition"
                                 >
                                   <i className="bx bx-edit-alt text-base text-slate-500" />
-                                  Editar conexión
+                                  {conectado
+                                    ? "Cambiar nombre"
+                                    : yaVinculado
+                                      ? "Cambiar número o nombre"
+                                      : "Editar conexión"}
+                                </button>
+                              )}
+                              {/* Desconectar número: suelta el número en Meta y
+                                  en la BD sin borrar la conexión (chats,
+                                  asistente y tablero se quedan). Es el paso
+                                  previo para cambiar el número de una
+                                  conexión conectada. */}
+                              {rolAdministrador && conectado && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuOpenId(null);
+                                    confirmarDesconectar(config);
+                                  }}
+                                  disabled={desconectandoId === config.id}
+                                  className="w-full px-3 py-2 text-left text-sm text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition disabled:opacity-50"
+                                >
+                                  <i className="bx bx-unlink text-base" />
+                                  Desconectar número
                                 </button>
                               )}
                               {puedeEliminarConexion && (
@@ -2140,6 +2269,14 @@ const Conexiones = () => {
                       <WaHero
                         conectado={conectado}
                         reconectar={desconectada}
+                        numeroCambiado={
+                          String(config?.wa_status || "").toUpperCase() ===
+                          "NUMERO_CAMBIADO"
+                        }
+                        desconectadoManual={
+                          String(config?.wa_status || "").toUpperCase() ===
+                          "DESCONECTADO"
+                        }
                         yaSincronizo={yaSincronizo}
                         telefono={config.telefono}
                         onConectarApi={() =>
@@ -2493,21 +2630,23 @@ const Conexiones = () => {
           userData={userData}
           onClose={() => setEditConfig(null)}
           onSaved={(updated) => {
+            /* El modal devuelve la fila tal como quedó en el backend. Si el
+               número cambió en una conexión vinculada vienen además los ids
+               de Meta en null y wa_status NUMERO_CAMBIADO: la tarjeta pasa
+               sola a «Conectar» sin esperar a recargar el listado. */
             setConfiguracionAutomatizada((prev) =>
               prev.map((c) =>
-                c.id === updated.id
-                  ? {
-                      ...c,
-                      nombre_configuracion: updated.nombre_configuracion,
-                      telefono: updated.telefono,
-                    }
-                  : c,
+                c.id === updated.id ? { ...c, ...updated } : c,
               ),
             );
-            setStatusMessage({
-              type: "success",
-              text: "Conexión actualizada.",
-            });
+            setStatusMessage(
+              updated.requiere_reconexion
+                ? {
+                    type: "warning",
+                    text: `Número actualizado a ${updated.telefono}. Pulsa Conectar en la tarjeta para vincular el número nuevo con Meta; las plantillas del asistente se recrean solas al conectar.`,
+                  }
+                : { type: "success", text: "Conexión actualizada." },
+            );
           }}
         />
       )}

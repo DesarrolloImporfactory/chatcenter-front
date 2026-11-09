@@ -1,4 +1,4 @@
-// Barra del «Espía de tiendas» sobre la Biblioteca de anuncios de Meta.
+// Barra «ImporKiller» (espía de tiendas) sobre la Biblioteca de anuncios de Meta.
 // Lee las tarjetas de la página, las agrupa por producto (enlace de destino + título),
 // las ordena y filtra, baja los anuncios de un producto y manda lo visto a IMPORCHAT.
 // Todo lo que se pinta con datos de los anuncios va por textContent, nunca innerHTML.
@@ -18,7 +18,11 @@
   let sesion = null; // { ok, usuario } del ping
   let cargando = false;
   let bajando = false;
-  let cfg = { tope: 120, soloNuevos: false, orden: 'ninguno', envioAuto: true, liviano: false };
+  let cfg = {
+    tope: 120, soloNuevos: false, orden: 'ninguno', envioAuto: true, liviano: false,
+    // Radar: opciones del panel y modo automático (repite la cola cada N horas rotando países).
+    radar: { cantidad: 300, dias: 7, ritmo: 20, auto: 0, paises: ['EC', 'MX', 'CO'] },
+  };
 
   addEventListener('message', (e) => {
     if (e.source !== window || !e.data?.espiaMedia) return;
@@ -296,6 +300,9 @@
     #ei-radarpanel label.ei-campo{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#9fb7d6}
     #ei-radarpanel select{background:#132b4d;color:#fff;border:1px solid #1f3f6b;border-radius:6px;padding:6px 8px;font:inherit}
     #ei-radarpanel .ei-acciones{display:flex;gap:8px}
+    #ei-radarpanel .ei-paises{display:flex;flex-wrap:wrap;gap:6px 10px;padding-top:4px}
+    #ei-radarpanel .ei-paises label{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#fff;cursor:pointer}
+    #ei-radarpanel .ei-auto{font-size:11px;color:#c4b5fd}
     #ei-radarpanel button{flex:1;border:0;border-radius:8px;padding:8px 10px;font:inherit;font-weight:700;cursor:pointer;background:#1f3f6b;color:#fff}
     #ei-radarpanel button.ei-ir{background:#7c3aed}
     #ei-radarpanel button.ei-parar{background:#ff8c8c;color:#3a0000}
@@ -338,7 +345,7 @@
   const sw = (id, texto, checked) => el('label', { class: 'ei-sw' }, [el('input', { type: 'checkbox', id, ...(checked ? { checked: '' } : {}) }), texto]);
 
   const ui = {
-    titulo: el('b', { text: 'Espía de tiendas' }),
+    titulo: el('b', { text: 'ImporKiller' }),
     total: el('span', { id: 'ei-total', text: '0 anuncios · 0 productos' }),
     prod: el('button', { id: 'ei-prod', class: 'ei-prodbtn', text: 'Productos (0)', title: 'Elegir un producto para bajar sus anuncios' }),
     tope: el('input', { type: 'number', id: 'ei-tope', min: '10', max: '10000', step: '10', title: 'Tope de anuncios a cargar' }),
@@ -412,7 +419,13 @@
 
   // ───────────────────────── Config persistida ─────────────────────────
   chrome.storage.local.get('cfgBarra').then(({ cfgBarra }) => {
-    cfg = { ...cfg, ...(cfgBarra || {}) };
+    cfg = { ...cfg, ...(cfgBarra || {}), radar: { ...cfg.radar, ...((cfgBarra || {}).radar || {}) } };
+    if (!Array.isArray(cfg.radar.paises) || !cfg.radar.paises.length) cfg.radar.paises = ['EC', 'MX', 'CO'];
+    rSel.cantidad.value = String(cfg.radar.cantidad);
+    rSel.dias.value = String(cfg.radar.dias);
+    rSel.ritmo.value = String(cfg.radar.ritmo);
+    rSel.auto.value = String(cfg.radar.auto || 0);
+    for (const c of rPaises) $('input', c).checked = cfg.radar.paises.includes(c.dataset.pais);
     ui.tope.value = cfg.tope;
     $('input', ui.soloNuevos).checked = cfg.soloNuevos;
     ui.orden.value = cfg.orden;
@@ -430,11 +443,23 @@
   chrome.storage.local.get('vistosLocal').then(({ vistosLocal: lista = [] }) => { for (const id of lista) vistosLocal.add(String(id)); pintar(); });
 
   // ───────────────────────── Sesión con IMPORCHAT ─────────────────────────
+  let avisadoAddon = false;
   async function comprobarSesion() {
     const r = await mensaje('ping');
     sesion = r.ok ? r.data : null;
-    ui.sesion.textContent = sesion?.ok ? `IMPORCHAT: ${sesion.usuario?.nombre || 'conectado'}` : `IMPORCHAT: ${r.message || 'sin sesión'}`;
-    ui.sesion.title = sesion?.ok ? '' : 'Abre IMPORCHAT en otra pestaña o pega el token en las opciones de la extensión';
+    const sinAddon = Boolean(sesion?.ok && sesion.addon && !sesion.addon.activo);
+    ui.sesion.textContent = sesion?.ok
+      ? `IMPORCHAT: ${sesion.usuario?.nombre || 'conectado'}${sinAddon ? ' · sin complemento' : ''}`
+      : `IMPORCHAT: ${r.message || 'sin sesión'}`;
+    ui.sesion.title = sesion?.ok
+      ? (sinAddon ? 'Tu cuenta no tiene el complemento ImporKiller: enviar anuncios y el radar están bloqueados' : '')
+      : 'Abre IMPORCHAT en otra pestaña o pega el token en las opciones de la extensión';
+    if (sinAddon && !avisadoAddon) {
+      // Hay sesión, pero la cuenta no compró el complemento: se dice una vez y
+      // cada envío devuelve el mismo mensaje del backend (ADDON_REQUIRED).
+      avisadoAddon = true;
+      decir(`Enviar anuncios a IMPORCHAT y el radar son parte del complemento ImporKiller ($${sesion.addon.precio || 10}/mes). Actívalo en ${sesion.web || 'IMPORCHAT'}/complementos`, 'err');
+    }
     return Boolean(sesion?.ok);
   }
   comprobarSesion();
@@ -637,8 +662,28 @@
     cantidad: el('select', {}, [opcion(50, '50 productos'), opcion(100, '100 productos'), opcion(300, '300 productos'), opcion(600, '600 productos'), opcion(1000, '1.000 productos')]),
     dias: el('select', {}, [opcion(3, 'hace más de 3 días'), opcion(7, 'hace más de 7 días'), opcion(14, 'hace más de 14 días'), opcion(30, 'hace más de 30 días')]),
     ritmo: el('select', {}, [opcion(10, '10 s · rápido'), opcion(15, '15 s'), opcion(20, '20 s · recomendado'), opcion(30, '30 s · tranquilo')]),
+    // Modo automático: al terminar la cola sigue con el siguiente país y, hecha la
+    // vuelta, espera N horas y repite. Pensado para un Chrome que queda encendido.
+    auto: el('select', {}, [opcion(0, 'No: una sola vez'), opcion(6, 'Sí, cada 6 h'), opcion(12, 'Sí, cada 12 h'), opcion(24, 'Sí, cada 24 h')]),
   };
-  rSel.cantidad.value = '300'; rSel.dias.value = '7'; rSel.ritmo.value = '20';
+  rSel.cantidad.value = '300'; rSel.dias.value = '7'; rSel.ritmo.value = '20'; rSel.auto.value = '0';
+  // Todos los países de Dropi; por defecto solo EC, MX y CO marcados (los demás se
+  // marcan cuando IMPORCHAT ya tenga fotos de ese país, si no la cola sale vacía).
+  const RADAR_PAISES = ['EC', 'MX', 'CO', 'PE', 'CL', 'AR', 'PA', 'CR', 'GT', 'PY', 'VE'];
+  const rPaises = RADAR_PAISES.map((p) => el('label', { 'data-pais': p }, [el('input', ['EC', 'MX', 'CO'].includes(p) ? { type: 'checkbox', checked: '' } : { type: 'checkbox' }), p]));
+  const guardarRadarCfg = () => {
+    cfg.radar = {
+      cantidad: Number(rSel.cantidad.value) || 300,
+      dias: Number(rSel.dias.value) || 7,
+      ritmo: Number(rSel.ritmo.value) || 20,
+      auto: Number(rSel.auto.value) || 0,
+      paises: rPaises.filter((c) => $('input', c).checked).map((c) => c.dataset.pais),
+    };
+    if (!cfg.radar.paises.length) { cfg.radar.paises = [paisDeUrl() === 'ALL' ? 'EC' : paisDeUrl()]; for (const c of rPaises) $('input', c).checked = cfg.radar.paises.includes(c.dataset.pais); }
+    chrome.storage.local.set({ cfgBarra: cfg });
+  };
+  for (const s of [rSel.cantidad, rSel.dias, rSel.ritmo, rSel.auto]) s.addEventListener('change', guardarRadarCfg);
+  for (const c of rPaises) $('input', c).addEventListener('change', guardarRadarCfg);
   const rUi = {
     estado: el('div', { class: 'ei-estado', text: 'Sin barrido en curso.' }),
     prog: el('div', { class: 'ei-prog' }, [el('i')]),
@@ -656,6 +701,11 @@
       el('label', { class: 'ei-campo' }, ['Pausa entre productos', rSel.ritmo]),
       el('label', { class: 'ei-campo' }, ['País', el('b', { id: 'ei-radar-pais', text: paisDeUrl() === 'ALL' ? 'EC (elige país en Meta)' : paisDeUrl() })]),
     ]),
+    el('div', { class: 'ei-grid' }, [
+      el('label', { class: 'ei-campo' }, ['Repetir solo', rSel.auto]),
+      el('div', { class: 'ei-campo' }, ['Países del automático', el('div', { class: 'ei-paises' }, rPaises)]),
+    ]),
+    el('p', { class: 'ei-auto', text: 'Con «Repetir solo» el radar termina un país, sigue con el siguiente y, hecha la vuelta, espera las horas elegidas y repite mientras esta pestaña siga abierta. Para un Chrome que queda encendido: desactiva el ahorro de memoria de Chrome y deja IMPORCHAT abierto en otra pestaña. Si IMPORCHAT o Meta dejan de responder, el radar espera y reintenta solo; únicamente se detiene si Meta pide una verificación.' }),
     rUi.prog, rUi.estado, rUi.actual,
     el('div', { class: 'ei-acciones' }, [rUi.empezar, rUi.pausar, rUi.parar]),
   );
@@ -667,7 +717,10 @@
     const total = radar?.cola?.length || 0;
     const idx = Math.min(radar?.idx || 0, total);
     ui.radar.classList.toggle('ei-activo', activo);
-    ui.radar.textContent = activo ? `Radar ${idx}/${total}${radar.pausado ? ' (en pausa)' : ''}` : 'Radar';
+    const esperando = activo && radar.auto && !radar.cola?.[radar.idx] && radar.auto.siguienteEn > Date.now();
+    ui.radar.textContent = activo
+      ? esperando ? `Radar auto · ${new Date(radar.auto.siguienteEn).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}` : `Radar${radar.auto ? ' auto' : ''} ${idx}/${total}${radar.pausado ? ' (en pausa)' : ''}`
+      : 'Radar';
     rUi.prog.firstChild.style.width = total ? `${Math.round((idx / total) * 100)}%` : '0';
     rUi.empezar.textContent = activo ? (radar.pausado ? 'Reanudar' : 'Barriendo…') : 'Empezar barrido';
     rUi.empezar.disabled = activo && !radar.pausado;
@@ -677,9 +730,12 @@
     if (!radar) { rUi.estado.textContent = 'Sin barrido en curso.'; rUi.estado.className = 'ei-estado'; rUi.actual.textContent = ''; return; }
     const mins = radar.inicio ? Math.max(1, Math.round((Date.now() - radar.inicio) / 60000)) : 0;
     rUi.estado.className = `ei-estado${radar.error ? ' err' : ''}`;
+    const esperaAuto = activo && radar.auto && !radar.cola?.[radar.idx] && radar.auto.siguienteEn > Date.now();
     rUi.estado.textContent = radar.error
       ? radar.error
-      : activo
+      : esperaAuto
+        ? `Automático: vuelta ${radar.auto.vueltas || 0} hecha (${radar.auto.paises.join(', ')}). Próxima a las ${new Date(radar.auto.siguienteEn).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}; deja esta pestaña abierta.`
+        : activo
         ? `${idx} de ${total} productos · ${radar.anuncios || 0} anuncios guardados · ${radar.conAnuncios || 0} productos con anuncios · ${mins} min`
         : `Último barrido: ${radar.hecho || 0} productos · ${radar.anuncios || 0} anuncios guardados · ${radar.conAnuncios || 0} con anuncios`;
     const p = radar.cola?.[radar.idx];
@@ -698,6 +754,19 @@
     if (!(sesion?.ok || (await comprobarSesion()))) { rUi.estado.textContent = 'Abre IMPORCHAT en otra pestaña para tomar la sesión.'; rUi.estado.className = 'ei-estado err'; return; }
     const pais = paisDeUrl() === 'ALL' ? 'EC' : paisDeUrl();
     rUi.empezar.disabled = true;
+    if (cfg.radar.auto > 0) {
+      // Automático: empieza por el país de la pestaña (si está en la lista) y rota por los demás.
+      const paises = cfg.radar.paises.includes(pais) ? [pais, ...cfg.radar.paises.filter((p) => p !== pais)] : [...cfg.radar.paises];
+      const radar = {
+        activo: true, pausado: false, pais: paises[0], cola: [], idx: 0, hecho: 0, anuncios: 0, conAnuncios: 0, fallos: 0,
+        ritmo: Number(rSel.ritmo.value), inicio: Date.now(), error: '',
+        auto: { paises, pendientes: [...paises], cadaMs: cfg.radar.auto * 3600 * 1000, siguienteEn: 0, vueltas: 0 },
+      };
+      await guardarRadar(radar);
+      pintarRadar(radar);
+      autoSiguiente(radar);
+      return;
+    }
     rUi.estado.textContent = 'Pidiendo a IMPORCHAT los productos que más venden…';
     const r = await mensaje('radarCola', { pais, limit: Number(rSel.cantidad.value), dias: Number(rSel.dias.value) });
     if (!r.ok) { rUi.estado.textContent = `No se pudo pedir la cola: ${r.message || 'error'}`; rUi.estado.className = 'ei-estado err'; rUi.empezar.disabled = false; return; }
@@ -724,6 +793,14 @@
     decir(`Radar detenido: ${radar.hecho} productos · ${radar.anuncios} anuncios guardados`, 'ok');
   });
 
+  // Meta pide verificación (captcha, «confirma que eres humano», inicio de sesión forzado): la resuelve
+  // una persona. Es lo único que deja el radar en pausa; todo lo demás se reintenta solo.
+  const RE_VERIFICACION = /confirma que eres|no eres un robot|comprobaci[oó]n de seguridad|security check|verifica tu identidad|confirm you.re human|captcha|inicia sesi[oó]n para continuar|log in to continue|suspicious activity|actividad sospechosa/i;
+  const metaPideVerificacion = () => RE_VERIFICACION.test((document.body.innerText || '').slice(0, 4000));
+  // Descansos crecientes cuando Meta se queda en blanco: 10, 30 y luego 60 min cada vez.
+  const minutosDescanso = (n) => (n <= 1 ? 10 : n === 2 ? 30 : 60);
+  const horaDe = (t) => new Date(t).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+
   // Espera a que Meta pinte los resultados: tarjetas estables 3 lecturas seguidas, «0 resultados», o 35 s.
   async function esperarResultados() {
     let antes = -1, quietos = 0;
@@ -743,6 +820,8 @@
     const radar = await leerRadar();
     pintarRadar(radar);
     if (!radar?.activo || radar.pausado) return;
+    // Automático sin producto en mano: o toca el siguiente país o está esperando la próxima vuelta.
+    if (radar.auto && !radar.cola?.[radar.idx]) { autoSiguiente(radar); return; }
     const actual = radar.cola[radar.idx];
     if (!actual) { radar.activo = false; await guardarRadar(radar); pintarRadar(radar); return; }
     if (radar.descansoHasta && radar.descansoHasta > Date.now()) {
@@ -775,7 +854,11 @@
       leerTarjetas();
     }
     pintar();
+    // Dos fallos distintos: Meta no pintó nada (se descansa) o IMPORCHAT no recibió lo
+    // que se le mandó (sesión caída, API mal apuntada, servidor reiniciando: se espera
+    // 2 min y se vuelve a intentar el mismo producto, sin contarlo como fallo de Meta).
     let ok = false;
+    let fallaImporchat = '';
     if (estado === 'sin-respuesta') {
       ok = false;
     } else if (tarjetas.size) {
@@ -784,32 +867,50 @@
       const r = await enviar({ productoRadar: actual.dropi_product_id, pais: radar.pais });
       ok = Boolean(r?.ok);
       if (ok) { radar.anuncios += ids.length; radar.conAnuncios += 1; }
+      else fallaImporchat = r?.message || (sesion?.ok ? 'sin respuesta' : 'sin sesión');
     } else {
       const r = await mensaje('radarMarcar', { body: { pais: radar.pais, dropi_product_id: actual.dropi_product_id, ad_ids: [] } });
       ok = Boolean(r.ok);
+      if (!ok) fallaImporchat = r.message || 'sin respuesta';
+    }
+    if (!ok && fallaImporchat) {
+      sesion = null; // que el siguiente intento vuelva a preguntar por la sesión
+      radar.descansoHasta = Date.now() + 2 * 60 * 1000;
+      radar.error = `IMPORCHAT no respondió (${fallaImporchat}). Meta sí responde. Reintento el mismo producto a las ${horaDe(radar.descansoHasta)}; si es la sesión, abre o recarga la pestaña de IMPORCHAT.`;
+      await guardarRadar(radar);
+      pintarRadar(radar);
+      decir('Radar: IMPORCHAT no respondió, reintento en 2 min', 'err');
+      await esperar(radar.descansoHasta - Date.now());
+      const sigue = await leerRadar();
+      if (!sigue?.activo || sigue.pausado) { pintarRadar(sigue); return; }
+      sigue.descansoHasta = 0;
+      await guardarRadar(sigue);
+      location.assign(urlRadar(sigue.pais, sigue.cola[sigue.idx].termino));
+      return;
     }
     if (!ok) {
       radar.fallos = (radar.fallos || 0) + 1;
       if (radar.fallos >= 3) {
         // Tres productos seguidos sin respuesta: Meta limita las búsquedas (el 31-10 aguantó ~60 seguidas).
-        // Descansa 10 min y sigue solo; al tercer descanso sin avanzar se pausa de verdad y avisa.
-        // Nunca se intenta saltar una verificación: si Meta la pide, la resuelve la persona.
+        // Descansa 10, 30 y luego 60 min cada vez, y sigue solo sin límite de descansos.
+        // Nunca se intenta saltar una verificación: si Meta la pide, se pausa y la resuelve la persona.
         radar.fallos = 0;
         radar.descansos = (radar.descansos || 0) + 1;
-        if (radar.descansos >= 3) {
+        if (metaPideVerificacion()) {
           radar.pausado = true;
-          radar.error = 'Meta sigue sin responder después de tres descansos. Radar en pausa: revisa la pestaña (puede pedir verificación) y pulsa Reanudar.';
+          radar.error = 'Meta pide una verificación en esta pestaña. Resuélvela y pulsa Reanudar; el radar no la salta solo.';
           await guardarRadar(radar);
           pintarRadar(radar);
           radarPanel.classList.add('ei-abierto');
-          decir('Radar en pausa: Meta no respondió', 'err');
+          decir('Radar en pausa: Meta pide verificación', 'err');
           return;
         }
-        radar.descansoHasta = Date.now() + 10 * 60 * 1000;
-        radar.error = `Meta limitó las búsquedas. El radar descansa 10 minutos y sigue solo (${new Date(radar.descansoHasta).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}).`;
+        const min = minutosDescanso(radar.descansos);
+        radar.descansoHasta = Date.now() + min * 60 * 1000;
+        radar.error = `Meta no pintó resultados en 3 búsquedas seguidas (descanso ${radar.descansos}). El radar descansa ${min} min y sigue solo a las ${horaDe(radar.descansoHasta)}.`;
         await guardarRadar(radar);
         pintarRadar(radar);
-        decir('Radar descansando 10 min por límite de Meta', 'err');
+        decir(`Radar descansando ${min} min: Meta no responde`, 'err');
         await esperar(radar.descansoHasta - Date.now());
         const sigue = await leerRadar();
         if (!sigue?.activo || sigue.pausado) { pintarRadar(sigue); return; }
@@ -828,6 +929,16 @@
     radar.idx += 1;
     radar.reintento = 0;
     if (radar.idx >= radar.cola.length) {
+      if (radar.auto) {
+        // Terminó este país: acumula y pasa al siguiente (o a esperar la próxima vuelta).
+        const t = radar.auto.totales || { hecho: 0, anuncios: 0, conAnuncios: 0 };
+        radar.auto.totales = { hecho: t.hecho + radar.hecho, anuncios: t.anuncios + radar.anuncios, conAnuncios: t.conAnuncios + radar.conAnuncios };
+        await guardarRadar(radar);
+        pintarRadar(radar);
+        decir(`Radar ${radar.pais} terminado: ${radar.hecho} productos · ${radar.anuncios} anuncios. Sigo con el siguiente país…`, 'ok');
+        autoSiguiente(radar);
+        return;
+      }
       radar.activo = false;
       await guardarRadar(radar);
       pintarRadar(radar);
@@ -843,6 +954,68 @@
     if (!ahora?.activo || ahora.pausado) { pintarRadar(ahora); return; }
     location.assign(urlRadar(ahora.pais, ahora.cola[ahora.idx].termino));
   }
+  // Modo automático: pide la cola del siguiente país pendiente y la arranca; cuando
+  // no queda ninguno, programa la próxima vuelta (cadaMs) y espera con la pestaña
+  // abierta. Si la pestaña se recarga a mitad de la espera, radarContinuar vuelve
+  // a entrar aquí y respeta la hora guardada. Nunca salta una verificación de Meta:
+  // si la pide, se pausa igual que en el modo manual; todo lo demás se reintenta solo.
+  async function autoSiguiente(radar) {
+    const a = radar.auto;
+    if (!a) return;
+    const hora = (t) => new Date(t).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+    if (a.siguienteEn && a.siguienteEn > Date.now()) {
+      radar.cola = []; radar.idx = 0; radar.error = '';
+      await guardarRadar(radar);
+      pintarRadar(radar);
+      decir(`Radar automático: próxima vuelta a las ${hora(a.siguienteEn)}`);
+      await esperar(a.siguienteEn - Date.now());
+      const sigue = await leerRadar();
+      if (!sigue?.activo || sigue.pausado || !sigue.auto) { pintarRadar(sigue); return; }
+      sigue.auto.siguienteEn = 0;
+      sigue.auto.pendientes = [...sigue.auto.paises];
+      await guardarRadar(sigue);
+      autoSiguiente(sigue);
+      return;
+    }
+    while (a.pendientes.length) {
+      const pais = a.pendientes.shift();
+      await guardarRadar(radar);
+      decir(`Radar automático: pidiendo a IMPORCHAT los productos de ${pais}…`);
+      const r = await mensaje('radarCola', { pais, limit: cfg.radar.cantidad, dias: cfg.radar.dias });
+      if (!r.ok) {
+        // IMPORCHAT no contestó (sesión vencida, servidor reiniciando, API mal apuntada):
+        // el país vuelve a la cola, se espera 2 min y se reintenta; nunca se pausa solo.
+        a.pendientes.unshift(pais);
+        radar.error = `No se pudo pedir la cola de ${pais}: ${r.message || 'error'}. Reintento en 2 min; si es la sesión, abre o recarga la pestaña de IMPORCHAT.`;
+        await guardarRadar(radar);
+        pintarRadar(radar);
+        sesion = null;
+        await esperar(2 * 60 * 1000);
+        const sigue = await leerRadar();
+        if (!sigue?.activo || sigue.pausado || !sigue.auto) { pintarRadar(sigue); return; }
+        continue;
+      }
+      const cola = (r.data?.items || []).map((p) => ({ dropi_product_id: p.dropi_product_id, nombre: String(p.nombre || '').slice(0, 120), termino: p.termino }));
+      if (!cola.length) continue; // nada pendiente en este país: al siguiente
+      Object.assign(radar, { pais, cola, idx: 0, hecho: 0, anuncios: 0, conAnuncios: 0, fallos: 0, descansos: 0, descansoHasta: 0, reintento: 0, error: '', inicio: Date.now(), ritmo: cfg.radar.ritmo });
+      await guardarRadar(radar);
+      pintarRadar(radar);
+      location.assign(urlRadar(pais, cola[0].termino));
+      return;
+    }
+    // Vuelta completa: a esperar.
+    a.vueltas = (a.vueltas || 0) + 1;
+    a.siguienteEn = Date.now() + a.cadaMs;
+    a.pendientes = [];
+    radar.cola = []; radar.idx = 0; radar.error = '';
+    await guardarRadar(radar);
+    pintarRadar(radar);
+    const t = a.totales || { hecho: 0, anuncios: 0 };
+    mostrarToast(`Radar automático: vuelta ${a.vueltas} terminada (${t.hecho} productos · ${t.anuncios} anuncios en total). Próxima a las ${hora(a.siguienteEn)}.`, false);
+    setTimeout(ocultarToast, 20000);
+    autoSiguiente(radar);
+  }
+
   // Al cargar cada página de la Biblioteca: si hay un barrido en curso, sigue solo.
   setTimeout(radarContinuar, 1200);
 
