@@ -26,6 +26,14 @@ export const PAQUETES = [
   { key: "kit_importador", label: "Kit del Importador" },
   // Motor de Ventas: curso 57 + botones ImporChat y Dropi.
   { key: "motor_ventas", label: "Motor de Ventas" },
+  // ImporBlack (09-nov-2026): el back (ImporblackModel) enciende por su cuenta
+  // importacion/ecommerce/tiendas y los cursos 30 y 32 con vigencia de 2 años.
+  // El front NO marca esos paquetes ni sus cursos al tildarlo.
+  {
+    key: "imporblack",
+    label: "ImporBlack",
+    desc: "Club de Importadores + DropSystem + Bóveda USA por 2 años",
+  },
   // El paquete `dropsystem` salió del alta en sep-2026: quedó absorbido por el
   // programa renombrado, que es el flag `ecommerce` de arriba.
 ];
