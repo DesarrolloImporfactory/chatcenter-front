@@ -194,7 +194,7 @@ chatApi.interceptors.response.use(
                     No se cobra nada hoy
                   </div>
                   <div style="color:#15803D; font-size:12px;">
-                    El cobro de $29/mes inicia cuando termine tu período incluido.
+                    Tus 3 meses incluidos empiezan a contar desde hoy. El cobro de $29/mes inicia cuando terminen.
                   </div>
                 </div>
               </div>
