@@ -1582,15 +1582,31 @@ export default function DashboardConexionV2() {
         {/* ────── bloque de ventas (solo modo dropshipping) ────── */}
         {!esAtencion && (
           <>
-            {/* «Del chat a la entrega» se quitó (10-nov, Daniel): el embudo
-                conversaciones → pedidos → entregados no aportaba. */}
-            <Seccion
-              titulo="Estado de los pedidos"
-              sub="Dónde está cada pedido Dropi del periodo, de todos los canales."
-              delay={60}
-            >
-              {cargando ? <Skel className="h-[180px]" /> : <DonaEstados estados={estados} total={resumen?.totalPedidos || 0} />}
-            </Seccion>
+            {/* Sin la nota «De cada 100 personas…» bajo el embudo (10-nov, Daniel). */}
+            <div className="grid gap-5 lg:grid-cols-5">
+              <Seccion
+                titulo="Del chat a la entrega"
+                sub="De todo lo que entró por el canal, cuánto terminó en pedido y cuánto llegó a destino."
+                className="lg:col-span-3"
+                delay={60}
+              >
+                {cargando ? (
+                  <Skel className="h-[180px]" />
+                ) : pasosEmbudo.length ? (
+                  <Embudo pasos={pasosEmbudo} />
+                ) : (
+                  <Vacio icono="bx-filter-alt" texto="Sin datos del canal" />
+                )}
+              </Seccion>
+              <Seccion
+                titulo="Estado de los pedidos"
+                sub="Dónde está cada pedido Dropi del periodo, de todos los canales."
+                className="lg:col-span-2"
+                delay={120}
+              >
+                {cargando ? <Skel className="h-[180px]" /> : <DonaEstados estados={estados} total={resumen?.totalPedidos || 0} />}
+              </Seccion>
+            </div>
 
             <Seccion
               titulo="¿Cuánto ganaste de verdad?"
