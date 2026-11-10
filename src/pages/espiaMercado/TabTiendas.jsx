@@ -6,7 +6,7 @@ import BotonSeguir from "./componentes/BotonSeguir";
 import Drawer from "./componentes/Drawer";
 import EmptyGuia from "./componentes/EmptyGuia";
 import { BarrasSVG, Sparkline } from "./componentes/Sparkline";
-import { Aviso, Chip, Esqueleto, EstadoLista, Etiqueta, EtiquetaPlataforma, PLATAFORMAS, Paginacion, btnChico, btnOscuro, fmtDia, fmtNum, haceCuanto, tarjeta, useConsulta } from "./ui";
+import { Aviso, Chip, Esqueleto, EstadoLista, Etiqueta, EtiquetaPlataforma, GrupoFiltro, LogoTienda, PLATAFORMAS, Paginacion, btnChico, btnOscuro, fmtNum, haceCuanto, tarjeta, useConsulta } from "./ui";
 
 /* ═══════════════════════════════════════════════════════════════════════
    Pestaña Tiendas: dominios que pautan, con anuncios activos, nuevos hoy,
@@ -28,13 +28,28 @@ function TipoTienda({ productos }) {
   return <Etiqueta tono="amber" title="Más de 30 productos: suele ser dropshipping">Dropshipping</Etiqueta>;
 }
 
-function Inicial({ texto }) {
-  const letra = String(texto || "?").replace(/^www\./, "").charAt(0).toUpperCase();
+/* Miniaturas de los primeros anuncios de un producto (fila cerrada del detalle). */
+function TiraAnuncios({ anuncios }) {
+  const con = (anuncios || []).filter((a) => a.imagen_url).slice(0, 3);
+  if (!con.length) {
+    return (
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-100 text-xl text-slate-400">
+        <i className="bx bx-package" />
+      </span>
+    );
+  }
   return (
-    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-lg font-extrabold text-white shadow-[0_10px_24px_-10px_rgba(11,20,38,0.7)]" style={{ background: "linear-gradient(135deg, #0B1426 0%, #1e3a8a 100%)" }} aria-hidden="true">
-      {letra}
+    <span className="flex shrink-0 -space-x-3">
+      {con.map((a) => (
+        <Mini3 key={a.ad_archive_id} src={a.imagen_url} />
+      ))}
     </span>
   );
+}
+function Mini3({ src }) {
+  const [fallo, setFallo] = useState(false);
+  if (fallo) return null;
+  return <img src={src} alt="" loading="lazy" onError={() => setFallo(true)} className="h-12 w-12 rounded-xl bg-slate-100 object-cover ring-2 ring-white" />;
 }
 
 /* ── Detalle de una tienda ───────────────────────────────────────────── */
@@ -42,8 +57,13 @@ function DetalleTienda({ dominio, pais, onClose, onVerAnuncios, seguidaInicial, 
   const { data, cargando, error, recargar, setData } = useConsulta(`/espia/tiendas/${encodeURIComponent(dominio)}`, { pais });
   const t = data?.tienda;
   const productos = data?.productos || [];
-  const [abierto, setAbierto] = useState(null);
+  /* El producto con más anuncios llega abierto: antes había que adivinar que
+     las filas se desplegaban y el detalle parecía una lista vacía. */
+  const [abierto, setAbierto] = useState(undefined);
+  const claveDe = (p, i) => p.url_destino || p.producto || i;
+  const abiertoReal = abierto === undefined ? (productos.length ? claveDe(productos[0], 0) : null) : abierto;
   const seguida = t ? !!t.seguida : !!seguidaInicial;
+  const veterano = productos.flatMap((p) => p.anuncios || []).reduce((m, a) => Math.max(m, Number(a.dias_activo) || 0), 0);
 
   const cambio = (s) => {
     setData((d) => (d ? { ...d, tienda: { ...d.tienda, seguida: s } } : d));
@@ -55,7 +75,7 @@ function DetalleTienda({ dominio, pais, onClose, onVerAnuncios, seguidaInicial, 
       titulo={t?.nombre || dominio}
       subtitulo={t ? `${dominio}${t.plataforma ? ` · ${PLATAFORMAS.find((p) => p.id === t.plataforma)?.label || t.plataforma}` : t.es_shopify ? " · Shopify" : ""}${t.moneda ? ` · ${t.moneda}` : ""}${t.tema ? ` · tema ${t.tema}` : ""}` : dominio}
       onClose={onClose}
-      ancho="max-w-4xl"
+      ancho="max-w-5xl"
       acciones={
         <>
           <a href={`https://${dominio}`} target="_blank" rel="noreferrer" className={`${btnOscuro} px-3 py-1.5 text-xs`}>
@@ -72,8 +92,8 @@ function DetalleTienda({ dominio, pais, onClose, onVerAnuncios, seguidaInicial, 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Mini label="Anuncios activos" valor={fmtNum(t.anuncios_activos)} />
             <Mini label="Nuevos hoy" valor={Number(t.anuncios_nuevos_hoy) > 0 ? `+${fmtNum(t.anuncios_nuevos_hoy)}` : "0"} />
-            <Mini label="Productos" valor={fmtNum(t.productos)} />
-            <Mini label="Última revisión" valor={fmtDia(t.ultima_revision || t.ultima_vez)} />
+            <Mini label="Productos que pauta" valor={fmtNum(productos.length || t.productos)} />
+            <Mini label="Anuncio más antiguo" valor={veterano ? `${fmtNum(veterano)} días` : "—"} />
           </div>
         ) : null
       }
@@ -83,9 +103,12 @@ function DetalleTienda({ dominio, pais, onClose, onVerAnuncios, seguidaInicial, 
         <div className="space-y-6">
           <section className={`${tarjeta} p-4`}>
             <div className="mb-2 flex items-start justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-extrabold text-slate-900">Anuncios activos por día · 30 días</h4>
-                <p className="text-xs text-slate-500">Cada punto es un día en que alguien del equipo analizó la tienda con la extensión.</p>
+              <div className="flex min-w-0 items-center gap-3">
+                <LogoTienda dominio={dominio} plataforma={t.plataforma} className="h-11 w-11" />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-extrabold text-slate-900">Anuncios activos por día · últimos 30 días</h4>
+                  <p className="text-xs text-slate-500">Si la barra sube, la tienda está invirtiendo más en publicidad. Actualizada {haceCuanto(t.ultima_revision || t.ultima_vez)}.</p>
+                </div>
               </div>
               <div className="flex gap-1.5">
                 {t.plataforma ? (
@@ -98,37 +121,53 @@ function DetalleTienda({ dominio, pais, onClose, onVerAnuncios, seguidaInicial, 
                 <TipoTienda productos={t.productos} />
               </div>
             </div>
-            <BarrasSVG serie={data?.tendencia || []} campo="anuncios_activos" alto={96} vacio="Todavía no hay historial: aparece al analizar la tienda varios días." />
+            <BarrasSVG serie={data?.tendencia || []} campo="anuncios_activos" alto={96} vacio="Todavía no hay historial de esta tienda: se va formando día a día." />
           </section>
 
           <section>
-            <div className="mb-2 flex items-center justify-between">
-              <h4 className="text-sm font-extrabold text-slate-900">Productos con anuncios</h4>
-              <Etiqueta tono="navy">{fmtNum(productos.length)}</Etiqueta>
+            <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h4 className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
+                  Qué está vendiendo <Etiqueta tono="navy">{fmtNum(productos.length)} {productos.length === 1 ? "producto" : "productos"}</Etiqueta>
+                </h4>
+                <p className="text-xs text-slate-500">Ordenados por cantidad de anuncios: el primero es en el que más invierte. Toca un producto para ver sus anuncios.</p>
+              </div>
             </div>
             {productos.length ? (
-              <div className={`${tarjeta} divide-y divide-slate-100 overflow-hidden`}>
+              <div className="space-y-2.5">
                 {productos.map((p, i) => {
-                  const key = p.url_destino || p.producto || i;
-                  const open = abierto === key;
+                  const key = claveDe(p, i);
+                  const open = abiertoReal === key;
+                  const dias = (p.anuncios || []).reduce((m, a) => Math.max(m, Number(a.dias_activo) || 0), 0);
+                  const videos = (p.anuncios || []).filter((a) => a.tipo === "video").length;
                   return (
-                    <div key={key}>
-                      <button type="button" className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition hover:bg-slate-50" onClick={() => setAbierto(open ? null : key)} aria-expanded={open}>
-                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg transition ${open ? "bg-[#0B1426] text-white" : "bg-slate-100 text-slate-500"}`}>
-                          <i className={`bx ${open ? "bx-chevron-down" : "bx-chevron-right"}`} />
-                        </span>
+                    <div key={key} className={`${tarjeta} overflow-hidden ${open ? "ring-2 ring-sky-200" : ""}`}>
+                      <div role="button" tabIndex={0} className="flex w-full cursor-pointer items-center gap-3 px-3.5 py-3 text-left text-sm transition hover:bg-slate-50" onClick={() => setAbierto(open ? null : key)} onKeyDown={(e) => (e.key === "Enter" ? setAbierto(open ? null : key) : null)} aria-expanded={open}>
+                        <TiraAnuncios anuncios={p.anuncios} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-semibold text-slate-900">{p.producto || "Sin nombre"}</p>
-                          {p.url_destino ? (
-                            <a href={p.url_destino} target="_blank" rel="noreferrer" className="block truncate text-xs text-sky-700 hover:underline" onClick={(e) => e.stopPropagation()}>
-                              {p.url_destino}
-                            </a>
-                          ) : null}
+                          <p className="truncate font-extrabold text-slate-900">
+                            {i === 0 && productos.length > 1 ? <i className="bx bxs-crown mr-1 text-amber-500" title="El producto con más anuncios" /> : null}
+                            {p.producto === "Sin enlace" ? "Anuncios sin producto identificado" : p.producto || "Sin nombre"}
+                          </p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-slate-500">
+                            <span>
+                              <b className="text-slate-800">{fmtNum(p.n_anuncios)}</b> {Number(p.n_anuncios) === 1 ? "anuncio" : "anuncios"}
+                            </span>
+                            {videos ? <span>{fmtNum(videos)} en video</span> : null}
+                            {dias ? <span>el más antiguo lleva {fmtNum(dias)} días</span> : null}
+                            {p.url_destino ? (
+                              <a href={p.url_destino} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-bold text-sky-700 hover:underline" onClick={(e) => e.stopPropagation()}>
+                                Ver página del producto <i className="bx bx-link-external" />
+                              </a>
+                            ) : null}
+                          </div>
                         </div>
-                        <Etiqueta tono="sky">{fmtNum(p.n_anuncios)} anuncios</Etiqueta>
-                      </button>
+                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${open ? "bg-[#0B1426] text-white" : "bg-slate-100 text-slate-600"}`}>
+                          {open ? "Ocultar" : "Ver anuncios"} <i className={`bx ${open ? "bx-chevron-up" : "bx-chevron-down"}`} />
+                        </span>
+                      </div>
                       {open ? (
-                        <div className="grid grid-cols-1 gap-3 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-3 border-t border-slate-100 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-3">
                           {(p.anuncios || []).map((a) => (
                             <TarjetaAnuncio key={a.ad_archive_id} a={a} compacta />
                           ))}
@@ -140,7 +179,7 @@ function DetalleTienda({ dominio, pais, onClose, onVerAnuncios, seguidaInicial, 
                 })}
               </div>
             ) : (
-              <Aviso>Todavía no hay anuncios agrupados por producto para esta tienda. Analízala con la extensión en la Biblioteca de Meta y vuelve aquí.</Aviso>
+              <Aviso>Todavía no tenemos anuncios activos de esta tienda. Vuelve en unos días.</Aviso>
             )}
           </section>
         </div>
@@ -171,7 +210,7 @@ function TarjetaTienda({ t, pais, onAbrir, onSeguida, onVerAnuncios }) {
       onKeyDown={(e) => (e.key === "Enter" ? onAbrir(t.dominio) : null)}
     >
       <div className="flex items-start gap-3">
-        <Inicial texto={t.nombre || t.dominio} />
+        <LogoTienda dominio={t.dominio} plataforma={t.plataforma} className="h-12 w-12 text-lg" redondeo="rounded-2xl" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-extrabold text-slate-900" title={t.nombre || t.dominio}>
             {t.nombre || t.dominio}
@@ -193,7 +232,7 @@ function TarjetaTienda({ t, pais, onAbrir, onSeguida, onVerAnuncios }) {
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Cifra label="Activos" valor={fmtNum(t.anuncios_activos)} destacada />
+        <Cifra label="Anuncios activos" valor={fmtNum(t.anuncios_activos)} destacada />
         <Cifra label="Nuevos hoy" valor={nuevos > 0 ? `+${fmtNum(nuevos)}` : "0"} tono={nuevos > 0 ? "text-emerald-600" : "text-slate-400"} />
         <Cifra label="Productos" valor={fmtNum(t.productos)} />
       </div>
@@ -204,7 +243,7 @@ function TarjetaTienda({ t, pais, onAbrir, onSeguida, onVerAnuncios }) {
           <Sparkline serie={t.tendencia} campo="anuncios_activos" ancho={150} alto={36} color="auto" />
         </div>
         <div className="text-right text-[11px] text-slate-400">
-          <p>Analizada {haceCuanto(t.ultima_revision || t.ultima_vez)}</p>
+          <p>Actualizada {haceCuanto(t.ultima_revision || t.ultima_vez)}</p>
           {t.producto_top ? (
             <p className="max-w-[160px] truncate" title={t.producto_top}>
               <i className="bx bx-crown text-amber-500" /> {t.producto_top}
@@ -222,7 +261,7 @@ function TarjetaTienda({ t, pais, onAbrir, onSeguida, onVerAnuncios }) {
             onAbrir(t.dominio);
           }}
         >
-          <i className="bx bx-show" /> Ver detalle
+          <i className="bx bx-show" /> Ver qué vende
         </button>
         <button
           type="button"
@@ -274,16 +313,30 @@ export default function TabTiendas({ pais, filtros, setFiltros, onVerAnuncios })
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Chip activo={!!filtros.solo_seguidas} tono="emerald" onClick={() => set({ solo_seguidas: filtros.solo_seguidas ? "" : "1" })}>
-          <i className="bx bxs-star" /> Solo seguidas
-        </Chip>
-        <span className="mx-1 hidden h-5 w-px bg-slate-200 sm:block" aria-hidden />
-        {PLATAFORMAS.map((p) => (
-          <Chip key={p.id} activo={filtros.plataforma === p.id} title={p.nota} onClick={() => set({ plataforma: filtros.plataforma === p.id ? "" : p.id })}>
-            <i className={`bx ${p.icono} text-sm`} /> {p.label}
+      {/* ── Filtros con nombre ── */}
+      <div className="flex flex-wrap gap-x-10 gap-y-4 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+        <GrupoFiltro titulo="Mostrar" icono="bx-show">
+          <Chip activo={!filtros.solo_seguidas} onClick={() => set({ solo_seguidas: "" })}>
+            Todas las tiendas
           </Chip>
-        ))}
+          <Chip activo={!!filtros.solo_seguidas} tono="emerald" title="Las tiendas que marcaste con la estrella" onClick={() => set({ solo_seguidas: "1" })}>
+            <i className="bx bxs-star" /> Las que sigo
+          </Chip>
+        </GrupoFiltro>
+        <GrupoFiltro titulo="Dónde vende" icono="bx-store-alt">
+          <Chip activo={!filtros.plataforma} onClick={() => set({ plataforma: "" })}>
+            Todas
+          </Chip>
+          {PLATAFORMAS.map((p) => (
+            <Chip key={p.id} activo={filtros.plataforma === p.id} title={p.nota} onClick={() => set({ plataforma: p.id })}>
+              <i className={`bx ${p.icono} text-sm`} /> {p.label}
+            </Chip>
+          ))}
+        </GrupoFiltro>
+        <p className="flex max-w-md items-center gap-2 text-xs leading-5 text-slate-500 xl:ml-auto">
+          <i className="bx bx-bulb text-lg text-amber-500" />
+          Una tienda con muchos anuncios activos y la tendencia subiendo está escalando. Márcala con la estrella para seguirla.
+        </p>
       </div>
 
       <BarraHerramientas
@@ -335,7 +388,7 @@ export default function TabTiendas({ pais, filtros, setFiltros, onVerAnuncios })
       />
 
       {!cargando && !error && items.length ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 min-[1800px]:grid-cols-4 min-[2300px]:grid-cols-5">
           {items.map((t) => (
             <TarjetaTienda key={t.dominio} t={t} pais={pais} onAbrir={setDetalle} onSeguida={marcarSeguida} onVerAnuncios={onVerAnuncios} />
           ))}
