@@ -20,6 +20,7 @@ import {
 import chatApi from "../../api/chatcenter";
 import EfectividadCiudades from "./EfectividadCiudades";
 import RentabilidadReal from "./RentabilidadReal";
+import CobrosReclamar from "./CobrosReclamar";
 import { esRolVentas } from "../../utils/rolActual";
 import {
   DATE_PRESETS,
@@ -1658,6 +1659,14 @@ export default function DashboardConexionV2() {
               delay={130}
             >
               <RentabilidadReal idConfiguracion={conexion.id} from={rango.from} to={rango.to} tick={tick} />
+            </Seccion>
+
+            <Seccion
+              titulo="Cobros de Dropi para reclamar"
+              sub="Revisamos tu cartera de Dropi guía por guía y marcamos lo que te cobraron de más: fletes dobles, flete en pedidos entregados, ganancias que no entraron."
+              delay={135}
+            >
+              <CobrosReclamar idConfiguracion={conexion.id} tick={tick} />
             </Seccion>
 
             <Seccion
