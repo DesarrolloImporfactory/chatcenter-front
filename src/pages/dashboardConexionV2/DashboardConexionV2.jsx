@@ -1461,7 +1461,19 @@ export default function DashboardConexionV2() {
         valorNum: v?.facturado || 0,
         formato: (n) => fmt$(n),
         delta: deltaPct(v?.facturado, vp?.facturado),
-        sub: `${fmtNum(v?.pedidosNeto || 0)} pedidos vivos · ${fmtNum(v?.entregadas || 0)} ya entregados · ${fmtNum(enCamino.n)} en camino`,
+        sub: [
+          `${fmtNum(v?.pedidosNeto || 0)} pedidos vivos · ${fmtNum(v?.entregadas || 0)} ya entregados · ${fmtNum(enCamino.n)} en camino`,
+          v?.facturadoCancelado > 0 || v?.facturadoDevuelto > 0
+            ? `incluye ${[
+                v.facturadoCancelado > 0 ? `${fmt$(v.facturadoCancelado)} cancelados` : null,
+                v.facturadoDevuelto > 0 ? `${fmt$(v.facturadoDevuelto)} devueltos` : null,
+              ]
+                .filter(Boolean)
+                .join(" y ")} que no se cobran`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
         /* Efectividad de entrega del filtro (10-nov, Daniel): entregados sobre
            los pedidos vivos del rango; lo que va en camino aún no cuenta. */
         destacado: v?.pedidosNeto > 0 && {
@@ -1517,22 +1529,35 @@ export default function DashboardConexionV2() {
             color: ACENTO.amber,
             label: "Costo producto",
             valor: v?.costoProducto != null ? fmt$(v.costoProducto) : "—",
-            sub: v?.facturado > 0 && v?.costoProducto != null ? `${fmtPct((v.costoProducto / v.facturado) * 100)} del facturado` : "lo que cobra el proveedor",
+            sub:
+              v?.facturado > 0 && v?.costoProducto != null
+                ? `${fmtPct((v.costoProducto / v.facturado) * 100)} del facturado · de lo entregado y en camino`
+                : "lo que cobra el proveedor",
           },
           {
             icono: "bx-trip",
             color: ACENTO.rose,
             label: "Fletes",
             valor: v?.flete != null ? fmt$(v.flete) : "—",
-            sub: v?.facturado > 0 && v?.flete != null ? `${fmtPct((v.flete / v.facturado) * 100)} del facturado` : "envío de cada pedido",
+            sub:
+              v?.facturado > 0 && v?.flete != null
+                ? `${fmtPct((v.flete / v.facturado) * 100)} del facturado · sin cancelados${
+                    v.fleteDevoluciones > 0 ? `, ${fmt$(v.fleteDevoluciones)} de devueltos` : ""
+                  }`
+                : "envío de cada pedido",
           },
           {
             icono: "bx-wallet",
             color: ACENTO.violet,
             label: "Utilidad",
-            valor: fmt$(v?.ganancia || 0),
-            sub: v?.facturado > 0 ? `${fmtPct((v.ganancia / v.facturado) * 100)} del facturado` : "venta − proveedor − envío",
-            delta: deltaPct(v?.ganancia, vp?.ganancia),
+            /* utilidadReal: sin la ganancia de cancelados ni devueltos y con
+               el flete de lo devuelto restado; antes de publicidad. */
+            valor: fmt$(v?.utilidadReal ?? v?.ganancia ?? 0),
+            sub:
+              v?.facturado > 0
+                ? `${fmtPct(((v.utilidadReal ?? v.ganancia) / v.facturado) * 100)} del facturado · si se entrega lo que va en camino, antes de publicidad`
+                : "venta − proveedor − envío",
+            delta: deltaPct(v?.utilidadReal ?? v?.ganancia, vp?.utilidadReal ?? vp?.ganancia),
           },
         ],
       };
