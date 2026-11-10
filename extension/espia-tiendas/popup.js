@@ -1,56 +1,39 @@
+// Ventana del icono de la extensión: dice si la cuenta está lista y qué hacer.
+// Tres estados: sin sesión (iniciar sesión), sin complemento (activarlo) y lista.
 (async () => {
   const $ = (s) => document.querySelector(s);
-  const cfg = await chrome.runtime.sendMessage({ tipo: 'config' });
-  $('#hoy').textContent = cfg.enviadosHoy?.total || 0;
-  // La pantalla vive en la web de IMPORCHAT, no en la API: se deduce del origen de la sesión.
-  const web = cfg.webOrigen || (cfg.tokenOrigen && !['manual', 'larga'].includes(cfg.tokenOrigen) ? cfg.tokenOrigen : 'https://chatcenter.imporfactory.app');
-  $('#pantalla').href = `${web}/imporkiller`;
-  $('#origen').textContent = cfg.tokenOrigen === 'larga' ? `sesión larga hasta el ${cfg.tokenVence ? new Date(cfg.tokenVence).toLocaleDateString() : '?'} (se renueva sola)` : cfg.tokenOrigen ? `sesión tomada de ${cfg.tokenOrigen}` : 'abre IMPORCHAT en una pestaña para tomar la sesión';
+  $('#version').textContent = `Versión ${chrome.runtime.getManifest().version}`;
   $('#opciones').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
-  // Herramientas sobre la pestaña activa (la tienda que el usuario tiene abierta).
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const esWeb = Boolean(tab?.url && /^https?:/.test(tab.url));
-  let host = '';
-  try { host = esWeb ? new URL(tab.url).hostname : ''; } catch { host = ''; }
-  $('#pagina').textContent = esWeb ? `Actuando sobre ${host}` : 'Abre una tienda en una pestaña normal para usar estas herramientas';
-  const msg = $('#herrMsg');
-  for (const accion of ['desbloquear', 'multimedia', 'celular']) {
-    const btn = $(`#${accion}`);
-    btn.disabled = !esWeb;
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      msg.className = 'suave';
-      msg.textContent = accion === 'multimedia' ? 'Buscando imágenes y videos…' : 'Un momento…';
-      const r = await chrome.runtime.sendMessage({ tipo: 'herramienta', accion, tabId: tab.id }).catch((e) => ({ ok: false, message: e.message }));
-      btn.disabled = false;
-      if (!r?.ok) { msg.className = 'err'; msg.textContent = r?.message || 'No se pudo'; return; }
-      msg.className = 'ok';
-      msg.textContent = accion === 'desbloquear'
-        ? `Clic derecho y copiar habilitados en ${r.host}`
-        : accion === 'multimedia'
-          ? `${r.bajados} de ${r.total} archivos en Descargas/Espia/${r.host}/pagina`
-          : 'Abierta en ventana de celular';
-    });
-  }
+  const cfg = await chrome.runtime.sendMessage({ tipo: 'config' });
+  // La pantalla vive en la web de IMPORCHAT, no en la API: se deduce del origen de la sesión.
+  const web = cfg.webOrigen || (cfg.tokenOrigen && !['manual', 'larga'].includes(cfg.tokenOrigen) ? cfg.tokenOrigen : 'https://chatcenter.imporfactory.app');
+  const principal = $('#principal');
+  principal.href = `${web}/imporkiller`;
+
+  const pintar = (clase, titulo, texto) => {
+    $('#estado').className = `estado ${clase}`;
+    $('#estadoTitulo').textContent = titulo;
+    $('#estadoTexto').textContent = texto;
+  };
 
   const r = await chrome.runtime.sendMessage({ tipo: 'ping' });
-  const s = $('#sesion');
-  const c = $('#complemento');
-  if (r.ok) {
-    s.textContent = r.data?.usuario?.nombre || 'conectado'; s.className = 'ok';
-    const a = r.data?.addon;
-    if (a?.activo) { c.textContent = 'activo'; c.className = 'ok'; }
-    else {
-      // Sin complemento: Dropi y la Biblioteca lo dicen; aquí va el enlace directo a comprarlo.
-      c.innerHTML = '';
-      const enlace = document.createElement('a');
-      enlace.href = `${web}/complementos`;
-      enlace.target = '_blank';
-      enlace.rel = 'noopener';
-      enlace.textContent = `activar ($${a?.precio || 10}/mes)`;
-      enlace.className = 'err enlace';
-      c.appendChild(enlace);
-    }
-  } else { s.textContent = r.message || 'sin sesión'; s.className = 'err'; c.textContent = '—'; c.className = 'suave'; }
+  if (!r.ok) {
+    // Sin token es «todavía no inició sesión»; con token, la sesión venció o el servidor no respondió.
+    const sinSesion = !cfg.token || r.status === 401;
+    pintar('falta', sinSesion ? 'Inicia sesión en ImporChat' : 'No pudimos conectar con ImporChat', sinSesion ? 'Abre ImporChat con tu usuario en este navegador y la extensión se conecta sola.' : 'Revisa tu conexión e inténtalo de nuevo en un momento.');
+    principal.textContent = sinSesion ? 'Iniciar sesión' : 'Abrir ImporChat';
+    return;
+  }
+  const nombre = r.data?.usuario?.nombre || '';
+  const a = r.data?.addon;
+  if (a && !a.activo) {
+    pintar('falta', `Hola${nombre ? `, ${nombre}` : ''}`, 'Tu cuenta todavía no tiene ImporKiller: actívalo para ver las ventas en Dropi y los anuncios de Meta.');
+    principal.textContent = `Activar ImporKiller · $${a.precio || 10}/mes`;
+    principal.href = `${r.data?.web || web}/complementos`;
+    return;
+  }
+  pintar('ok', `Hola${nombre ? `, ${nombre}` : ''}`, 'Tu extensión está lista. Úsala en Dropi y en la Biblioteca de anuncios de Meta.');
+  $('#hoy').textContent = Number(cfg.enviadosHoy?.total || 0).toLocaleString('es');
+  $('#cifra').classList.add('ver');
 })();

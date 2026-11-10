@@ -99,7 +99,7 @@
       }
       if (sinSesion) {
         el.dataset.estado = 'sin-sesion';
-        el.innerHTML = `<div class="imp-espia-cab"><span class="imp-espia-logo">IMPORCHAT</span></div><div class="imp-espia-nota">Abre IMPORCHAT en otra pestaña para ver las ventas estimadas.</div>`;
+        el.innerHTML = `<div class="imp-espia-cab"><span class="imp-espia-logo">IMPORCHAT</span><span class="imp-espia-sub">ImporKiller</span></div><div class="imp-espia-nota">Inicia sesión para ver las ventas estimadas de este producto.</div><a class="imp-espia-btn" href="${esc(webImporchat)}/imporkiller" target="_blank" rel="noopener">Iniciar sesión ›</a>`;
         continue;
       }
       if (m === undefined) continue;

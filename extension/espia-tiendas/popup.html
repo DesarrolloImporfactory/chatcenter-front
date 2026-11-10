@@ -2,43 +2,76 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>ImporKiller IMPORCHAT</title>
+  <title>ImporKiller</title>
   <style>
-    body { width: 320px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, sans-serif; background: #0b1f3a; color: #fff; }
-    h1 { font-size: 15px; margin: 0 0 10px; color: #00d4ff; }
-    h2 { font-size: 11px; margin: 14px 0 4px; color: #9fb7d6; text-transform: uppercase; letter-spacing: .08em; }
-    .fila { display: flex; justify-content: space-between; gap: 8px; margin: 6px 0; }
-    .ok { color: #8cffb0; } .err { color: #ff8c8c; } .suave { color: #9fb7d6; }
-    a, button { display: block; width: 100%; box-sizing: border-box; text-align: center; margin-top: 8px; padding: 8px; border-radius: 8px; border: 0; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; }
-    a.acento { background: #00d4ff; color: #0b1f3a; }
-    button { background: #1f3f6b; color: #fff; }
-    button:disabled { opacity: .5; cursor: default; }
-    .herr { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-    .herr button { margin: 0; padding: 8px 4px; font-size: 12px; background: #132b4d; }
-    #herrMsg { min-height: 16px; font-size: 11px; margin-top: 6px; }
-    #pagina { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    a.enlace { display: inline; width: auto; margin: 0; padding: 0; background: none; font-weight: 700; text-decoration: underline; }
+    * { box-sizing: border-box; }
+    body { width: 330px; margin: 0; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: #0b1426; color: #fff; }
+    header { display: flex; align-items: center; gap: 10px; padding: 16px 16px 12px; background: radial-gradient(120% 120% at 0% 0%, rgba(14,165,233,.35) 0%, rgba(11,20,38,0) 60%); }
+    header img { width: 34px; height: 34px; border-radius: 10px; }
+    header h1 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+    header h1 b { color: #38bdf8; }
+    header p { margin: 0; font-size: 11.5px; color: #9fb7d6; }
+    main { padding: 4px 16px 16px; }
+
+    /* Estado de la cuenta: una sola tarjeta que dice qué pasa y qué hacer. */
+    .estado { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); }
+    .estado .punto { flex: none; width: 10px; height: 10px; margin-top: 4px; border-radius: 50%; background: #64748b; }
+    .estado.ok .punto { background: #25d366; box-shadow: 0 0 0 4px rgba(37,211,102,.18); }
+    .estado.falta .punto { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.18); }
+    .estado b { display: block; font-size: 13.5px; }
+    .estado span { color: #9fb7d6; font-size: 12px; }
+
+    .cifra { display: none; align-items: baseline; justify-content: space-between; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.2); }
+    .cifra.ver { display: flex; }
+    .cifra span { color: #cfe8ff; font-size: 12px; }
+    .cifra b { font-size: 18px; font-variant-numeric: tabular-nums; }
+
+    a.boton { display: block; width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 10px; text-align: center; font-weight: 800; text-decoration: none; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); }
+    a.boton:hover { background: rgba(255,255,255,.14); }
+    a.boton.principal { background: linear-gradient(90deg, #0ea5e9, #22d3ee); border: 0; color: #06223a; }
+    a.boton.principal:hover { filter: brightness(1.08); }
+
+    h2 { margin: 16px 0 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #7f95b5; }
+    ol { margin: 0; padding: 0; list-style: none; counter-reset: paso; }
+    ol li { position: relative; padding: 0 0 8px 28px; color: #cfe8ff; font-size: 12.5px; counter-increment: paso; }
+    ol li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 19px; height: 19px; border-radius: 50%; background: #132b4d; color: #38bdf8; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+    ol li a { color: #38bdf8; font-weight: 700; text-decoration: none; }
+    ol li a:hover { text-decoration: underline; }
+
+    footer { display: flex; justify-content: space-between; padding: 10px 16px; border-top: 1px solid rgba(255,255,255,.08); font-size: 11.5px; color: #7f95b5; }
+    footer button { all: unset; cursor: pointer; color: #9fb7d6; font-weight: 700; }
+    footer button:hover { color: #fff; }
   </style>
 </head>
 <body>
-  <h1>ImporKiller</h1>
-  <div class="fila"><span>Sesión IMPORCHAT</span><span id="sesion" class="suave">comprobando…</span></div>
-  <div class="fila"><span>Complemento ImporKiller</span><span id="complemento" class="suave">…</span></div>
-  <div class="fila"><span>Anuncios enviados hoy</span><span id="hoy">0</span></div>
-  <div class="fila suave" id="origen"></div>
+  <header>
+    <img src="icons/48.png" alt="" />
+    <div>
+      <h1>Impor<b>Killer</b></h1>
+      <p>Productos ganadores y sus anuncios</p>
+    </div>
+  </header>
+  <main>
+    <div class="estado" id="estado">
+      <i class="punto"></i>
+      <div><b id="estadoTitulo">Comprobando tu cuenta…</b><span id="estadoTexto"></span></div>
+    </div>
+    <div class="cifra" id="cifra"><span>Anuncios guardados hoy</span><b id="hoy">0</b></div>
 
-  <h2>Herramientas de la página abierta</h2>
-  <div id="pagina" class="suave">—</div>
-  <div class="herr">
-    <button id="desbloquear" title="Reactiva clic derecho, copiar y seleccionar en tiendas que lo bloquean">Clic derecho</button>
-    <button id="multimedia" title="Baja todas las imágenes y videos grandes de la página a Descargas/Espia">Bajar multimedia</button>
-    <button id="celular" title="Abre esta página en una ventana angosta, como en el celular">Ver en celular</button>
-  </div>
-  <div id="herrMsg" class="suave"></div>
+    <a id="principal" class="boton principal" href="#" target="_blank" rel="noopener">Abrir ImporKiller</a>
+    <a id="biblioteca" class="boton" href="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=EC&media_type=all" target="_blank" rel="noopener">Buscar anuncios en Meta</a>
 
-  <a id="pantalla" class="acento" href="#" target="_blank" rel="noopener">Abrir ImporKiller</a>
-  <a id="biblioteca" href="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=EC&media_type=all" target="_blank" rel="noopener">Abrir Biblioteca de anuncios</a>
-  <button id="opciones">Opciones</button>
+    <h2>Cómo se usa</h2>
+    <ol>
+      <li>Entra a <b>Dropi</b>: debajo de cada producto aparecen sus ventas estimadas.</li>
+      <li>Abre la <a id="biblioteca2" href="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=EC&media_type=all" target="_blank" rel="noopener">Biblioteca de anuncios de Meta</a> y busca un producto o una tienda.</li>
+      <li>Usa la barra de abajo para ver los días activos, agrupar por producto y descargar los creativos.</li>
+    </ol>
+  </main>
+  <footer>
+    <span id="version"></span>
+    <button id="opciones" type="button">Mi cuenta y ajustes</button>
+  </footer>
   <script src="popup.js"></script>
 </body>
 </html>
