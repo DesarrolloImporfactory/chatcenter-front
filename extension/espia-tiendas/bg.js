@@ -17,11 +17,14 @@ const limpio = (t) =>
 const hoy = () => new Date().toISOString().slice(0, 10);
 
 async function leerConfig() {
-  const c = await chrome.storage.local.get(['token', 'tokenOrigen', 'tokenFecha', 'apiBase', 'apiOrigen', 'enviadosHoy']);
+  const c = await chrome.storage.local.get(['token', 'tokenOrigen', 'tokenFecha', 'tokenVence', 'tokenWeb', 'webOrigen', 'apiBase', 'apiOrigen', 'enviadosHoy']);
   return {
     token: c.token || '',
     tokenOrigen: c.tokenOrigen || '',
     tokenFecha: c.tokenFecha || '',
+    tokenVence: c.tokenVence || '', // solo con sesión larga ('larga' en tokenOrigen): cuándo caduca
+    tokenWeb: c.tokenWeb || '', // último token que mandó la web, para no volver a cambiarlo
+    webOrigen: c.webOrigen || '', // de qué web de IMPORCHAT vino la sesión (para armar enlaces)
     apiBase: ((!c.apiBase || c.apiBase.replace(/\/+$/, '') === API_VIEJA) ? API_POR_DEFECTO : c.apiBase).replace(/\/+$/, ''),
     apiOrigen: c.apiOrigen || '', // 'sesion' (la mandó la web de IMPORCHAT) o 'manual' (Opciones)
     enviadosHoy: c.enviadosHoy && c.enviadosHoy.fecha === hoy() ? c.enviadosHoy : { fecha: hoy(), total: 0 },
@@ -67,8 +70,9 @@ async function api(method, path, body) {
 
 // Dónde vive la pantalla (la web de IMPORCHAT, no la API): se deduce del origen de la sesión.
 async function webImporchat() {
-  const { tokenOrigen } = await leerConfig();
-  return tokenOrigen && tokenOrigen !== 'manual' ? tokenOrigen : 'https://chatcenter.imporfactory.app';
+  const { tokenOrigen, webOrigen } = await leerConfig();
+  if (webOrigen) return webOrigen;
+  return tokenOrigen && !['manual', 'larga'].includes(tokenOrigen) ? tokenOrigen : 'https://chatcenter.imporfactory.app';
 }
 
 // ───────────── Herramientas de página (como AdGrab): se inyectan en la pestaña activa ─────────────
@@ -144,20 +148,44 @@ async function herramienta(accion, tabId) {
   return { ok: false, message: 'acción desconocida' };
 }
 
+// Sesión larga (solo super administradores): la sesión de la web dura 7 días y en un
+// Chrome que queda barriendo solo (la Mac mini del radar) a la semana todo quedaba
+// «sin sesión». Se cambia el token de la web por uno de 90 días del backend y, cuando
+// le quedan menos de RENOVAR_ANTES_DIAS, se renueva solo con ese mismo token. Si la
+// cuenta no es super admin el backend responde 403 y se sigue con el token de la web.
+const RENOVAR_ANTES_DIAS = 30;
+async function pedirSesionLarga() {
+  const r = await api('POST', '/extension/sesion-larga');
+  if (!r.ok || !r.data?.token) return r;
+  await chrome.storage.local.set({ token: r.data.token, tokenOrigen: 'larga', tokenFecha: new Date().toISOString(), tokenVence: r.data.vence || '' });
+  return r;
+}
+async function renovarSiToca() {
+  const { tokenOrigen, tokenVence } = await leerConfig();
+  if (tokenOrigen !== 'larga' || !tokenVence) return;
+  const quedan = (new Date(tokenVence).getTime() - Date.now()) / 86400000;
+  if (quedan < RENOVAR_ANTES_DIAS) await pedirSesionLarga().catch(() => {});
+}
+
 chrome.runtime.onMessage.addListener((m, _s, responder) => {
   (async () => {
     switch (m?.tipo) {
       case 'sesion': {
         // Viene de sesion.js (la web de IMPORCHAT abierta en este Chrome).
         if (!m.token) return { ok: false };
-        const actual = await chrome.storage.local.get(['token', 'apiBase', 'apiOrigen']);
+        const actual = await chrome.storage.local.get(['token', 'tokenWeb', 'tokenOrigen', 'apiBase', 'apiOrigen']);
         const cambios = {};
-        if (actual.token !== m.token) Object.assign(cambios, { token: m.token, tokenOrigen: m.origen || '', tokenFecha: new Date().toISOString() });
+        // La web repite el mismo token cada rato (y al volver a esa pestaña): solo cuenta
+        // como sesión nueva si cambió respecto al último que mandó.
+        const tokenNuevo = m.token !== actual.tokenWeb && m.token !== actual.token;
+        if (tokenNuevo) Object.assign(cambios, { token: m.token, tokenWeb: m.token, webOrigen: m.origen || '', tokenOrigen: m.origen || '', tokenFecha: new Date().toISOString(), tokenVence: '' });
         // La web dice en qué API vive: se toma tal cual salvo que alguien haya escrito
         // una URL a mano en Opciones (apiOrigen 'manual'), que manda sobre la de la sesión.
         const api = typeof m.api === 'string' && /^https?:\/\//.test(m.api) ? m.api.trim().replace(/\/+$/, '') : '';
         if (api && actual.apiOrigen !== 'manual' && actual.apiBase !== api) Object.assign(cambios, { apiBase: api, apiOrigen: 'sesion' });
         if (Object.keys(cambios).length) await chrome.storage.local.set(cambios);
+        // Con sesión nueva de la web se intenta la larga (super admin); si no, queda la de 7 días.
+        if (tokenNuevo) await pedirSesionLarga().catch(() => {});
         return { ok: true };
       }
       case 'config':
@@ -173,18 +201,22 @@ chrome.runtime.onMessage.addListener((m, _s, responder) => {
           cambios.token = m.token.trim();
           cambios.tokenOrigen = 'manual';
           cambios.tokenFecha = new Date().toISOString();
+          cambios.tokenVence = '';
         }
         await chrome.storage.local.set(cambios);
         return { ok: true };
       }
       case 'cerrarSesion':
-        await chrome.storage.local.remove(['token', 'tokenOrigen', 'tokenFecha']);
+        await chrome.storage.local.remove(['token', 'tokenOrigen', 'tokenFecha', 'tokenVence', 'tokenWeb', 'webOrigen']);
         return { ok: true };
       case 'ping': {
         // Devuelve también `web` (para armar enlaces a la pantalla) y `addon`
         // ({ activo, precio, nombre }: sin él, Dropi y la Biblioteca lo dicen).
         const r = await api('GET', '/extension/ping');
-        if (r.ok && r.data) r.data.web = await webImporchat();
+        if (r.ok && r.data) {
+          r.data.web = await webImporchat();
+          await renovarSiToca(); // la sesión larga se renueva sola cuando le quedan menos de 30 días
+        }
         return r;
       }
       case 'enviarAnuncios': {
@@ -205,6 +237,9 @@ chrome.runtime.onMessage.addListener((m, _s, responder) => {
       case 'radarMarcar':
         // barra.js → «ya busqué este producto; estos son los anuncios que salieron» (puede ser ninguno).
         return api('POST', '/radar/marcar', m.body);
+      case 'radarLatido':
+        // barra.js → «el radar está así» (corriendo, en pausa, descansando…); la portada avisa al super admin.
+        return api('POST', '/radar/latido', m.body);
       case 'herramienta':
         // popup.js → herramientas sobre la pestaña activa (la tienda abierta).
         return herramienta(m.accion, m.tabId);

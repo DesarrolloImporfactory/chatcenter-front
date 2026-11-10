@@ -16,7 +16,7 @@ Es la versión propia de lo que muestra el Loom de referencia (AdGrab): no depen
 1. `chrome://extensions` → activar **Modo de desarrollador**.
 2. **Cargar descomprimida** → elegir esta carpeta (`extension/espia-tiendas`).
 3. Si faltan los íconos: `node extension/espia-tiendas/icons/generar.cjs` (los crea en `icons/`).
-4. Abrir IMPORCHAT en una pestaña con tu usuario: la extensión toma la sesión sola (no pide usuario ni clave). Si no la toma, en **Opciones** se puede pegar el token y elegir el backend (producción, desarrollo o local).
+4. Abrir IMPORCHAT en una pestaña con tu usuario: la extensión toma la sesión sola (no pide usuario ni clave). Si no la toma, en **Opciones** se puede pegar el token y elegir el backend (producción, desarrollo o local). Con un super administrador la extensión cambia esa sesión de 7 días por una **sesión larga de 90 días** (`POST /extension/sesion-larga`) que renueva sola cuando le quedan menos de 30: así un Chrome que queda barriendo sin nadie delante (ver `MAC-RADAR.md`) no se queda sin sesión a la semana.
 
 Desde el 04-11-2026 la extensión es parte del **complemento ImporKiller** ($10/mes, se compra en IMPORCHAT → Planes y facturación → Productos adicionales, o desde la pantalla ImporKiller). Sin él, la sesión funciona pero la capa de Dropi, el envío de anuncios y el radar responden `403 ADDON_REQUIRED` y la extensión muestra dónde activarlo. El super administrador y las cuentas permanentes lo tienen incluido.
 
@@ -50,6 +50,7 @@ Ritmo real: unos 25 s por producto con la pausa recomendada → 300 productos �
 Base: `<API>/api/v1/espia` con el token de la sesión (`Authorization: Bearer`). Plan activo para `/extension/ping`; complemento ImporKiller para el resto (`403 ADDON_REQUIRED` si falta).
 
 - `GET /extension/ping` → comprueba la sesión.
+- `POST /radar/latido` → estado del radar (corriendo, esperando, descanso, pausado, detenido); la portada de ImporKiller avisa al super admin si queda en pausa por una verificación de Meta o deja de latir 25 min.
 - `POST /anuncios` → `{ pais, dominio_buscado, fuente: 'meta_ad_library', anuncios: [{ ad_archive_id, pagina_id, pagina_nombre, dominio, url_destino, producto, texto, titulo, tipo, media_url, imagen_url, inicio, n_duplicados, plataformas }] }` (máx. 200 por envío). Responde `nuevos_ids` y `conocidos_ids`.
 - `POST /tiendas/vista` → `{ dominio, pais, anuncios_activos_vistos }` tras cada envío.
 - `POST /seguir` → `{ tipo: 'tienda', ref: dominio }` desde el botón ☆ de cada tarjeta.

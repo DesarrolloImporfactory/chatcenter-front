@@ -72,7 +72,7 @@ export const ADDON_IMPORKILLER = { clave: "imporkiller", nombre: "ImporKiller", 
    se carga en chrome://extensions con «Modo de desarrollador». El zip vive en
    public/descargas (lo sirve el propio front); si se aloja en otro lado, basta
    con cambiar VITE_IMPORKILLER_EXTENSION_URL o esta constante. */
-export const EXTENSION_VERSION = "0.6.4";
+export const EXTENSION_VERSION = "0.6.5";
 export const URL_EXTENSION_ZIP = import.meta.env.VITE_IMPORKILLER_EXTENSION_URL || `/descargas/imporkiller-imporchat-v${EXTENSION_VERSION}.zip`;
 
 /* ── Clases base ─────────────────────────────────────────────────────── */
