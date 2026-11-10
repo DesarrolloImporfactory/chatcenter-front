@@ -1462,14 +1462,16 @@ export default function DashboardConexionV2() {
         nota: resumen?.pctConfirmacionTope
           ? "Hay más pedidos que conversaciones: parte de las órdenes no pasó por el chat."
           : null,
+        /* Arriba lo que trae el chat; abajo en qué se va el facturado:
+           facturado = costo del producto + fletes + utilidad (reunión 10-nov). */
         kpis: [
           {
-            icono: "bx-wallet",
-            color: ACENTO.violet,
-            label: "Utilidad",
-            valor: fmt$(v?.ganancia || 0),
-            sub: v?.facturado > 0 ? `${fmtPct((v.ganancia / v.facturado) * 100)} del facturado` : "venta − proveedor − envío",
-            delta: deltaPct(v?.ganancia, vp?.ganancia),
+            icono: "bx-conversation",
+            color: ACENTO.cyan,
+            label: "Conversaciones",
+            valor: fmtNum(convs),
+            sub: `${fmtNum(resumen?.totalMensajes || 0)} mensajes cruzados`,
+            delta: deltaPct(convs, convsPrev),
           },
           {
             icono: "bx-package",
@@ -1480,42 +1482,38 @@ export default function DashboardConexionV2() {
             delta: deltaPct(v?.pedidosNeto, vp?.pedidosNeto),
           },
           {
-            icono: "bx-check-shield",
+            icono: "bx-check-double",
             color: ACENTO.emerald,
-            label: "Entrega real",
-            valor: fmtPct(v?.tasaEntregaReal),
-            sub: `${fmtNum(v?.entregadas || 0)} entregados`,
-            delta: vp?.pedidosNeto ? Number(v?.tasaEntregaReal || 0) - Number(vp?.tasaEntregaReal || 0) : null,
+            label: "Confirmación",
+            valor: fmtPct(v?.pctConfirmacion),
+            sub: "de los que escriben, compran",
+            delta:
+              vp?.pctConfirmacion != null && v?.pctConfirmacion != null
+                ? Number(v.pctConfirmacion) - Number(vp.pctConfirmacion)
+                : null,
             puntos: true,
           },
           {
-            icono: "bx-conversation",
-            color: ACENTO.cyan,
-            label: "Conversaciones",
-            valor: fmtNum(convs),
-            sub: `${fmtNum(resumen?.totalMensajes || 0)} mensajes cruzados`,
-            delta: deltaPct(convs, convsPrev),
-          },
-          {
-            icono: "bx-receipt",
+            icono: "bx-cube",
             color: ACENTO.amber,
-            label: "Ticket promedio",
-            valor: fmt$(v?.pedidosNeto > 0 ? v.facturado / v.pedidosNeto : 0),
-            sub: "por pedido vivo",
-            delta: deltaPct(
-              v?.pedidosNeto > 0 ? v.facturado / v.pedidosNeto : 0,
-              vp?.pedidosNeto > 0 ? vp.facturado / vp.pedidosNeto : 0,
-            ),
+            label: "Costo producto",
+            valor: v?.costoProducto != null ? fmt$(v.costoProducto) : "—",
+            sub: v?.facturado > 0 && v?.costoProducto != null ? `${fmtPct((v.costoProducto / v.facturado) * 100)} del facturado` : "lo que cobra el proveedor",
           },
           {
             icono: "bx-trip",
             color: ACENTO.rose,
-            label: "Por entregar",
-            valor: fmtNum(enCamino.n),
-            sub:
-              enCamino.ganancia != null && enCamino.n > 0
-                ? `${enCamino.ganancia >= 0 ? "+" : ""}${fmt$(enCamino.ganancia)} si se entregan`
-                : "pedidos en camino",
+            label: "Fletes",
+            valor: v?.flete != null ? fmt$(v.flete) : "—",
+            sub: v?.facturado > 0 && v?.flete != null ? `${fmtPct((v.flete / v.facturado) * 100)} del facturado` : "envío de cada pedido",
+          },
+          {
+            icono: "bx-wallet",
+            color: ACENTO.violet,
+            label: "Utilidad",
+            valor: fmt$(v?.ganancia || 0),
+            sub: v?.facturado > 0 ? `${fmtPct((v.ganancia / v.facturado) * 100)} del facturado` : "venta − proveedor − envío",
+            delta: deltaPct(v?.ganancia, vp?.ganancia),
           },
         ],
       };
@@ -1584,37 +1582,15 @@ export default function DashboardConexionV2() {
         {/* ────── bloque de ventas (solo modo dropshipping) ────── */}
         {!esAtencion && (
           <>
-            <div className="grid gap-5 lg:grid-cols-5">
-              <Seccion
-                titulo="Del chat a la entrega"
-                sub="De todo lo que entró por el canal, cuánto terminó en pedido y cuánto llegó a destino."
-                className="lg:col-span-3"
-                delay={60}
-              >
-                {cargando ? (
-                  <Skel className="h-[180px]" />
-                ) : pasosEmbudo.length ? (
-                  <Embudo
-                    pasos={pasosEmbudo}
-                    nota={
-                      convs > 0
-                        ? `De cada 100 personas que escriben, ${Math.round(Math.min(100, v.pctConfirmacion || 0))} terminan en pedido y ${Math.round(((v.entregadas || 0) / convs) * 100)} reciben su producto.`
-                        : null
-                    }
-                  />
-                ) : (
-                  <Vacio icono="bx-filter-alt" texto="Sin datos del canal" />
-                )}
-              </Seccion>
-              <Seccion
-                titulo="Estado de los pedidos"
-                sub="Dónde está cada pedido Dropi del periodo, de todos los canales."
-                className="lg:col-span-2"
-                delay={120}
-              >
-                {cargando ? <Skel className="h-[180px]" /> : <DonaEstados estados={estados} total={resumen?.totalPedidos || 0} />}
-              </Seccion>
-            </div>
+            {/* «Del chat a la entrega» se quitó (10-nov, Daniel): el embudo
+                conversaciones → pedidos → entregados no aportaba. */}
+            <Seccion
+              titulo="Estado de los pedidos"
+              sub="Dónde está cada pedido Dropi del periodo, de todos los canales."
+              delay={60}
+            >
+              {cargando ? <Skel className="h-[180px]" /> : <DonaEstados estados={estados} total={resumen?.totalPedidos || 0} />}
+            </Seccion>
 
             <Seccion
               titulo="¿Cuánto ganaste de verdad?"
