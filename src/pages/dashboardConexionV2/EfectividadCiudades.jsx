@@ -34,9 +34,9 @@ function colorEfectividad(v, umbrales) {
   return "text-rose-600";
 }
 
-function Estrellas({ n }) {
+function Estrellas({ n, enCurso = false }) {
   if (n == null) {
-    return <span className="text-[10.5px] font-medium text-slate-400">pocos datos</span>;
+    return <span className="text-[10.5px] font-medium text-slate-400">{enCurso ? "aún en camino" : "pocos datos"}</span>;
   }
   return (
     <span className="whitespace-nowrap text-[13px] leading-none" title={`${n} de 3`}>
@@ -49,15 +49,28 @@ function Estrellas({ n }) {
   );
 }
 
-/* % de entrega del vendedor y, debajo, el del mercado con la diferencia. */
+/* % de entrega del vendedor y, debajo, el del mercado con la diferencia.
+   Mientras la fila tenga mucho en camino se muestra lo entregado sobre todo
+   lo vivo, en gris y sin compararlo con el mercado (sería injusto); cerrada,
+   la efectividad final con su color y la diferencia. */
 function CeldaEntrega({ fila, umbrales }) {
   const m = fila.mercado_efectividad;
-  const dif = fila.efectividad != null && m != null ? fila.efectividad - m : null;
+  const cerrada = fila.cerrada !== false;
+  const valor = cerrada ? (fila.efectividad_final ?? fila.efectividad) : fila.efectividad;
+  const dif = cerrada && valor != null && m != null ? valor - m : null;
   return (
     <div className="leading-tight">
-      <span className={`dv2-num text-[13px] font-extrabold ${colorEfectividad(fila.efectividad, umbrales)}`}>
-        {fmtPct(fila.efectividad)}
+      <span
+        className={`dv2-num text-[13px] font-extrabold ${cerrada ? colorEfectividad(valor, umbrales) : "text-slate-500"}`}
+        title={cerrada ? undefined : `${fila.entregadas} entregados de ${fila.entregadas + fila.devoluciones + fila.en_curso}; el resto sigue en camino`}
+      >
+        {fmtPct(valor)}
       </span>
+      {!cerrada && (
+        <p className="dv2-num text-[10.5px] text-slate-400">
+          {fmtNum(fila.entregadas)} de {fmtNum(fila.entregadas + fila.devoluciones + fila.en_curso)} hasta hoy
+        </p>
+      )}
       {m != null && (
         <p className="dv2-num text-[10.5px] text-slate-400">
           mercado {fmtPct(m, 0)}
@@ -112,7 +125,7 @@ function FilaTabla({ fila, nombre, umbrales, sub = false, abierta, onClick }) {
         {fila.margen != null && <p className="text-[10.5px] font-normal text-slate-400">{fmtPct(fila.margen, 0)} margen</p>}
       </td>
       <td className="py-2.5 pl-3 pr-1 text-right">
-        <Estrellas n={fila.estrellas} />
+        <Estrellas n={fila.estrellas} enCurso={fila.cerrada === false} />
       </td>
     </tr>
   );
@@ -272,7 +285,8 @@ export default function EfectividadCiudades({ idConfiguracion, from, to, tick })
           ))}
         </div>
         <p className="dv2-num text-[11.5px] text-slate-500">
-          Total: <b className={colorEfectividad(t.efectividad, umbrales)}>{fmtPct(t.efectividad)}</b> entregado ·{" "}
+          Total: <b className={t.cerrada === false ? "text-slate-700" : colorEfectividad(t.efectividad, umbrales)}>{fmtPct(t.efectividad)}</b> entregado
+          {t.en_curso > 0 && <> ({fmtNum(t.entregadas)} de {fmtNum(t.entregadas + t.devoluciones + t.en_curso)}, {fmtNum(t.en_curso)} en camino)</>} ·{" "}
           <b className="text-slate-800">{fmt$(t.utilidad)}</b> de utilidad
         </p>
         <button

@@ -32,25 +32,29 @@ const simular = (x, s) =>
   s * Number(x.ganancia_camino || 0) -
   (1 - s) * Number(x.flete_camino || 0);
 
-/* Barra del simulador: arrastrar el % de entrega de lo que va en camino. */
-function Simulador({ valor, onChange, real, equilibrio }) {
+/* Barra del simulador: arrastrar el % de entrega de lo que va en camino.
+   Arranca en la efectividad de 90 días; cuando ya no queda nada en camino
+   (bloqueado) muestra la entrega final del periodo y no se mueve. */
+function Simulador({ valor, onChange, real, equilibrio, bloqueado = false }) {
   const pct = Math.round(valor * 100);
   const marca = (v) => `${Math.min(100, Math.max(0, v))}%`;
   return (
     <div className="mt-4 rounded-xl bg-white/5 p-3">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-white/50">Simula tus entregas</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-white/50">
+          {bloqueado ? "Tu entrega real" : "Simula tus entregas"}
+        </p>
         <p className="dv2-num text-[18px] font-black text-white">{pct}%</p>
       </div>
       <div className="relative mt-2 h-6">
-        {equilibrio != null && equilibrio > 0 && equilibrio < 1 && (
+        {!bloqueado && equilibrio != null && equilibrio > 0 && equilibrio < 1 && (
           <div
             className="pointer-events-none absolute top-0 h-6 w-0.5 bg-amber-300"
             style={{ left: marca(equilibrio * 100) }}
             title="Desde aquí ya no pierdes"
           />
         )}
-        {real != null && (
+        {!bloqueado && real != null && (
           <div
             className="pointer-events-none absolute top-0 h-6 w-0.5 bg-white/40"
             style={{ left: marca(real) }}
@@ -64,14 +68,20 @@ function Simulador({ valor, onChange, real, equilibrio }) {
           step={1}
           value={pct}
           onChange={(e) => onChange(Number(e.target.value) / 100)}
-          className="absolute inset-x-0 top-1/2 w-full -translate-y-1/2 cursor-pointer accent-emerald-400"
+          disabled={bloqueado}
+          className={`absolute inset-x-0 top-1/2 w-full -translate-y-1/2 accent-emerald-400 ${
+            bloqueado ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+          }`}
           aria-label="Porcentaje de entrega de lo que va en camino"
         />
       </div>
+      {bloqueado ? (
+        <p className="mt-1 text-[10.5px] text-white/60">Ya no queda nada en camino: es tu resultado final, no se simula.</p>
+      ) : (
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-white/60">
         {real != null && (
           <button onClick={() => onChange(real / 100)} className="font-bold text-white/80 underline-offset-2 hover:underline">
-            ● tu real: {fmtPct(real, 0)}
+            ● tu efectividad (90 días): {fmtPct(real, 0)}
           </button>
         )}
         {equilibrio != null && (
@@ -84,6 +94,7 @@ function Simulador({ valor, onChange, real, equilibrio }) {
           </span>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -196,7 +207,7 @@ function TablaAnuncios({ anuncios }) {
               <th className="pb-2 pr-2 text-right">Gasto</th>
               <th className="pb-2 pr-2 text-right">Pedidos</th>
               <th className="pb-2 pr-2 text-right">ROAS</th>
-              <th className="pb-2 text-right">Te deja</th>
+              <th className="pb-2 text-right">Te deja (ya con publicidad)</th>
             </tr>
           </thead>
           <tbody>
@@ -227,9 +238,26 @@ function TablaAnuncios({ anuncios }) {
                   <span className="dv2-num text-[12px] font-bold text-slate-800">{fmtNum(a.pedidos)}</span>
                   <p className="dv2-num text-[10.5px] text-slate-400">
                     {a.entregadas} ent · {a.devoluciones} dev · {a.en_camino} cam
+                    {a.canceladas > 0 && <> · {a.canceladas} canc</>}
                   </p>
                 </td>
-                <td className="dv2-num py-2 pr-2 text-right text-[12px] text-slate-700">{a.roas == null ? "—" : `${a.roas}x`}</td>
+                <td className="py-2 pr-2 text-right leading-tight">
+                  <span
+                    className={`dv2-num text-[12px] font-semibold ${
+                      a.roas != null && a.roas_minimo != null && a.roas < a.roas_minimo ? "text-rose-600" : "text-slate-700"
+                    }`}
+                  >
+                    {a.roas == null ? "—" : `${a.roas}x`}
+                  </span>
+                  {a.roas != null && (
+                    <p
+                      className="dv2-num text-[10.5px] text-slate-400"
+                      title="ROAS con el que este anuncio queda en 0 con lo entregado hasta hoy: debajo de este número pierde"
+                    >
+                      {a.roas_minimo == null ? "no cubre" : `mín ${a.roas_minimo}x`}
+                    </p>
+                  )}
+                </td>
                 <td className="py-2 text-right leading-tight">
                   <span className={`dv2-num text-[13px] font-extrabold ${colorNeto(a.neto_proyectado)}`}>{fmt$(a.neto_proyectado)}</span>
                   <p className="dv2-num text-[10.5px] text-slate-400" title="Lo que ya dejó con lo entregado hasta hoy">
@@ -265,7 +293,7 @@ function TablaProductos({ productos }) {
               <th className="pb-2 pr-2">Producto</th>
               <th className="pb-2 pr-2 text-right">Pedidos</th>
               <th className="pb-2 pr-2 text-right">Entrega</th>
-              <th className="pb-2 text-right">Te deja</th>
+              <th className="pb-2 text-right">Te deja (sin publicidad)</th>
             </tr>
           </thead>
           <tbody>
@@ -279,9 +307,17 @@ function TablaProductos({ productos }) {
                 </td>
                 <td className="py-2 pr-2 text-right leading-tight">
                   <span className="dv2-num text-[12px] font-bold text-slate-800">{fmtNum(p.pedidos)}</span>
-                  <p className="dv2-num text-[10.5px] text-slate-400">{p.en_camino} en camino</p>
+                  <p className="dv2-num text-[10.5px] text-slate-400">
+                    {p.entregadas} ent · {p.devoluciones} dev · {p.en_camino} cam
+                    {p.canceladas > 0 && <> · {p.canceladas} canc</>}
+                  </p>
                 </td>
-                <td className="dv2-num py-2 pr-2 text-right text-[12px] text-slate-700">{fmtPct(p.efectividad, 0)}</td>
+                <td
+                  className="dv2-num py-2 pr-2 text-right text-[12px] text-slate-700"
+                  title="Entregados sobre todo lo que no se canceló; lo que va en camino todavía no cuenta como entregado"
+                >
+                  {fmtPct(p.efectividad, 0)}
+                </td>
                 <td className="py-2 text-right leading-tight">
                   <span className={`dv2-num text-[13px] font-extrabold ${colorNeto(p.neto_proyectado)}`}>{fmt$(p.neto_proyectado)}</span>
                   <p className="dv2-num text-[10.5px] text-slate-400">hoy {fmt$(p.neto)}</p>
@@ -393,7 +429,10 @@ export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
     return <p className="py-8 text-center text-[12px] text-slate-400">Sin pedidos Dropi en este periodo.</p>;
   }
 
-  const equilibrioOk = k.punto_equilibrio != null && ped.efectividad != null && ped.efectividad >= k.punto_equilibrio;
+  /* Con pedidos en camino, la entrega del rango no está terminada (sin
+     devoluciones todavía sale ~100 %): se compara con la de 90 días. */
+  const efComparar = p.en_camino > 0 ? p.efectividad_usada : ped.efectividad;
+  const equilibrioOk = k.punto_equilibrio != null && efComparar != null && efComparar >= k.punto_equilibrio;
 
   return (
     <div className={`space-y-5 ${cargando ? "opacity-60 transition-opacity" : ""}`}>
@@ -414,8 +453,10 @@ export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
               todo el periodo ya se cerró · {fmtNum(ped.entregadas)} entregados · margen neto {fmtPct(k.margen_neto)}
             </p>
           )}
-          {p.en_camino > 0 && (
+          {p.en_camino > 0 ? (
             <Simulador valor={s} onChange={setSim} real={p.efectividad_usada} equilibrio={vista.equilibrio} />
+          ) : (
+            ped.efectividad != null && <Simulador valor={ped.efectividad / 100} onChange={() => {}} bloqueado />
           )}
         </div>
 
@@ -437,7 +478,9 @@ export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
             sub={
               k.punto_equilibrio == null
                 ? "aún no hay pedidos cerrados"
-                : `de entrega para no perder · tú vas en ${fmtPct(ped.efectividad, 0)}`
+                : p.en_camino > 0
+                  ? `de entrega para no perder · tu efectividad (90 días): ${fmtPct(efComparar, 0)} · entregados hasta hoy ${fmtNum(ped.entregadas)} de ${fmtNum(ped.entregadas + ped.devoluciones + p.en_camino)}`
+                  : `de entrega para no perder · tu entrega final: ${fmtPct(efComparar, 0)}`
             }
             tono={k.punto_equilibrio == null ? "text-slate-900" : equilibrioOk ? "text-emerald-600" : "text-rose-600"}
             title="Con tu ganancia media por entrega, el flete medio de una devolución y tu publicidad: el % de entrega con el que el neto queda en 0."
@@ -552,7 +595,7 @@ export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
         <div>
           <div className="mb-2 flex items-baseline justify-between gap-2">
             <p className="text-[12px] font-bold text-slate-700">Cuánto te deja cada producto</p>
-            <p className="text-[10.5px] text-slate-400">antes de publicidad</p>
+            <p className="text-[10.5px] text-slate-400">la publicidad se resta en la tabla de anuncios</p>
           </div>
           <TablaProductos productos={vista.productos} />
         </div>
