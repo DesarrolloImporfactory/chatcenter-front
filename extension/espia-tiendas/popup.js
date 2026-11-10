@@ -3,9 +3,9 @@
   const cfg = await chrome.runtime.sendMessage({ tipo: 'config' });
   $('#hoy').textContent = cfg.enviadosHoy?.total || 0;
   // La pantalla vive en la web de IMPORCHAT, no en la API: se deduce del origen de la sesión.
-  const web = cfg.tokenOrigen && cfg.tokenOrigen !== 'manual' ? cfg.tokenOrigen : 'https://chatcenter.imporfactory.app';
+  const web = cfg.webOrigen || (cfg.tokenOrigen && !['manual', 'larga'].includes(cfg.tokenOrigen) ? cfg.tokenOrigen : 'https://chatcenter.imporfactory.app');
   $('#pantalla').href = `${web}/imporkiller`;
-  $('#origen').textContent = cfg.tokenOrigen ? `sesión tomada de ${cfg.tokenOrigen}` : 'abre IMPORCHAT en una pestaña para tomar la sesión';
+  $('#origen').textContent = cfg.tokenOrigen === 'larga' ? `sesión larga hasta el ${cfg.tokenVence ? new Date(cfg.tokenVence).toLocaleDateString() : '?'} (se renueva sola)` : cfg.tokenOrigen ? `sesión tomada de ${cfg.tokenOrigen}` : 'abre IMPORCHAT en una pestaña para tomar la sesión';
   $('#opciones').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
   // Herramientas sobre la pestaña activa (la tienda que el usuario tiene abierta).

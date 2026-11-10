@@ -34,6 +34,17 @@ export default function Hero({ pais, onPais, estado, cargando, error, onRecargar
   const [verCuentas, setVerCuentas] = useState(false);
 
   const u = estado?.ultima_pasada;
+  // Latido del Chrome que barre Meta (la Mac del radar); solo llega al super admin.
+  const re = superAdmin ? estado?.radar_equipo : null;
+  const textoRadar = (r) => {
+    const l = r.ultimo;
+    const hace = haceCuanto(l.creado_en);
+    if (l.estado === "corriendo") return `barriendo ${nombrePais(l.pais) || ""} ${fmtNum(l.hecho || 0)}/${fmtNum(l.total || 0)} · ${hace}`;
+    if (l.estado === "esperando") return `automático, esperando la próxima vuelta · ${hace}`;
+    if (l.estado === "descanso") return `descansando porque Meta no respondió · ${hace}`;
+    if (l.estado === "pausado") return `en pausa · ${hace}`;
+    return `detenido ${hace}`;
+  };
   const corriendo = !!estado?.corriendo || u?.estado === "corriendo" || u?.estado === "en_curso";
   const freno = estado?.freno_hasta ? new Date(estado.freno_hasta) : null;
   const frenado = !!(freno && freno.getTime() > Date.now());
@@ -225,6 +236,22 @@ export default function Hero({ pais, onPais, estado, cargando, error, onRecargar
             la última pasada completa y el cron a la izquierda; los botones de
             operar a la derecha. Antes iban en la cabecera, donde seis botones
             se apilaban en dos o tres filas debajo del selector de país. ── */}
+        {re?.alerta ? (
+          <Aviso tipo={re.alerta.tipo === "pausado" ? "warn" : "error"} className="mt-4">
+            <b>{re.alerta.tipo === "pausado" ? "El radar está en pausa y necesita a alguien en el equipo." : "El radar dejó de dar señales."}</b> {re.alerta.texto}
+            {re.alerta.tipo === "pausado" ? (
+              <>
+                {" "}Conecta el monitor (o entra por pantalla compartida), resuelve lo que pide Meta en la pestaña de la Biblioteca de anuncios y pulsa <b>Reanudar</b>.
+                {re.ultima_pausa ? <> En pausa desde {haceCuanto(re.ultima_pausa)}.</> : null}
+              </>
+            ) : null}
+            {Number(re.pausas_30d) > 0 ? (
+              <span className="mt-1 block text-[11px] opacity-80">
+                Meta pidió verificación {fmtNum(re.pausas_30d)} {Number(re.pausas_30d) === 1 ? "vez" : "veces"} en los últimos 30 días.
+              </span>
+            ) : null}
+          </Aviso>
+        ) : null}
         {superAdmin ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3">
             <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-slate-400">
@@ -258,6 +285,11 @@ export default function Hero({ pais, onPais, estado, cargando, error, onRecargar
               {frenado ? (
                 <span className="inline-flex items-center gap-1.5 text-amber-300">
                   <i className="bx bx-pause-circle" /> Frenado por Dropi hasta {fmtFecha(freno)}
+                </span>
+              ) : null}
+              {re?.ultimo ? (
+                <span className={`inline-flex items-center gap-1.5 ${re.alerta ? "text-amber-300" : ""}`} title={`${re.ultimo.equipo || "equipo desconocido"} · extensión ${re.ultimo.version || "?"}${Number(re.pausas_30d) > 0 ? ` · ${re.pausas_30d} verificaciones de Meta en 30 días` : ""}`}>
+                  <i className="bx bx-radar" style={re.alerta ? undefined : { color: TOKENS.verde }} /> Radar {textoRadar(re)}
                 </span>
               ) : null}
             </div>

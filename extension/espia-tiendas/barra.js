@@ -653,7 +653,43 @@
   const urlRadar = (pais, termino) =>
     `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=${pais}&q=${encodeURIComponent(termino)}&search_type=keyword_unordered&media_type=all`;
   const leerRadar = async () => (await chrome.storage.local.get('radar')).radar || null;
-  const guardarRadar = (radar) => chrome.storage.local.set({ radar });
+  const guardarRadar = async (radar) => {
+    await chrome.storage.local.set({ radar });
+    latir(radar).catch(() => {});
+  };
+  // Latido: le dice a IMPORCHAT cómo va el radar para que la portada (super admin) avise
+  // si quedó en pausa por una verificación de Meta o si dejó de dar señales (equipo
+  // apagado, Chrome cerrado). Se manda cuando cambia el estado y, si no, cada 10 min;
+  // «detenido» se manda una sola vez. La barra se recarga con cada producto, así que el
+  // control de «cuándo fue el último» vive en chrome.storage y no en esta pestaña.
+  const LATIDO_CADA_MS = 10 * 60 * 1000;
+  async function latir(radar) {
+    if (!radar) return;
+    const ahora = Date.now();
+    const esperandoAuto = radar.activo && radar.auto && !radar.cola?.[radar.idx] && radar.auto.siguienteEn > ahora;
+    const estado = !radar.activo ? 'detenido'
+      : radar.pausado ? 'pausado'
+      : radar.descansoHasta > ahora ? 'descanso'
+      : esperandoAuto ? 'esperando'
+      : 'corriendo';
+    const motivo = String(radar.error || '').slice(0, 250);
+    const firma = `${estado}|${radar.pais || ''}|${motivo}`;
+    const { radarLatido: previo } = await chrome.storage.local.get('radarLatido');
+    const cambio = !previo || previo.firma !== firma;
+    if (!cambio && (estado === 'detenido' || ahora - (previo.en || 0) < LATIDO_CADA_MS)) return;
+    await chrome.storage.local.set({ radarLatido: { firma, en: ahora } });
+    const r = await mensaje('radarLatido', {
+      body: {
+        estado, cambio, motivo, pais: radar.pais || null,
+        hecho: Math.min(radar.idx || 0, radar.cola?.length || 0), total: radar.cola?.length || 0, anuncios: radar.anuncios || 0,
+        auto: Boolean(radar.auto), version: chrome.runtime.getManifest().version,
+        equipo: `${navigator.userAgentData?.platform || navigator.platform || '?'} · Chrome`,
+      },
+    });
+    // Si IMPORCHAT no lo recibió, que el próximo intento no espere 10 min.
+    if (!r?.ok) await chrome.storage.local.set({ radarLatido: { firma: '', en: 0 } });
+  }
+  setInterval(() => leerRadar().then((r) => latir(r)).catch(() => {}), LATIDO_CADA_MS);
 
   const radarPanel = el('div', { id: 'ei-radarpanel' });
   document.body.appendChild(radarPanel);
