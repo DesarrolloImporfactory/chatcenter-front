@@ -326,6 +326,31 @@
     #ei-toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:2147483001;background:#132b4d;color:#fff;border:1px solid #00d4ff;border-radius:10px;padding:10px 14px;font:13px system-ui,sans-serif;display:none;gap:10px;align-items:center;max-width:90vw}
     #ei-toast button{border:0;border-radius:6px;padding:4px 10px;background:#ff8c8c;color:#3a0000;font-weight:700;cursor:pointer}
     body{padding-bottom:64px !important}
+    /* Marca, país y formato (siempre a la vista) */
+    #ei-barra .ei-marca{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:800;letter-spacing:.01em;white-space:nowrap}
+    #ei-barra .ei-marca i{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#00d4ff,#38bdf8);color:#0b1f3a;font:800 12px/1 system-ui,sans-serif;font-style:normal}
+    #ei-barra .ei-marca b{color:#00d4ff}
+    #ei-barra select.ei-pildora{border-radius:999px;padding:6px 12px;background:#132b4d;border:1px solid #2a4d7d;font-weight:600;max-width:190px}
+    /* Qué se ve según la sesión: invitado (sin sesión), sinaddon, ok */
+    #ei-barra .ei-uso,#ei-barra .ei-invitado{display:contents}
+    #ei-barra[data-modo="cargando"] .ei-uso,#ei-barra[data-modo="cargando"] .ei-invitado,
+    #ei-barra[data-modo="invitado"] .ei-uso,#ei-barra[data-modo="sinaddon"] .ei-uso,
+    #ei-barra[data-modo="ok"] .ei-invitado{display:none}
+    #ei-barra .ei-candado{display:inline-flex;align-items:center;gap:6px;border:1px solid #2a4d7d;border-radius:999px;padding:6px 12px;background:#0f2748;color:#9fb7d6;font-weight:600;cursor:pointer;white-space:nowrap}
+    #ei-barra .ei-candado:hover{border-color:#00d4ff;color:#fff}
+    #ei-barra .ei-candado svg{width:13px;height:13px;flex:none;fill:currentColor;opacity:.85}
+    #ei-barra .ei-gancho{flex:1 1 200px;min-width:140px;color:#cfe8ff;font-size:12px}
+    #ei-barra a.ei-cta{margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:9px 18px;background:#00d4ff;color:#0b1f3a;font-weight:800;text-decoration:none;white-space:nowrap;box-shadow:0 6px 18px rgba(0,212,255,.35)}
+    #ei-barra a.ei-cta:hover{background:#5ee3ff}
+    #ei-barra button.ei-oculto{display:none}
+    #ei-ajustes{position:fixed;right:14px;bottom:64px;z-index:2147483002;width:340px;display:none;flex-direction:column;gap:12px;background:#0b1f3a;color:#fff;border:1px solid #1f3f6b;border-radius:12px;box-shadow:0 -8px 30px rgba(0,0,0,.45);font:13px/1.35 system-ui,sans-serif;padding:14px}
+    #ei-ajustes.ei-abierto{display:flex}
+    #ei-ajustes h4{margin:0;font-size:14px;color:#00d4ff}
+    #ei-ajustes .ei-op{display:flex;flex-direction:column;gap:3px}
+    #ei-ajustes .ei-op small{color:#9fb7d6;font-size:11.5px}
+    #ei-ajustes label.ei-sw{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:700}
+    #ei-ajustes input[type=number]{width:90px;background:#132b4d;color:#fff;border:1px solid #1f3f6b;border-radius:6px;padding:5px 8px;font:inherit}
+    #ei-ajustes a{color:#00d4ff;font-weight:700;text-decoration:none}
   `;
   document.documentElement.appendChild(estilo);
 
@@ -344,35 +369,94 @@
   };
   const sw = (id, texto, checked) => el('label', { class: 'ei-sw' }, [el('input', { type: 'checkbox', id, ...(checked ? { checked: '' } : {}) }), texto]);
 
-  const ui = {
-    titulo: el('b', { text: 'ImporKiller' }),
-    total: el('span', { id: 'ei-total', text: '0 anuncios · 0 productos' }),
-    prod: el('button', { id: 'ei-prod', class: 'ei-prodbtn', text: 'Productos (0)', title: 'Elegir un producto para bajar sus anuncios' }),
-    tope: el('input', { type: 'number', id: 'ei-tope', min: '10', max: '10000', step: '10', title: 'Tope de anuncios a cargar' }),
-    cargar: el('button', { id: 'ei-cargar', text: 'Cargar más' }),
-    soloNuevos: sw('ei-nuevos', 'Solo nuevos', false),
-    orden: el('select', { id: 'ei-orden' }, [
-      el('option', { value: 'ninguno', text: 'Orden de Meta' }),
-      el('option', { value: 'activos', text: 'Más activos' }),
-      el('option', { value: 'nuevos', text: 'Más nuevos' }),
-    ]),
-    bajar: el('button', { id: 'ei-bajar', class: 'ei-acento', text: 'Bajar anuncios' }),
-    enviar: el('button', { id: 'ei-enviar', text: 'Enviar a IMPORCHAT' }),
-    envioAuto: sw('ei-auto', 'Envío automático', true),
-    liviano: sw('ei-liviano', 'Modo liviano', false),
-    radar: el('button', { id: 'ei-radar', class: 'ei-radar', text: 'Radar', title: 'Buscar en Meta, uno por uno, los productos de Dropi que más venden y guardar sus anuncios en IMPORCHAT' }),
-    msg: el('span', { id: 'ei-msg' }),
-    sesion: el('span', { class: 'ei-sesion', text: 'sin sesión' }),
+  // La barra tiene tres caras según la sesión (barra.dataset.modo):
+  //   invitado  → sin sesión de IMPORCHAT: marca, país, formato, lo que se desbloquea y «Iniciar sesión».
+  //   sinaddon  → con sesión pero sin el complemento: lo mismo, con «Activar ImporKiller».
+  //   ok        → todo: productos, descargar, cargar más, solo nuevos, orden y guardar.
+  // Lo técnico (tope, guardado automático, modo liviano) vive en «Ajustes»; el Radar solo
+  // lo ve el super administrador (o cualquiera que ya tenga un barrido en curso).
+  const PAISES_META = [['ALL', 'Todos los países'], ['EC', 'Ecuador'], ['MX', 'México'], ['CO', 'Colombia'], ['PE', 'Perú'], ['CL', 'Chile'], ['AR', 'Argentina'], ['PA', 'Panamá'], ['CR', 'Costa Rica'], ['GT', 'Guatemala'], ['PY', 'Paraguay'], ['VE', 'Venezuela']];
+  const FORMATOS_META = [['all', 'Todos los formatos'], ['video', 'Solo videos'], ['image', 'Solo imágenes']];
+  // Candado dibujado (sin emojis ni fuentes de íconos: en la página de Meta no hay ninguna cargada).
+  const candado = () => {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', 'M17 9V7A5 5 0 0 0 7 7v2H5v13h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z');
+    svg.appendChild(p);
+    return svg;
   };
+  const bloqueado = (texto, title) => el('span', { class: 'ei-candado', title, role: 'button' }, [candado(), texto]);
+
+  const ui = {
+    titulo: el('span', { class: 'ei-marca' }, [el('i', { text: 'IK' }), el('span', {}, ['Impor', el('b', { text: 'Killer' })])]),
+    pais: el('select', { id: 'ei-pais', class: 'ei-pildora', title: 'País de los anuncios' }, PAISES_META.map(([v, t]) => el('option', { value: v, text: t }))),
+    formato: el('select', { id: 'ei-formato', class: 'ei-pildora', title: 'Formato de los anuncios' }, FORMATOS_META.map(([v, t]) => el('option', { value: v, text: t }))),
+    total: el('span', { id: 'ei-total', text: '0 anuncios · 0 productos' }),
+    prod: el('button', { id: 'ei-prod', class: 'ei-prodbtn', text: 'Productos (0)', title: 'Los anuncios de esta búsqueda agrupados por producto. Elige uno para descargar sus anuncios.' }),
+    tope: el('input', { type: 'number', id: 'ei-tope', min: '10', max: '10000', step: '10' }),
+    cargar: el('button', { id: 'ei-cargar', text: 'Cargar más', title: 'Baja por la página para traer más anuncios de esta búsqueda' }),
+    soloNuevos: sw('ei-nuevos', 'Solo nuevos', false),
+    orden: el('select', { id: 'ei-orden', title: 'Orden de los anuncios en la página' }, [
+      el('option', { value: 'ninguno', text: 'Orden de Meta' }),
+      el('option', { value: 'activos', text: 'Más días activo' }),
+      el('option', { value: 'nuevos', text: 'Más recientes' }),
+    ]),
+    bajar: el('button', { id: 'ei-bajar', class: 'ei-acento', text: 'Descargar anuncios', title: 'Descarga los videos e imágenes del producto elegido' }),
+    enviar: el('button', { id: 'ei-enviar', text: 'Guardar en ImporKiller', title: 'Guarda estos anuncios en tu ImporKiller para verlos después en la pestaña Anuncios' }),
+    envioAuto: sw('ei-auto', 'Guardar automáticamente', true),
+    liviano: sw('ei-liviano', 'Modo liviano', false),
+    ajustes: el('button', { id: 'ei-ajustesbtn', text: 'Ajustes', title: 'Ajustes de la extensión' }),
+    radar: el('button', { id: 'ei-radar', class: 'ei-radar ei-oculto', text: 'Radar', title: 'Buscar en Meta, uno por uno, los productos de Dropi que más venden y guardar sus anuncios en IMPORCHAT' }),
+    msg: el('span', { id: 'ei-msg' }),
+    sesion: el('span', { class: 'ei-sesion', text: '' }),
+    gancho: el('span', { class: 'ei-gancho', text: 'Inicia sesión para ver cuántos días lleva activo cada anuncio y descargar sus creativos.' }),
+    cta: el('a', { class: 'ei-cta', href: 'https://chatcenter.imporfactory.app/imporkiller', target: '_blank', rel: 'noopener', text: 'Iniciar sesión' }),
+  };
+  const candados = [
+    bloqueado('Descargar creativos', 'Descarga los videos e imágenes de cada producto'),
+    bloqueado('Agrupar por producto', 'Los anuncios de la búsqueda agrupados por producto'),
+    bloqueado('Solo nuevos', 'Muestra solo los anuncios que no habías visto'),
+  ];
+  for (const c of candados) c.addEventListener('click', () => window.open(ui.cta.href, '_blank', 'noopener'));
+  barra.dataset.modo = 'cargando';
   barra.append(
-    ui.titulo, ui.total, el('span', { class: 'ei-sep' }),
-    ui.prod, ui.bajar, el('span', { class: 'ei-sep' }),
-    el('span', { text: 'Tope' }), ui.tope, ui.cargar, el('span', { class: 'ei-sep' }),
-    ui.soloNuevos, ui.orden, el('span', { class: 'ei-sep' }),
-    ui.enviar, ui.envioAuto, ui.liviano, el('span', { class: 'ei-sep' }),
-    ui.radar, ui.msg, ui.sesion,
+    ui.titulo, ui.pais, ui.formato,
+    el('span', { class: 'ei-uso' }, [
+      el('span', { class: 'ei-sep' }), ui.total, el('span', { class: 'ei-sep' }),
+      ui.prod, ui.bajar, ui.cargar, el('span', { class: 'ei-sep' }),
+      ui.soloNuevos, ui.orden, el('span', { class: 'ei-sep' }),
+      ui.enviar, ui.ajustes, ui.radar, ui.msg, ui.sesion,
+    ]),
+    el('span', { class: 'ei-invitado' }, [el('span', { class: 'ei-sep' }), ...candados, ui.gancho, ui.cta]),
   );
   document.body.appendChild(barra);
+
+  // País y formato: cambian la búsqueda de Meta (misma página, otros parámetros).
+  const paramMeta = (k, v) => { const u = new URL(location.href); u.searchParams.set(k, v); location.assign(u.toString()); };
+  const sincronizarSelectores = () => {
+    const p = new URLSearchParams(location.search);
+    const pais = (p.get('country') || 'ALL').toUpperCase();
+    ui.pais.value = PAISES_META.some(([v]) => v === pais) ? pais : 'ALL';
+    const f = p.get('media_type') || 'all';
+    ui.formato.value = FORMATOS_META.some(([v]) => v === f) ? f : 'all';
+  };
+  sincronizarSelectores();
+  ui.pais.addEventListener('change', () => paramMeta('country', ui.pais.value));
+  ui.formato.addEventListener('change', () => paramMeta('media_type', ui.formato.value));
+
+  // Ajustes: lo que casi nadie necesita tocar, explicado en una línea.
+  const ajustesPanel = el('div', { id: 'ei-ajustes' }, [
+    el('h4', { text: 'Ajustes' }),
+    el('div', { class: 'ei-op' }, [ui.envioAuto, el('small', { text: 'Al usar «Cargar más», los anuncios se guardan solos en tu ImporKiller.' })]),
+    el('div', { class: 'ei-op' }, [el('label', { class: 'ei-sw' }, ['Anuncios por carga ', ui.tope]), el('small', { text: 'Hasta cuántos anuncios trae «Cargar más» de una búsqueda.' })]),
+    el('div', { class: 'ei-op' }, [ui.liviano, el('small', { text: 'Para búsquedas de más de 500 anuncios: evita que la página se ponga lenta.' })]),
+    el('a', { id: 'ei-abrirweb', href: 'https://chatcenter.imporfactory.app/imporkiller', target: '_blank', rel: 'noopener', text: 'Abrir ImporKiller ›' }),
+  ]);
+  document.body.appendChild(ajustesPanel);
+  ui.ajustes.addEventListener('click', () => ajustesPanel.classList.toggle('ei-abierto'));
+  document.addEventListener('click', (e) => { if (!ajustesPanel.contains(e.target) && e.target !== ui.ajustes) ajustesPanel.classList.remove('ei-abierto'); });
 
   // Desplegable de productos: buscador, miniatura, conteo y bajar de un clic (como AdGrab).
   let productoSel = '';
@@ -443,26 +527,45 @@
   chrome.storage.local.get('vistosLocal').then(({ vistosLocal: lista = [] }) => { for (const id of lista) vistosLocal.add(String(id)); pintar(); });
 
   // ───────────────────────── Sesión con IMPORCHAT ─────────────────────────
-  let avisadoAddon = false;
+  let modo = 'cargando'; // 'invitado' | 'sinaddon' | 'ok' (ver la nota sobre barra.dataset.modo)
   async function comprobarSesion() {
     const r = await mensaje('ping');
     sesion = r.ok ? r.data : null;
     const sinAddon = Boolean(sesion?.ok && sesion.addon && !sesion.addon.activo);
+    // Un barrido del radar en curso manda: ese equipo es de operación y debe seguir viendo
+    // toda la barra (y el motivo del fallo) aunque la sesión se caiga un rato.
+    const radar = await leerRadar().catch(() => null);
+    const operando = Boolean(radar?.activo);
+    const web = sesion?.web || (await mensaje('config'))?.webOrigen || 'https://chatcenter.imporfactory.app';
+    modo = sesion?.ok && !sinAddon ? 'ok' : operando ? 'ok' : sinAddon ? 'sinaddon' : 'invitado';
+    barra.dataset.modo = modo;
+    ui.radar.classList.toggle('ei-oculto', !(sesion?.acceso?.super_admin || operando));
+    $('#ei-abrirweb', ajustesPanel).href = `${web}/imporkiller`;
+    if (modo === 'sinaddon') {
+      // Hay sesión, pero la cuenta no tiene el complemento: se ofrece activarlo.
+      const precio = sesion.addon.precio || 10;
+      ui.gancho.textContent = `Hola${sesion.usuario?.nombre ? `, ${sesion.usuario.nombre}` : ''}. Activa ImporKiller para ver los días activos de cada anuncio, agruparlos por producto y descargar sus creativos.`;
+      ui.cta.textContent = `Activar ImporKiller · $${precio}/mes`;
+      ui.cta.href = `${web}/complementos`;
+    } else if (modo === 'invitado') {
+      ui.gancho.textContent = 'Inicia sesión en ImporChat para ver cuántos días lleva activo cada anuncio, agruparlos por producto y descargar sus creativos.';
+      ui.cta.textContent = 'Iniciar sesión';
+      ui.cta.href = `${web}/imporkiller`;
+    }
     ui.sesion.textContent = sesion?.ok
-      ? `IMPORCHAT: ${sesion.usuario?.nombre || 'conectado'}${sinAddon ? ' · sin complemento' : ''}`
+      ? `Conectado: ${sesion.usuario?.nombre || 'ImporChat'}${sinAddon ? ' · sin complemento' : ''}`
       : `IMPORCHAT: ${r.message || 'sin sesión'}`;
     ui.sesion.title = sesion?.ok
-      ? (sinAddon ? 'Tu cuenta no tiene el complemento ImporKiller: enviar anuncios y el radar están bloqueados' : '')
-      : 'Abre IMPORCHAT en otra pestaña o pega el token en las opciones de la extensión';
-    if (sinAddon && !avisadoAddon) {
-      // Hay sesión, pero la cuenta no compró el complemento: se dice una vez y
-      // cada envío devuelve el mismo mensaje del backend (ADDON_REQUIRED).
-      avisadoAddon = true;
-      decir(`Enviar anuncios a IMPORCHAT y el radar son parte del complemento ImporKiller ($${sesion.addon.precio || 10}/mes). Actívalo en ${sesion.web || 'IMPORCHAT'}/complementos`, 'err');
-    }
+      ? (sinAddon ? 'Tu cuenta no tiene el complemento ImporKiller' : '')
+      : 'Abre IMPORCHAT en otra pestaña e inicia sesión';
+    pintarCabeceras();
     return Boolean(sesion?.ok);
   }
   comprobarSesion();
+  // Al iniciar (o cerrar) sesión en la pestaña de ImporChat, la barra se entera sola.
+  chrome.storage.onChanged.addListener((cambios, area) => {
+    if (area === 'local' && cambios.token) comprobarSesion();
+  });
 
   // ───────────────────────── Pintar ─────────────────────────
   function pintarCabeceras() {
@@ -479,9 +582,10 @@
       if (t.dias !== null) head.appendChild(el('span', { class: 'ei-chip ei-dias', text: `${t.dias} d`, title: `En circulación desde ${iso(t.inicio)}` }));
       if (t.url_destino) head.appendChild(el('a', { class: 'ei-abrir', href: t.url_destino, target: '_blank', rel: 'noopener noreferrer', text: 'ABRIR', title: t.url_destino }));
       if (t.dominio) head.appendChild(el('a', { class: 'ei-abrir', href: urlAnunciosDominio(t.dominio), target: '_blank', rel: 'noopener noreferrer', text: 'Tienda', title: `Todos los anuncios de ${t.dominio} en la Biblioteca` }));
-      head.appendChild(el('button', { class: 'ei-btn', text: bajados.has(t.id) ? 'Bajado' : 'Bajar', title: 'Bajar este anuncio', onclick: () => bajarUno(t) }));
+      // Descargar y seguir son de quien tiene sesión con el complemento; sin él queda lo informativo.
+      if (modo === 'ok') head.appendChild(el('button', { class: 'ei-btn', text: bajados.has(t.id) ? 'Descargado' : 'Descargar', title: 'Descargar este anuncio', onclick: () => bajarUno(t) }));
       head.appendChild(el('button', { class: 'ei-btn', text: 'Copiar', title: 'Copiar el texto del anuncio', onclick: (e) => copiarTexto(t, e.currentTarget) }));
-      if (t.dominio) head.appendChild(el('button', { class: `ei-btn${seguidas.has(t.dominio) ? ' ei-on' : ''}`, text: seguidas.has(t.dominio) ? 'Siguiendo' : 'Seguir', title: `Seguir ${t.dominio} en IMPORCHAT`, onclick: (e) => seguirTienda(t, e.currentTarget) }));
+      if (t.dominio && modo === 'ok') head.appendChild(el('button', { class: `ei-btn${seguidas.has(t.dominio) ? ' ei-on' : ''}`, text: seguidas.has(t.dominio) ? 'Siguiendo' : 'Seguir', title: `Seguir ${t.dominio} en IMPORCHAT`, onclick: (e) => seguirTienda(t, e.currentTarget) }));
       head.appendChild(el('span', { class: 'ei-chip', text: `${porProducto.get(t.producto) || 1} anuncios`, title: t.producto }));
       if (t.tienda_plataforma) head.appendChild(el('span', { class: `ei-chip ei-pl-${t.tienda_plataforma}`, text: PLATAFORMA_TXT[t.tienda_plataforma] || t.tienda_plataforma, title: 'A dónde manda el anuncio' }));
       if (t.tipo === 'video') head.appendChild(el('span', { class: 'ei-chip', text: media[t.id]?.hd ? 'video HD' : 'video' }));
@@ -548,7 +652,7 @@
   }
   setInterval(() => {
     const ahora = claveBusqueda();
-    if (ahora !== busquedaPrev) { busquedaPrev = ahora; cargando = false; reiniciar(); }
+    if (ahora !== busquedaPrev) { busquedaPrev = ahora; cargando = false; sincronizarSelectores(); reiniciar(); }
   }, 600);
 
   let timerPintar = null;
@@ -662,7 +766,7 @@
       mandados += lote.length;
     }
     ui.enviar.disabled = false;
-    decir(`IMPORCHAT recibió ${mandados} anuncios · ${nuevos} eran nuevos`, 'ok');
+    decir(`${mandados} anuncios guardados en ImporKiller · ${nuevos} eran nuevos`, 'ok');
     if (dominio) mensaje('tiendaVista', { body: { dominio, pais, anuncios_activos_vistos: tarjetas.size } });
     pintar();
     if (cfg.liviano && tarjetas.size > 500) aliviar();
