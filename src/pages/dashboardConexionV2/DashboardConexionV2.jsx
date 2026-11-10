@@ -366,7 +366,7 @@ function KpiHero({ icono, color, label, valor, sub, delta, invertir, puntos }) {
   );
 }
 
-function Hero({ titulo, etiqueta, valorNum, formato, delta, invertir, sub, serie, serieKey, serieNombre, serieDinero, kpis, cargando, nota }) {
+function Hero({ titulo, etiqueta, valorNum, formato, delta, invertir, sub, destacado, serie, serieKey, serieNombre, serieDinero, kpis, cargando, nota }) {
   const n = useCountUp(valorNum);
   return (
     <section
@@ -402,6 +402,14 @@ function Hero({ titulo, etiqueta, valorNum, formato, delta, invertir, sub, serie
             {!cargando && <Delta valor={delta} invertir={invertir} oscuro />}
           </div>
           <p className="mt-2 text-[13px] text-white/60">{sub}</p>
+          {destacado && !cargando && (
+            <div className="mt-3 inline-flex w-fit flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-white/[0.06] px-4 py-2.5 ring-1 ring-white/10">
+              <span className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/50">{destacado.label}</span>
+              <span className="dv2-num text-[24px] font-black leading-none text-emerald-300">{destacado.valor}</span>
+              <Delta valor={destacado.delta} oscuro puntos />
+              <span className="text-[11.5px] text-white/55">{destacado.sub}</span>
+            </div>
+          )}
           {nota && (
             <p className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-amber-300/90">
               <i className="bx bx-info-circle" /> {nota}
@@ -1454,6 +1462,17 @@ export default function DashboardConexionV2() {
         formato: (n) => fmt$(n),
         delta: deltaPct(v?.facturado, vp?.facturado),
         sub: `${fmtNum(v?.pedidosNeto || 0)} pedidos vivos · ${fmtNum(v?.entregadas || 0)} ya entregados · ${fmtNum(enCamino.n)} en camino`,
+        /* Efectividad de entrega del filtro (10-nov, Daniel): entregados sobre
+           los pedidos vivos del rango; lo que va en camino aún no cuenta. */
+        destacado: v?.pedidosNeto > 0 && {
+          label: "Efectividad de entrega",
+          valor: fmtPct(v.tasaEntregaReal),
+          delta: vp?.pedidosNeto ? Number(v.tasaEntregaReal || 0) - Number(vp.tasaEntregaReal || 0) : null,
+          sub:
+            enCamino.n > 0
+              ? `${fmtNum(v.entregadas || 0)} de ${fmtNum(v.pedidosNeto)} hasta hoy · sube a medida que se entregue lo que va en camino`
+              : `${fmtNum(v.entregadas || 0)} de ${fmtNum(v.pedidosNeto)} · periodo cerrado`,
+        },
         serie: serieDiaria,
         serieKey: "facturado",
         serieNombre: "Facturado",
