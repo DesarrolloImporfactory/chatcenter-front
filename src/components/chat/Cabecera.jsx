@@ -11,6 +11,7 @@ import { esImporblack } from "../imporsuit/imporblack";
 import ImporchatHeaderBadges from "../imporchat/ImporchatHeaderBadges";
 import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
+import { checkInboxStatus } from "../../utils/avisoReconexionInbox";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 import RemarketingSwitch from "./RemarketingSwitch";
 import ReiniciarIAModal from "./ReiniciarIAModal";
@@ -235,6 +236,9 @@ const Cabecera = ({
   useEffect(() => {
     checkOpenAIStatus();
     checkWhatsappStatus();
+    // /chat no pasa por MainLayout: sin esto, quien entra directo al chat
+    // no veía que Messenger/Instagram no pueden responder.
+    checkInboxStatus();
   }, []);
 
   const [openMenu, setOpenMenu] = useState(null);

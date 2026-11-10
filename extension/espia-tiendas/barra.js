@@ -608,26 +608,51 @@
     if (!pendientes.length) { decir('Nada nuevo que enviar', 'ok'); return { ok: true, mandados: 0 }; }
     ui.enviar.disabled = true;
     let nuevos = 0, mandados = 0;
-    for (let i = 0; i < pendientes.length; i += 200) {
-      const lote = pendientes.slice(i, i + 200);
-      const anuncios = lote.map((t) => ({
-        ad_archive_id: t.id,
-        pagina_id: t.pagina_id,
-        pagina_nombre: t.pagina_nombre,
-        dominio: t.dominio,
-        url_destino: t.url_destino,
-        producto: t.producto,
-        texto: t.texto,
-        titulo: t.titulo,
-        tipo: t.tipo,
-        media_url: media[t.id]?.hd || media[t.id]?.sd || t.sd || media[t.id]?.img || t.img || '',
-        imagen_url: media[t.id]?.img || t.img || media[t.id]?.imgChica || '',
-        inicio: iso(t.inicio),
-        n_duplicados: t.n_duplicados,
-        plataformas: t.plataformas,
-        tienda_plataforma: t.tienda_plataforma || null,
-      }));
-      decir(`enviando ${Math.min(i + 200, pendientes.length)}/${pendientes.length} a IMPORCHAT…`);
+    // Los lotes se cortan por cantidad Y por peso: el backend acepta cuerpos de hasta
+    // 100 KB y un producto con ~40 anuncios (enlaces de video largos, textos de 2.000
+    // caracteres) ya lo pasaba; el envío volvía «El cuerpo de la petición es demasiado
+    // grande» y el radar reintentaba el mismo producto. Se mide en bytes (tildes y
+    // emojis pesan más que un carácter) y se deja margen para el resto del cuerpo.
+    // Los campos que viajan son los mismos de siempre; solo cambia en cuántos envíos.
+    const aAnuncio = (t) => ({
+      ad_archive_id: t.id,
+      pagina_id: t.pagina_id,
+      pagina_nombre: t.pagina_nombre,
+      dominio: t.dominio,
+      url_destino: t.url_destino,
+      producto: t.producto,
+      texto: t.texto,
+      titulo: t.titulo,
+      tipo: t.tipo,
+      media_url: media[t.id]?.hd || media[t.id]?.sd || t.sd || media[t.id]?.img || t.img || '',
+      imagen_url: media[t.id]?.img || t.img || media[t.id]?.imgChica || '',
+      inicio: iso(t.inicio),
+      n_duplicados: t.n_duplicados,
+      plataformas: t.plataformas,
+      tienda_plataforma: t.tienda_plataforma || null,
+    });
+    const LOTE_MAX_ANUNCIOS = 200;
+    const LOTE_MAX_BYTES = 60000;
+    const codificador = new TextEncoder();
+    const lotes = [];
+    let loteActual = [], pesoActual = 0;
+    for (const t of pendientes) {
+      const anuncio = aAnuncio(t);
+      const peso = codificador.encode(JSON.stringify(anuncio)).length + 1;
+      if (loteActual.length && (loteActual.length >= LOTE_MAX_ANUNCIOS || pesoActual + peso > LOTE_MAX_BYTES)) {
+        lotes.push(loteActual);
+        loteActual = []; pesoActual = 0;
+      }
+      loteActual.push({ t, anuncio });
+      pesoActual += peso;
+    }
+    if (loteActual.length) lotes.push(loteActual);
+    let avance = 0;
+    for (const parte of lotes) {
+      const lote = parte.map((x) => x.t);
+      const anuncios = parte.map((x) => x.anuncio);
+      avance += lote.length;
+      decir(`enviando ${avance}/${pendientes.length} a IMPORCHAT…`);
       const r = await mensaje('enviarAnuncios', { body: { pais, dominio_buscado: dominio, fuente: radarId ? 'radar' : 'meta_ad_library', producto_radar: radarId || undefined, anuncios } });
       if (!r.ok) { decir(`No se pudo hablar con IMPORCHAT: ${r.message || 'error'}`, 'err'); ui.enviar.disabled = false; return { ok: false, message: r.message }; }
       for (const t of lote) enviados.add(t.id);
