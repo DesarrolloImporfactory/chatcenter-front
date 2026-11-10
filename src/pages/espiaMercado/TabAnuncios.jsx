@@ -2,16 +2,30 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { BarraHerramientas, usePorPagina } from "./componentes/BarraHerramientas";
 import EmptyGuia from "./componentes/EmptyGuia";
-import { Campo, Chip, Creativo, Esqueleto, EstadoLista, Etiqueta, EtiquetaPlataforma, PLATAFORMAS, Paginacion, btnChico, fmtDia, fmtNum, haceCuanto, input, tarjeta, urlMeta, useConsulta } from "./ui";
+import { BotonDescargar, Campo, Chip, Creativo, EstadoLista, Etiqueta, EtiquetaPlataforma, GrupoFiltro, LogoTienda, PLATAFORMAS, Paginacion, btnChico, fmtDia, fmtNum, haceCuanto, input, tarjeta, urlMeta, useConsulta } from "./ui";
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Pestaña Anuncios: lo que la extensión lee en la Biblioteca de Meta.
-   Grilla de tarjetas con creativo (video con play / imagen), días activos
-   como insignia grande, copias, tienda y producto. Vacío → guía.
+   Pestaña Anuncios: anuncios activos de la Biblioteca de Meta.
+   Arriba, tres grupos de filtros con título (tiempo activo, formato, dónde
+   vende); debajo buscador y orden; y la grilla de tarjetas con el creativo,
+   los días activo como insignia, quién pauta (con su logo) y las acciones:
+   ver en Meta, abrir la tienda y descargar el creativo. Vacío → guía.
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* Atajo del curso: anuncios de 7 a 50 días activos, vistos en los últimos 3. */
 export const ATAJO_ANUNCIOS = { min_dias: "7", max_dias: "50", visto_dias: "3" };
+
+/* Tiempo activo en palabras: cada opción pone los tres campos de días. */
+const SIN_DIAS = { min_dias: "", max_dias: "", visto_dias: "" };
+const TIEMPOS = [
+  { id: "todos", label: "Todos", f: SIN_DIAS },
+  { id: "ahora", label: "Funcionando ahora", icono: "bx-target-lock", nota: "Entre 7 y 50 días activos y vistos en los últimos 3 días: lo que está dando resultado hoy", f: ATAJO_ANUNCIOS },
+  { id: "nuevos", label: "Recién lanzados", icono: "bx-rocket", nota: "Menos de una semana activos: todavía en prueba", f: { ...SIN_DIAS, max_dias: "6" } },
+  { id: "mes", label: "Más de un mes", icono: "bx-check-shield", nota: "Más de 30 días activos: ya pasaron la prueba", f: { ...SIN_DIAS, min_dias: "30" } },
+  { id: "veteranos", label: "Más de 3 meses", icono: "bx-medal", nota: "Más de 90 días activos: nadie paga tres meses por un anuncio que no vende", f: { ...SIN_DIAS, min_dias: "90" } },
+];
+const CAMPOS_DIAS = ["min_dias", "max_dias", "visto_dias"];
+const tiempoPuesto = (filtros) => TIEMPOS.find((t) => CAMPOS_DIAS.every((k) => String(filtros[k] ?? "") === t.f[k]))?.id || "personalizado";
 
 const ORDENES = [
   { id: "dias", label: "Más días activo" },
@@ -28,23 +42,49 @@ function tonoDias(d) {
   return { bg: "bg-slate-200 text-slate-700", nota: "Menos de una semana" };
 }
 
-export function TarjetaAnuncio({ a, onVerTienda, compacta = false }) {
+/* Tarjeta de un anuncio. La usan la pestaña, el detalle de una tienda y la
+   ficha de producto (`compacta`; `insignia` = etiqueta extra junto al logo). */
+export function TarjetaAnuncio({ a, onVerTienda, compacta = false, insignia = null }) {
   const dias = tonoDias(a.dias_activo);
+  const tienda = a.url_destino || (a.dominio ? `https://${a.dominio}` : null);
   return (
     <motion.article
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={`${tarjeta} group flex flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-18px_rgba(11,20,38,0.45)]`}
     >
-      <div className={`relative ${compacta ? "h-40" : "h-60"} overflow-hidden bg-slate-900`}>
+      {/* Quién pauta: logo de la tienda, nombre de la página y dominio. */}
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <LogoTienda dominio={a.dominio} plataforma={a.tienda_plataforma} className="h-9 w-9" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-extrabold leading-tight text-slate-900" title={a.pagina_nombre}>
+            {a.pagina_nombre || a.dominio || "Página sin nombre"}
+          </p>
+          {a.dominio ? (
+            onVerTienda ? (
+              <button type="button" className="block max-w-full truncate text-[11.5px] font-semibold text-sky-700 hover:underline" onClick={() => onVerTienda(a.dominio)} title="Ver esta tienda y todos sus anuncios">
+                {a.dominio}
+              </button>
+            ) : (
+              <p className="truncate text-[11.5px] text-slate-500">{a.dominio}</p>
+            )
+          ) : (
+            <p className="truncate text-[11.5px] text-slate-400">Página de Facebook</p>
+          )}
+        </div>
+        {insignia}
+        {a.tienda_plataforma ? <EtiquetaPlataforma plataforma={a.tienda_plataforma} className="shrink-0" /> : null}
+      </div>
+
+      <div className={`relative ${compacta ? "h-44" : "h-64"} overflow-hidden bg-slate-900`}>
         <Creativo anuncio={a} />
         <div className="pointer-events-none absolute left-3 top-3 flex flex-col items-start gap-1.5">
           <span className={`inline-flex items-baseline gap-1 rounded-xl px-2.5 py-1 shadow-[0_10px_24px_-10px_rgba(0,0,0,0.8)] ${dias.bg}`} title={`${dias.nota}. En circulación desde ${fmtDia(a.inicio)}`}>
             <span className="text-lg font-extrabold leading-none tabular-nums">{fmtNum(a.dias_activo)}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide opacity-90">días</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide opacity-90">días activo</span>
           </span>
           {Number(a.n_duplicados) > 1 ? (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-amber-400 px-2 py-0.5 text-[11px] font-extrabold text-amber-950 shadow" title="Variantes del mismo anuncio que agrupó Meta">
+            <span className="inline-flex items-center gap-1 rounded-lg bg-amber-400 px-2 py-0.5 text-[11px] font-extrabold text-amber-950 shadow" title="Versiones del mismo anuncio corriendo a la vez: mientras más, más está invirtiendo">
               <i className="bx bx-copy" /> {fmtNum(a.n_duplicados)} copias
             </span>
           ) : null}
@@ -57,55 +97,49 @@ export function TarjetaAnuncio({ a, onVerTienda, compacta = false }) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 px-4 py-3 text-sm">
+      <div className="flex flex-1 flex-col gap-2 px-3.5 py-3 text-sm">
         {a.titulo ? <p className="line-clamp-1 font-extrabold text-slate-900">{a.titulo}</p> : null}
-        <p className={`${compacta ? "line-clamp-2" : "line-clamp-3"} text-xs leading-5 text-slate-600`} title={a.texto}>
-          {a.texto || "Sin texto"}
-        </p>
-        <div className="mt-auto space-y-1 pt-1 text-xs text-slate-500">
-          {a.tienda_plataforma ? (
-            <div className="flex flex-wrap gap-1 pb-0.5">
-              <EtiquetaPlataforma plataforma={a.tienda_plataforma} />
-            </div>
-          ) : null}
-          <p className="flex items-center gap-1.5 truncate" title={a.pagina_nombre}>
-            <i className="bx bxl-facebook-circle text-base text-[#1877F2]" /> <span className="truncate">{a.pagina_nombre || "Página sin nombre"}</span>
+        {a.texto ? (
+          <p className={`${compacta ? "line-clamp-2" : "line-clamp-3"} text-xs leading-5 text-slate-600`} title={a.texto}>
+            {a.texto}
           </p>
-          {a.dominio ? (
-            <button type="button" className="flex max-w-full items-center gap-1.5 truncate font-bold text-sky-700 hover:underline" onClick={() => onVerTienda && onVerTienda(a.dominio)} title="Ver la tienda">
-              <i className="bx bx-store text-base" /> <span className="truncate">{a.dominio}</span>
-            </button>
-          ) : null}
+        ) : null}
+        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[11px] text-slate-400">
           {a.producto ? (
-            <p className="flex items-center gap-1.5 truncate" title={a.producto}>
-              <i className="bx bx-package text-base" /> <span className="truncate">{a.producto}</span>
-            </p>
+            <span className="inline-flex min-w-0 max-w-full items-center gap-1 text-slate-500" title={a.producto}>
+              <i className="bx bx-package text-sm" /> <span className="truncate">{a.producto}</span>
+            </span>
           ) : null}
-          <p className="text-[11px] text-slate-400">Visto {haceCuanto(a.ultima_vez_visto)}</p>
+          <span className="inline-flex items-center gap-1">
+            <i className="bx bx-calendar text-sm" /> Desde {fmtDia(a.inicio)}
+          </span>
+          {a.ultima_vez_visto ? <span>Visto {haceCuanto(a.ultima_vez_visto)}</span> : null}
         </div>
         <div className="flex gap-2 pt-1">
-          <a href={urlMeta(a)} target="_blank" rel="noreferrer" className={`${btnChico} flex-1 bg-[#0B1426] text-white hover:bg-[#13244a]`}>
+          <a href={urlMeta(a)} target="_blank" rel="noreferrer" className={`${btnChico} ${compacta ? "" : "flex-1"} whitespace-nowrap bg-[#0B1426] text-white hover:bg-[#13244a]`}>
             <i className="bx bx-link-external" /> Ver en Meta
           </a>
-          {a.url_destino ? (
-            <a href={a.url_destino} target="_blank" rel="noreferrer" className={`${btnChico} flex-1 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`} title={a.url_destino}>
-              <i className="bx bx-shopping-bag" /> Abrir tienda
-            </a>
-          ) : a.dominio ? (
-            <a href={`https://${a.dominio}`} target="_blank" rel="noreferrer" className={`${btnChico} flex-1 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}>
-              <i className="bx bx-shopping-bag" /> Abrir tienda
+          {/* En la tarjeta compacta no caben tres botones con texto: la tienda va como ícono. */}
+          {tienda ? (
+            <a href={tienda} target="_blank" rel="noreferrer" className={`${btnChico} ${compacta ? "" : "flex-1"} whitespace-nowrap border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`} title={a.tienda_plataforma === "whatsapp" ? "Abrir el chat de WhatsApp" : `Abrir la tienda: ${tienda}`} aria-label="Abrir la tienda">
+              <i className={`bx ${a.tienda_plataforma === "whatsapp" ? "bxl-whatsapp" : "bx-shopping-bag"}`} /> {compacta ? null : a.tienda_plataforma === "whatsapp" ? "Abrir chat" : "Abrir tienda"}
             </a>
           ) : null}
+          <BotonDescargar anuncio={a} conTexto={compacta || !tienda} corto={compacta} className={compacta || !tienda ? "min-w-0 flex-1 whitespace-nowrap" : ""} />
         </div>
       </div>
     </motion.article>
   );
 }
 
+/* Columnas de la grilla: crece con la pantalla (hasta 6 en monitores anchos). */
+export const GRILLA_ANUNCIOS = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6";
+
 export default function TabAnuncios({ pais, filtros, setFiltros, onVerTienda }) {
   const page = Number(filtros.page) || 1;
   const [limit, setLimit] = usePorPagina(25);
-  const [mostrarFiltros, setMostrarFiltros] = useState(() => !!(filtros.min_dias || filtros.max_dias || filtros.visto_dias) && !["min_dias", "max_dias", "visto_dias"].every((k) => String(filtros[k] ?? "") === ATAJO_ANUNCIOS[k]));
+  const tiempo = tiempoPuesto(filtros);
+  const [mostrarFiltros, setMostrarFiltros] = useState(() => tiempo === "personalizado");
   const params = {
     pais,
     q: filtros.q || "",
@@ -122,42 +156,63 @@ export default function TabAnuncios({ pais, filtros, setFiltros, onVerTienda }) 
   const { data, cargando, error, recargar } = useConsulta("/espia/anuncios", params);
   const items = data?.items || [];
   const set = (cambios) => setFiltros({ ...filtros, ...cambios, page: cambios.page || 1 });
-  const atajoPuesto = ["min_dias", "max_dias", "visto_dias"].every((k) => String(filtros[k] ?? "") === ATAJO_ANUNCIOS[k]);
   const sinFiltros = !filtros.q && !filtros.dominio && !filtros.tipo && !filtros.plataforma && !filtros.min_dias && !filtros.max_dias && !filtros.visto_dias;
 
-  /* Sin filtros y sin nada en la base → guía de la extensión. Con el atajo
-     puesto y total 0, se consulta aparte si existe algo sin filtros para
-     distinguir «no hay nada» de «el atajo lo esconde». */
+  /* Sin filtros y sin nada en la base → guía de la extensión. Con filtros
+     puestos y total 0, se consulta aparte si existe algo sin filtros para
+     distinguir «no hay nada» de «los filtros lo esconden». */
   const sonda = useConsulta("/espia/anuncios", { pais, limit: 1 }, { activo: !cargando && !error && items.length === 0 && !sinFiltros });
   const baseVacia = !cargando && !error && items.length === 0 && (sinFiltros ? Number(data?.total) === 0 : sonda.data && Number(sonda.data.total) === 0);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Chip activo={atajoPuesto} title="7 a 50 días activos, vistos en los últimos 3 días: los que están funcionando ahora" onClick={() => set(atajoPuesto ? { min_dias: "", max_dias: "", visto_dias: "" } : ATAJO_ANUNCIOS)}>
-          <i className="bx bx-target-lock text-sm" /> Funcionando ahora (7–50 días)
-        </Chip>
-        <Chip activo={filtros.tipo === "video"} onClick={() => set({ tipo: filtros.tipo === "video" ? "" : "video" })}>
-          <i className="bx bx-movie-play text-sm" /> Solo video
-        </Chip>
-        <Chip activo={filtros.tipo === "imagen"} onClick={() => set({ tipo: filtros.tipo === "imagen" ? "" : "imagen" })}>
-          <i className="bx bx-image text-sm" /> Solo imagen
-        </Chip>
-        <span className="mx-1 hidden h-5 w-px bg-slate-200 sm:block" aria-hidden />
-        {PLATAFORMAS.map((p) => (
-          <Chip key={p.id} activo={filtros.plataforma === p.id} title={p.nota} onClick={() => set({ plataforma: filtros.plataforma === p.id ? "" : p.id })}>
-            <i className={`bx ${p.icono} text-sm`} /> {p.label}
+      {/* ── Filtros con nombre ── */}
+      <div className="grid gap-x-8 gap-y-4 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 lg:grid-cols-[minmax(0,1.5fr)_auto_minmax(0,1fr)]">
+        <GrupoFiltro titulo="Tiempo activo" icono="bx-time-five">
+          {TIEMPOS.map((t) => (
+            <Chip key={t.id} activo={tiempo === t.id} title={t.nota} onClick={() => set(t.f)}>
+              {t.icono ? <i className={`bx ${t.icono} text-sm`} /> : null} {t.label}
+            </Chip>
+          ))}
+          {tiempo === "personalizado" ? (
+            <Chip activo tono="emerald" title="Rango de días elegido a mano. Tócalo para ajustarlo." onClick={() => setMostrarFiltros(true)}>
+              <i className="bx bx-slider-alt text-sm" /> Rango propio
+            </Chip>
+          ) : null}
+        </GrupoFiltro>
+        <GrupoFiltro titulo="Formato" icono="bx-photo-album">
+          <Chip activo={!filtros.tipo} onClick={() => set({ tipo: "" })}>
+            Todos
           </Chip>
-        ))}
+          <Chip activo={filtros.tipo === "video"} onClick={() => set({ tipo: "video" })}>
+            <i className="bx bx-movie-play text-sm" /> Video
+          </Chip>
+          <Chip activo={filtros.tipo === "imagen"} onClick={() => set({ tipo: "imagen" })}>
+            <i className="bx bx-image text-sm" /> Imagen
+          </Chip>
+        </GrupoFiltro>
+        <GrupoFiltro titulo="Dónde vende" icono="bx-store-alt">
+          <Chip activo={!filtros.plataforma} onClick={() => set({ plataforma: "" })}>
+            Todos
+          </Chip>
+          {PLATAFORMAS.map((p) => (
+            <Chip key={p.id} activo={filtros.plataforma === p.id} title={p.nota} onClick={() => set({ plataforma: p.id })}>
+              <i className={`bx ${p.icono} text-sm`} /> {p.label}
+            </Chip>
+          ))}
+        </GrupoFiltro>
         {filtros.dominio ? (
-          <Chip activo tono="emerald" onClick={() => set({ dominio: "" })} title="Quitar el filtro de tienda">
-            <i className="bx bx-store" /> {filtros.dominio} <i className="bx bx-x" />
-          </Chip>
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3 text-xs text-slate-500 lg:col-span-3">
+            Solo anuncios de la tienda
+            <Chip activo tono="emerald" onClick={() => set({ dominio: "" })} title="Quitar el filtro de tienda">
+              <LogoTienda dominio={filtros.dominio} className="h-4 w-4" redondeo="rounded" /> {filtros.dominio} <i className="bx bx-x" />
+            </Chip>
+          </div>
         ) : null}
       </div>
 
       <BarraHerramientas
-        buscador={{ valor: filtros.q, onChange: (q) => set({ q }), placeholder: "Buscar en el texto, título, página o producto" }}
+        buscador={{ valor: filtros.q, onChange: (q) => set({ q }), placeholder: "Buscar por producto, texto del anuncio, página o tienda" }}
         orden={{ valor: params.orden, opciones: ORDENES, onChange: (orden) => set({ orden }) }}
         porPagina={{
           valor: limit,
@@ -166,22 +221,22 @@ export default function TabAnuncios({ pais, filtros, setFiltros, onVerTienda }) 
             set({ page: 1 });
           },
         }}
-        filtros={{ onToggle: () => setMostrarFiltros((v) => !v), contador: atajoPuesto ? 0 : ["min_dias", "max_dias", "visto_dias"].filter((k) => filtros[k]).length }}
+        filtros={{ etiqueta: "Rango de días", onToggle: () => setMostrarFiltros((v) => !v), contador: tiempo === "personalizado" ? CAMPOS_DIAS.filter((k) => filtros[k]).length : 0 }}
         panelAbierto={mostrarFiltros}
       >
         <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4">
-          <Campo label="Días activo mín.">
-            <input className={input} type="number" min="0" value={filtros.min_dias ?? ""} onChange={(e) => set({ min_dias: e.target.value })} />
+          <Campo label="Activo desde hace al menos (días)">
+            <input className={input} type="number" min="0" placeholder="Ej. 7" value={filtros.min_dias ?? ""} onChange={(e) => set({ min_dias: e.target.value })} />
           </Campo>
-          <Campo label="Días activo máx.">
-            <input className={input} type="number" min="0" value={filtros.max_dias ?? ""} onChange={(e) => set({ max_dias: e.target.value })} />
+          <Campo label="Activo desde hace máximo (días)">
+            <input className={input} type="number" min="0" placeholder="Ej. 50" value={filtros.max_dias ?? ""} onChange={(e) => set({ max_dias: e.target.value })} />
           </Campo>
-          <Campo label="Visto en últimos (días)">
-            <input className={input} type="number" min="1" value={filtros.visto_dias ?? ""} onChange={(e) => set({ visto_dias: e.target.value })} />
+          <Campo label="Visto en los últimos (días)">
+            <input className={input} type="number" min="1" placeholder="Ej. 3" value={filtros.visto_dias ?? ""} onChange={(e) => set({ visto_dias: e.target.value })} />
           </Campo>
           <div className="flex items-end">
-            <button type="button" className={`${btnChico} h-10 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`} onClick={() => set({ min_dias: "", max_dias: "", visto_dias: "" })} disabled={!filtros.min_dias && !filtros.max_dias && !filtros.visto_dias}>
-              <i className="bx bx-eraser" /> Limpiar días
+            <button type="button" className={`${btnChico} h-10 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`} onClick={() => set(SIN_DIAS)} disabled={!filtros.min_dias && !filtros.max_dias && !filtros.visto_dias}>
+              <i className="bx bx-eraser" /> Quitar rango
             </button>
           </div>
         </div>
@@ -195,9 +250,9 @@ export default function TabAnuncios({ pais, filtros, setFiltros, onVerTienda }) 
         vacio={!cargando && !error && items.length === 0}
         onReintentar={recargar}
         esqueleto={
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className={GRILLA_ANUNCIOS}>
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-[380px] animate-pulse rounded-2xl bg-gradient-to-b from-slate-100 to-slate-50" />
+              <div key={i} className="h-[430px] animate-pulse rounded-2xl bg-gradient-to-b from-slate-100 to-slate-50" />
             ))}
           </div>
         }
@@ -210,7 +265,7 @@ export default function TabAnuncios({ pais, filtros, setFiltros, onVerTienda }) 
                 <i className="bx bx-filter-alt" />
               </span>
               <h3 className="text-base font-extrabold text-slate-900">Ningún anuncio cumple con estos filtros</h3>
-              <p className="max-w-md text-sm leading-6 text-slate-500">Hay anuncios guardados, pero el atajo, la plataforma o la búsqueda los esconden. Prueba quitando el atajo, el dominio o ampliando los días.</p>
+              <p className="max-w-md text-sm leading-6 text-slate-500">Hay anuncios guardados, pero los filtros o la búsqueda los esconden. Prueba con «Todos» en tiempo activo o quita la tienda.</p>
               <button type="button" className={`${btnChico} bg-[#0B1426] text-white hover:bg-[#13244a]`} onClick={() => setFiltros({ orden: filtros.orden || "dias" })}>
                 <i className="bx bx-eraser" /> Quitar todos los filtros
               </button>
@@ -220,7 +275,7 @@ export default function TabAnuncios({ pais, filtros, setFiltros, onVerTienda }) 
       />
 
       {!cargando && !error && items.length ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={GRILLA_ANUNCIOS}>
           {items.map((a) => (
             <TarjetaAnuncio key={a.ad_archive_id} a={a} onVerTienda={onVerTienda} />
           ))}
@@ -229,8 +284,8 @@ export default function TabAnuncios({ pais, filtros, setFiltros, onVerTienda }) 
 
       {!cargando && !error && items.length ? <Paginacion page={page} limit={limit} total={data?.total} onPage={(p) => setFiltros({ ...filtros, page: p })} /> : null}
       {!cargando && !error && items.length ? (
-        <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
-          <Etiqueta tono="navy">90+</Etiqueta> veteranos · <Etiqueta tono="emerald">30+</Etiqueta> validados · <Etiqueta tono="sky">7+</Etiqueta> en prueba · días activos según la fecha de inicio que publica Meta.
+        <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+          Color de los días activo: <Etiqueta tono="navy">90+</Etiqueta> veteranos · <Etiqueta tono="emerald">30+</Etiqueta> validados · <Etiqueta tono="sky">7+</Etiqueta> en prueba. Se cuentan desde la fecha de inicio que publica Meta.
         </p>
       ) : null}
     </div>

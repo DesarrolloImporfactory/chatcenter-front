@@ -7,7 +7,7 @@ import TabProductos from "./TabProductos";
 import TabAnuncios from "./TabAnuncios";
 import TabTiendas from "./TabTiendas";
 import { BloqueoComplemento, EV_COMPLEMENTO, EV_EXTENSION, ModalComplemento, ModalExtension, accesoDe } from "./componentes/Complemento";
-import { EstadoLista, Modal, PAISES, btnSuave, fmtNum, haceCuanto, nombrePais, tarjeta, useConsulta, useCopiar } from "./ui";
+import { EstadoLista, Modal, PAISES, SelectorPais, btnSuave, fmtNum, haceCuanto, nombrePais, tarjeta, useConsulta, useCopiar } from "./ui";
 
 /**
  * /imporkiller — ImporKiller, el Dropkiller propio de GRUPO IMPOR.
@@ -162,7 +162,7 @@ function ReporteModal({ pais, acceso, onClose, onIr, onProducto }) {
               </ul>
             </section>
           ) : null}
-          <p className="text-[11px] text-slate-400">Ventas estimadas por la baja de stock en Dropi; un traslado o ajuste de inventario puede verse como venta.</p>
+          <p className="text-[11px] text-slate-400">Las ventas son estimadas a partir del inventario de cada proveedor en Dropi; los ajustes de inventario no se cuentan.</p>
         </div>
       ) : null}
     </Modal>
@@ -270,13 +270,18 @@ export default function EspiaMercadoView() {
   }));
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-5 p-3 sm:p-4 md:p-6">
-      <Hero pais={pais} onPais={cambiarPais} estado={estado.data} cargando={estado.cargando} error={estado.error} onRecargar={estado.recargar} onVerReporte={() => setVerReporte(true)} acceso={acceso} />
+    /* Ancho completo: antes había un tope de 1600 px y en pantallas grandes (o
+       al bajar el zoom) quedaban franjas vacías a los lados. */
+    <div className="w-full space-y-5 p-3 sm:p-4 md:p-6">
+      <Hero pais={pais} estado={estado.data} cargando={estado.cargando} error={estado.error} onRecargar={estado.recargar} onVerReporte={() => setVerReporte(true)} acceso={acceso} />
 
-      <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center justify-between gap-3 px-1 py-2 backdrop-blur-sm" style={{ background: "linear-gradient(180deg, rgba(243,244,246,0.95) 60%, rgba(243,244,246,0))" }}>
+      {/* Pestañas y país juntos, pegados arriba al bajar: el país filtra lo
+          que se ve en las tres pestañas, así que va con ellas y no en la cabecera. */}
+      <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-x-3 gap-y-2 px-1 py-2 backdrop-blur-sm" style={{ background: "linear-gradient(180deg, rgba(243,244,246,0.95) 60%, rgba(243,244,246,0))" }}>
         <Segmentos opciones={segmentos} valor={tab} onChange={cambiarTab} />
-        <p className="hidden text-xs text-slate-500 md:block">
-          {tab === "productos" ? "Ventas estimadas por baja de stock en Dropi. Toca una fila para ver el detalle." : tab === "anuncios" ? "Lo que la extensión leyó en la Biblioteca de anuncios de Meta." : "Dominios que pautan, con su tendencia diaria. Sigue los que te interesen."}
+        <SelectorPais pais={pais} onPais={cambiarPais} />
+        <p className="ml-auto hidden text-xs text-slate-500 lg:block">
+          {tab === "productos" ? "Los productos de Dropi con más ventas estimadas. Toca uno para ver su detalle." : tab === "anuncios" ? "Anuncios activos en Meta de los productos que más se venden." : "Tiendas que están pautando, con sus anuncios y productos."}
         </p>
       </div>
 

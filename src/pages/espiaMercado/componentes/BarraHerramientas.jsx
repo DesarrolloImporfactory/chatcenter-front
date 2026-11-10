@@ -68,7 +68,7 @@ export function BarraHerramientas({ buscador, orden, porPagina, filtros, extra, 
               panelAbierto || filtros.contador ? "border-[#0B1426] bg-[#0B1426] text-white shadow-[0_10px_24px_-10px_rgba(11,20,38,0.7)]" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
-            <i className="bx bx-slider-alt" /> Filtros
+            <i className="bx bx-slider-alt" /> {filtros.etiqueta || "Filtros"}
             {filtros.contador ? <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-sky-400 px-1 text-[11px] font-extrabold text-[#0B1426]">{filtros.contador}</span> : null}
             <i className={`bx ${panelAbierto ? "bx-chevron-up" : "bx-chevron-down"} text-base`} />
           </button>

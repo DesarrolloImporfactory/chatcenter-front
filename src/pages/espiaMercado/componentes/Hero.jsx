@@ -4,7 +4,7 @@ import chatApi from "../../../api/chatcenter";
 import KpiTile from "./KpiTile";
 import CuentasDropi from "./CuentasDropi";
 import { abrirComplemento, abrirExtension } from "./Complemento";
-import { ADDON_IMPORKILLER, Aviso, PAISES, TOKENS, btnBlanco, btnOscuro, fmtCorto, fmtDia, fmtFecha, fmtNum, haceCuanto, nombrePais, textoError } from "../ui";
+import { ADDON_IMPORKILLER, Aviso, TOKENS, btnBlanco, btnOscuro, fmtCorto, fmtDia, fmtFecha, fmtNum, haceCuanto, nombrePais, textoError } from "../ui";
 
 /* «YYYY-MM-DD» de hace n días en la hora local (las fechas del back vienen así). */
 const diaLocal = (haceDias = 0) => {
@@ -24,7 +24,7 @@ const diaLocal = (haceDias = 0) => {
 const ESTIMADO_CATALOGO = { EC: 47400, MX: 40000, CO: 60000, QA: 120 };
 const HORARIO = { EC: "02:15 y 12:15", MX: "02:52 y 12:52", CO: "04:05 y 14:05" };
 
-export default function Hero({ pais, onPais, estado, cargando, error, onRecargar, onVerReporte, acceso }) {
+export default function Hero({ pais, estado, cargando, error, onRecargar, onVerReporte, acceso }) {
   const superAdmin = !!acceso?.superAdmin;
   const conAddon = !!acceso?.addon;
   const ud = estado?.ventas_ultimo_dia || null;
@@ -113,27 +113,12 @@ export default function Hero({ pais, onPais, estado, cargando, error, onRecargar
               </span>
             </h1>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-slate-300">
-              Qué se está vendiendo en Dropi, qué anuncios llevan semanas activos y qué tiendas están pautando en {nombrePais(pais)}. Ventas estimadas por la baja de stock entre dos fotos diarias del catálogo.
+              Qué se está vendiendo en Dropi, qué anuncios llevan semanas activos y qué tiendas están pautando en {nombrePais(pais)}.
             </p>
           </div>
 
+          {/* El país se elige abajo, junto a las pestañas (SelectorPais). */}
           <div className="flex flex-col items-end gap-3">
-            {/* Once países de Dropi: un desplegable en vez de la fila de botones. */}
-            <label className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] py-2 pl-3 pr-2 backdrop-blur">
-              <span className="text-base leading-none">{PAISES.find((p) => p.code === pais)?.bandera}</span>
-              <select
-                aria-label="País"
-                value={pais}
-                onChange={(e) => onPais(e.target.value)}
-                className="cursor-pointer bg-transparent pr-1 text-sm font-bold text-white outline-none [&>option]:text-[#0B1426]"
-              >
-                {PAISES.map((p) => (
-                  <option key={p.code} value={p.code}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" className={btnOscuro} onClick={onRecargar} title="Refrescar estado" aria-label="Refrescar estado">
                 <i className={`bx bx-refresh ${cargando ? "animate-spin" : ""}`} />
@@ -207,7 +192,7 @@ export default function Hero({ pais, onPais, estado, cargando, error, onRecargar
             <KpiTile
               label={ud && ud.fecha === diaLocal(1) ? "Ventas estimadas ayer" : "Ventas del último día"}
               valor={ud ? fmtCorto(ud.unidades) : "—"}
-              sub={ud ? `unidades en ${nombrePais(pais)} el ${fmtDia(ud.fecha)}${Number(estado?.ventas_hoy) > 0 ? ` · hoy van ${fmtCorto(estado.ventas_hoy)}` : ""}` : "aparece con la segunda foto del catálogo"}
+              sub={ud ? `unidades en ${nombrePais(pais)} el ${fmtDia(ud.fecha)}${Number(estado?.ventas_hoy) > 0 ? ` · hoy van ${fmtCorto(estado.ventas_hoy)}` : ""}` : "disponible desde mañana"}
               icono="bx-cart-download"
               tono="verde"
               cargando={cargando}
@@ -376,20 +361,38 @@ export default function Hero({ pais, onPais, estado, cargando, error, onRecargar
           {comoFunciona ? (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
               <div className="mt-3 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-[12.5px] leading-5 text-slate-300 md:grid-cols-4">
-                <Explica icono="bx-camera" titulo="Dos fotos al día">
-                  {superAdmin
-                    ? "El recolector lee el catálogo completo de Dropi de madrugada y al mediodía con las cuentas de Dropi registradas en «Cuentas de mapeo» (si hay varias, se turnan), respetando el límite de Dropi."
-                    : "ImporChat lee el catálogo público completo de Dropi de madrugada y al mediodía, respetando el límite de Dropi. No usa tu cuenta ni tus datos."}
-                </Explica>
-                <Explica icono="bx-trending-down" titulo="Ventas por baja de stock">
-                  Si una bodega pasa de 120 a 97 unidades entre fotos, contamos 23 ventas ese día. Un reabastecimiento sube el stock y no resta ventas; un traslado puede verse como venta.
-                </Explica>
-                <Explica icono="bxl-chrome" titulo="Extensión, anuncios y tiendas">
-                  Con el complemento ImporKiller (${ADDON_IMPORKILLER.precio}/mes) la extensión de Chrome pinta las ventas estimadas debajo de cada producto en Dropi y manda a ImporChat lo que analizas en la Biblioteca de anuncios de Meta. Un anuncio sin ver en 60 días pasa a inactivo.
-                </Explica>
-                <Explica icono="bx-target-lock" titulo="Atajos">
-                  <b>Sin escalar</b>: 7 d entre 10 y 120, 30 d entre 120 y 500, stock ≥ 80. <b>Nuevos con tracción</b>: creado hace ≤ 90 días, 100–2.000 totales, ≤ 5 reabastecimientos. Necesitan semanas de fotos.
-                </Explica>
+                {superAdmin ? (
+                  <>
+                    <Explica icono="bx-camera" titulo="Dos fotos al día">
+                      El recolector lee el catálogo completo de Dropi de madrugada y al mediodía con las cuentas de Dropi registradas en «Cuentas de mapeo» (si hay varias, se turnan), respetando el límite de Dropi.
+                    </Explica>
+                    <Explica icono="bx-trending-down" titulo="Ventas por baja de stock">
+                      Si una bodega pasa de 120 a 97 unidades entre fotos, contamos 23 ventas ese día. Un reabastecimiento no resta, y una baja fuera de lo creíble para ese producto (ajuste o traslado del proveedor) no se cuenta como venta.
+                    </Explica>
+                    <Explica icono="bxl-chrome" titulo="Extensión, anuncios y tiendas">
+                      La extensión de Chrome pinta las ventas estimadas debajo de cada producto en Dropi y manda a ImporChat lo que se analiza en la Biblioteca de anuncios de Meta. Un anuncio sin ver en 60 días pasa a inactivo.
+                    </Explica>
+                    <Explica icono="bx-target-lock" titulo="Atajos">
+                      <b>Sin escalar</b>: 7 d entre 10 y 120, 30 d entre 120 y 500, stock ≥ 80. <b>Nuevos con tracción</b>: creado hace ≤ 90 días, 100–2.000 totales, ≤ 5 reabastecimientos. Necesitan semanas de fotos.
+                    </Explica>
+                  </>
+                ) : (
+                  <>
+                    {/* Al cliente se le cuenta qué puede hacer, no cómo se recolecta. */}
+                    <Explica icono="bx-package" titulo="Todo el catálogo de Dropi">
+                      Revisamos el catálogo completo de Dropi {nombrePais(pais)} dos veces al día. No usamos tu cuenta ni tus datos.
+                    </Explica>
+                    <Explica icono="bx-trending-up" titulo="Ventas estimadas">
+                      Calculamos cuántas unidades vende cada producto por día a partir del inventario de su proveedor. Los movimientos de inventario que no son ventas se descartan.
+                    </Explica>
+                    <Explica icono="bx-images" titulo="Anuncios y tiendas">
+                      Con el complemento ImporKiller (${ADDON_IMPORKILLER.precio}/mes) ves los anuncios activos en Meta de cada producto, las tiendas que los pautan, y descargas sus creativos.
+                    </Explica>
+                    <Explica icono="bx-target-lock" titulo="Atajos para encontrar ganadores">
+                      <b>Sin escalar</b>: productos que ya venden pero todavía con poca competencia. <b>Nuevos con tracción</b>: productos recientes que empezaron a moverse.
+                    </Explica>
+                  </>
+                )}
               </div>
             </motion.div>
           ) : null}
@@ -409,7 +412,7 @@ export default function Hero({ pais, onPais, estado, cargando, error, onRecargar
         ) : null}
         {sinDatos && !corriendo ? (
           <Aviso tipo="info" className="mt-4 border-sky-400/30 bg-sky-500/10 text-sky-100">
-            Todavía no hay fotos del catálogo de {nombrePais(pais)}. {superAdmin ? <>Pulsa <b>Correr pasada ahora</b> o espera la foto automática.</> : "La primera foto automática sale hoy; vuelve en unas horas."}
+            {superAdmin ? <>Todavía no hay fotos del catálogo de {nombrePais(pais)}. Pulsa <b>Correr pasada ahora</b> o espera la foto automática.</> : `Estamos preparando los datos de ${nombrePais(pais)}. Vuelve en unas horas.`}
           </Aviso>
         ) : null}
         {msg ? (

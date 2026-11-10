@@ -72,7 +72,7 @@ export const ADDON_IMPORKILLER = { clave: "imporkiller", nombre: "ImporKiller", 
    se carga en chrome://extensions con «Modo de desarrollador». El zip vive en
    public/descargas (lo sirve el propio front); si se aloja en otro lado, basta
    con cambiar VITE_IMPORKILLER_EXTENSION_URL o esta constante. */
-export const EXTENSION_VERSION = "0.6.6";
+export const EXTENSION_VERSION = "0.6.7";
 export const URL_EXTENSION_ZIP = import.meta.env.VITE_IMPORKILLER_EXTENSION_URL || `/descargas/imporkiller-imporchat-v${EXTENSION_VERSION}.zip`;
 
 /* ── Clases base ─────────────────────────────────────────────────────── */
@@ -114,9 +114,9 @@ export function ventanasVentas(diasMedidos) {
     label30: corto ? `Vendidos en ${d} días` : "Vendidos en 30 d",
     labelFact: corto ? `Facturación ${d} días` : "Facturación 30 d",
     labelFact7: "Facturación 7 d",
-    sub30: corto ? "desde la primera foto" : null,
+    sub30: corto ? "desde que lo medimos" : null,
     nota: corto
-      ? `Vendidos = unidades que bajaron del stock del proveedor entre una foto del catálogo y la siguiente. Llevamos ${diasTxt} de fotos; a los 7 y a los 30 días aparecen esas columnas.`
+      ? `Las ventas son estimadas a partir del inventario de cada proveedor en Dropi. Llevamos ${diasTxt} midiendo este país; a los 7 y a los 30 días aparecen esas columnas.`
       : null,
   };
 }
@@ -599,6 +599,9 @@ export const urlMeta = (ad) => ad?.url_meta || `https://www.facebook.com/ads/lib
 export function Creativo({ anuncio, className = "" }) {
   const [reproducir, setReproducir] = useState(false);
   const [vencido, setVencido] = useState(false);
+  /* La vista previa puede no cargar (enlace de Meta vencido): en vez del
+     ícono de imagen rota se muestra un recuadro que manda a la Biblioteca. */
+  const [sinVista, setSinVista] = useState(false);
   const esVideo = anuncio?.tipo === "video" && anuncio?.media_url;
   if (esVideo) {
     /* Meta firma las URL del video y las vence a los días: si ya no carga, se
@@ -616,11 +619,11 @@ export function Creativo({ anuncio, className = "" }) {
     }
     return (
       <button type="button" onClick={() => setReproducir(true)} className={`group relative block h-full w-full overflow-hidden bg-slate-900 ${className}`} aria-label="Reproducir video">
-        {anuncio.imagen_url ? (
-          <img src={anuncio.imagen_url} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+        {anuncio.imagen_url && !sinVista ? (
+          <img src={anuncio.imagen_url} alt="" loading="lazy" onError={() => setSinVista(true)} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
         ) : (
-          <div className="grid h-full w-full place-items-center text-slate-500">
-            <i className="bx bx-movie-play text-4xl" />
+          <div className="flex h-full w-full flex-col items-center justify-end pb-4 text-[11px] font-semibold text-slate-400" style={{ background: FONDO_SIN_VISTA }}>
+            Video del anuncio
           </div>
         )}
         <span className="absolute inset-0 grid place-items-center bg-black/20 transition group-hover:bg-black/30">
@@ -632,14 +635,143 @@ export function Creativo({ anuncio, className = "" }) {
     );
   }
   const src = anuncio?.imagen_url || anuncio?.media_url;
-  if (!src) {
+  if (!src || sinVista) {
     return (
-      <div className={`flex h-full w-full items-center justify-center bg-slate-100 text-slate-400 ${className}`}>
-        <i className="bx bx-image text-3xl" />
-      </div>
+      <a href={urlMeta(anuncio)} target="_blank" rel="noreferrer" className={`group flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center text-slate-300 ${className}`} style={{ background: FONDO_SIN_VISTA }}>
+        <span className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-2xl text-sky-300 transition group-hover:scale-105">
+          <i className={`bx ${anuncio?.tipo === "video" ? "bx-movie-play" : "bx-image-alt"}`} />
+        </span>
+        <span className="text-xs font-semibold leading-5">
+          Vista previa no disponible
+          <br />
+          <span className="text-sky-300 group-hover:underline">Ver el anuncio en Meta ›</span>
+        </span>
+      </a>
     );
   }
-  return <img src={src} alt={anuncio?.titulo || anuncio?.producto || "Anuncio"} loading="lazy" className={`h-full w-full bg-slate-100 object-cover ${className}`} />;
+  return <img src={src} alt={anuncio?.titulo || anuncio?.producto || "Anuncio"} loading="lazy" onError={() => setSinVista(true)} className={`h-full w-full bg-slate-100 object-cover ${className}`} />;
+}
+
+const FONDO_SIN_VISTA = "radial-gradient(90% 70% at 50% 0%, rgba(56,189,248,0.22) 0%, rgba(11,20,38,0) 60%), linear-gradient(180deg, #0f1b33 0%, #0B1426 100%)";
+
+/* Logo de la tienda o página que pauta. Antes era la inicial del nombre y una
+   grilla entera de letras se veía vacía. Se usa el ícono del sitio (favicon);
+   si el anuncio manda a WhatsApp, el de WhatsApp; y si no hay sitio o el ícono
+   no existe, uno de tienda. Google devuelve un globo de 16 px cuando el sitio
+   no tiene ícono: se detecta por el tamaño y se cambia por el de tienda. */
+const ES_WHATSAPP = /(^|\.)(wa\.me|wa\.link|whatsapp\.com)$/i;
+const ES_RED_SOCIAL = /(^|\.)(facebook\.com|fb\.com|fb\.me|m\.me|instagram\.com|messenger\.com)$/i;
+export function LogoTienda({ dominio, plataforma, className = "h-10 w-10", redondeo = "rounded-xl", title }) {
+  const [fallo, setFallo] = useState(false);
+  const d = String(dominio || "").trim().toLowerCase().replace(/^www\./, "");
+  const whatsapp = plataforma === "whatsapp" || ES_WHATSAPP.test(d);
+  const conSitio = !!d && !whatsapp && !ES_RED_SOCIAL.test(d) && !fallo;
+  const caja = `${className} ${redondeo} grid shrink-0 place-items-center overflow-hidden`;
+  if (conSitio) {
+    return (
+      <span className={`${caja} bg-white ring-1 ring-slate-200`} title={title || d}>
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="h-[68%] w-[68%] object-contain"
+          onError={() => setFallo(true)}
+          onLoad={(e) => {
+            if (e.currentTarget.naturalWidth < 24) setFallo(true);
+          }}
+        />
+      </span>
+    );
+  }
+  if (whatsapp) {
+    return (
+      <span className={`${caja} bg-[#25D366] text-white`} title={title || "Vende por WhatsApp"}>
+        <i className="bx bxl-whatsapp text-[1.35em]" />
+      </span>
+    );
+  }
+  return (
+    <span className={`${caja} text-sky-200`} style={{ background: "linear-gradient(135deg, #0B1426 0%, #1e3a8a 100%)" }} title={title || d || "Tienda"}>
+      <i className="bx bx-store-alt text-[1.25em]" />
+    </span>
+  );
+}
+
+/* Descarga el creativo (video o imagen) de un anuncio. Pasa por ImporChat:
+   los archivos de Meta no dejan bajarse directo desde otra página, y así
+   llega como archivo en vez de abrirse en una pestaña. */
+export function BotonDescargar({ anuncio, className = "", conTexto = false, corto = false }) {
+  const [estado, setEstado] = useState("listo"); // listo | bajando | hecho | error
+  if (!anuncio?.ad_archive_id || (!anuncio.media_url && !anuncio.imagen_url)) return null;
+  const esVideo = anuncio.tipo === "video" && anuncio.media_url;
+  const bajar = async (e) => {
+    e.stopPropagation();
+    if (estado === "bajando") return;
+    setEstado("bajando");
+    try {
+      const { data: blob } = await chatApi.get(`/espia/anuncios/${encodeURIComponent(anuncio.ad_archive_id)}/creativo`, { responseType: "blob", timeout: 180000 });
+      const tipo = String(blob?.type || "");
+      const ext = tipo.includes("mp4") || tipo.startsWith("video/") ? "mp4" : tipo.includes("png") ? "png" : tipo.includes("webp") ? "webp" : tipo.includes("gif") ? "gif" : "jpg";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `anuncio-${anuncio.ad_archive_id}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setEstado("hecho");
+      setTimeout(() => setEstado("listo"), 2500);
+    } catch {
+      setEstado("error");
+      setTimeout(() => setEstado("listo"), 6000);
+    }
+  };
+  if (estado === "error") {
+    return (
+      <a href={urlMeta(anuncio)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className={`${btnChico} border border-amber-300 bg-amber-50 text-amber-800 ${className}`} title="El archivo ya no está disponible para descargar. Ábrelo en la Biblioteca de anuncios de Meta.">
+        <i className="bx bx-error-circle" /> {conTexto ? (corto ? "No disponible" : "Ya no disponible · ver en Meta") : null}
+      </a>
+    );
+  }
+  const texto = estado === "bajando" ? "Descargando…" : estado === "hecho" ? "Descargado" : corto ? "Descargar" : esVideo ? "Descargar video" : "Descargar imagen";
+  return (
+    <button type="button" onClick={bajar} disabled={estado === "bajando"} className={`${btnChico} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 ${className}`} title={esVideo ? "Descargar el video del anuncio" : "Descargar la imagen del anuncio"} aria-label={texto}>
+      <i className={`bx ${estado === "bajando" ? "bx-loader-alt animate-spin" : estado === "hecho" ? "bx-check text-emerald-600" : "bx-download"}`} /> {conTexto ? texto : null}
+    </button>
+  );
+}
+
+/* Grupo de filtros con su título: «Tiempo activo: [Todos] [Funcionando ahora]…».
+   Una fila de píldoras sueltas no decía qué filtraba cada una. */
+export function GrupoFiltro({ titulo, icono, children, className = "" }) {
+  return (
+    <div className={`flex min-w-0 flex-col gap-1.5 ${className}`}>
+      <span className="inline-flex items-center gap-1 text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
+        {icono ? <i className={`bx ${icono} text-sm`} /> : null}
+        {titulo}
+      </span>
+      <div className="flex flex-wrap items-center gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+/* Selector de país para la barra de pestañas (fondo claro). */
+export function SelectorPais({ pais, onPais, className = "" }) {
+  return (
+    <label className={`inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3 pr-1.5 shadow-sm transition focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-100 ${className}`}>
+      <i className="bx bx-world text-base text-slate-400" />
+      <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400">País</span>
+      <select aria-label="País" value={pais} onChange={(e) => onPais(e.target.value)} className="h-full cursor-pointer bg-transparent pr-1 text-sm font-bold text-slate-900 outline-none">
+        {PAISES.map((p) => (
+          <option key={p.code} value={p.code}>
+            {p.nombre}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 /* Miniatura de producto con respaldo. */

@@ -216,7 +216,7 @@ export function ModalComplemento({ acceso, onClose, onActivado }) {
 const PASOS_INSTALAR = [
   { icono: "bx-download", titulo: "Descarga el zip y descomprímelo", texto: "Queda una carpeta «imporkiller-imporchat». No la borres después: Chrome carga la extensión desde ahí." },
   { icono: "bxl-chrome", titulo: "Abre chrome://extensions y activa «Modo de desarrollador»", texto: "El interruptor está arriba a la derecha. Luego pulsa «Cargar descomprimida» y elige la carpeta." },
-  { icono: "bx-log-in-circle", titulo: "Abre ImporChat en ese mismo Chrome", texto: "La extensión toma tu sesión sola (sin pedir usuario ni clave). Si no la toma, el icono de la extensión tiene «Opciones» para pegar el token." },
+  { icono: "bx-log-in-circle", titulo: "Abre ImporChat en ese mismo Chrome", texto: "La extensión se conecta sola con tu cuenta, sin pedir usuario ni clave. El icono de la extensión te dice si ya quedó lista." },
   { icono: "bx-store-alt", titulo: "Entra a Dropi o a la Biblioteca de anuncios", texto: "En app.dropi.ec / .mx / .co verás las ventas estimadas debajo de cada producto; en la Biblioteca de Meta aparece la barra de ImporKiller." },
 ];
 
