@@ -530,14 +530,14 @@ export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
             valor={c.flete_devoluciones}
             base={c.facturado}
             tipo="resta"
-            detalle={`${fmtNum(ped.devoluciones)} devueltos: pagas ida y vuelta`}
+            detalle={`${fmtNum(ped.devoluciones)} devueltos: se resta el flete de cada uno (el que marca Dropi en el pedido)`}
           />
           <PasoCascada
             etiqueta="Flete de lo que va en camino"
             valor={c.flete_en_camino}
             base={c.facturado}
             tipo="resta"
-            detalle={`${fmtNum(ped.en_courier)} con el courier: ya pagado, aún no cobrado`}
+            detalle={`${fmtNum(ped.en_courier)} con el courier: se aparta su flete por si vuelve (si se entrega, ya va dentro de la ganancia)`}
           />
           <PasoCascada
             etiqueta="Publicidad"
