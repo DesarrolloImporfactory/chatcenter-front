@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import chatApi from "../../api/chatcenter";
 import EfectividadCiudades from "./EfectividadCiudades";
+import RentabilidadReal from "./RentabilidadReal";
 import { esRolVentas } from "../../utils/rolActual";
 import {
   DATE_PRESETS,
@@ -1614,6 +1615,14 @@ export default function DashboardConexionV2() {
                 {cargando ? <Skel className="h-[180px]" /> : <DonaEstados estados={estados} total={resumen?.totalPedidos || 0} />}
               </Seccion>
             </div>
+
+            <Seccion
+              titulo="¿Cuánto ganaste de verdad?"
+              sub="Lo que te queda después del producto, los fletes, las devoluciones y la publicidad; no lo que facturaste."
+              delay={130}
+            >
+              <RentabilidadReal idConfiguracion={conexion.id} from={rango.from} to={rango.to} tick={tick} />
+            </Seccion>
 
             <Seccion
               titulo="Efectividad por ciudad"
