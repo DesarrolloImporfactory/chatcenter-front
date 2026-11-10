@@ -22,7 +22,7 @@ import { Buscador, Chip, CopiarId, Esqueleto, EstadoLista, Foto, PAISES, Paginac
    (se calculan aquí; el back solo filtra/ordena por ellas).
    ═══════════════════════════════════════════════════════════════════════ */
 
-const TIP_VENTAS = "Ventas estimadas por baja de stock";
+const TIP_VENTAS = "Ventas estimadas a partir del inventario del proveedor";
 
 export const ATAJOS = [
   { id: "top_7d", label: "Los mejores de la semana", icon: "bx-hot", title: "Los más vendidos de los últimos 7 días" },
@@ -249,7 +249,7 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
 
       {atajo30 && Number(diasMedidos) > 0 && Number(diasMedidos) < 14 && !vacio ? (
         <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
-          <i className="bx bx-info-circle mr-1" /> Este atajo compara ventas de 7 y 30 días y apenas llevamos {fmtNum(diasMedidos)} {Number(diasMedidos) === 1 ? "día" : "días"} medidos: los resultados se vuelven confiables con unas semanas de fotos.
+          <i className="bx bx-info-circle mr-1" /> Este atajo compara ventas de 7 y 30 días y apenas llevamos {fmtNum(diasMedidos)} {Number(diasMedidos) === 1 ? "día" : "días"} medidos: los resultados se vuelven confiables con unas semanas de historial.
         </p>
       ) : null}
 
@@ -261,12 +261,12 @@ export default function TabProductos({ pais, filtros, setFiltros, productoInicia
         esqueleto={<Esqueleto filas={8} alto="h-[72px]" />}
         vacioNodo={
           data && Number(data.total) === 0 && atajo === "todos" && !filtros.q && !nAvanzados ? (
-            <VacioPanel icono="bx-camera" titulo="Todavía no hay productos de este país" texto="El recolector no ha hecho su primera foto del catálogo. Pulsa «Correr pasada ahora» arriba o espera la foto automática." />
+            <VacioPanel icono="bx-package" titulo="Todavía no hay productos de este país" texto="Estamos preparando el catálogo de este país. Vuelve en unas horas o elige otro país arriba." />
           ) : atajo30 && !filtros.q && !nAvanzados ? (
             <VacioPanel
               icono="bx-hourglass"
-              titulo={atajo === "sin_escalar" ? "«Productos sin escalar» necesita unas semanas de fotos" : "«Nuevos con tracción» necesita unas semanas de fotos"}
-              texto={`Este atajo compara ventas de 7 y 30 días${Number(diasMedidos) ? ` y llevamos ${fmtNum(diasMedidos)} ${Number(diasMedidos) === 1 ? "día medido" : "días medidos"}` : ""}. Mientras se acumulan fotos, mira qué se está moviendo esta semana o recorre todo el catálogo.`}
+              titulo={atajo === "sin_escalar" ? "«Productos sin escalar» necesita unas semanas de historial" : "«Nuevos con tracción» necesita unas semanas de historial"}
+              texto={`Este atajo compara ventas de 7 y 30 días${Number(diasMedidos) ? ` y llevamos ${fmtNum(diasMedidos)} ${Number(diasMedidos) === 1 ? "día medido" : "días medidos"}` : ""}. Mientras se acumula historial, mira qué se está moviendo esta semana o recorre todo el catálogo.`}
               acciones={
                 <>
                   <button type="button" className={`${btnChico} bg-[#0B1426] text-white hover:bg-[#13244a]`} onClick={() => set({ atajo: "top_7d", orden: "v7" })}>
@@ -510,7 +510,7 @@ function PanelFiltros({ pais, filtros, rangos = RANGOS, categorias, onAplicar, o
               ))}
             </div>
           ) : (
-            <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-4 text-xs text-slate-500">Las categorías aparecen cuando el recolector haya hecho su primera foto.</p>
+            <p className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-4 text-xs text-slate-500">Las categorías aparecen cuando el catálogo de este país esté listo.</p>
           )}
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">

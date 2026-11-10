@@ -4,7 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import BotonSeguir from "./BotonSeguir";
 import { Delta, GraficaLinea } from "./Sparkline";
 import { abrirComplemento } from "./Complemento";
-import { ADDON_IMPORKILLER, CopiarId, Creativo, Esqueleto, EstadoLista, Etiqueta, EtiquetaPlataforma, Foto, PAISES, TOKENS, btnBlanco, btnChico, btnPrimario, fmtDia, fmtMoneda, fmtNum, haceCuanto, select, tarjeta, urlDropi, urlMeta, useConsulta, ventanasVentas } from "../ui";
+import { TarjetaAnuncio } from "../TabAnuncios";
+import { ADDON_IMPORKILLER, CopiarId, Esqueleto, EstadoLista, Etiqueta, Foto, PAISES, TOKENS, btnBlanco, fmtDia, fmtMoneda, fmtNum, haceCuanto, select, tarjeta, urlDropi, useConsulta, ventanasVentas } from "../ui";
 
 /* Búsqueda en la Biblioteca de Meta con el mismo término que usa el radar. */
 const urlBiblioteca = (pais, termino) =>
@@ -186,8 +187,8 @@ export default function FichaProducto({ pais, id, diasMedidos, onClose, onSeguid
                   <Kpi label="Proveedores" valor={fmtNum((Number(p.n_iguales) || 0) + 1)} sub={Number(p.n_iguales) > 0 ? "venden lo mismo" : "solo este"} />
                 </div>
                 <p className="text-xs leading-5 text-slate-500">
-                  <i className="bx bx-info-circle mr-1" /> Las ventas son estimadas: unidades que bajan del stock del proveedor entre una foto del catálogo y la siguiente.
-                  {vv.corto ? ` Llevamos ${vv.dias} ${vv.dias === 1 ? "día" : "días"} de fotos; a los 7 y a los 30 días aparecen esas ventanas.` : ""}
+                  <i className="bx bx-info-circle mr-1" /> Las ventas son estimadas a partir del inventario del proveedor en Dropi; los ajustes de inventario no se cuentan.
+                  {vv.corto ? ` Llevamos ${vv.dias} ${vv.dias === 1 ? "día" : "días"} midiendo este país; a los 7 y a los 30 días aparecen esas ventanas.` : ""}
                 </p>
 
                 {/* ── Evolución ── */}
@@ -195,7 +196,7 @@ export default function FichaProducto({ pais, id, diasMedidos, onClose, onSeguid
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h3 className="text-[15px] font-extrabold text-slate-900">Evolución de ventas de este producto</h3>
-                      <p className="text-xs text-slate-500">Unidades estimadas por día (baja de stock entre fotos) · últimos {dias} días</p>
+                      <p className="text-xs text-slate-500">Unidades estimadas por día · últimos {dias} días</p>
                     </div>
                     <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
                       {PERIODOS.map((d) => (
@@ -230,10 +231,10 @@ export default function FichaProducto({ pais, id, diasMedidos, onClose, onSeguid
                         <i className="bx bx-line-chart text-3xl text-slate-300" />
                         {diasConDatos === 1 ? (
                           <span>
-                            Solo hay un día medido ({fmtNum(totalPeriodo)} unidades). La curva se forma con las fotos de los próximos días.
+                            Solo hay un día medido ({fmtNum(totalPeriodo)} unidades). La curva se forma en los próximos días.
                           </span>
                         ) : (
-                          <span>Todavía no hay dos fotos para comparar: las ventas aparecen desde la segunda pasada.</span>
+                          <span>Empezamos a medir este producto hace poco: sus ventas aparecen desde mañana.</span>
                         )}
                       </div>
                     )}
@@ -336,18 +337,18 @@ export default function FichaProducto({ pais, id, diasMedidos, onClose, onSeguid
                       <p className="mt-0.5 text-xs text-slate-500">
                         {p.radar?.buscado_en ? (
                           <>
-                            <i className="bx bx-radar mr-1 text-violet-500" />
-                            El radar lo buscó en Meta {haceCuanto(p.radar.buscado_en)} como «{p.radar.termino}»: {fmtNum(p.radar.vinculados)} {Number(p.radar.vinculados) === 1 ? "anuncio exacto" : "anuncios exactos"}
-                            {anuncios.length > Number(p.radar.vinculados) ? ` y ${fmtNum(anuncios.length - Number(p.radar.vinculados))} más por palabras del nombre` : ""}.
+                            <i className="bx bx-check-circle mr-1 text-emerald-500" />
+                            Buscado en la Biblioteca de anuncios de Meta {haceCuanto(p.radar.buscado_en)}: {fmtNum(p.radar.vinculados)} {Number(p.radar.vinculados) === 1 ? "anuncio de este producto" : "anuncios de este producto"}
+                            {anuncios.length > Number(p.radar.vinculados) ? ` y ${fmtNum(anuncios.length - Number(p.radar.vinculados))} de productos parecidos` : ""}.
                           </>
                         ) : (
                           <>
-                            <i className="bx bx-radar mr-1 text-slate-400" />
-                            El radar de la extensión todavía no buscó este producto en Meta.{" "}
+                            <i className="bx bx-time-five mr-1 text-slate-400" />
+                            Todavía no buscamos este producto en Meta.{" "}
                             <a href={urlBiblioteca(pais, p.radar?.termino)} target="_blank" rel="noreferrer" className="font-bold text-sky-700 hover:underline">
-                              Buscarlo ahora en la Biblioteca
-                            </a>{" "}
-                            con la extensión abierta y «Enviar a IMPORCHAT».
+                              Búscalo tú en la Biblioteca de anuncios
+                            </a>
+                            .
                           </>
                         )}
                       </p>
@@ -363,60 +364,29 @@ export default function FichaProducto({ pais, id, diasMedidos, onClose, onSeguid
                     ) : null}
                   </div>
                   {anuncios.length ? (
+                    /* La misma tarjeta de la pestaña Anuncios: logo de quien
+                       pauta, creativo con respaldo si no carga, y descarga. */
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {anuncios.map((a) => (
-                        <article key={a.ad_archive_id} className={`${tarjeta} overflow-hidden`}>
-                          <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-extrabold text-slate-600">{String(a.pagina_nombre || a.dominio || "?").charAt(0).toUpperCase()}</span>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-bold text-slate-900">{a.pagina_nombre || a.dominio || "Página"}</p>
-                                <p className="truncate text-[11px] text-slate-400">{a.ad_archive_id}</p>
-                              </div>
-                            </div>
-                            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-600" title="Días activo">
-                              {fmtNum(a.dias_activo)} d
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-[11px]">
-                            <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Activo
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-slate-500">
-                              <i className="bx bx-calendar" /> Desde {fmtDia(a.inicio)}
-                            </span>
-                            {a.origen === "radar" ? (
-                              <Etiqueta tono="indigo" title="Salió al buscar este producto por nombre en Meta con el radar">
-                                <i className="bx bx-radar" /> Exacto
+                        <TarjetaAnuncio
+                          key={a.ad_archive_id}
+                          a={a}
+                          compacta
+                          insignia={
+                            a.origen === "radar" ? null : (
+                              <Etiqueta tono="slate" className="shrink-0" title="Coincide por palabras del nombre: puede ser un producto parecido">
+                                Parecido
                               </Etiqueta>
-                            ) : (
-                              <Etiqueta tono="slate" title="Coincide por palabras del nombre, puede ser otro producto parecido">
-                                Por nombre
-                              </Etiqueta>
-                            )}
-                            {a.tienda_plataforma ? <EtiquetaPlataforma plataforma={a.tienda_plataforma} /> : null}
-                          </div>
-                          <div className="h-44 bg-slate-900">
-                            <Creativo anuncio={a} />
-                          </div>
-                          <div className="flex gap-2 p-2.5">
-                            <a href={urlMeta(a)} target="_blank" rel="noreferrer" className={`${btnChico} flex-1 bg-[#0B1426] text-white hover:bg-[#13244a]`}>
-                              <i className="bx bx-link-external" /> Ver en Meta
-                            </a>
-                            {a.media_url || a.imagen_url ? (
-                              <a href={a.media_url || a.imagen_url} target="_blank" rel="noreferrer" download className={`${btnChico} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`} title="Descargar creativo" aria-label="Descargar creativo">
-                                <i className="bx bx-download" />
-                              </a>
-                            ) : null}
-                          </div>
-                        </article>
+                            )
+                          }
+                        />
                       ))}
                     </div>
                   ) : (
                     <p className="rounded-xl border border-dashed border-slate-200 px-4 py-4 text-sm text-slate-500">
                       {p.radar?.buscado_en
-                        ? `El radar buscó «${p.radar.termino}» en Meta ${haceCuanto(p.radar.buscado_en)} y no había anuncios activos. Lo volverá a intentar en el próximo barrido.`
-                        : "Todavía no hay anuncios de este producto. El radar de la extensión los va vinculando en orden de ventas; también puedes buscarlo en la Biblioteca con la extensión abierta."}
+                        ? `Buscamos este producto en Meta ${haceCuanto(p.radar.buscado_en)} y no tenía anuncios activos. Lo volvemos a revisar pronto.`
+                        : "Todavía no tenemos anuncios de este producto: los vamos buscando en orden de ventas."}
                     </p>
                   )}
                 </section>
