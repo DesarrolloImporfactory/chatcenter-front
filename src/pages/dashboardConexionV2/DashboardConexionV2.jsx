@@ -18,6 +18,7 @@ import {
   Cell,
 } from "recharts";
 import chatApi from "../../api/chatcenter";
+import EfectividadCiudades from "./EfectividadCiudades";
 import { esRolVentas } from "../../utils/rolActual";
 import {
   DATE_PRESETS,
@@ -1613,6 +1614,14 @@ export default function DashboardConexionV2() {
                 {cargando ? <Skel className="h-[180px]" /> : <DonaEstados estados={estados} total={resumen?.totalPedidos || 0} />}
               </Seccion>
             </div>
+
+            <Seccion
+              titulo="Efectividad por ciudad"
+              sub="Cuánto se entrega y cuánto te deja cada ciudad y transportadora, comparado con el mercado en esa misma ciudad."
+              delay={140}
+            >
+              <EfectividadCiudades idConfiguracion={conexion.id} from={rango.from} to={rango.to} tick={tick} />
+            </Seccion>
 
             <Seccion
               titulo="Ritmo diario"
