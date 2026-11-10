@@ -29,7 +29,6 @@ import ExportarMensajesModal from "./Modales/ExportarMensajesModal";
 import EditarConexionModal from "./Modales/EditarConexionModal";
 import { comprobarPagoMeta } from "../../utils/avisoMetodoPagoMeta";
 import { reintentarOpenAI } from "../../utils/checkOpenAIStatus";
-
 /* Cuentas a las que no se les muestra "Eliminar conexión" en el menú de la
    tarjeta. Ese botón no borra nada: llama a configuraciones/toggle_suspension y
    deja la conexión en suspendido = 1, y el cliente no puede revertirlo — la
@@ -157,6 +156,33 @@ const problemaIA = (c) => {
     texto: "La IA falló",
     detalle: `${base.msg || `${proveedor} no respondió en el último turno`}. Se reintenta solo; este aviso desaparece cuando la IA vuelva a responder.`,
     accion: null,
+  };
+};
+
+/* Messenger o Instagram con el acceso caído: los mensajes ENTRAN, pero ni el
+   bot ni los asesores pueden responder, y hasta ahora la tarjeta lo pintaba
+   "conectado" (JNstore, cfg 285: 234 mensajes de Messenger sin respuesta
+   desde julio; el único aviso estaba dentro de la pestaña Messenger de
+   /canal-conexiones). El back lo trae en *_requiere_reconexion a partir del
+   chequeo diario contra Meta. null = nada que avisar. */
+const problemaInbox = (c) => {
+  const ms = Number(c?.messenger_requiere_reconexion) === 1;
+  const ig = Number(c?.instagram_requiere_reconexion) === 1;
+  if (!ms && !ig) return null;
+  const canales = [ms ? "Messenger" : null, ig ? "Instagram" : null].filter(
+    Boolean,
+  );
+  const nombres = canales.join(" e ");
+  const motivo =
+    c.messenger_motivo_reconexion || c.instagram_motivo_reconexion || "";
+  return {
+    ms,
+    ig,
+    nombres,
+    texto: `${nombres} sin responder`,
+    // Una sola línea: qué hacer y por qué. La explicación larga no la leía
+    // nadie al pasar el mouse.
+    detalle: `Vuelve a conectar ${nombres}${motivo ? `: ${motivo}` : ""}.`,
   };
 };
 
@@ -443,6 +469,9 @@ const ChannelChip = ({
   title,
   busy = false,
   stateLabel,
+  // Conectado en la BD pero Meta ya no deja enviar: el chip se pone rojo y
+  // el click reconecta en vez de desconectar.
+  alerta = false,
 }) => {
   const brandText = {
     blue: "text-blue-600",
@@ -453,9 +482,11 @@ const ChannelChip = ({
 
   const cls = [
     "group relative px-2.5 py-2.5 rounded-lg border transition-all flex flex-col items-center justify-center gap-1 select-none",
-    active
-      ? "bg-slate-50 border-slate-200 hover:border-slate-300"
-      : "bg-white border-slate-200 hover:border-indigo-300 hover:-translate-y-px hover:shadow-sm cursor-pointer",
+    alerta
+      ? "bg-rose-50 border-rose-300 hover:border-rose-400 hover:-translate-y-px hover:shadow-sm cursor-pointer"
+      : active
+        ? "bg-slate-50 border-slate-200 hover:border-slate-300"
+        : "bg-white border-slate-200 hover:border-indigo-300 hover:-translate-y-px hover:shadow-sm cursor-pointer",
     busy ? "opacity-60 cursor-wait" : "",
   ].join(" ");
 
@@ -483,11 +514,20 @@ const ChannelChip = ({
       >
         {label}
       </span>
-      <span className="flex items-center gap-1 text-[10px] text-slate-500 leading-none">
+      <span
+        className={[
+          "flex items-center gap-1 text-[10px] leading-none",
+          alerta ? "text-rose-700 font-semibold" : "text-slate-500",
+        ].join(" ")}
+      >
         <span
           className={[
             "w-1.5 h-1.5 rounded-full",
-            active ? "bg-emerald-500" : "bg-slate-300",
+            alerta
+              ? "bg-rose-500"
+              : active
+                ? "bg-emerald-500"
+                : "bg-slate-300",
           ].join(" ")}
         />
         {stateLabel || (active ? "Activo" : "Conectar")}
@@ -1245,8 +1285,9 @@ const Conexiones = () => {
   };
 
   const FB_FBL_CONFIG_ID_MESSENGER = "1106951720999970";
-  const handleConectarFacebookInbox = async (config) => {
-    if (!(await avisarChatsPrevios(config, "ms"))) return;
+  const handleConectarFacebookInbox = async (config, { reconexion } = {}) => {
+    // En una reconexión ya se explicó todo en handleReconectarInbox.
+    if (!reconexion && !(await avisarChatsPrevios(config, "ms"))) return;
     try {
       localStorage.setItem("id_configuracion_fb", String(config.id));
       setIdConfiguracionFB(String(config.id));
@@ -1426,8 +1467,8 @@ const Conexiones = () => {
   }, [idConfiguracionFB]);
 
   const IG_FBL_CONFIG_ID = "754174810774119";
-  const handleConectarInstagramInbox = async (config) => {
-    if (!(await avisarChatsPrevios(config, "ig"))) return;
+  const handleConectarInstagramInbox = async (config, { reconexion } = {}) => {
+    if (!reconexion && !(await avisarChatsPrevios(config, "ig"))) return;
     try {
       localStorage.setItem("oauth_provider", "instagram");
       localStorage.setItem("id_configuracion_ig", String(config.id));
@@ -1446,6 +1487,37 @@ const Conexiones = () => {
         "error",
       );
     }
+  };
+
+  /* Reconectar un inbox con el acceso caído (ver problemaInbox). Explica en
+     una pantalla qué pasó y con qué cuenta hay que entrar —la causa típica
+     es que quien conectó ya no administra la página, así que repetir con la
+     misma cuenta de Facebook vuelve a fallar— y lanza el mismo flujo de
+     conexión. No se desconecta nada antes: el back actualiza la misma fila,
+     los chats siguen donde estaban. */
+  const handleReconectarInbox = async (config, canal) => {
+    const nombre = canal === "ms" ? "Messenger" : "Instagram";
+    const motivo =
+      (canal === "ms"
+        ? config?.messenger_motivo_reconexion
+        : config?.instagram_motivo_reconexion) || "";
+    const ask = await Swal.fire({
+      icon: "warning",
+      title: `Vuelve a conectar ${nombre}`,
+      html: `<div style="font-size:14px;line-height:1.55">
+        <p>${nombre} recibe mensajes pero no puede responder${motivo ? `: ${motivo}` : ""}.</p>
+        <p style="margin-top:10px">Entra con una cuenta de Facebook que <b>administre la página</b> y elige la misma página.</p>
+      </div>`,
+      showCancelButton: true,
+      confirmButtonText: "Reconectar",
+      cancelButtonText: "Ahora no",
+      confirmButtonColor: "#4f46e5",
+      reverseButtons: true,
+    });
+    if (!ask.isConfirmed) return;
+    if (canal === "ms")
+      await handleConectarFacebookInbox(config, { reconexion: true });
+    else await handleConectarInstagramInbox(config, { reconexion: true });
   };
 
   const getUserIdSafe = () => {
@@ -1903,7 +1975,9 @@ const Conexiones = () => {
                      saldo o llave, o aviso de modelo/organización/último
                      turno fallido. null = responde con normalidad. */
                   const problema = problemaIA(config);
-                  const todoAlDia = pagoActivo && !problema;
+                  // Messenger/Instagram que reciben pero no pueden responder.
+                  const inbox = problemaInbox(config);
+                  const todoAlDia = pagoActivo && !problema && !inbox;
                   const msgConectado = isMessengerConectado(config);
                   const igConectado = isInstagramConectado(config);
                   const yaSincronizo =
@@ -2112,6 +2186,26 @@ const Conexiones = () => {
                                               : "Ver en Asistentes"}
                                         </button>
                                       )}
+                                    {/* Inbox caído: sello corto (íconos del
+                                        canal + "sin responder") para que
+                                        quepa en la misma línea que el estado
+                                        de WhatsApp. Sin botón acá: el chip
+                                        del canal, abajo en la tarjeta, ya
+                                        dice "Reconectar". */}
+                                    {inbox &&
+                                      pill(
+                                        "bg-rose-50 text-rose-700 ring-1 ring-rose-200 whitespace-nowrap",
+                                        <>
+                                          {inbox.ms && (
+                                            <i className="bx bxl-messenger text-[13px]" />
+                                          )}
+                                          {inbox.ig && (
+                                            <i className="bx bxl-instagram text-[13px]" />
+                                          )}
+                                          Sin responder
+                                        </>,
+                                        inbox.detalle,
+                                      )}
                                     {!pagoActivo &&
                                       pill(
                                         "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
@@ -2300,16 +2394,27 @@ const Conexiones = () => {
                           label="Messenger"
                           brandColor="blue"
                           active={msgConectado}
-                          stateLabel={msgConectado ? "Desconectar" : "Conectar"}
+                          alerta={msgConectado && !!inbox?.ms}
+                          stateLabel={
+                            msgConectado && inbox?.ms
+                              ? "Reconectar"
+                              : msgConectado
+                                ? "Desconectar"
+                                : "Conectar"
+                          }
                           title={
-                            msgConectado
-                              ? `Messenger: ${config.messenger_page_name || "conectado"} (click para desconectar)`
-                              : "Conectar Inbox de Messenger"
+                            msgConectado && inbox?.ms
+                              ? inbox.detalle
+                              : msgConectado
+                                ? `Messenger: ${config.messenger_page_name || "conectado"} (click para desconectar)`
+                                : "Conectar Inbox de Messenger"
                           }
                           onClick={
-                            msgConectado
-                              ? () => handleDesconectarInbox(config, "ms")
-                              : () => handleConectarFacebookInbox(config)
+                            msgConectado && inbox?.ms
+                              ? () => handleReconectarInbox(config, "ms")
+                              : msgConectado
+                                ? () => handleDesconectarInbox(config, "ms")
+                                : () => handleConectarFacebookInbox(config)
                           }
                         />
                         <ChannelChip
@@ -2317,16 +2422,27 @@ const Conexiones = () => {
                           label="Instagram"
                           brandColor="pink"
                           active={igConectado}
-                          stateLabel={igConectado ? "Desconectar" : "Conectar"}
+                          alerta={igConectado && !!inbox?.ig}
+                          stateLabel={
+                            igConectado && inbox?.ig
+                              ? "Reconectar"
+                              : igConectado
+                                ? "Desconectar"
+                                : "Conectar"
+                          }
                           title={
-                            igConectado
-                              ? "Inbox de Instagram conectado (click para desconectar)"
-                              : "Conectar Inbox de Instagram"
+                            igConectado && inbox?.ig
+                              ? inbox.detalle
+                              : igConectado
+                                ? "Inbox de Instagram conectado (click para desconectar)"
+                                : "Conectar Inbox de Instagram"
                           }
                           onClick={
-                            igConectado
-                              ? () => handleDesconectarInbox(config, "ig")
-                              : () => handleConectarInstagramInbox(config)
+                            igConectado && inbox?.ig
+                              ? () => handleReconectarInbox(config, "ig")
+                              : igConectado
+                                ? () => handleDesconectarInbox(config, "ig")
+                                : () => handleConectarInstagramInbox(config)
                           }
                         />
                         <ChannelChip

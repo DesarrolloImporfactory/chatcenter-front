@@ -16,6 +16,7 @@ import { usePresence } from "../../context/PresenceProvider";
 import FloatingSupportChat from "./FloatingSupportChat";
 import { globalLogout } from "../../utils/globalLogout";
 import { checkOpenAIStatus } from "../../utils/checkOpenAIStatus";
+import { checkInboxStatus } from "../../utils/avisoReconexionInbox";
 import { checkWhatsappStatus } from "../../utils/checkWhatsappStatus";
 
 import { puedeAccederCalendario } from "../../utils/accesoCalendario";
@@ -203,6 +204,8 @@ function MainLayout({ children }) {
 
     checkOpenAIStatus();
     checkWhatsappStatus();
+    // Messenger/Instagram que reciben pero no pueden responder.
+    checkInboxStatus();
   }, []);
 
   // =========================================================
