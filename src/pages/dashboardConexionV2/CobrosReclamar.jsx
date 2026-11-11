@@ -245,7 +245,7 @@ export default function CobrosReclamar({ idConfiguracion, tick }) {
             {f.k !== "todos" && totales[f.k]?.ordenes ? ` · ${totales[f.k].ordenes}` : ""}
           </button>
         ))}
-        <span className="ml-auto text-[11px] text-slate-400">Todo tu historial, no solo el periodo</span>
+        <span className="ml-auto text-[11px] text-slate-400">No depende del filtro de fechas</span>
       </div>
 
       {!filas.length ? (
