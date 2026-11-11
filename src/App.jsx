@@ -28,6 +28,7 @@ import Productos from "./pages/productos/ProductosView";
 import RemarketingProductoView from "./pages/remarketingProducto/RemarketingProductoView";
 import CampaniasView from "./pages/campanias/CampaniasView";
 import AdminAvisosView from "./pages/adminAvisos/AdminAvisosView";
+import AdminAsistenteView from "./pages/adminAsistente/AdminAsistenteView";
 import AdminMobileAppView from "./pages/adminMobileApp/AdminMobileAppView";
 import MiPerfilView from "./pages/miPerfil/MiPerfilView";
 import CatalogosView from "./pages/productos/CatalogosView";
@@ -655,6 +656,17 @@ function App() {
                   element={
                     <MainLayout_conexiones>
                       <AdminAvisosView />
+                    </MainLayout_conexiones>
+                  }
+                />
+
+                {/* Llaves de IA del asistente flotante que paga la plataforma
+                    (solo super admin; el backend valida con requireSuperAdmin) */}
+                <Route
+                  path="/administrador-asistente"
+                  element={
+                    <MainLayout_conexiones>
+                      <AdminAsistenteView />
                     </MainLayout_conexiones>
                   }
                 />
