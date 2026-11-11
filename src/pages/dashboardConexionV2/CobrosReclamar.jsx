@@ -35,6 +35,7 @@ const FILTROS = [
   { k: "pendiente", t: "Por reclamar" },
   { k: "reclamado", t: "Reclamados" },
   { k: "devuelto", t: "Devueltos" },
+  { k: "descartado", t: "Descartados" },
   { k: "todos", t: "Todos" },
 ];
 
@@ -51,9 +52,10 @@ const textoReclamo = (r) => {
 };
 
 function Contador({ guias }) {
-  const { finales, revisadas, sincronizando, en_cola } = guias;
+  const { finales, revisadas, sincronizando, en_cola, pendientes } = guias;
   const pct = finales > 0 ? Math.min(100, Math.round((revisadas / finales) * 100)) : 100;
   const listo = !sincronizando && revisadas >= finales;
+  const pausado = !sincronizando && pendientes > 0;
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
@@ -61,6 +63,10 @@ function Contador({ guias }) {
         {listo ? (
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
             <i className="bx bx-check-circle" /> al día
+          </span>
+        ) : pausado ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600">
+            <i className="bx bx-pause-circle" /> en pausa
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600">
@@ -83,8 +89,10 @@ function Contador({ guias }) {
       </div>
       <p className="mt-1.5 text-[11px] text-slate-400">
         {listo
-          ? "Las guías nuevas se revisan solas cuando llegan a entregada, devuelta o cancelada."
-          : "Se revisa una guía a la vez para no saturar Dropi; sigue aunque cierres esta pantalla."}
+          ? `Guías de los últimos ${guias.dias_historia || 180} días. Las nuevas se revisan solas cuando llegan a entregada, devuelta o cancelada.`
+          : pausado
+            ? "Dropi no respondió. La revisión sigue sola la próxima vez que abras este panel."
+            : "Se revisa una guía a la vez para no saturar Dropi; sigue aunque cierres esta pantalla."}
       </p>
     </div>
   );
@@ -137,7 +145,7 @@ export default function CobrosReclamar({ idConfiguracion, tick }) {
   }, [idConfiguracion, tick, cargar]);
 
   // Mientras el servidor sincroniza, refresca el contador sin parpadeo.
-  const sincronizando = Boolean(datos?.guias?.sincronizando || datos?.guias?.pendientes > 0);
+  const sincronizando = Boolean(datos?.guias?.sincronizando);
   useEffect(() => {
     clearInterval(timer.current);
     if (sincronizando) timer.current = setInterval(() => cargar(true), POLL_MS);
@@ -183,6 +191,20 @@ export default function CobrosReclamar({ idConfiguracion, tick }) {
   if (!datos) return null;
 
   const { guias, totales, reclamos } = datos;
+  if (guias.proveedor || guias.sin_integracion) {
+    return (
+      <div className="grid h-[120px] place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4">
+        <div className="text-center">
+          <i className="bx bx-info-circle text-3xl text-slate-300" />
+          <p className="mt-1 text-[12px] font-medium text-slate-500">
+            {guias.proveedor
+              ? "Esta es una cuenta de proveedor en Dropi. La revisión de cobros es para cuentas de dropshipper."
+              : "Conecta tu cuenta de Dropi para revisar tu cartera."}
+          </p>
+        </div>
+      </div>
+    );
+  }
   const visibles = filtro === "todos" ? reclamos : reclamos.filter((r) => r.reclamo_estado === filtro);
   const filas = todos ? visibles : visibles.slice(0, FILAS);
 
