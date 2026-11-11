@@ -10,7 +10,7 @@ const POR_TRANSPORTADORA = [
   },
   {
     test: (c) => c.includes("GINTRACOM"),
-    url: (g) => `https://ec.gintracom.site/web/site/tracking?guia=${g}`,
+    url: (g) => `https://ec.gintracom.site/tracking?guia=${g}`,
   },
   {
     test: (c) => c.includes("VELOCES"),
