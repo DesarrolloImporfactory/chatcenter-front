@@ -1477,12 +1477,12 @@ export default function DashboardConexionV2() {
           .filter(Boolean)
           .join(" · "),
         /* Efectividad de entrega del filtro (10-nov, Daniel): entregados sobre
-           los pedidos vivos del rango. Si todavía no se cerró ninguno (p. ej.
-           «Hoy»), un 0 % mentiría: se dice que va en camino y se muestra la
+           los pedidos vivos del rango. Si todavía no se entregó ni devolvió
+           ninguno (p. ej. «Hoy»), un 0 % mentiría: se dice que va en camino y se muestra la
            efectividad de 90 días de la tienda. */
         destacado:
           v?.pedidosNeto > 0 &&
-          (v.pedidosNeto - enCamino.n > 0
+          ((v.entregadas || 0) + (v.devoluciones || 0) > 0
             ? {
                 label: "Efectividad de entrega",
                 valor: fmtPct(v.tasaEntregaReal),
