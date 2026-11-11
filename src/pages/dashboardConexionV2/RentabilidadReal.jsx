@@ -35,7 +35,7 @@ const simular = (x, s) =>
 /* Barra del simulador: arrastrar el % de entrega de lo que va en camino.
    Arranca en la efectividad de 90 días; cuando ya no queda nada en camino
    (bloqueado) muestra la entrega final del periodo y no se mueve. */
-function Simulador({ valor, onChange, real, equilibrio, bloqueado = false }) {
+function Simulador({ valor, onChange, real, equilibrio, enCamino = 0, bloqueado = false }) {
   const pct = Math.round(valor * 100);
   const marca = (v) => `${Math.min(100, Math.max(0, v))}%`;
   return (
@@ -86,11 +86,13 @@ function Simulador({ valor, onChange, real, equilibrio, bloqueado = false }) {
         )}
         {equilibrio != null && (
           <span className="text-amber-200">
+            {/* Equilibrio de lo que falta (la barra mueve solo lo en camino);
+                el de todo el periodo está en la tarjeta «Punto de equilibrio». */}
             {equilibrio <= 0
-              ? "▲ ya ganas aunque no se entregue nada más"
+              ? `▲ ya no pierdes aunque vuelvan los ${fmtNum(enCamino)} en camino`
               : equilibrio >= 1
-                ? "▲ pierdes aunque se entregue todo"
-                : `▲ desde ${fmtPct(equilibrio * 100, 0)} ya no pierdes`}
+                ? `▲ pierdes aunque se entreguen los ${fmtNum(enCamino)} en camino`
+                : `▲ de los ${fmtNum(enCamino)} en camino, con ${fmtPct(equilibrio * 100, 0)} ya no pierdes`}
           </span>
         )}
       </div>
@@ -454,7 +456,7 @@ export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
             </p>
           )}
           {p.en_camino > 0 ? (
-            <Simulador valor={s} onChange={setSim} real={p.efectividad_usada} equilibrio={vista.equilibrio} />
+            <Simulador valor={s} onChange={setSim} real={p.efectividad_usada} equilibrio={vista.equilibrio} enCamino={p.en_camino} />
           ) : (
             ped.efectividad != null && <Simulador valor={ped.efectividad / 100} onChange={() => {}} bloqueado />
           )}
@@ -477,13 +479,13 @@ export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
             valor={k.punto_equilibrio == null ? "—" : fmtPct(k.punto_equilibrio, 0)}
             sub={
               k.punto_equilibrio == null
-                ? "aún no hay pedidos cerrados"
+                ? "aún no hay pedidos en el periodo"
                 : p.en_camino > 0
-                  ? `de entrega para no perder · tu efectividad (90 días): ${fmtPct(efComparar, 0)} · entregados hasta hoy ${fmtNum(ped.entregadas)} de ${fmtNum(ped.entregadas + ped.devoluciones + p.en_camino)}`
+                  ? `de tus ${fmtNum(ped.entregadas + ped.devoluciones + p.en_camino)} pedidos tienen que entregarse para no perder · tu efectividad (90 días): ${fmtPct(efComparar, 0)}`
                   : `de entrega para no perder · tu entrega final: ${fmtPct(efComparar, 0)}`
             }
             tono={k.punto_equilibrio == null ? "text-slate-900" : equilibrioOk ? "text-emerald-600" : "text-rose-600"}
-            title="Con tu ganancia media por entrega, el flete medio de una devolución y tu publicidad: el % de entrega con el que el neto queda en 0."
+            title="Sobre todos los pedidos del periodo (entregados, devueltos y en camino), con tu ganancia media por entrega, el flete medio de una devolución y tu publicidad: el % de entrega con el que el neto queda en 0."
           />
           <Tarjeta
             titulo="Publicidad"
