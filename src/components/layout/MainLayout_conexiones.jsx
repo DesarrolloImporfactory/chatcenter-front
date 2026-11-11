@@ -144,6 +144,23 @@ function MainLayout({ children }) {
   // puede dejar el menú muerto, y el backend sigue siendo el que manda.
   const [planActivo, setPlanActivo] = useState(true);
 
+  /* Llave del asistente flotante (la paga la plataforma): si está sin saldo o
+     inválida, el super admin lo ve en el menú sin tener que abrir la vista. */
+  const [alertaAsistente, setAlertaAsistente] = useState(false);
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    let vivo = true;
+    chatApi
+      .get("/admin_asistente/estado")
+      .then((res) => {
+        if (vivo) setAlertaAsistente(Boolean(res.data?.alerta));
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [isSuperAdmin, location.pathname]);
+
   /* WhatsApp personal del dueño (avisos del sistema). El modal que lo pide
      vivía solo en /selector, pero el login manda directo a /conexiones, así
      que cuentas enteras nunca lo registraron (p. ej. la 2682 desde julio) y
@@ -430,6 +447,18 @@ function MainLayout({ children }) {
                 path="/administrador-avisos"
                 icon="bx-bell"
                 label="Administrador Avisos"
+              />
+            )}
+
+            {/* Llaves de IA del asistente flotante: solo super_administrador.
+                El ícono cambia si la llave principal está sin saldo o inválida. */}
+            {isSuperAdmin && (
+              <NavBtn
+                path="/administrador-asistente"
+                icon={alertaAsistente ? "bx-error-circle" : "bx-key"}
+                label={
+                  alertaAsistente ? "Asistente IA · revisar llave" : "Asistente IA"
+                }
               />
             )}
 

@@ -638,6 +638,13 @@ const OrdenesDropi = () => {
   // o el enlace del dashboard (/pedidos?producto=...).
   const [producto, setProducto] = useState("");
   const [productosDisponibles, setProductosDisponibles] = useState([]);
+  // Transportadora: nombre tal como lo guarda la plataforma (SERVIENTREGA,
+  // GINTRACOM…). Las opciones las manda el back con cuántos pedidos tiene
+  // cada una bajo los demás filtros.
+  const [transportadora, setTransportadora] = useState("");
+  const [transportadorasDisponibles, setTransportadorasDisponibles] = useState(
+    [],
+  );
 
   // =========================
   // PLATAFORMA DE PEDIDOS
@@ -645,6 +652,9 @@ const OrdenesDropi = () => {
   // Dropi y Aliclik son fuentes distintas con su propio cache y sus propios
   // estados, así que no se mezclan en una sola lista: se elige una. El
   // selector solo aparece si la cuenta tiene las dos conectadas.
+  // Shopify entra como fuente solo en cuentas que no tienen ninguna de las
+  // dos: ahí se listan los pedidos que llegaron por el webhook de la tienda
+  // (antes esas cuentas veían la invitación a conectar, con pedidos entrando).
   const [plataforma, setPlataforma] = useState("dropi");
   const [plataformas, setPlataformas] = useState([]);
   // Hasta saber qué hay conectado NO se pide el listado. Sin este candado la
@@ -664,8 +674,12 @@ const OrdenesDropi = () => {
   const mostrarInvitacion =
     sinPlataformaConocida || (plataformasListas && sinIntegracion);
   const esAliclik = plataforma === "aliclik";
-  // Estados canónicos de Aliclik: los manda el backend con el listado, así no
-  // hay que mantener la lista duplicada en el front.
+  const esShopify = plataforma === "shopify";
+  // Confirmar/cancelar, el origen y los estados crudos son propios de Dropi.
+  const esDropi = !esAliclik && !esShopify;
+  // Estados de Aliclik (canónicos) y de Shopify (de pago): los manda el
+  // backend con el listado, así no hay que mantener la lista duplicada en el
+  // front. Aliclik los manda como texto; Shopify como { value, label }.
   const [estadosAliclik, setEstadosAliclik] = useState([]);
 
   // =========================
@@ -784,10 +798,12 @@ const OrdenesDropi = () => {
       until: dateFrom && dateUntil ? dateUntil : undefined,
       status: String(status || "").trim() || undefined,
       // Origen (Shopify / Imporsuit) es un cruce propio de Dropi.
-      origen: esAliclik
-        ? undefined
-        : String(origen || "").trim() || undefined,
+      origen: esDropi ? String(origen || "").trim() || undefined : undefined,
       producto: String(producto || "").trim() || undefined,
+      // Shopify no conoce la transportadora: solo avisa que el pedido entró.
+      transportadora: esShopify
+        ? undefined
+        : String(transportadora || "").trim() || undefined,
       textToSearch: String(debouncedSearch || "").trim() || undefined,
     };
   }, [
@@ -795,7 +811,8 @@ const OrdenesDropi = () => {
     plataformasListas,
     sinPlataformaConocida,
     plataforma,
-    esAliclik,
+    esDropi,
+    esShopify,
     page,
     resultNumber,
     dateFrom,
@@ -803,6 +820,7 @@ const OrdenesDropi = () => {
     status,
     origen,
     producto,
+    transportadora,
     debouncedSearch,
   ]);
 
@@ -821,7 +839,9 @@ const OrdenesDropi = () => {
       const endpoint =
         body?.plataforma === "aliclik"
           ? "aliclik_integrations/orders/cache/list"
-          : "dropi_integrations/orders/cache/list";
+          : body?.plataforma === "shopify"
+            ? "shopify_pedidos/list"
+            : "dropi_integrations/orders/cache/list";
       const res = await chatApi.post(endpoint, body);
       const data = res?.data?.data || {};
       setOrders(Array.isArray(data.rows) ? data.rows : []);
@@ -835,6 +855,9 @@ const OrdenesDropi = () => {
       // producto, así que no se vacía al elegir uno.
       if (Array.isArray(data.productos_disponibles))
         setProductosDisponibles(data.productos_disponibles);
+      // Igual para transportadora: llegan sin aplicar su propio filtro.
+      if (Array.isArray(data.transportadoras_disponibles))
+        setTransportadorasDisponibles(data.transportadoras_disponibles);
     } catch (error) {
       const msg =
         error?.response?.data?.message ||
@@ -900,6 +923,7 @@ const OrdenesDropi = () => {
     setStatus("");
     setOrigen("");
     setProducto("");
+    setTransportadora("");
     setDateFrom(from);
     setDateUntil(until);
     setPage(1);
@@ -1335,7 +1359,9 @@ const OrdenesDropi = () => {
               Filtros de búsqueda
             </h3>
             <p className="text-[11px] text-gray-400">
-              Filtra por cliente, fecha, estado, origen o producto del pedido
+              {esShopify
+                ? "Filtra por cliente, fecha, estado del pago o producto del pedido"
+                : "Filtra por cliente, fecha, estado, transportadora, origen o producto del pedido"}
             </p>
           </div>
         </div>
@@ -1363,6 +1389,8 @@ const OrdenesDropi = () => {
                     setStatus("");
                     setOrigen("");
                     setProducto("");
+                    setTransportadora("");
+                    setTransportadorasDisponibles([]);
                   }}
                   className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[13px] font-semibold border transition ${
                     activa
@@ -1372,7 +1400,11 @@ const OrdenesDropi = () => {
                 >
                   <i
                     className={`bx ${
-                      p.key === "aliclik" ? "bx-store-alt" : "bx-store"
+                      p.key === "aliclik"
+                        ? "bx-store-alt"
+                        : p.key === "shopify"
+                          ? "bxl-shopify"
+                          : "bx-store"
                     } text-base`}
                   />
                   {p.label}
@@ -1434,18 +1466,21 @@ const OrdenesDropi = () => {
           </div>
 
           {/* Estado del envío. Dropi tiene decenas de estados crudos; Aliclik
-              se resume en los 8 canónicos que manda el backend. */}
+              se resume en los 8 canónicos que manda el backend. En Shopify el
+              único estado que se conoce es el de pago. */}
           <FilterDropdown
-            label="Estado del envío"
-            icon="bx-truck"
+            label={esShopify ? "Estado del pago" : "Estado del envío"}
+            icon={esShopify ? "bx-credit-card" : "bx-truck"}
             value={status}
             placeholder="Todos"
-            searchable={!esAliclik}
+            searchable={esDropi}
             searchPlaceholder="Buscar estado…"
             options={
-              esAliclik
-                ? estadosAliclik.map((e) => ({ value: e, label: e }))
-                : STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.name }))
+              esDropi
+                ? STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.name }))
+                : estadosAliclik.map((e) =>
+                    typeof e === "string" ? { value: e, label: e } : e,
+                  )
             }
             onChange={(val) => {
               setPage(1);
@@ -1453,10 +1488,44 @@ const OrdenesDropi = () => {
             }}
           />
 
+          {/* Transportadora: las opciones son las que tienen pedidos con los
+              filtros actuales, con su conteo. En Aliclik solo se conoce la de
+              los pedidos creados desde el chat (su API no la devuelve), y en
+              Shopify no existe, así que ahí no se muestra. */}
+          {!esShopify && (
+            <FilterDropdown
+              label="Transportadora"
+              icon="bxs-truck"
+              value={transportadora}
+              placeholder="Todas"
+              searchable={transportadorasDisponibles.length > 8}
+              searchPlaceholder="Buscar transportadora…"
+              options={[
+                { value: "", label: "Todas" },
+                ...transportadorasDisponibles.map((t) => ({
+                  value: t.nombre,
+                  label: t.nombre,
+                  count: t.pedidos,
+                })),
+              ]}
+              pie={
+                transportadorasDisponibles.length
+                  ? "Los pedidos sin guía aún no tienen transportadora"
+                  : esAliclik
+                    ? "Aliclik solo informa la transportadora de los pedidos creados desde el chat"
+                    : "Ningún pedido de este rango tiene transportadora asignada"
+              }
+              onChange={(val) => {
+                setPage(1);
+                setTransportadora(val);
+              }}
+            />
+          )}
+
           {/* Origen: cruce con el webhook de Shopify, propio de Dropi. En
-              Aliclik no existe, así que se oculta en vez de mostrar un filtro
-              que no cambia nada. */}
-          {!esAliclik && (
+              Aliclik y Shopify no existe, así que se oculta en vez de mostrar
+              un filtro que no cambia nada. */}
+          {esDropi && (
             <FilterDropdown
               label="Origen"
               icon="bx-store"
@@ -1505,36 +1574,66 @@ const OrdenesDropi = () => {
             }}
           />
 
-          {/* Botón Buscar */}
+          {/* Buscar + Limpiar en una sola celda: así el filtro de
+              transportadora cabe en la misma línea que los demás (8 columnas)
+              sin apretar las fechas. Limpiar queda como botón de ícono. */}
           <div className="flex flex-col h-full">
             <label className="text-[13px] font-semibold text-gray-700 opacity-0 select-none">
-              Buscar
+              Acciones
             </label>
-            <button
-              onClick={handleSearchClick}
-              className="mt-1 bg-[#171931] text-white hover:opacity-95 transition px-3 py-[7px] rounded-xl text-[13px] font-semibold shadow-sm w-full"
-              disabled={ordersLoading}
-            >
-              {ordersLoading ? "Cargando..." : "Buscar"}
-            </button>
-            <div className="mt-1 text-[11px] opacity-0 select-none">.</div>
-          </div>
-
-          {/* Botón Limpiar */}
-          <div className="flex flex-col h-full">
-            <label className="text-[13px] font-semibold text-gray-700 opacity-0 select-none">
-              Limpiar
-            </label>
-            <button
-              onClick={handleClear}
-              className="mt-1 bg-gray-200 text-gray-800 hover:bg-gray-300 transition px-3 py-[7px] rounded-xl text-[13px] font-semibold shadow-sm w-full"
-              disabled={ordersLoading}
-            >
-              Limpiar
-            </button>
+            <div className="mt-1 flex items-stretch gap-2">
+              <button
+                onClick={handleSearchClick}
+                className="flex-1 min-w-0 bg-[#171931] text-white hover:opacity-95 transition px-3 py-[7px] rounded-xl text-[13px] font-semibold shadow-sm"
+                disabled={ordersLoading}
+              >
+                {ordersLoading ? "Cargando..." : "Buscar"}
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                title="Limpiar filtros"
+                aria-label="Limpiar filtros"
+                className="shrink-0 grid place-items-center w-[36px] bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 hover:text-gray-800 transition rounded-xl shadow-sm"
+                disabled={ordersLoading}
+              >
+                <i className="bx bx-eraser text-[17px]" />
+              </button>
+            </div>
             <div className="mt-1 text-[11px] opacity-0 select-none">.</div>
           </div>
         </div>
+
+        {/* Shopify sin Dropi ni Aliclik: se listan los pedidos que entraron
+            por la tienda, y se aclara qué falta para ver el envío. */}
+        {esShopify && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-[13px] text-violet-900">
+            <i className="bx bxl-shopify text-lg shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <span className="font-semibold">
+                Estos son los pedidos que entraron por tu tienda Shopify.
+              </span>{" "}
+              El estado es el de pago que tenía el pedido al entrar. Para ver
+              guía, transportadora y estado del envío, vincula{" "}
+              <button
+                type="button"
+                onClick={() => navigate("/dropi")}
+                className="font-semibold underline underline-offset-2 hover:text-violet-700"
+              >
+                Dropi
+              </button>{" "}
+              o{" "}
+              <button
+                type="button"
+                onClick={() => navigate("/aliclik")}
+                className="font-semibold underline underline-offset-2 hover:text-violet-700"
+              >
+                Aliclik
+              </button>
+              .
+            </div>
+          </div>
+        )}
 
         {/* Alerta: teléfonos incompletos en esta página */}
         {!ordersLoading && orders.some((o) => o?.telefono_incompleto) && (
@@ -1568,7 +1667,7 @@ const OrdenesDropi = () => {
                   Estado del pedido
                 </th>
                 <th className="text-left px-3 py-2.5 font-semibold">
-                  Estado del envío
+                  {esShopify ? "Estado del pago" : "Estado del envío"}
                 </th>
                 <th className="text-left px-3 py-2.5 font-semibold">Origen</th>
                 <th className="px-3 py-2.5 font-semibold text-center">Chat</th>
@@ -1752,13 +1851,22 @@ const OrdenesDropi = () => {
 
                       {/* Estado del pedido */}
                       <td className="px-3 py-2.5">
-                        <EstadoPedidoBadge
-                          estado={o?.estado_pedido}
-                          status={o?.status}
-                          porBot={!!o?.creado_por_bot}
-                          reemplazaA={o?.reemplaza_a}
-                          cambios={o?.cambios_del_cliente}
-                        />
+                        {esShopify ? (
+                          /* En Shopify no hay confirmación de pedido: solo
+                             se sabe que entró por la tienda. */
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border bg-slate-50 text-slate-600 border-slate-200">
+                            <i className="bx bx-cart-download text-sm" />
+                            Recibido en tienda
+                          </span>
+                        ) : (
+                          <EstadoPedidoBadge
+                            estado={o?.estado_pedido}
+                            status={o?.status}
+                            porBot={!!o?.creado_por_bot}
+                            reemplazaA={o?.reemplaza_a}
+                            cambios={o?.cambios_del_cliente}
+                          />
+                        )}
                         {/* Posible duplicado: el mismo teléfono tiene otra
                             orden viva reciente. Se ve antes de pulsar
                             Confirmar; el detalle va en el title y en el
@@ -1798,6 +1906,14 @@ const OrdenesDropi = () => {
                           <span className="h-2 w-2 rounded-full bg-current opacity-60" />
                           {o?.status || "-"}
                         </span>
+                        {/* Transportadora: es por lo que se filtra arriba,
+                            así que tiene que verse en la fila. */}
+                        {o?.shipping_company ? (
+                          <div className="mt-1 flex items-center gap-1 text-[11px] text-gray-500">
+                            <i className="bx bxs-truck text-xs text-gray-400" />
+                            {o.shipping_company}
+                          </div>
+                        ) : null}
                       </td>
 
                       {/* Origen */}
@@ -1823,7 +1939,7 @@ const OrdenesDropi = () => {
                           Dropi: Aliclik no tiene este flujo. Cambian el
                           estado directo en Dropi. */}
                       <td className="px-3 py-2.5 text-center">
-                        {esAliclik ? (
+                        {!esDropi ? (
                           <span className="text-xs text-gray-400">—</span>
                         ) : puedeCancelar ? (
                           <div className="inline-flex items-center gap-1.5">
