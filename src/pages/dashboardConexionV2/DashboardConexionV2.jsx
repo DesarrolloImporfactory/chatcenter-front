@@ -18,6 +18,9 @@ import {
   Cell,
 } from "recharts";
 import chatApi from "../../api/chatcenter";
+import EfectividadCiudades from "./EfectividadCiudades";
+import RentabilidadReal from "./RentabilidadReal";
+import CobrosReclamar from "./CobrosReclamar";
 import { esRolVentas } from "../../utils/rolActual";
 import {
   DATE_PRESETS,
@@ -364,7 +367,7 @@ function KpiHero({ icono, color, label, valor, sub, delta, invertir, puntos }) {
   );
 }
 
-function Hero({ titulo, etiqueta, valorNum, formato, delta, invertir, sub, serie, serieKey, serieNombre, serieDinero, kpis, cargando, nota }) {
+function Hero({ titulo, etiqueta, valorNum, formato, delta, invertir, sub, destacado, serie, serieKey, serieNombre, serieDinero, kpis, cargando, nota }) {
   const n = useCountUp(valorNum);
   return (
     <section
@@ -400,6 +403,14 @@ function Hero({ titulo, etiqueta, valorNum, formato, delta, invertir, sub, serie
             {!cargando && <Delta valor={delta} invertir={invertir} oscuro />}
           </div>
           <p className="mt-2 text-[13px] text-white/60">{sub}</p>
+          {destacado && !cargando && (
+            <div className="mt-3 inline-flex w-fit flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-white/[0.06] px-4 py-2.5 ring-1 ring-white/10">
+              <span className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/50">{destacado.label}</span>
+              <span className="dv2-num text-[24px] font-black leading-none text-emerald-300">{destacado.valor}</span>
+              <Delta valor={destacado.delta} oscuro puntos />
+              <span className="text-[11.5px] text-white/55">{destacado.sub}</span>
+            </div>
+          )}
           {nota && (
             <p className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-amber-300/90">
               <i className="bx bx-info-circle" /> {nota}
@@ -1200,6 +1211,7 @@ export default function DashboardConexionV2() {
   const [error, setError] = useState("");
   const [actualizado, setActualizado] = useState(null);
   const [tick, setTick] = useState(0);
+  const [bolsillo, setBolsillo] = useState(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1451,7 +1463,41 @@ export default function DashboardConexionV2() {
         valorNum: v?.facturado || 0,
         formato: (n) => fmt$(n),
         delta: deltaPct(v?.facturado, vp?.facturado),
-        sub: `${fmtNum(v?.pedidosNeto || 0)} pedidos vivos · ${fmtNum(v?.entregadas || 0)} ya entregados · ${fmtNum(enCamino.n)} en camino`,
+        sub: [
+          `${fmtNum(v?.pedidosNeto || 0)} pedidos vivos · ${fmtNum(v?.entregadas || 0)} ya entregados · ${fmtNum(enCamino.n)} en camino`,
+          v?.facturadoCancelado > 0 || v?.facturadoDevuelto > 0
+            ? `incluye ${[
+                v.facturadoCancelado > 0 ? `${fmt$(v.facturadoCancelado)} cancelados` : null,
+                v.facturadoDevuelto > 0 ? `${fmt$(v.facturadoDevuelto)} devueltos` : null,
+              ]
+                .filter(Boolean)
+                .join(" y ")} que no se cobran`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        /* Efectividad de entrega del filtro (10-nov, Daniel): entregados sobre
+           los pedidos vivos del rango. Si todavía no se entregó ni devolvió
+           ninguno (p. ej. «Hoy»), un 0 % mentiría: se dice que va en camino y se muestra la
+           efectividad de 90 días de la tienda. */
+        destacado:
+          v?.pedidosNeto > 0 &&
+          ((v.entregadas || 0) + (v.devoluciones || 0) > 0
+            ? {
+                label: "Efectividad de entrega",
+                valor: fmtPct(v.tasaEntregaReal),
+                delta: vp?.pedidosNeto ? Number(v.tasaEntregaReal || 0) - Number(vp.tasaEntregaReal || 0) : null,
+                sub:
+                  enCamino.n > 0
+                    ? `${fmtNum(v.entregadas || 0)} de ${fmtNum(v.pedidosNeto)} hasta hoy · sube a medida que se entregue lo que va en camino`
+                    : `${fmtNum(v.entregadas || 0)} de ${fmtNum(v.pedidosNeto)} · periodo cerrado`,
+              }
+            : {
+                label: "Efectividad de entrega",
+                valor: bolsillo?.efectividad90 != null ? fmtPct(bolsillo.efectividad90) : "—",
+                delta: null,
+                sub: `los ${fmtNum(v.pedidosNeto)} pedidos van en camino · esta es tu efectividad de los últimos 90 días`,
+              }),
         serie: serieDiaria,
         serieKey: "facturado",
         serieNombre: "Facturado",
@@ -1460,14 +1506,16 @@ export default function DashboardConexionV2() {
         nota: resumen?.pctConfirmacionTope
           ? "Hay más pedidos que conversaciones: parte de las órdenes no pasó por el chat."
           : null,
+        /* Arriba lo que trae el chat; abajo en qué se va el facturado:
+           facturado = costo del producto + fletes + utilidad (reunión 10-nov). */
         kpis: [
           {
-            icono: "bx-wallet",
-            color: ACENTO.violet,
-            label: "Utilidad",
-            valor: fmt$(v?.ganancia || 0),
-            sub: v?.facturado > 0 ? `${fmtPct((v.ganancia / v.facturado) * 100)} del facturado` : "venta − proveedor − envío",
-            delta: deltaPct(v?.ganancia, vp?.ganancia),
+            icono: "bx-conversation",
+            color: ACENTO.cyan,
+            label: "Conversaciones",
+            valor: fmtNum(convs),
+            sub: `${fmtNum(resumen?.totalMensajes || 0)} mensajes cruzados`,
+            delta: deltaPct(convs, convsPrev),
           },
           {
             icono: "bx-package",
@@ -1478,43 +1526,65 @@ export default function DashboardConexionV2() {
             delta: deltaPct(v?.pedidosNeto, vp?.pedidosNeto),
           },
           {
-            icono: "bx-check-shield",
+            icono: "bx-check-double",
             color: ACENTO.emerald,
-            label: "Entrega real",
-            valor: fmtPct(v?.tasaEntregaReal),
-            sub: `${fmtNum(v?.entregadas || 0)} entregados`,
-            delta: vp?.pedidosNeto ? Number(v?.tasaEntregaReal || 0) - Number(vp?.tasaEntregaReal || 0) : null,
+            label: "Confirmación",
+            valor: fmtPct(v?.pctConfirmacion),
+            sub: "de los que escriben, compran",
+            delta:
+              vp?.pctConfirmacion != null && v?.pctConfirmacion != null
+                ? Number(v.pctConfirmacion) - Number(vp.pctConfirmacion)
+                : null,
             puntos: true,
           },
           {
-            icono: "bx-conversation",
-            color: ACENTO.cyan,
-            label: "Conversaciones",
-            valor: fmtNum(convs),
-            sub: `${fmtNum(resumen?.totalMensajes || 0)} mensajes cruzados`,
-            delta: deltaPct(convs, convsPrev),
-          },
-          {
-            icono: "bx-receipt",
+            icono: "bx-cube",
             color: ACENTO.amber,
-            label: "Ticket promedio",
-            valor: fmt$(v?.pedidosNeto > 0 ? v.facturado / v.pedidosNeto : 0),
-            sub: "por pedido vivo",
-            delta: deltaPct(
-              v?.pedidosNeto > 0 ? v.facturado / v.pedidosNeto : 0,
-              vp?.pedidosNeto > 0 ? vp.facturado / vp.pedidosNeto : 0,
-            ),
+            label: "Costo producto",
+            valor: v?.costoProducto != null ? fmt$(v.costoProducto) : "—",
+            sub:
+              v?.facturado > 0 && v?.costoProducto != null
+                ? `${fmtPct((v.costoProducto / v.facturado) * 100)} del facturado · de lo entregado y en camino`
+                : "lo que cobra el proveedor",
           },
           {
             icono: "bx-trip",
             color: ACENTO.rose,
-            label: "Por entregar",
-            valor: fmtNum(enCamino.n),
+            label: "Fletes",
+            valor: v?.flete != null ? fmt$(v.flete) : "—",
             sub:
-              enCamino.ganancia != null && enCamino.n > 0
-                ? `${enCamino.ganancia >= 0 ? "+" : ""}${fmt$(enCamino.ganancia)} si se entregan`
-                : "pedidos en camino",
+              v?.facturado > 0 && v?.flete != null
+                ? `${fmtPct((v.flete / v.facturado) * 100)} del facturado · sin cancelados${
+                    v.fleteDevoluciones > 0 ? `, ${fmt$(v.fleteDevoluciones)} de devueltos` : ""
+                  }`
+                : "envío de cada pedido",
           },
+          /* Utilidad = «Te queda en el bolsillo» (10-nov, Daniel: una sola
+             ganancia): ya con publicidad y con la entrega del simulador. Si la
+             rentabilidad no carga, queda la utilidad antes de publicidad. */
+          bolsillo?.neto != null && !vendeShopify
+            ? {
+                icono: "bx-wallet",
+                color: ACENTO.violet,
+                label: "Utilidad",
+                valor: fmt$(bolsillo.neto),
+                sub:
+                  (bolsillo.enCamino > 0
+                    ? `lo que te queda si se entrega el ${bolsillo.entrega}% de lo que va en camino`
+                    : "lo que te queda, periodo cerrado") +
+                  (bolsillo.conPublicidad ? " · ya restada la publicidad" : " · sin publicidad conectada"),
+              }
+            : {
+                icono: "bx-wallet",
+                color: ACENTO.violet,
+                label: "Utilidad",
+                valor: !vendeShopify && bolsillo?.cargando ? "…" : fmt$(v?.utilidadReal ?? v?.ganancia ?? 0),
+                sub: !vendeShopify && bolsillo?.cargando
+                  ? "calculando con tu publicidad"
+                  : v?.facturado > 0
+                    ? `${fmtPct(((v.utilidadReal ?? v.ganancia) / v.facturado) * 100)} del facturado · antes de publicidad`
+                    : "venta − proveedor − envío",
+              },
         ],
       };
 
@@ -1582,6 +1652,7 @@ export default function DashboardConexionV2() {
         {/* ────── bloque de ventas (solo modo dropshipping) ────── */}
         {!esAtencion && (
           <>
+            {/* Sin la nota «De cada 100 personas…» bajo el embudo (10-nov, Daniel). */}
             <div className="grid gap-5 lg:grid-cols-5">
               <Seccion
                 titulo="Del chat a la entrega"
@@ -1592,14 +1663,7 @@ export default function DashboardConexionV2() {
                 {cargando ? (
                   <Skel className="h-[180px]" />
                 ) : pasosEmbudo.length ? (
-                  <Embudo
-                    pasos={pasosEmbudo}
-                    nota={
-                      convs > 0
-                        ? `De cada 100 personas que escriben, ${Math.round(Math.min(100, v.pctConfirmacion || 0))} terminan en pedido y ${Math.round(((v.entregadas || 0) / convs) * 100)} reciben su producto.`
-                        : null
-                    }
-                  />
+                  <Embudo pasos={pasosEmbudo} />
                 ) : (
                   <Vacio icono="bx-filter-alt" texto="Sin datos del canal" />
                 )}
@@ -1613,6 +1677,30 @@ export default function DashboardConexionV2() {
                 {cargando ? <Skel className="h-[180px]" /> : <DonaEstados estados={estados} total={resumen?.totalPedidos || 0} />}
               </Seccion>
             </div>
+
+            <Seccion
+              titulo="¿Cuánto ganaste de verdad?"
+              sub="Lo que te queda después del producto, los fletes, las devoluciones y la publicidad; no lo que facturaste."
+              delay={130}
+            >
+              <RentabilidadReal idConfiguracion={conexion.id} from={rango.from} to={rango.to} tick={tick} onNeto={setBolsillo} />
+            </Seccion>
+
+            <Seccion
+              titulo="Cobros de Dropi para reclamar"
+              sub="Revisamos tu cartera de Dropi guía por guía y marcamos lo que te cobraron de más: fletes dobles, flete en pedidos entregados, ganancias que no entraron."
+              delay={135}
+            >
+              <CobrosReclamar idConfiguracion={conexion.id} tick={tick} />
+            </Seccion>
+
+            <Seccion
+              titulo="Efectividad por ciudad"
+              sub="Cuánto se entrega y cuánto te deja cada ciudad y transportadora, comparado con el mercado en esa misma ciudad."
+              delay={140}
+            >
+              <EfectividadCiudades idConfiguracion={conexion.id} from={rango.from} to={rango.to} tick={tick} />
+            </Seccion>
 
             <Seccion
               titulo="Ritmo diario"
