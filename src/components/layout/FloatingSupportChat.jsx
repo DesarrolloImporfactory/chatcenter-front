@@ -321,6 +321,8 @@ export default function FloatingSupportChat({
           {
             role: "assistant",
             error: true,
+            // El asistente no tiene con qué responder: se ofrece el asesor.
+            asesor: err.response?.data?.code === "ASISTENTE_SIN_SERVICIO",
             content:
               err.response?.data?.message ||
               "Error al consultar. Intenta nuevamente.",
@@ -467,6 +469,16 @@ export default function FloatingSupportChat({
                 {msg.error ? (
                   <div className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-[12px] leading-relaxed text-amber-800">
                     {msg.content}
+                    {msg.asesor && (
+                      <button
+                        type="button"
+                        onClick={irAsesor}
+                        className="mt-1.5 flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-[11.5px] font-semibold text-white transition-colors hover:bg-green-700"
+                      >
+                        <i className="bx bxl-whatsapp text-sm" />
+                        Hablar con un asesor
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="grid min-w-0 gap-2">
