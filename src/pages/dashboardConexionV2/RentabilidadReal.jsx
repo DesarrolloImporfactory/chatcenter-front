@@ -338,7 +338,7 @@ function TablaProductos({ productos }) {
   );
 }
 
-export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
+export default function RentabilidadReal({ idConfiguracion, from, to, tick, onNeto }) {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -415,6 +415,23 @@ export default function RentabilidadReal({ idConfiguracion, from, to, tick }) {
       },
     };
   }, [data, s]);
+
+  /* El encabezado muestra este mismo neto como «Utilidad»: una sola cifra de
+     ganancia en todo el dashboard, que se mueve con el simulador. */
+  useEffect(() => {
+    if (!onNeto) return;
+    if (cargando || error || !data || !data.pedidos?.total) {
+      onNeto(cargando ? { cargando: true } : null);
+      return;
+    }
+    onNeto({
+      neto: vista.neto,
+      entrega: Math.round(s * 100),
+      enCamino: data.proyeccion.en_camino,
+      efectividad90: data.proyeccion.efectividad_usada,
+      conPublicidad: data.publicidad_fuente !== "ninguna",
+    });
+  }, [onNeto, cargando, error, data, vista, s]);
 
   if (cargando && !data) {
     return (

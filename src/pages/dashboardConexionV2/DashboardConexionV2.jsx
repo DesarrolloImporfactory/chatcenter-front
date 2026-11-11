@@ -1211,6 +1211,7 @@ export default function DashboardConexionV2() {
   const [error, setError] = useState("");
   const [actualizado, setActualizado] = useState(null);
   const [tick, setTick] = useState(0);
+  const [bolsillo, setBolsillo] = useState(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1476,16 +1477,27 @@ export default function DashboardConexionV2() {
           .filter(Boolean)
           .join(" · "),
         /* Efectividad de entrega del filtro (10-nov, Daniel): entregados sobre
-           los pedidos vivos del rango; lo que va en camino aún no cuenta. */
-        destacado: v?.pedidosNeto > 0 && {
-          label: "Efectividad de entrega",
-          valor: fmtPct(v.tasaEntregaReal),
-          delta: vp?.pedidosNeto ? Number(v.tasaEntregaReal || 0) - Number(vp.tasaEntregaReal || 0) : null,
-          sub:
-            enCamino.n > 0
-              ? `${fmtNum(v.entregadas || 0)} de ${fmtNum(v.pedidosNeto)} hasta hoy · sube a medida que se entregue lo que va en camino`
-              : `${fmtNum(v.entregadas || 0)} de ${fmtNum(v.pedidosNeto)} · periodo cerrado`,
-        },
+           los pedidos vivos del rango. Si todavía no se cerró ninguno (p. ej.
+           «Hoy»), un 0 % mentiría: se dice que va en camino y se muestra la
+           efectividad de 90 días de la tienda. */
+        destacado:
+          v?.pedidosNeto > 0 &&
+          (v.pedidosNeto - enCamino.n > 0
+            ? {
+                label: "Efectividad de entrega",
+                valor: fmtPct(v.tasaEntregaReal),
+                delta: vp?.pedidosNeto ? Number(v.tasaEntregaReal || 0) - Number(vp.tasaEntregaReal || 0) : null,
+                sub:
+                  enCamino.n > 0
+                    ? `${fmtNum(v.entregadas || 0)} de ${fmtNum(v.pedidosNeto)} hasta hoy · sube a medida que se entregue lo que va en camino`
+                    : `${fmtNum(v.entregadas || 0)} de ${fmtNum(v.pedidosNeto)} · periodo cerrado`,
+              }
+            : {
+                label: "Efectividad de entrega",
+                valor: bolsillo?.efectividad90 != null ? fmtPct(bolsillo.efectividad90) : "—",
+                delta: null,
+                sub: `los ${fmtNum(v.pedidosNeto)} pedidos van en camino · esta es tu efectividad de los últimos 90 días`,
+              }),
         serie: serieDiaria,
         serieKey: "facturado",
         serieNombre: "Facturado",
@@ -1547,19 +1559,32 @@ export default function DashboardConexionV2() {
                   }`
                 : "envío de cada pedido",
           },
-          {
-            icono: "bx-wallet",
-            color: ACENTO.violet,
-            label: "Utilidad",
-            /* utilidadReal: sin la ganancia de cancelados ni devueltos y con
-               el flete de lo devuelto restado; antes de publicidad. */
-            valor: fmt$(v?.utilidadReal ?? v?.ganancia ?? 0),
-            sub:
-              v?.facturado > 0
-                ? `${fmtPct(((v.utilidadReal ?? v.ganancia) / v.facturado) * 100)} del facturado · si se entrega lo que va en camino, antes de publicidad`
-                : "venta − proveedor − envío",
-            delta: deltaPct(v?.utilidadReal ?? v?.ganancia, vp?.utilidadReal ?? vp?.ganancia),
-          },
+          /* Utilidad = «Te queda en el bolsillo» (10-nov, Daniel: una sola
+             ganancia): ya con publicidad y con la entrega del simulador. Si la
+             rentabilidad no carga, queda la utilidad antes de publicidad. */
+          bolsillo?.neto != null && !vendeShopify
+            ? {
+                icono: "bx-wallet",
+                color: ACENTO.violet,
+                label: "Utilidad",
+                valor: fmt$(bolsillo.neto),
+                sub:
+                  (bolsillo.enCamino > 0
+                    ? `lo que te queda si se entrega el ${bolsillo.entrega}% de lo que va en camino`
+                    : "lo que te queda, periodo cerrado") +
+                  (bolsillo.conPublicidad ? " · ya restada la publicidad" : " · sin publicidad conectada"),
+              }
+            : {
+                icono: "bx-wallet",
+                color: ACENTO.violet,
+                label: "Utilidad",
+                valor: !vendeShopify && bolsillo?.cargando ? "…" : fmt$(v?.utilidadReal ?? v?.ganancia ?? 0),
+                sub: !vendeShopify && bolsillo?.cargando
+                  ? "calculando con tu publicidad"
+                  : v?.facturado > 0
+                    ? `${fmtPct(((v.utilidadReal ?? v.ganancia) / v.facturado) * 100)} del facturado · antes de publicidad`
+                    : "venta − proveedor − envío",
+              },
         ],
       };
 
@@ -1658,7 +1683,7 @@ export default function DashboardConexionV2() {
               sub="Lo que te queda después del producto, los fletes, las devoluciones y la publicidad; no lo que facturaste."
               delay={130}
             >
-              <RentabilidadReal idConfiguracion={conexion.id} from={rango.from} to={rango.to} tick={tick} />
+              <RentabilidadReal idConfiguracion={conexion.id} from={rango.from} to={rango.to} tick={tick} onNeto={setBolsillo} />
             </Seccion>
 
             <Seccion
