@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import chatApi from "../../api/chatcenter";
-import { fmt$, fmtNum, fmtPct } from "./utils";
+import { fmt$, fmtNum, fmtPct, fmtDiaCorto } from "./utils";
 
 /* ═════════════════════════════════════════════════════════════════
    Efectividad por ciudad y transportadora («Reportes PRO» del curso
@@ -285,7 +285,12 @@ export default function EfectividadCiudades({ idConfiguracion, from, to, tick })
           ))}
         </div>
         <p className="dv2-num text-[11.5px] text-slate-500">
-          Total: <b className={t.cerrada === false ? "text-slate-700" : colorEfectividad(t.efectividad, umbrales)}>{fmtPct(t.efectividad)}</b> entregado
+          <span className="font-semibold text-slate-700">
+            {datos.desde === datos.hasta
+              ? `Pedidos del ${fmtDiaCorto(datos.desde)}`
+              : `Pedidos del ${fmtDiaCorto(datos.desde)} al ${fmtDiaCorto(datos.hasta)}`}
+          </span>{" "}
+          · Total: <b className={t.cerrada === false ? "text-slate-700" : colorEfectividad(t.efectividad, umbrales)}>{fmtPct(t.efectividad)}</b> entregado
           {t.en_curso > 0 && <> ({fmtNum(t.entregadas)} de {fmtNum(t.entregadas + t.devoluciones + t.en_curso)}, {fmtNum(t.en_curso)} en camino)</>} ·{" "}
           <b className="text-slate-800">{fmt$(t.utilidad)}</b> de utilidad
         </p>
