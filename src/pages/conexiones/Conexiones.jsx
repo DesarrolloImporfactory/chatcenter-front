@@ -1449,7 +1449,9 @@ const Conexiones = () => {
       } catch (e) {
         Swal.fire(
           "Error",
-          e?.message || "No fue posible completar la conexión",
+          e?.response?.data?.message ||
+            e?.message ||
+            "No fue posible completar la conexión",
           "error",
         );
       } finally {
