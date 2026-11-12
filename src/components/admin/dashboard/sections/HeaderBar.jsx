@@ -5,6 +5,7 @@ export default function HeaderBar({
   resumen,
   refreshing,
   onRecalcular,
+  onActivarCombo,
   diasComp,
   setDiasComp,
   fechaHoy,
@@ -29,7 +30,15 @@ export default function HeaderBar({
               ` · ${num(resumen.total_registros_bd)} registros en la base de datos`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {onActivarCombo && (
+          <button
+            onClick={onActivarCombo}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-600 text-white font-semibold text-sm hover:bg-cyan-700 transition"
+          >
+            <i className="bx bx-gift" /> Activar combo
+          </button>
+          )}
           {mostrarPanelUsuarios && (
           <button
             onClick={() => navigate("/usuarios_admin")}

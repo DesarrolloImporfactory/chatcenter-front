@@ -176,6 +176,13 @@ chatApi.interceptors.response.use(
       if (!window.__cardCaptureModalOpen) {
         window.__cardCaptureModalOpen = true;
 
+        // El back dice cuántos meses incluye y cuánto cobra después: Plan
+        // Method Ecommerce (3 meses, $29) o un combo activado por el equipo
+        // (p. ej. 6 meses). Los valores fijos quedan para un back viejo.
+        const datosCaptura = error.response?.data || {};
+        const mesesIncluidos = Number(datosCaptura.meses_incluidos) || 3;
+        const precioDespues = Number(datosCaptura.precio_despues) || 29;
+
         Swal.fire({
           icon: "info",
           title: "Registra tu método de pago",
@@ -194,7 +201,7 @@ chatApi.interceptors.response.use(
                     No se cobra nada hoy
                   </div>
                   <div style="color:#15803D; font-size:12px;">
-                    Tus 3 meses incluidos empiezan a contar desde hoy. El cobro de $29/mes inicia cuando terminen.
+                    Tus ${mesesIncluidos} meses incluidos empiezan a contar desde hoy. El cobro de $${precioDespues}/mes inicia cuando terminen.
                   </div>
                 </div>
               </div>
