@@ -10,7 +10,12 @@ import { globalLogout } from "../../utils/globalLogout";
 import chatApi from "../../api/chatcenter";
 import WhatsAppCaptureModal from "../../pages/selectorHerramienta/modales/WhatsAppCaptureModal";
 import ModalAgendarImplementacion from "./modales/ModalAgendarImplementacion";
+import ModalOfertaImporKiller from "./modales/ModalOfertaImporKiller";
 import useRecuperacionAcceso from "../../hooks/useRecuperacionAcceso";
+
+// Oferta de ImporKiller cerrada con la X en esta carga de la página (no se
+// guarda en ningún storage: al recargar o volver a entrar sale otra vez).
+let ofertaIkCerrada = false;
 
 // Rutas que siguen disponibles aunque el plan no esté activo: sin ellas el
 // usuario quedaría encerrado, sin forma de pagar ni de pedir ayuda.
@@ -183,10 +188,16 @@ function MainLayout({ children }) {
   const claveImplementacion = userData
     ? `impl_cerrada_${userData.id_usuario || userData.id_users || ""}_${userData.iat || ""}`
     : null;
+  // La oferta de ImporKiller espera esta respuesta para no encimarse.
+  const [implResuelta, setImplResuelta] = useState(false);
+  const implSalio = useRef(false);
   useEffect(() => {
     if (!userData || !esAdministrador) return;
     try {
-      if (claveImplementacion && sessionStorage.getItem(claveImplementacion)) return;
+      if (claveImplementacion && sessionStorage.getItem(claveImplementacion)) {
+        setImplResuelta(true);
+        return;
+      }
     } catch (_) {
       /* sin storage: se consulta igual */
     }
@@ -194,13 +205,43 @@ function MainLayout({ children }) {
     chatApi
       .get("onboarding/implementacion")
       .then(({ data }) => {
-        if (!cancelado && data?.data?.mostrar) setImplementacion(data.data);
+        if (!cancelado && data?.data?.mostrar) {
+          implSalio.current = true;
+          setImplementacion(data.data);
+        }
       })
-      .catch((e) => console.warn("[layout] no se pudo leer onboarding:", e?.message));
+      .catch((e) => console.warn("[layout] no se pudo leer onboarding:", e?.message))
+      .finally(() => {
+        if (!cancelado) setImplResuelta(true);
+      });
     return () => {
       cancelado = true;
     };
   }, [userData, esAdministrador, claveImplementacion]);
+
+  /* Oferta del complemento ImporKiller (2026-11-11). Al administrador de una
+     cuenta con suscripción viva que no lo tiene (decide el back). Sale
+     SIEMPRE hasta que lo compra o pulsa «No volver a mostrar» (por cuenta):
+     la X no guarda nada, solo lo cierra hasta la próxima vez que entre o
+     recargue (`ofertaIkCerrada` vive lo que vive la página, para que no
+     reaparezca al moverse entre pantallas). Si en esta carga ya salió la
+     invitación a agendar la implementación, se deja para la próxima: nunca
+     dos modales seguidos. */
+  const [ofertaImporKiller, setOfertaImporKiller] = useState(null);
+  useEffect(() => {
+    if (!userData || !esAdministrador || !implResuelta || implSalio.current) return;
+    if (ofertaIkCerrada) return;
+    let cancelado = false;
+    chatApi
+      .get("onboarding/imporkiller")
+      .then(({ data }) => {
+        if (!cancelado && data?.data?.mostrar) setOfertaImporKiller(data.data);
+      })
+      .catch((e) => console.warn("[layout] no se pudo leer la oferta de ImporKiller:", e?.message));
+    return () => {
+      cancelado = true;
+    };
+  }, [userData, esAdministrador, implResuelta]);
 
   useEffect(() => {
     // Los roles administrativos no tienen plan propio; no se les gatea nada.
@@ -582,6 +623,16 @@ function MainLayout({ children }) {
           claveSesion={claveImplementacion}
           idCuenta={userData.id_usuario || userData.id_users || null}
           onCerrar={() => setImplementacion(null)}
+        />
+      )}
+
+      {ofertaImporKiller && !implementacion && !needsCapture && esAdministrador && (
+        <ModalOfertaImporKiller
+          datos={ofertaImporKiller}
+          onCerrar={() => {
+            ofertaIkCerrada = true;
+            setOfertaImporKiller(null);
+          }}
         />
       )}
 
