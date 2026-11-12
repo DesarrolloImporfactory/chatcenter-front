@@ -13,6 +13,7 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaCogs,
+  FaReceipt,
 } from "react-icons/fa";
 
 // Stat glass del header (mismo lenguaje visual que Conexiones, adaptado a texto)
@@ -1151,9 +1152,22 @@ const MiPlan = () => {
                       const abierta = !paid && f.status === "open";
                       // Pagada: lo cobrado. Pendiente: lo adeudado (antes
                       // salía USD 0.00 porque amount_paid es 0 sin pagar).
-                      const monto = paid
-                        ? f.amount_paid
-                        : (f.amount_due ?? f.total ?? f.amount_paid);
+                      // Pagada por transferencia/efectivo: la registramos
+                      // nosotros y Stripe la deja con amount_paid = 0, así
+                      // que el monto real es el total de la factura.
+                      const fueraDePasarela = paid && Boolean(f.paid_out_of_band);
+                      const comprobante = f.pago_manual?.comprobante_url || null;
+                      const metodoManual =
+                        f.pago_manual?.metodo === "efectivo"
+                          ? "en efectivo"
+                          : f.pago_manual?.metodo === "otro"
+                            ? "fuera de la pasarela"
+                            : "por transferencia";
+                      const monto = fueraDePasarela
+                        ? (f.total ?? f.amount_due ?? f.amount_paid)
+                        : paid
+                          ? f.amount_paid
+                          : (f.amount_due ?? f.total ?? f.amount_paid);
                       return (
                         <div
                           key={f.id}
@@ -1174,7 +1188,9 @@ const MiPlan = () => {
                                 {paid ? (
                                   <span className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-emerald-400/10 text-emerald-200 border border-emerald-400/20">
                                     <FaCheckCircle />
-                                    Pagada
+                                    {fueraDePasarela
+                                      ? `Pagada ${metodoManual}`
+                                      : "Pagada"}
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-red-400/10 text-red-200 border border-red-400/20">
@@ -1185,26 +1201,39 @@ const MiPlan = () => {
                               </div>
                             </div>
 
-                            {f.hosted_invoice_url ? (
-                              <a
-                                href={f.hosted_invoice_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={[
-                                  "shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition",
-                                  abierta
-                                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                    : "bg-white text-[#171931] hover:opacity-95",
-                                ].join(" ")}
-                              >
-                                {abierta ? <FaCreditCard /> : <FaFilePdf />}
-                                {abierta ? "Pagar ahora" : "Ver factura"}
-                              </a>
-                            ) : (
-                              <span className="text-xs text-white/50">
-                                Sin enlace
-                              </span>
-                            )}
+                            <div className="shrink-0 flex flex-col items-stretch gap-2">
+                              {comprobante ? (
+                                <a
+                                  href={comprobante}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition bg-emerald-600 text-white hover:bg-emerald-500"
+                                >
+                                  <FaReceipt />
+                                  Ver comprobante
+                                </a>
+                              ) : null}
+                              {f.hosted_invoice_url ? (
+                                <a
+                                  href={f.hosted_invoice_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={[
+                                    "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition",
+                                    abierta
+                                      ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                                      : "bg-white text-[#171931] hover:opacity-95",
+                                  ].join(" ")}
+                                >
+                                  {abierta ? <FaCreditCard /> : <FaFilePdf />}
+                                  {abierta ? "Pagar ahora" : "Ver factura"}
+                                </a>
+                              ) : !comprobante ? (
+                                <span className="text-xs text-white/50">
+                                  Sin enlace
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       );
