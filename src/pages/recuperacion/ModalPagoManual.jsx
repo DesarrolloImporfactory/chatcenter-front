@@ -126,19 +126,30 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
   const [accesoHasta, setAccesoHasta] = useState("");
   const [enviando, setEnviando] = useState(false);
 
+  // Sin factura que saldar se puede activar un plan: el backend crea la
+  // suscripción en Stripe y deja su primera factura pagada fuera de Stripe.
+  // Por defecto, el plan que ya tiene la cuenta.
+  const planes = panel?.planes || [];
+  const puedeActivarPlan = Boolean(panel?.puede_activar_plan) && planes.length > 0;
+  const [planId, setPlanId] = useState(() =>
+    puedeActivarPlan && planes.some((p) => p.id_plan === usuario.id_plan) ? String(usuario.id_plan) : "",
+  );
+  const planElegido = !facturaId && puedeActivarPlan ? planes.find((p) => String(p.id_plan) === planId) || null : null;
+
   const facturaElegida = facturas.find((f) => f.id === facturaId) || null;
   const otrasAbiertas = facturas.filter((f) => f.id !== facturaId && f.status === "open");
 
   // Monto por defecto: el de la factura elegida; sin factura, el precio del plan.
   useEffect(() => {
     if (facturaElegida) setMonto(String(facturaElegida.monto.toFixed(2)));
+    else if (planElegido?.precio_plan != null) setMonto(String(Number(planElegido.precio_plan).toFixed(2)));
     else if (usuario.precio_plan != null) setMonto(String(Number(usuario.precio_plan).toFixed(2)));
-  }, [facturaElegida, usuario.precio_plan]);
+  }, [facturaElegida, planElegido, usuario.precio_plan]);
 
-  // Sin factura que saldar, el acceso se fija a mano: por defecto un mes desde hoy.
+  // Sin factura ni plan a activar, el acceso se fija a mano: por defecto un mes desde hoy.
   useEffect(() => {
-    if (!facturaId && !accesoHasta) setAccesoHasta(sumarDias(hoyISO(), 30));
-  }, [facturaId, accesoHasta]);
+    if (!facturaId && !planElegido && !accesoHasta) setAccesoHasta(sumarDias(hoyISO(), 30));
+  }, [facturaId, planElegido, accesoHasta]);
 
   useEffect(() => {
     if (!archivo || !archivo.type?.startsWith("image/")) {
@@ -184,7 +195,7 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
       });
       if (!r.isConfirmed) return;
     }
-    if (!facturaId && !accesoHasta) {
+    if (!facturaId && !planElegido && !accesoHasta) {
       Swal.fire("Falta la fecha de acceso", "Sin factura que saldar, indica hasta cuándo queda activo.", "warning");
       return;
     }
@@ -203,6 +214,8 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
         if (anularOtras && otrasAbiertas.length) {
           fd.append("anular_invoice_ids", otrasAbiertas.map((f) => f.id).join(","));
         }
+      } else if (planElegido) {
+        fd.append("activar_plan_id", String(planElegido.id_plan));
       } else if (accesoHasta) {
         fd.append("acceso_hasta", accesoHasta);
       }
@@ -217,7 +230,7 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
         await Swal.fire({
           icon: "warning",
           title: "Pago registrado, Stripe no",
-          html: `El pago quedó guardado, pero la factura <b>no</b> se pudo saldar en Stripe:<br/><span class="text-xs">${st.detalle || "sin detalle"}</span><br/><br/>Sáldala a mano en Stripe (Más → Marcar como pagada fuera de Stripe) o vuelve a intentar.`,
+          html: `El pago quedó guardado con su comprobante, pero en Stripe <b>no</b> se pudo dejar pagado y la cuenta sigue sin acceso:<br/><span class="text-xs">${st.detalle || "sin detalle"}</span><br/><br/>No lo registres otra vez: avisa a soporte técnico con este mensaje.`,
         });
       } else if (archivo && res?.comprobante_subido === false) {
         await Swal.fire(
@@ -227,10 +240,14 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
         );
       } else {
         const partes = [];
-        if (st.accion === "saldada") partes.push("La factura quedó pagada en Stripe y no se reintentará la tarjeta.");
+        if (st.suscripcion_creada) {
+          partes.push(
+            `Se activó ${st.suscripcion_creada.plan}: la cuenta ya tiene acceso hasta el ${fmtFecha(st.suscripcion_creada.acceso_hasta)} y en Stripe quedó pagada fuera de Stripe.`,
+          );
+        } else if (st.accion === "saldada") partes.push("La factura quedó pagada en Stripe y no se reintentará la tarjeta.");
         if (st.anuladas?.length) partes.push(`Se anularon ${st.anuladas.length} factura(s) abiertas más.`);
         if (st.no_anuladas?.length) partes.push(`No se pudo anular: ${st.no_anuladas.join("; ")}`);
-        if (!facturaId && accesoHasta) partes.push(`Acceso activo hasta el ${fmtFecha(`${accesoHasta}T12:00:00`)}.`);
+        if (!facturaId && !planElegido && accesoHasta) partes.push(`Acceso activo hasta el ${fmtFecha(`${accesoHasta}T12:00:00`)}.`);
         await Swal.fire({
           icon: "success",
           title: "Pago registrado",
@@ -291,7 +308,10 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
             </div>
             {facturas.length === 0 ? (
               <p className="text-[12px] text-slate-500 rounded-xl border border-dashed border-slate-200 p-3">
-                Este cliente no tiene facturas abiertas ni incobrables en Stripe. El pago se registra y el acceso se fija con la fecha de abajo.
+                Este cliente no tiene facturas abiertas ni incobrables en Stripe.{" "}
+                {puedeActivarPlan
+                  ? "Elige abajo el plan que pagó y queda activo de una vez."
+                  : "El pago se registra y el acceso se fija con la fecha de abajo."}
               </p>
             ) : (
               <div className="space-y-2">
@@ -307,7 +327,10 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
                 <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 text-xs text-slate-600">
                   <input type="radio" name="factura" checked={!facturaId} onChange={() => setFacturaId("")} className="mt-0.5 accent-cyan-600" />
                   <span>
-                    <b>Ninguna.</b> Solo registrar el pago y fijar el acceso a mano (no toca Stripe).
+                    <b>Ninguna.</b>{" "}
+                    {puedeActivarPlan
+                      ? "Activar un plan nuevo o fijar el acceso a mano."
+                      : "Solo registrar el pago y fijar el acceso a mano (no toca Stripe)."}
                   </span>
                 </label>
               </div>
@@ -334,7 +357,30 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
             )}
           </div>
 
-          {!facturaId && (
+          {!facturaId && puedeActivarPlan && (
+            <label className="block">
+              <span className="text-[12px] font-semibold text-slate-700">Plan que pagó</span>
+              <select
+                value={planId}
+                onChange={(e) => setPlanId(e.target.value)}
+                className="mt-1 w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 outline-none focus:border-cyan-400 bg-white"
+              >
+                {planes.map((p) => (
+                  <option key={p.id_plan} value={String(p.id_plan)}>
+                    {p.nombre_plan} · {money2(p.precio_plan)}/mes
+                  </option>
+                ))}
+                <option value="">No activar plan: solo fijar la fecha de acceso a mano</option>
+              </select>
+              <span className="text-[11px] text-slate-400">
+                {planElegido
+                  ? "La cuenta queda activa un mes con este plan y en Stripe aparece pagada fuera de Stripe. El mes siguiente Stripe emite la factura normal."
+                  : "No se toca Stripe: el cliente no verá factura ni comprobante en Mi plan."}
+              </span>
+            </label>
+          )}
+
+          {!facturaId && !planElegido && (
             <label className="block">
               <span className="text-[12px] font-semibold text-slate-700">Acceso activo hasta</span>
               <input
@@ -438,6 +484,8 @@ export default function ModalPagoManual({ id_usuario, panel, onClose, onRegistra
               </>
             ) : facturaElegida ? (
               `Registrar ${money2(Number(monto) || 0)} y saldar factura`
+            ) : planElegido ? (
+              `Registrar ${money2(Number(monto) || 0)} y activar ${planElegido.nombre_plan}`
             ) : (
               `Registrar ${money2(Number(monto) || 0)}`
             )}
