@@ -604,6 +604,111 @@ const Cabecera = ({
     }
   };
 
+  /* Bloquear al contacto en WhatsApp. Quien usa coexistencia lo hace desde el
+     celular; quien tiene solo API no tenía cómo. El bloqueo lo hace Meta
+     (Block Users API): el contacto deja de poder escribirle a este número y
+     el número a él. El estado no viene en la lista de chats: se pide al abrir
+     el chat (para la etiqueta «Bloqueado» de la cabecera) y otra vez al abrir
+     el menú, por si otro asesor lo cambió mientras tanto. */
+  const [bloqueoPorChat, setBloqueoPorChat] = useState({});
+  const [cambiandoBloqueo, setCambiandoBloqueo] = useState(false);
+  const esChatWhatsapp = selectedChat?.source === "wa";
+  const contactoBloqueado = Boolean(bloqueoPorChat[selectedChat?.id]);
+
+  useEffect(() => {
+    if (!esChatWhatsapp || !selectedChat?.id) return;
+    const chatId = selectedChat.id;
+    let vigente = true;
+
+    chatApi
+      .post("/clientes_chat_center/estado_bloqueo_whatsapp", { chatId })
+      .then(({ data }) => {
+        if (vigente) {
+          setBloqueoPorChat((prev) => ({ ...prev, [chatId]: !!data?.bloqueado }));
+        }
+      })
+      .catch(() => {
+        /* Sin estado el menú ofrece "Bloquear", que es lo normal. */
+      });
+
+    return () => {
+      vigente = false;
+    };
+  }, [opcionesMenuOpen, esChatWhatsapp, selectedChat?.id]);
+
+  const handleBloquearContacto = async () => {
+    if (!selectedChat?.id || cambiandoBloqueo) return;
+
+    const chatId = selectedChat.id;
+    const bloquear = !contactoBloqueado;
+    const quien =
+      selectedChat.nombre_cliente || `+${selectedChat.celular_cliente || ""}`;
+
+    setOpcionesMenuOpen(false);
+
+    const confirmacion = await Swal.fire({
+      icon: "warning",
+      title: bloquear ? "¿Bloquear este contacto?" : "¿Desbloquear este contacto?",
+      text: bloquear
+        ? `${quien} ya no podrá escribirle a este número de WhatsApp y tú tampoco podrás escribirle hasta que lo desbloquees. Se apagan el bot y el remarketing de este chat y se cancelan los envíos que tenía programados.`
+        : `${quien} podrá volver a escribirle a este número de WhatsApp. El bot y el remarketing vuelven a como estaban antes del bloqueo.`,
+      showCancelButton: true,
+      confirmButtonText: bloquear ? "Sí, bloquear" : "Sí, desbloquear",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: bloquear ? "#dc2626" : "#059669",
+      reverseButtons: true,
+    });
+    if (!confirmacion.isConfirmed) return;
+
+    setCambiandoBloqueo(true);
+    try {
+      const { data } = await chatApi.post(
+        "/clientes_chat_center/bloquear_whatsapp",
+        { chatId, bloquear: bloquear ? 1 : 0 },
+      );
+
+      setBloqueoPorChat((prev) => ({ ...prev, [chatId]: !!data?.bloqueado }));
+
+      /* Al bloquear, el back apaga el bot y el remarketing del chat (y los
+         devuelve a como estaban al desbloquear): los interruptores de la
+         cabecera tienen que reflejarlo sin recargar. */
+      const cambios = {
+        ...(data?.bot_openia != null ? { bot_openia: data.bot_openia } : {}),
+        ...(data?.enviar_remarketing != null
+          ? { enviar_remarketing: data.enviar_remarketing }
+          : {}),
+      };
+      setSelectedChat((prev) =>
+        prev && String(prev.id) === String(chatId)
+          ? { ...prev, ...cambios }
+          : prev,
+      );
+      setMensajesAcumulados((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(chatId) ? { ...c, ...cambios } : c,
+        ),
+      );
+
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: bloquear ? "Contacto bloqueado" : "Contacto desbloqueado",
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+      });
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: bloquear ? "No se pudo bloquear" : "No se pudo desbloquear",
+        text: e?.response?.data?.message || "Intenta de nuevo",
+      });
+    } finally {
+      setCambiandoBloqueo(false);
+    }
+  };
+
   /* Descarga la conversación del chat abierto en Excel. El archivo lo arma el
      back (trae la conversación completa, no solo lo que hay cargado en
      pantalla) y es también quien niega por rol: esconder el botón a ventas es
@@ -1815,6 +1920,18 @@ const Cabecera = ({
                         : "—"}
                     </span>
 
+                    {/* Bloqueado en WhatsApp: se ve sin abrir el menú, para
+                        que nadie se pregunte por qué no le llegan mensajes. */}
+                    {contactoBloqueado && (
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700"
+                        title="Este contacto está bloqueado en WhatsApp: no puede escribirle a este número ni recibir mensajes. Se desbloquea desde el menú de opciones."
+                      >
+                        <i className="bx bx-block text-[12px]" />
+                        Bloqueado
+                      </span>
+                    )}
+
                     {/* Suscripción */}
                     {timeRemaining && dataPlanes?.fecha_suscripcion && (
                       <>
@@ -2400,6 +2517,40 @@ const Cabecera = ({
                             {selectedChat.chat_cerrado === 0
                               ? "Cerrar chat"
                               : "Abrir chat"}
+                          </span>
+                        </button>
+                      )}
+
+                      {/* Solo WhatsApp: el bloqueo lo hace Meta sobre el
+                          número de la conexión. */}
+                      {esChatWhatsapp && (
+                        <button
+                          role="menuitem"
+                          onClick={handleBloquearContacto}
+                          disabled={cambiandoBloqueo}
+                          className={`${ITEM_MENU} disabled:opacity-60 ${
+                            contactoBloqueado
+                              ? "text-emerald-700 hover:bg-emerald-50"
+                              : "text-red-700 hover:bg-red-50"
+                          }`}
+                        >
+                          <i
+                            className={`bx ${
+                              cambiandoBloqueo
+                                ? "bx-loader-alt animate-spin"
+                                : contactoBloqueado
+                                  ? "bx-check-shield"
+                                  : "bx-block"
+                            } text-[17px] ${
+                              contactoBloqueado
+                                ? "text-emerald-600"
+                                : "text-red-500"
+                            }`}
+                          />
+                          <span className="flex-1 truncate">
+                            {contactoBloqueado
+                              ? "Desbloquear contacto"
+                              : "Bloquear contacto"}
                           </span>
                         </button>
                       )}
