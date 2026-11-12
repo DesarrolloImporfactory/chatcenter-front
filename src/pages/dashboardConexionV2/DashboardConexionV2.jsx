@@ -42,12 +42,13 @@ import {
 } from "./utils";
 
 /* ═════════════════════════════════════════════════════════════════
-   Dashboard de conexión v2 — PROPUESTA EN REVISIÓN
+   Dashboard de conexión — vista PRINCIPAL de /conexion-dashboard
    Una sola página que cuenta la historia de la conexión de arriba
    hacia abajo: cuánto vendió → cómo convierte → qué productos →
-   cómo atiende el equipo. Sin tabs. Se entra solo por la ruta
-   /conexion-dashboard-v2 (no está en ningún menú) y toma la conexión
-   activa de localStorage, igual que /conexion-dashboard.
+   cómo atiende el equipo. Reemplazó al tab Resumen; los tabs de
+   detalle (Dropi, Anuncios, Mensajes) siguen en ConnectionDashboard y
+   se abren con /conexion-dashboard?view=… (ver ConexionDashboardRuta).
+   Toma la conexión activa de localStorage.
    Datos: los mismos endpoints del dashboard actual, sin cambios en
    el back:
      · POST dropi_integrations/dashboard/connection-summary (x2: rango
@@ -236,6 +237,7 @@ function BarraSuperior({
   vendeShopify,
 }) {
   const hoy = toYMD(new Date());
+  const navigate = useNavigate();
   return (
     <div className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-xl">
       <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 2xl:px-10">
@@ -258,9 +260,6 @@ function BarraSuperior({
               >
                 {modo === "atencion" ? "Atención" : "Ventas"}
               </span>
-              <span className="hidden rounded-full border border-amber-200 bg-amber-50 px-2 py-[2px] text-[10px] font-bold text-amber-700 md:inline">
-                Vista nueva · en revisión
-              </span>
             </div>
             <p className="text-[11px] text-slate-500">
               {fmtRango(rango.from, rango.to)}
@@ -272,6 +271,27 @@ function BarraSuperior({
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {/* accesos al detalle: los tabs del dashboard por conexión */}
+          <div className="flex rounded-full border border-slate-200 bg-white p-0.5">
+            {[
+              { k: "dropi", t: "Dropi", i: "bx-package" },
+              { k: "ads", t: "Anuncios", i: "bxl-meta" },
+              { k: "mensajes", t: "Mensajes", i: "bx-message-rounded-dots" },
+            ]
+              .filter((d) => !(modo === "atencion" && d.k === "dropi"))
+              .map((d) => (
+                <button
+                  key={d.k}
+                  onClick={() => navigate(`/conexion-dashboard?view=${d.k}`)}
+                  title={`Ver el detalle de ${d.t}`}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <i className={`bx ${d.i} text-[14px]`} />
+                  <span className="hidden sm:inline">{d.t}</span>
+                </button>
+              ))}
+          </div>
+
           {vendeShopify && (
             <div className="flex rounded-full bg-slate-100 p-0.5">
               {[
@@ -1717,7 +1737,7 @@ export default function DashboardConexionV2() {
               derecha={
                 resumen?.productos?.length > 5 ? (
                   <button
-                    onClick={() => navigate("/conexion-dashboard?view=resumen")}
+                    onClick={() => navigate("/conexion-dashboard?view=dropi")}
                     className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-50"
                   >
                     Ver los {resumen.productos.length}

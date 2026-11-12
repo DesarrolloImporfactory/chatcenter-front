@@ -65,7 +65,7 @@ import NovedadesDropi from "./pages/dropi/NovedadesDropi";
 import Conexiones from "./pages/conexiones/Conexiones";
 import TransportadorasView from "./pages/transportadoras/TransportadorasView";
 import ConnectionDashboard from "./pages/conexiones/ConnectionDashboard";
-import DashboardConexionV2 from "./pages/dashboardConexionV2/DashboardConexionV2";
+import ConexionDashboardRuta from "./pages/conexiones/ConexionDashboardRuta";
 import ApiPublica from "./pages/conexiones/ApiPublica";
 import Conexionespruebas from "./pages/conexiones/Conexionespruebas";
 import AdminConexiones from "./pages/conexiones/AdminConexiones";
@@ -605,21 +605,15 @@ function App() {
                   path="/conexion-dashboard"
                   element={
                     <MainLayout>
-                      <ConnectionDashboard />
+                      <ConexionDashboardRuta />
                     </MainLayout>
                   }
                 />
 
-                {/* Propuesta de dashboard por conexión (en revisión): una
-                    sola página sin tabs sobre la conexión activa. Solo se
-                    entra por la URL; no está en ningún menú. */}
+                {/* Ruta vieja de la propuesta: ya es la vista principal. */}
                 <Route
                   path="/conexion-dashboard-v2"
-                  element={
-                    <MainLayout>
-                      <DashboardConexionV2 />
-                    </MainLayout>
-                  }
+                  element={<Navigate to="/conexion-dashboard" replace />}
                 />
 
                 <Route

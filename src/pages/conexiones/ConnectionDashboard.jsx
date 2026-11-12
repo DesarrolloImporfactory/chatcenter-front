@@ -233,14 +233,22 @@ const TABS = [
   },
 ];
 
-/* Siempre se entra en Resumen, salvo que la URL traiga ?view= explícito
+/* Dentro de una conexión el Resumen ya no es un tab: lo reemplaza el
+   dashboard principal (DashboardConexionV2, misma ruta sin ?view=). Acá
+   solo quedan los tabs de detalle. En /dashboard (adminMode) el Resumen
+   sigue existiendo. */
+const tabPorDefecto = (adminMode) => (adminMode ? "resumen" : "mensajes");
+
+/* Se entra en el tab por defecto, salvo que la URL traiga ?view= explícito
    (así al volver al dashboard desde otra vista no se abre otro tab). */
-function getInitialTab() {
-  if (typeof window === "undefined") return "resumen";
+function getInitialTab(adminMode) {
+  const porDefecto = tabPorDefecto(adminMode);
+  if (typeof window === "undefined") return porDefecto;
   const params = new URLSearchParams(window.location.search);
   const fromUrl = params.get("view");
+  if (fromUrl === "resumen" && !adminMode) return porDefecto;
   if (fromUrl && TABS.find((t) => t.id === fromUrl)) return fromUrl;
-  return "resumen";
+  return porDefecto;
 }
 
 function updateUrlParam(tabId) {
@@ -553,13 +561,13 @@ export default function ConnectionDashboard({ adminMode = false }) {
     if (esRolVentas()) navigate("/conexiones", { replace: true });
   }, [navigate]);
 
-  const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [activeTab, setActiveTab] = useState(() => getInitialTab(adminMode));
 
   // Cache por tab: cada board se monta la primera vez que se visita y
   // luego solo se oculta con CSS. Así al volver a un tab NO se vuelve
   // a consultar el back (los datos y filtros quedan vivos en memoria).
   const [visitedTabs, setVisitedTabs] = useState(
-    () => new Set([getInitialTab()]),
+    () => new Set([getInitialTab(adminMode)]),
   );
 
   // Modo selector: en /dashboard (adminMode) el usuario puede cambiar de
@@ -640,16 +648,20 @@ export default function ConnectionDashboard({ adminMode = false }) {
   };
 
   const esAtencion = modo.efectivo === "atencion";
-  const tabsVisibles = esAtencion
-    ? TABS.filter((t) => t.id !== "dropi")
-    : TABS;
-  // Si estaba en Dropi y la conexión resulta ser de atención, vuelve a Resumen.
+  const tabsVisibles = TABS.filter(
+    (t) =>
+      !(esAtencion && t.id === "dropi") && !(!adminMode && t.id === "resumen"),
+  );
+  // Si estaba en Dropi y la conexión resulta ser de atención, vuelve al tab
+  // por defecto (Resumen en /dashboard, Mensajes dentro de una conexión).
   useEffect(() => {
     if (esAtencion && activeTab === "dropi") {
-      setActiveTab("resumen");
-      updateUrlParam("resumen");
+      const destino = tabPorDefecto(adminMode);
+      setActiveTab(destino);
+      setVisitedTabs((prev) => new Set(prev).add(destino));
+      updateUrlParam(destino);
     }
-  }, [esAtencion, activeTab]);
+  }, [esAtencion, activeTab, adminMode]);
 
   // En modo selector: cargar las conexiones del usuario y, si no hay una
   // activa (o ya no existe), arrancar con la primera registrada.
@@ -795,6 +807,17 @@ export default function ConnectionDashboard({ adminMode = false }) {
               <option value="dropshipping">Ventas</option>
               <option value="atencion">Atención</option>
             </select>
+            {/* Dentro de una conexión: volver al dashboard principal */}
+            {!adminMode && (
+              <button
+                onClick={() => navigate("/conexion-dashboard")}
+                title="Volver al dashboard de la conexión"
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition"
+              >
+                <i className="bx bx-home-alt text-base" />
+                <span className="hidden md:inline">Dashboard</span>
+              </button>
+            )}
             {tabsVisibles.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
