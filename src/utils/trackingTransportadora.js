@@ -17,9 +17,10 @@ const POR_TRANSPORTADORA = [
     url: (g) => `https://tracking.veloces.app/tracking-client/${g}`,
   },
   {
+    // Urbano ya no acepta la guía por link (pide un token que caduca a los
+    // 5 min y solo arma su web): abre su rastreador vacío, como Afimex.
     test: (c) => c.includes("URBANO"),
-    url: (g) =>
-      `https://app.urbano.com.ec/plugin/etracking/etracking/?guia=${g}`,
+    url: () => "https://www.urbano.com.ec/",
   },
   {
     test: (c) => c.includes("SERVIENTREGA"),
