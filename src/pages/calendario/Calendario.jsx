@@ -45,6 +45,50 @@ function toLocalOffsetISO(d) {
   )}:${pad(d.getMinutes())}:00${sign}${hh}:${mm}`;
 }
 
+// 'YYYY-MM-DD' del día LOCAL. Con toISOString() una cita de las 8 de la noche
+// caía en el día siguiente (UTC) y el formulario mostraba otra fecha.
+function fechaLocalYMD(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+}
+
+/* La fecha escrita completa y qué tan lejos queda de hoy. Un «16» y un «7» en
+   la cuadrícula se parecen demasiado: la cita se agendaba en otro mes sin que
+   nada lo dijera. `lejos` marca lo que conviene mirar dos veces. */
+function describirFecha(ymd) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd || ""))) return null;
+  const d = new Date(ymd + "T00:00:00");
+  if (isNaN(+d)) return null;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const dias = Math.round((d - hoy) / 86400000);
+  const largo = d.toLocaleDateString("es-EC", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const texto = largo.charAt(0).toUpperCase() + largo.slice(1);
+  let cuando;
+  if (dias === 0) cuando = "hoy";
+  else if (dias === 1) cuando = "mañana";
+  else if (dias === -1) cuando = "ayer";
+  else if (dias > 1) cuando = `dentro de ${dias} días`;
+  else cuando = `hace ${-dias} días`;
+  return { texto, cuando, dias, pasada: dias < 0, lejos: dias >= 14 };
+}
+
+// «Lunes 16 de noviembre de 2026 · 09:30» para confirmar dónde quedó la cita.
+function resumenCuando(startISO) {
+  const d = new Date(startISO);
+  if (isNaN(+d)) return "";
+  const info = describirFecha(fechaLocalYMD(d));
+  if (!info) return "";
+  const hora = d.toTimeString().slice(0, 5);
+  return `${info.texto} · ${hora} (${info.cuando})`;
+}
+
 function normalizeMeetingHref(u) {
   const s = String(u || "").trim();
   if (!s) return null;
@@ -398,7 +442,7 @@ export default function Calendario() {
     const i = {
       title: initial?.title || "",
       status: initial?.status || "Agendado",
-      date: (initial?.date || new Date()).toISOString().slice(0, 10),
+      date: fechaLocalYMD(initial?.date || new Date()),
       startTime:
         initial?.startTime ||
         (initial?.start
@@ -431,6 +475,7 @@ export default function Calendario() {
           <input id="f-date" type="date" class="swal2-input" value="${
             i.date
           }" ${disabledAttr}/>
+          <div id="f-date-legible" style="margin-top:4px;font-size:12px;line-height:1.35;text-align:left;"></div>
         </div>
         <div>
           <label>Estado</label>
@@ -562,6 +607,39 @@ export default function Calendario() {
       confirmButtonText: mode === "create" ? "Crear" : "Guardar",
       cancelButtonText: "Cancelar",
       didOpen: () => {
+        /* La fecha en palabras, debajo del campo. Al crear, si queda lejos o
+           ya pasó se pinta en ámbar: es el aviso que faltaba cuando la
+           cuadrícula estaba parada en otro mes. */
+        const $fecha = document.getElementById("f-date");
+        const $legible = document.getElementById("f-date-legible");
+        const pintarFecha = () => {
+          if (!$legible) return;
+          const info = describirFecha($fecha?.value);
+          $legible.textContent = "";
+          if (!info) return;
+          const avisar = mode === "create" && (info.lejos || info.pasada);
+          const b = document.createElement("b");
+          b.textContent = info.texto;
+          $legible.appendChild(b);
+          $legible.appendChild(
+            document.createTextNode(
+              avisar
+                ? info.pasada
+                  ? ` · ${info.cuando}. Esta fecha ya pasó, revisa que sea la correcta.`
+                  : ` · ${info.cuando}. Revisa que sea la fecha correcta.`
+                : ` · ${info.cuando}`,
+            ),
+          );
+          $legible.style.color = avisar ? "#92400e" : "#475569";
+          $legible.style.background = avisar ? "#fef3c7" : "transparent";
+          $legible.style.border = avisar ? "1px solid #fcd34d" : "0";
+          $legible.style.borderRadius = "6px";
+          $legible.style.padding = avisar ? "4px 8px" : "0";
+        };
+        $fecha?.addEventListener("input", pintarFecha);
+        $fecha?.addEventListener("change", pintarFecha);
+        pintarFecha();
+
         const list = document.getElementById("invitees-list");
         const btnAdd = document.getElementById("btn-add-invitee");
         const rows = i.inviteesParsed.length ? i.inviteesParsed : [{}];
@@ -923,6 +1001,7 @@ export default function Calendario() {
           title: "Cita creada",
           html: `
       <div class="text-left">
+        <div class="mb-3 text-sm font-semibold text-gray-800">${resumenCuando(form.start)}</div>
         <div class="mb-2 text-sm text-gray-600">Enlace de reunión</div>
 
         <div class="flex items-stretch gap-2">
@@ -964,7 +1043,7 @@ export default function Calendario() {
           },
         });
       } else {
-        Swal.fire("Listo", "Cita creada.", "success");
+        Swal.fire("Cita creada", resumenCuando(form.start), "success");
       }
     } catch (err) {
       console.error(err);
@@ -1006,7 +1085,7 @@ export default function Calendario() {
         created_by_user_id: ownerUserId,
         ...form,
       });
-      Swal.fire("Listo", "Cita creada.", "success");
+      Swal.fire("Cita creada", resumenCuando(form.start), "success");
       api()?.refetchEvents();
       if (tab === "list") loadListRows();
     } catch (err) {
@@ -1171,21 +1250,27 @@ export default function Calendario() {
   const handleEventResize = handleEventDrop;
 
   // -------- Mini-calendario --------
-  const monthStart = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    1,
-  );
-  const monthEnd = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + 1,
-    0,
-  );
+  /* El mes que muestra el mini calendario es suyo: las flechas solo hojean.
+     Antes movían también la cuadrícula grande un mes entero y, sin darse
+     cuenta, se agendaba en «Lun 7» de diciembre creyendo estar en noviembre.
+     La cuadrícula solo se mueve al pinchar un día; cuando ella cambia de mes
+     (flechas de arriba, «Hoy»), el mini calendario la sigue. */
+  const mesVisto = currentDate.getFullYear() * 12 + currentDate.getMonth();
+  const [miniMes, setMiniMes] = useState(mesVisto);
+  useEffect(() => {
+    setMiniMes(mesVisto);
+  }, [mesVisto]);
+  const miniAnio = Math.floor(miniMes / 12);
+  const miniMesIdx = miniMes % 12;
+  const miniFueraDeVista = miniMes !== mesVisto;
+
+  const monthStart = new Date(miniAnio, miniMesIdx, 1);
+  const monthEnd = new Date(miniAnio, miniMesIdx + 1, 0);
   const startWeekDay = monthStart.getDay();
   const days = [];
   for (let i = 0; i < startWeekDay; i++) days.push(null);
   for (let d = 1; d <= monthEnd.getDate(); d++) {
-    days.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), d));
+    days.push(new Date(miniAnio, miniMesIdx, d));
   }
 
   const onMiniClick = (d) => {
@@ -1755,38 +1840,42 @@ export default function Calendario() {
               <div className="cal-card p-3 mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-semibold capitalize text-[#0b1426]">
-                    {currentDate.toLocaleString("es-EC", {
+                    {monthStart.toLocaleString("es-EC", {
                       month: "long",
                       year: "numeric",
                     })}
                   </div>
                   <div className="flex">
                     <button
-                      onClick={() => {
-                        const d = new Date(currentDate);
-                        d.setMonth(d.getMonth() - 1);
-                        setCurrentDate(d);
-                        api()?.gotoDate(d);
-                        api()?.refetchEvents();
-                      }}
+                      onClick={() => setMiniMes((m) => m - 1)}
+                      title="Mes anterior"
+                      aria-label="Mes anterior"
                       className="px-2 py-1 rounded border hover:bg-gray-50"
                     >
                       ‹
                     </button>
                     <button
-                      onClick={() => {
-                        const d = new Date(currentDate);
-                        d.setMonth(d.getMonth() + 1);
-                        setCurrentDate(d);
-                        api()?.gotoDate(d);
-                        api()?.refetchEvents();
-                      }}
+                      onClick={() => setMiniMes((m) => m + 1)}
+                      title="Mes siguiente"
+                      aria-label="Mes siguiente"
                       className="ml-1 px-2 py-1 rounded border hover:bg-gray-50"
                     >
                       ›
                     </button>
                   </div>
                 </div>
+                {miniFueraDeVista && (
+                  <div className="mb-2 text-xs text-gray-500">
+                    Elige un día para ir a esa fecha ·{" "}
+                    <button
+                      type="button"
+                      onClick={() => setMiniMes(mesVisto)}
+                      className="text-blue-600 hover:underline"
+                    >
+                      volver
+                    </button>
+                  </div>
+                )}
 
                 {/* Mini calendario */}
                 <div className="grid grid-cols-7 text-xs text-center mb-1">
