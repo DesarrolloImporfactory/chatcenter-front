@@ -298,9 +298,19 @@ export function AjustesBotProducto({ value = [], onChange }) {
 
   const setNoPedir = (lista) => {
     const sinAjustes = todos.filter((p) => p?.espera !== "ajustes");
+    // La entrada 'ajustes' guarda también cómo salen las ofertas del mensaje
+    // fijo (ofertas_modo, paso 3): se conserva al cambiar esta lista.
+    const ofertasModo = ajustes?.ofertas_modo || null;
     onChange(
-      lista.length
-        ? [...sinAjustes, { espera: "ajustes", no_pedir: lista }]
+      lista.length || ofertasModo
+        ? [
+            ...sinAjustes,
+            {
+              espera: "ajustes",
+              no_pedir: lista,
+              ...(ofertasModo ? { ofertas_modo: ofertasModo } : {}),
+            },
+          ]
         : sinAjustes,
     );
   };
