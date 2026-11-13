@@ -204,6 +204,12 @@ const RemarketingProductoView = () => {
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center">
                     Respondieron
                   </th>
+                  <th
+                    className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center"
+                    title="Clientes que recibieron un recordatorio de este producto en los últimos 30 días y después hicieron su pedido."
+                  >
+                    Compraron
+                  </th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center sticky right-0 bg-slate-50 z-20 shadow-[inset_1px_0_0_#e2e8f0]">
                     Acciones
                   </th>
@@ -264,6 +270,22 @@ const RemarketingProductoView = () => {
                       </td>
                       <td className="px-4 py-3.5 text-center tabular-nums text-slate-700">
                         {sin ? <span className="text-slate-300">—</span> : m?.respondieron || 0}
+                      </td>
+                      <td className="px-4 py-3.5 text-center tabular-nums">
+                        {sin ? (
+                          <span className="text-slate-300">—</span>
+                        ) : (
+                          <div className="leading-tight">
+                            <span className={`font-semibold ${m?.compraron ? "text-emerald-700" : "text-slate-700"}`}>
+                              {m?.compraron || 0}
+                            </span>
+                            {m?.clientes ? (
+                              <span className="block text-[11px] text-slate-400">
+                                {Math.round(((m.compraron || 0) / m.clientes) * 100)}% de {m.clientes}
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
                       </td>
 
                       <td className="px-4 py-3.5 sticky right-0 bg-white group-hover:bg-[#f5f6fd] shadow-[inset_1px_0_0_#e2e8f0]">

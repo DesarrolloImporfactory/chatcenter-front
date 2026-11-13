@@ -4,7 +4,9 @@ import Swal from "sweetalert2";
 import Select, { components } from "react-select";
 import chatApi from "../../api/chatcenter";
 import GuiaOpenAIModal from "./modales/OpenAiModal";
+import GuiaClaudeModal from "./modales/ClaudeModal";
 import ConsumoAsistente from "./ConsumoAsistente";
+import ControlGastoIA from "./ControlGastoIA";
 
 const Toast = Swal.mixin({
   toast: true,
@@ -156,8 +158,11 @@ const Asistentes = () => {
       tagline: "Los modelos de Anthropic, los más precisos con guiones largos",
       modelos: ["Opus 5.5", "Sonnet 5.5", "Haiku 5.5"],
       costo: "≈ $0.001 a $0.02 por respuesta",
-      recomendado: "Opus 5.5: ≈ $0.02 por respuesta (unas 50 por dólar)",
-      rinde: "Con $10 salen unas 500 respuestas con Opus 5.5 (o 10.000 con Haiku 5.5)",
+      // Por defecto cada columna responde con Haiku 5.5 (el equivalente en
+      // precio al modelo recomendado de la plantilla); Sonnet y Opus se
+      // eligen a mano en la columna.
+      recomendado: "Haiku 5.5: ≈ $0.001 por respuesta (unas 1.000 por dólar). Es el que dejamos por defecto",
+      rinde: "Con $10 salen unas 10.000 respuestas con Haiku 5.5 (o unas 500 con Opus 5.5)",
       diferencias: [
         "Necesita también la API Key de OpenAI para dos cosas: los audios del cliente (OpenAI los pasa a texto y Claude responde) y las imágenes de producto con IA de los ajustes avanzados",
         "Los documentos de conocimiento los lee completos en cada respuesta (PDF, DOCX, XLSX, TXT); no lee escaneos ni PPTX",
@@ -183,6 +188,20 @@ const Asistentes = () => {
 
   const [showModalVentas, setShowModalVentas] = useState(false);
   const [showGuiaOpenAI, setShowGuiaOpenAI] = useState(false);
+  const [showGuiaClaude, setShowGuiaClaude] = useState(false);
+  /* Pestañas de la página: "config" (conexión y agentes) y "gasto" (control
+     de gasto de IA). El consumo estaba al final de la página y nadie llegaba
+     hasta ahí; ahora es una pestaña arriba. /asistentes?vista=gasto la abre
+     directo (para enlazarla desde soporte). */
+  const [vista, setVista] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("vista") === "gasto"
+        ? "gasto"
+        : "config";
+    } catch {
+      return "config";
+    }
+  });
   // Tabla «OpenAI y Claude, lado a lado»: null = sin tocar (abierta solo si
   // todavía no hay ninguna llave guardada); true/false = lo que eligió.
   const [verComparacion, setVerComparacion] = useState(null);
@@ -732,8 +751,45 @@ const Asistentes = () => {
         </div>
       </div>
 
-      {/* Fila: Tutorial API Key (ligero, no intrusivo) */}
+      {/* Pestañas de la página + tutoriales de API Key en la misma fila */}
       <div className="flex items-center gap-2 flex-wrap -mt-3 mb-6">
+        <div
+          role="tablist"
+          aria-label="Secciones de Asistentes AI"
+          className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 mr-2"
+        >
+          {[
+            { v: "config", txt: "Configuración", icono: "bx-cog" },
+            {
+              v: "gasto",
+              txt: "Optimizador AI",
+              icono: "bx-trending-down",
+              nuevo: true,
+            },
+          ].map((p) => (
+            <button
+              key={p.v}
+              type="button"
+              role="tab"
+              aria-selected={vista === p.v}
+              onClick={() => setVista(p.v)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition ${
+                vista === p.v
+                  ? "bg-white shadow text-slate-900"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <i className={`bx ${p.icono} text-base`} />
+              {p.txt}
+              {p.nuevo && (
+                <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-emerald-700">
+                  Nuevo
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
         <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1">
           ¿Cómo configurar?
         </span>
@@ -749,14 +805,13 @@ const Asistentes = () => {
           API Key OpenAI
           <i className="bx bx-play-circle text-sm text-indigo-400" />
         </button>
-        {/* Tutorial de Claude: mismo botón que el de OpenAI. Sin enlace
-            todavía (TUTORIAL_CLAUDE_URL vacío) se ve desactivado, «Muy
-            pronto», para que se note que ahí va el video. */}
+        {/* Tutorial de Claude: mismo botón y mismo modal que el de OpenAI
+            (pasos + vista previa del video + abrirlo en YouTube). Sin enlace
+            (TUTORIAL_CLAUDE_URL vacío) se ve desactivado, «Muy pronto». */}
         {TUTORIAL_CLAUDE_URL ? (
-          <a
-            href={TUTORIAL_CLAUDE_URL}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={() => setShowGuiaClaude(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold
       text-indigo-700 bg-indigo-50 ring-1 ring-indigo-200
       hover:bg-indigo-100 hover:ring-indigo-300 transition-all"
@@ -764,7 +819,7 @@ const Asistentes = () => {
             <i className="bx bx-key text-sm" />
             API Key Claude
             <i className="bx bx-play-circle text-sm text-indigo-400" />
-          </a>
+          </button>
         ) : (
           <button
             type="button"
@@ -783,6 +838,8 @@ const Asistentes = () => {
         )}
       </div>
 
+      {vista === "config" && (
+      <>
       {/* Puesta en marcha en 3 pasos — reemplaza las 3 tarjetas de texto que
           saturaban la vista. Mismos botones, misma zona, 70% menos ruido. */}
       <div className="bg-white border rounded-2xl shadow-sm p-5 mb-6">
@@ -1125,13 +1182,17 @@ const Asistentes = () => {
               <i className="bx bx-link-external" />
               Ir a recargar saldo
             </a>
-            <a
-              href="#consumo-asistente"
+            <button
+              type="button"
+              onClick={() => {
+                setVista("gasto");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               className="mt-2 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition text-sm font-semibold text-gray-800"
             >
-              <i className="bx bx-line-chart" />
-              Ver consumo
-            </a>
+              <i className="bx bx-trending-down" />
+              Abrir el Optimizador AI
+            </button>
           </div>
         </div>
 
@@ -1573,12 +1634,21 @@ const Asistentes = () => {
         </div>
       </div>
 
-      {/* Consumo del asistente: respuestas con/sin IA, tokens y costo por día.
-          Con las dos llaves guardadas aparece el filtro OpenAI / Claude. */}
-      <ConsumoAsistente
-        idConfiguracion={id_configuracion}
-        proveedores={{ openai: apiKeyGuardada, claude: claudeKeyGuardada }}
-      />
+      </>
+      )}
+
+      {/* Pestaña «Optimizador AI»: el asesor (qué gasta, en qué y qué
+          hacer) y debajo el detalle por día. Con las dos llaves guardadas el
+          detalle muestra el filtro OpenAI / Claude. */}
+      {vista === "gasto" && (
+        <>
+          <ControlGastoIA idConfiguracion={id_configuracion} />
+          <ConsumoAsistente
+            idConfiguracion={id_configuracion}
+            proveedores={{ openai: apiKeyGuardada, claude: claudeKeyGuardada }}
+          />
+        </>
+      )}
 
       {/* Modal API Key (estructura tipo CrearConfiguracionModal) */}
       {showModalApiKey && (
@@ -2031,6 +2101,12 @@ const Asistentes = () => {
       )}
       {showGuiaOpenAI && (
         <GuiaOpenAIModal onClose={() => setShowGuiaOpenAI(false)} />
+      )}
+      {showGuiaClaude && (
+        <GuiaClaudeModal
+          videoUrl={TUTORIAL_CLAUDE_URL}
+          onClose={() => setShowGuiaClaude(false)}
+        />
       )}
     </div>
   );

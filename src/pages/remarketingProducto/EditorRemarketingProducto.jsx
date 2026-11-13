@@ -17,6 +17,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import { BotonesWa } from "../productos/wizard/WaPreview";
 
 const MAX_TITULO = 20;
 const MAX_ITEMS = 10;
@@ -65,6 +66,33 @@ const minutosATexto = (m) => {
 
 const largo = (s) => [...String(s || "")].length;
 
+/* Formato de WhatsApp en la vista previa: *negrita*, _cursiva_, ~tachado~ y
+   `código` se pintan como los ve el cliente, sin los símbolos. Mismas reglas
+   que WhatsApp: el marcador abre pegado al texto y pegado a un borde de
+   palabra, y no cruza saltos de línea (un «2 * 3» suelto no se toca). */
+const RE_FORMATO_WA =
+  /(^|[^\p{L}\p{N}*_~`])([*_~`])(?=\S)([^\n]*?\S)\2(?![\p{L}\p{N}])/u;
+function formatoWhatsapp(texto, clave = "f") {
+  const t = String(texto || "");
+  const m = t.match(RE_FORMATO_WA);
+  if (!m) return t;
+  const inicio = m.index + m[1].length;
+  const dentro = formatoWhatsapp(m[3], `${clave}i`);
+  const k = `${clave}${inicio}`;
+  const nodo =
+    m[2] === "*" ? (
+      <strong key={k}>{dentro}</strong>
+    ) : m[2] === "_" ? (
+      <em key={k}>{dentro}</em>
+    ) : m[2] === "~" ? (
+      <s key={k}>{dentro}</s>
+    ) : (
+      <code key={k} className="font-mono text-[0.92em]">{m[3]}</code>
+    );
+  const resto = formatoWhatsapp(t.slice(m.index + m[0].length), `${clave}r`);
+  return [t.slice(0, inicio), nodo, ...(Array.isArray(resto) ? resto : [resto])];
+}
+
 /* Tiempos por defecto al agregar recordatorios: 1 h → 5 h → 8 h suman 14 h,
    así los tres caen dentro de las 24 h y salen con botones. */
 const MINUTOS_DEFECTO_POR_PASO = [60, 300, 480];
@@ -82,20 +110,32 @@ const BOTONES_DEFECTO_POR_PASO = [
     { clave: "opiniones", titulo: "👀 Ver qué opinan", accion: "bloque" },
     { clave: "quiero", titulo: "🛒 Pedirlo ahora", accion: "cerrar" },
   ],
+  // Último recordatorio: el descuento es el empujón para recuperarlo.
   [
     { clave: "opiniones", titulo: "⭐ Opiniones reales", accion: "bloque" },
-    { clave: "quiero", titulo: "✅ Quiero el mío", accion: "cerrar" },
+    { clave: "descuento", titulo: "🎁 Quiero mi 10% OFF", accion: "descuento", descuento_pct: 10 },
   ],
 ];
+const DESCUENTO_PCT_DEFECTO = 10;
+const DESCUENTO_PCT_MAX = 90;
+const ACCIONES_BOTON = ["bloque", "cerrar", "descuento"];
+const pctValido = (v) => {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n) || n < 1) return DESCUENTO_PCT_DEFECTO;
+  return Math.min(n, DESCUENTO_PCT_MAX);
+};
 const copiaJson = (v) => JSON.parse(JSON.stringify(v));
 /* Recordatorio nuevo (pestaña «Agregar otro»): mensaje limpio y sus propios
-   botones sugeridos. El contenido es el del producto (tarjeta 3). */
+   botones sugeridos. El contenido es el del producto (tarjeta 3). El 2 nace
+   con las ofertas del producto en los botones («1 por $X», «2 por $Y»); el 3,
+   con el botón de descuento. */
 const nuevoPaso = (i) => ({
   minutos: MINUTOS_DEFECTO_POR_PASO[i] || 480,
   mensaje: "",
   con_imagen: false,
   imagen_url: null, // null = foto del producto
   con_botones: true,
+  botones_modo: i === 1 ? "ofertas" : "propios",
   botones: copiaJson(BOTONES_DEFECTO_POR_PASO[Math.min(i, 2)]),
 });
 /* Lo guardado antes del 06-11-2026 tenía una sola lista de botones por
@@ -113,7 +153,14 @@ const pasosConPropios = (config) =>
         });
     return {
       ...resto,
-      botones: copiaJson(botones).map((b) => ({ ...b, accion: b.accion === "bloque" ? "bloque" : "cerrar" })),
+      botones_modo: p?.botones_modo === "ofertas" ? "ofertas" : "propios",
+      botones: copiaJson(botones).map((b) => {
+        const accion = ACCIONES_BOTON.includes(b.accion) ? b.accion : "cerrar";
+        const { descuento_pct, ...sinPct } = b;
+        return accion === "descuento"
+          ? { ...sinPct, accion, descuento_pct: pctValido(descuento_pct) }
+          : { ...sinPct, accion };
+      }),
       // Foto propia del paso; lo guardado antes tenía una sola (config.imagen_url).
       imagen_url: "imagen_url" in (p || {}) ? p.imagen_url || null : config.imagen_url || null,
     };
@@ -268,7 +315,7 @@ function MensajeConVariables({ valor, onChange, vars, placeholder }) {
         className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm leading-relaxed focus:border-blue-400 focus:outline-none"
       />
       <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
-        <span>Así lo verá el cliente: <span className="text-slate-600">{rellenar(valor, vars) || "…"}</span></span>
+        <span>Así lo verá el cliente: <span className="text-slate-600">{formatoWhatsapp(rellenar(valor, vars)) || "…"}</span></span>
         <span>{largo(valor)}/1024</span>
       </div>
     </div>
@@ -1078,7 +1125,7 @@ const acumuladoHasta = (pasos, idx) =>
    respuesta tipo del bot si no. Sin eso la previa daba a entender que nadie
    le contestó al cliente; el recordatorio sale porque ÉL dejó de responder.
    Los recordatorios 2 y 3 no llevan nada delante más que el anterior. */
-function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaInicial = null }) {
+function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaInicial = null, ofertas = [] }) {
   const pasos = config.pasos.slice(0, pasoIdx + 1);
   const mediaInicial = (respuestaInicial?.media || []).slice(0, 4);
   const imagenesInicial = mediaInicial.filter((m) => m.tipo === "image");
@@ -1145,7 +1192,7 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaIni
               ))}
               <div className="flex justify-end">
                 <div className="bg-[#dcf8c6] rounded-lg rounded-tr-sm px-2.5 py-1.5 text-[12px] shadow-sm max-w-[88%] whitespace-pre-line break-words">
-                  {respuestaInicial.texto || <span className="text-slate-400">(sin texto)</span>}
+                  {formatoWhatsapp(respuestaInicial.texto) || <span className="text-slate-400">(sin texto)</span>}
                 </div>
               </div>
             </>
@@ -1162,7 +1209,11 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaIni
             if (!fuera) {
               imagen = paso?.con_imagen ? paso?.imagen_url || producto.imagen_url : null;
               texto = rellenar(paso?.mensaje, vars);
-              botones = paso?.con_botones ? (paso?.botones || []).map((b) => b.titulo || "Botón") : [];
+              // Modo ofertas: salen las del producto (si tiene precio); si
+              // no, los botones propios, igual que hace el envío real.
+              const lista =
+                paso?.botones_modo === "ofertas" && ofertas.length ? ofertas : paso?.botones || [];
+              botones = paso?.con_botones !== false ? lista.map((b) => b.titulo || "Botón") : [];
             } else if (tpl) {
               const cab = cabeceraPlantilla(tpl);
               imagen = cab.header_format === "IMAGE" ? cab.header_media_url : null;
@@ -1195,19 +1246,11 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaIni
                             : "[Elige la plantilla de Meta para este recordatorio]"}
                         </span>
                       ) : (
-                        texto || <span className="text-slate-400">Escribe el mensaje…</span>
+                        formatoWhatsapp(texto) || <span className="text-slate-400">Escribe el mensaje…</span>
                       )}
                     </div>
                     {pie ? <div className="px-2.5 pb-1 text-[10px] text-slate-500">{pie}</div> : null}
-                    {botones.length ? (
-                      <div className="border-t border-black/5 divide-y divide-black/5">
-                        {botones.map((t, i) => (
-                          <div key={i} className="text-center text-[12px] font-medium text-[#00a5f4] py-1.5 bg-white/40">
-                            {t}
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                    <BotonesWa botones={botones} />
                   </div>
                 </div>
                 {fuera && esActivo ? (
@@ -1331,6 +1374,9 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
   // Respuesta al primer mensaje del cliente (mensaje fijo del wizard o
   // respuesta tipo del bot), solo para la vista previa.
   const [respuestaInicial, setRespuestaInicial] = useState(null);
+  // Ofertas del producto (precio + combos de su ficha) tal como saldrían hoy
+  // en los botones de un recordatorio en modo «ofertas».
+  const [ofertas, setOfertas] = useState([]);
   const [pasoPrevia, setPasoPrevia] = useState(0);
   const [telPrueba, setTelPrueba] = useState(localStorage.getItem("rmkp_tel_prueba") || "");
   const [probando, setProbando] = useState(false);
@@ -1376,6 +1422,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
         setConfig({ ...c, pasos: pasosConPropios(c) });
         setExiste(!!data.data.existe);
         setRespuestaInicial(data.data.respuesta_inicial || null);
+        setOfertas(Array.isArray(data.data.ofertas) ? data.data.ofertas : []);
       } catch (e) {
         Swal.fire({ icon: "error", title: e?.response?.data?.message || e.message });
         onClose(false);
@@ -1408,7 +1455,14 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
   // recordatorio que lo toque, «ver opiniones» manda lo mismo.
   const setBloque = (clave, bl) => set({ bloques: { ...(config?.bloques || {}), [clave]: bl } });
 
-  const botonesBloque = useMemo(() => botonesActivo.filter((b) => b.accion === "bloque"), [botonesActivo]);
+  // El recordatorio activo manda las ofertas del producto en vez de botones
+  // propios (solo si el producto tiene precio; si no, salen los propios).
+  const usaOfertas = (p) => p?.botones_modo === "ofertas" && ofertas.length > 0;
+  const modoOfertasActivo = pasoActivo?.botones_modo === "ofertas";
+  const botonesBloque = useMemo(
+    () => (usaOfertas(pasoActivo) ? [] : botonesActivo.filter((b) => b.accion === "bloque")),
+    [botonesActivo, pasoActivo, ofertas], // eslint-disable-line
+  );
   // El recordatorio visible cae fuera de las 24 h: sale como plantilla, así que
   // botones y contenido no le aplican (sí a los otros recordatorios).
   const pasoActivoEsPlantilla = !!config && acumuladoHasta(config.pasos, pasoPrevia) > LIMITE_VENTANA_MIN;
@@ -1424,6 +1478,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
       const n = config.pasos.length > 1 ? ` del recordatorio ${i + 1}` : "";
       if (!String(p.mensaje || "").trim()) return `El recordatorio ${i + 1} no tiene mensaje.`;
       if (p.con_botones === false) continue;
+      if (usaOfertas(p)) continue; // los botones salen del producto
       for (const b of p.botones || []) {
         if (!String(b.titulo || "").trim()) return `Hay un botón sin texto${n}.`;
         if (largo(b.titulo) > MAX_TITULO) return `El botón «${b.titulo}»${n} supera ${MAX_TITULO} caracteres.`;
@@ -1740,7 +1795,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                   config.pasos.length > 1 ? " Cada recordatorio tiene los suyos." : ""
                 }`}
                 derecha={
-                  pasoActivo.con_botones === false ? null : botonesActivo.length < 3 ? (
+                  pasoActivo.con_botones === false || modoOfertasActivo ? null : botonesActivo.length < 3 ? (
                     <button
                       type="button"
                       onClick={() => setBotonesActivo([...botonesActivo, { clave: `boton_${botonesActivo.length + 1}`, titulo: "", accion: "cerrar" }])}
@@ -1757,7 +1812,72 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                   </p>
                 ) : (
                 <div className="space-y-3">
-                  {botonesActivo.map((b, i) => (
+                  {/* Qué botones lleva: las ofertas del producto o propios */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      {
+                        v: "ofertas",
+                        t: "Las ofertas del producto",
+                        d: "Un botón por oferta (1 por…, 2 por…). El cliente toca la que quiere y el bot toma sus datos.",
+                      },
+                      {
+                        v: "propios",
+                        t: "Botones propios",
+                        d: "Tú escribes cada botón y eliges qué hace: contenido, cerrar la venta o descuento.",
+                      },
+                    ].map((op) => {
+                      const activo = (modoOfertasActivo ? "ofertas" : "propios") === op.v;
+                      return (
+                        <label
+                          key={op.v}
+                          className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 text-sm ${
+                            activo ? "border-[#171931] bg-indigo-50/60" : "border-slate-200 bg-white hover:bg-slate-50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`modo_botones_${pasoPrevia}`}
+                            checked={activo}
+                            onChange={() => setPaso(pasoPrevia, { botones_modo: op.v })}
+                            className="mt-0.5"
+                          />
+                          <span>
+                            <span className="font-semibold text-slate-800">{op.t}</span>
+                            <span className="block text-xs text-slate-500">{op.d}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {modoOfertasActivo ? (
+                    ofertas.length ? (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          {ofertas.map((o) => (
+                            <span
+                              key={o.clave}
+                              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800"
+                            >
+                              {o.titulo}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Salen del precio y los combos que ya tiene el producto en su ficha (Productos → Editar, paso 1).
+                          Si los cambias allá, estos botones se actualizan solos. WhatsApp admite 3 botones: la unidad y
+                          los dos primeros combos.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                        Este producto todavía no tiene precio en su ficha, así que no hay ofertas que mostrar. Mientras
+                        tanto el recordatorio sale con los botones propios; ponle precio y combos en Productos → Editar.
+                      </div>
+                    )
+                  ) : null}
+
+                  {modoOfertasActivo ? null : botonesActivo.map((b, i) => (
                     <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <input
@@ -1776,10 +1896,11 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                           </button>
                         ) : null}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {[
                           { v: "bloque", t: "Manda contenido", d: "Capturas de opiniones, fotos, video o PDF y luego una pregunta para seguir." },
                           { v: "cerrar", t: "El bot sigue cerrando la venta", d: "Como siempre: responde dudas frecuentes y toma los datos del pedido." },
+                          { v: "descuento", t: "Cierra con descuento", d: "El bot le confirma el descuento y lo aplica al total de su pedido." },
                         ].map((op) => (
                           <label
                             key={op.v}
@@ -1787,7 +1908,20 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                               b.accion === op.v ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
                             }`}
                           >
-                            <input type="radio" name={`accion_${pasoPrevia}_${i}`} checked={b.accion === op.v} onChange={() => setBoton(i, { accion: op.v })} className="mt-0.5" />
+                            <input
+                              type="radio"
+                              name={`accion_${pasoPrevia}_${i}`}
+                              checked={b.accion === op.v}
+                              onChange={() =>
+                                setBoton(
+                                  i,
+                                  op.v === "descuento"
+                                    ? { accion: op.v, descuento_pct: pctValido(b.descuento_pct) }
+                                    : { accion: op.v },
+                                )
+                              }
+                              className="mt-0.5"
+                            />
                             <span>
                               <span className="font-medium text-slate-800">{op.t}</span>
                               <span className="block text-xs text-slate-500">{op.d}</span>
@@ -1795,6 +1929,35 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                           </label>
                         ))}
                       </div>
+                      {b.accion === "descuento" ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                          <span>Descuento de</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={DESCUENTO_PCT_MAX}
+                            value={b.descuento_pct ?? DESCUENTO_PCT_DEFECTO}
+                            onChange={(e) => {
+                              const nuevo = e.target.value === "" ? "" : Number(e.target.value);
+                              // Si el texto del botón nombra el porcentaje
+                              // anterior, se actualiza con él.
+                              const viejo = `${b.descuento_pct ?? DESCUENTO_PCT_DEFECTO}%`;
+                              const titulo =
+                                nuevo !== "" && String(b.titulo || "").includes(viejo)
+                                  ? b.titulo.replace(viejo, `${pctValido(nuevo)}%`)
+                                  : b.titulo;
+                              setBoton(i, { descuento_pct: nuevo, titulo });
+                            }}
+                            onBlur={() => setBoton(i, { descuento_pct: pctValido(b.descuento_pct) })}
+                            className="w-16 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-sm text-slate-800"
+                          />
+                          <span>% sobre el total de los productos.</span>
+                          <span className="basis-full text-xs text-emerald-800">
+                            Vale para el cliente que toque el botón, por 72 horas o hasta que haga su pedido. El bot
+                            le muestra el precio normal, el descuento y el total final, y el pedido se crea con ese total.
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -1882,6 +2045,7 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
                 vars={vars}
                 plantillas={plantillas}
                 respuestaInicial={respuestaInicial}
+                ofertas={ofertas}
               />
               <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">

@@ -15,6 +15,8 @@ import EvolucionChart from "./sections/EvolucionChart";
 import PlanesTable from "./sections/PlanesTable";
 import CancelacionesTable from "./sections/CancelacionesTable";
 import CobrosTab from "./sections/CobrosTab";
+import AddonsTab from "./sections/AddonsTab";
+import ModalCombo from "./ModalCombo";
 import RecuperacionPanel from "../../../pages/recuperacion/RecuperacionPanel";
 import ClienteListDrawer from "./ClienteListDrawer";
 
@@ -22,6 +24,7 @@ import ClienteListDrawer from "./ClienteListDrawer";
 const TABS = [
   { id: "resumen", label: "Resumen", icon: "bx-dollar-circle" },
   { id: "cobros", label: "Cobros reales", icon: "bx-wallet" },
+  { id: "complementos", label: "Complementos", icon: "bx-extension" },
   { id: "clientes", label: "Clientes", icon: "bx-group" },
   { id: "historico", label: "Histórico y planes", icon: "bx-line-chart" },
   { id: "cancelaciones", label: "Cancelaciones", icon: "bx-user-x" },
@@ -59,6 +62,7 @@ export default function AdminDashboard() {
   const [mesCancel, setMesCancel] = useState(currentMonth());
   const [glosarioOpen, setGlosarioOpen] = useState(false);
   const [diasComp, setDiasComp] = useState(30);
+  const [comboOpen, setComboOpen] = useState(false);
   const [drawer, setDrawer] = useState({
     open: false,
     categoria: null,
@@ -236,10 +240,14 @@ export default function AdminDashboard() {
           resumen={resumen}
           refreshing={refreshing}
           onRecalcular={
-            !superAdmin || tab === "cobros" || tab === "recuperacion"
+            !superAdmin ||
+            tab === "cobros" ||
+            tab === "complementos" ||
+            tab === "recuperacion"
               ? null
               : recalcular
           }
+          onActivarCombo={superAdmin ? () => setComboOpen(true) : null}
           mostrarPanelUsuarios={superAdmin}
           diasComp={diasComp}
           setDiasComp={setDiasComp}
@@ -267,6 +275,8 @@ export default function AdminDashboard() {
 
         {tab === "cobros" ? (
           <CobrosTab />
+        ) : tab === "complementos" ? (
+          <AddonsTab />
         ) : tab === "recuperacion" ? (
           <RecuperacionPanel />
         ) : cargando ? (
@@ -320,13 +330,18 @@ export default function AdminDashboard() {
           </>
         )}
 
-        {tab !== "cobros" && tab !== "recuperacion" && resumen && (
+        {tab !== "cobros" &&
+          tab !== "complementos" &&
+          tab !== "recuperacion" &&
+          resumen && (
           <footer className="text-center text-xs text-slate-400 py-4 border-t border-slate-200">
             Snapshot diario · 23:55 America/Guayaquil · Comparativa con:{" "}
             {fmtDate(resumen.referencia_delta)}
           </footer>
         )}
       </div>
+
+      {comboOpen && <ModalCombo onClose={() => setComboOpen(false)} />}
 
       {drawer.open && (
         <ClienteListDrawer

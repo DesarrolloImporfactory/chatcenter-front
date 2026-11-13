@@ -41,6 +41,25 @@ const HeaderStat = ({ label, value, icon, accent = "text-white" }) => (
   </div>
 );
 
+/**
+ * ¿La suscripción tiene una cancelación programada?
+ *
+ * Stripe la guarda de dos formas: "al final del periodo"
+ * (cancel_at_period_end, la que programa el botón Cancelar) o "en una fecha
+ * fija" (cancel_at, cuando se edita la fecha de fin en el panel de Stripe; ahí
+ * cancel_at_period_end viene en false). Mirar solo la bandera dejaba sin aviso
+ * a la segunda.
+ */
+const tieneCancelacionProgramada = (plan) => {
+  if (!plan) return false;
+  if (String(plan.estado || "").toLowerCase().includes("cancel")) return false;
+  if (Number(plan.cancel_at_period_end || 0) === 1) return true;
+  if (plan.cancel_at_period_end === true) return true;
+  if (!plan.cancel_at) return false;
+  const fin = new Date(plan.cancel_at);
+  return !Number.isNaN(fin.getTime()) && fin > new Date();
+};
+
 const MiPlan = () => {
   const navigate = useNavigate();
 
@@ -51,6 +70,7 @@ const MiPlan = () => {
 
   // overlay para portales
   const [loadingPortal, setLoadingPortal] = useState(false);
+  const [loadingReanudar, setLoadingReanudar] = useState(false);
   const [loadingGestion, setLoadingGestion] = useState(false);
   const [loadingAgregar, setLoadingAgregar] = useState(false);
 
@@ -152,18 +172,14 @@ const MiPlan = () => {
 
   /**
    *  Cancelar suscripción
-   * Regla: si ya está programada la cancelación (cancel_at_period_end === 1), NO permitir cancelar otra vez.
+   * Regla: si ya está programada la cancelación, NO permitir cancelar otra vez.
    */
   const cancelarSuscripcion = async () => {
-    const cancelProgramada =
-      Number(plan?.cancel_at_period_end || 0) === 1 ||
-      Boolean(plan?.cancel_at_period_end);
-
-    if (cancelProgramada) {
+    if (tieneCancelacionProgramada(plan)) {
       Swal.fire({
         icon: "info",
         title: "Cancelación ya programada",
-        text: "Su suscripción ya tiene cancelación programada. Seguirá activa hasta el final del periodo actual.",
+        text: "Su suscripción ya tiene cancelación programada y seguirá activa hasta esa fecha.",
         confirmButtonText: "Entendido",
       });
       return;
@@ -200,6 +216,54 @@ const MiPlan = () => {
     } catch (error) {
       console.error("Error al cancelar:", error);
       Swal.fire("Error", "No se pudo cancelar la suscripción", "error");
+    }
+  };
+
+  /**
+   * Deshacer la cancelación programada: el cliente se arrepiente y sigue con
+   * el servicio. La suscripción vuelve a renovarse sola.
+   */
+  const reanudarSuscripcion = async () => {
+    if (loadingReanudar) return;
+
+    const confirm = await Swal.fire({
+      title: "¿Mantener su suscripción?",
+      text: "Se anulará la cancelación programada y su plan se seguirá renovando automáticamente con su método de pago.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, mantener mi plan",
+      cancelButtonText: "Volver",
+      reverseButtons: true,
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setLoadingReanudar(true);
+      const id_usuario = getIdUsuarioFromToken();
+      if (!id_usuario) return;
+
+      const res = await chatApi.post(
+        "/stripe_plan/reanudarSuscripcion",
+        { id_usuario },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      Swal.fire(
+        "Listo",
+        res.data?.message || "Su suscripción sigue activa.",
+        "success",
+      );
+      await obtenerPlanActivo();
+    } catch (e) {
+      console.error("Error al reanudar:", e);
+      Swal.fire(
+        "Error",
+        e?.response?.data?.message ||
+          "No se pudo anular la cancelación programada.",
+        "error",
+      );
+    } finally {
+      setLoadingReanudar(false);
     }
   };
 
@@ -451,18 +515,22 @@ const MiPlan = () => {
     return { fin, diasRestantes, tone, porcentaje };
   }, [plan, pagoPendiente]);
 
-  const cancelProgramada = useMemo(() => {
-    return (
-      Number(plan?.cancel_at_period_end || 0) === 1 ||
-      !!plan?.cancel_at_period_end
-    );
-  }, [plan]);
+  const cancelProgramada = useMemo(
+    () => tieneCancelacionProgramada(plan),
+    [plan],
+  );
 
   const fechaCancelProgramada = useMemo(() => {
-    // Preferimos renovar/period end como fecha final del servicio
     if (!cancelProgramada) return null;
-    if (plan?.fecha_renovacion) return new Date(plan.fecha_renovacion);
+    const alFinDelPeriodo =
+      Number(plan?.cancel_at_period_end || 0) === 1 ||
+      plan?.cancel_at_period_end === true;
+    // Al final del periodo, el servicio termina con la renovación. Con fecha
+    // fija manda cancel_at, que puede caer varios periodos más adelante.
+    if (alFinDelPeriodo && plan?.fecha_renovacion)
+      return new Date(plan.fecha_renovacion);
     if (plan?.cancel_at) return new Date(plan.cancel_at);
+    if (plan?.fecha_renovacion) return new Date(plan.fecha_renovacion);
     return null;
   }, [cancelProgramada, plan]);
 
@@ -818,8 +886,17 @@ const MiPlan = () => {
                         ? fechaCancelProgramada.toLocaleDateString()
                         : "el final del periodo"}
                     </span>
-                    .
+                    . Si cambió de opinión, puede mantener su plan.
                   </p>
+                  <button
+                    onClick={reanudarSuscripcion}
+                    disabled={loadingReanudar}
+                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition bg-white text-[#171931] hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loadingReanudar
+                      ? "Procesando…"
+                      : "Mantener mi suscripción"}
+                  </button>
                 </div>
               </div>
             )}
@@ -941,7 +1018,11 @@ const MiPlan = () => {
                           <FaExclamationCircle />
                           <span>
                             Ya existe una cancelación programada. El servicio
-                            seguirá activo hasta el final del periodo.
+                            seguirá activo hasta{" "}
+                            {fechaCancelProgramada
+                              ? fechaCancelProgramada.toLocaleDateString()
+                              : "el final del periodo"}
+                            .
                           </span>
                         </div>
                       )}
@@ -1012,7 +1093,9 @@ const MiPlan = () => {
                           <p className="text-[11px] text-[#171931]/60">
                             {infoPeriodo.pagoPendiente
                               ? "Pago vencido desde"
-                              : "Renovación"}
+                              : cancelProgramada
+                                ? "Termina el"
+                                : "Renovación"}
                           </p>
                           <p className="mt-1 text-sm sm:text-base font-bold">
                             {infoPeriodo.fin

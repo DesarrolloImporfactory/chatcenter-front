@@ -16,7 +16,31 @@ function Hora() {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function Burbuja({ lado = "out", children, className = "", tag = null, remitente = null }) {
+/* Botones de respuesta de un mensaje interactivo, como los pinta WhatsApp:
+   pegados a la burbuja (mismo fondo, sin recuadro propio), una fila por botón
+   separada por una línea fina, texto centrado en el azul de los enlaces y la
+   flecha de responder a la izquierda. Lo usan esta vista previa y la del
+   remarketing por producto para que se vean igual. */
+export function BotonesWa({ botones = [], className = "" }) {
+  if (!botones.length) return null;
+  return (
+    <div className={className}>
+      {botones.map((b, i) => (
+        <div
+          key={`boton-wa-${i}`}
+          className="flex items-center justify-center gap-1.5 border-t border-black/10 px-2 py-[7px] text-[12.5px] font-medium leading-tight text-[#027eb5]"
+        >
+          <svg viewBox="0 0 24 24" className="h-[13px] w-[13px] shrink-0" fill="currentColor" aria-hidden="true">
+            <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z" />
+          </svg>
+          <span className="truncate">{b}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Burbuja({ lado = "out", children, className = "", tag = null, remitente = null, botones = [] }) {
   const esOut = lado === "out";
   return (
     <div className={`flex ${esOut ? "justify-end" : "justify-start"} w-full`}>
@@ -44,6 +68,8 @@ function Burbuja({ lado = "out", children, className = "", tag = null, remitente
             {esOut ? " ✓✓" : ""}
           </span>
         </div>
+        {/* Van dentro de la misma burbuja, de borde a borde. */}
+        <BotonesWa botones={botones} className="-mx-2.5 -mb-1.5 mt-1.5 whitespace-normal" />
       </div>
     </div>
   );
@@ -103,6 +129,8 @@ export default function WaPreview({
   mensajeCliente = "Hola, quiero información",
   media = [],
   mensaje = "",
+  // Botones de respuesta bajo el mensaje fijo (las ofertas del producto).
+  botones = [],
   extras = [],
   nota = null,
   children = null,
@@ -189,7 +217,13 @@ export default function WaPreview({
             ))}
 
             {mensaje ? (
-              <Burbuja lado="out" tag="sin IA" remitente="Mensaje fijo">
+              <Burbuja
+                lado="out"
+                tag="sin IA"
+                remitente="Mensaje fijo"
+                botones={botones}
+                className={botones.length ? "min-w-[78%]" : ""}
+              >
                 {mensaje}
               </Burbuja>
             ) : (

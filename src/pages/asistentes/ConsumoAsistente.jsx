@@ -19,6 +19,14 @@ const fechaCorta = (iso) => {
     : d.toLocaleDateString("es-EC", { weekday: "short", day: "2-digit", month: "short" });
 };
 
+/* Tokens en corto (12 k, 1,4 M): el número exacto va en el title. */
+const tokCorto = (v) => {
+  const n = Number(v) || 0;
+  if (n >= 1e6) return `${(n / 1e6).toLocaleString("es-EC", { maximumFractionDigits: 1 })} M`;
+  if (n >= 1e3) return `${Math.round(n / 1e3)} k`;
+  return String(n);
+};
+
 const FILAS_POR_PAGINA = 14;
 
 /* Dónde ver el uso oficial de cada proveedor. */
@@ -40,7 +48,8 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
   // "" = todos | "openai" | "claude"
   const [proveedor, setProveedor] = useState("");
   const [data, setData] = useState(null);
-  const [cargando, setCargando] = useState(false);
+  // Arranca cargando: sin esto el primer pintado salía en blanco.
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   // Paginación del detalle por día: 90 días de golpe era un scroll infinito.
   const [pagina, setPagina] = useState(0);
@@ -55,7 +64,13 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
     chatApi
       .post(
         "/consumo_ia/resumen",
-        { id_configuracion: idConfiguracion, dias, proveedor: proveedor || undefined },
+        {
+          id_configuracion: idConfiguracion,
+          dias,
+          proveedor: proveedor || undefined,
+          // El backend guarda la respuesta 5 minutos; reintentar la pide fresca.
+          refrescar: intento > 0,
+        },
         { silentError: true },
       )
       .then(({ data: r }) => {
@@ -73,6 +88,10 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
       vivo = false;
     };
   }, [idConfiguracion, dias, proveedor, intento]);
+
+  // dias = 0 es «solo hoy» (desde las 00:00).
+  const textoPeriodo = dias === 0 ? "hoy" : `en los últimos ${dias} días`;
+  const etiquetaPeriodo = dias === 0 ? "hoy" : `${dias} días`;
 
   const t = data?.totales || {};
   const totalRespuestas = (t.msgs_ia || 0) + (t.msgs_sin_ia || 0);
@@ -102,7 +121,7 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
             <i className="bx bx-line-chart text-2xl text-indigo-600" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900">Consumo del asistente</h3>
+            <h3 className="text-xl font-bold text-gray-900">Detalle día por día</h3>
             <p className="text-sm text-gray-500">
               Cuántas respuestas salieron con IA
               {etiquetaProveedor ? (
@@ -112,8 +131,10 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
                 </>
               ) : null}
               , cuántas sin IA y cuánto costaron{" "}
-              <b className="text-gray-700">en los últimos {dias} días</b> (acumulado
-              del período, no por día — el detalle diario está en la tabla).
+              <b className="text-gray-700">{textoPeriodo}</b>
+              {dias === 0
+                ? "."
+                : " (acumulado del período, no por día — el detalle diario está en la tabla)."}
             </p>
           </div>
         </div>
@@ -146,7 +167,7 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
             </div>
           )}
           <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
-            {[7, 30, 90].map((d) => (
+            {[0, 7, 30, 90].map((d) => (
               <button
                 key={d}
                 type="button"
@@ -155,7 +176,7 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
                   dias === d ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                {d} días
+                {d === 0 ? "Hoy" : `${d} días`}
               </button>
             ))}
           </div>
@@ -183,7 +204,34 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
           </button>
         </div>
       ) : cargando && !data ? (
-        <div className="h-28 rounded-xl bg-slate-100 animate-pulse" />
+        /* Esqueleto con la forma del detalle: 4 tarjetas y las filas de la tabla. */
+        <div aria-busy="true" aria-label="Cargando el detalle día por día">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl border border-slate-200 px-4 py-3 space-y-2">
+                <div className="h-2.5 w-24 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-6 w-20 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-2.5 w-32 rounded bg-slate-200/80 animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="h-9 bg-slate-50" />
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-6 border-t border-slate-100 px-4 py-3.5"
+              >
+                <div className="h-3 w-24 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-2 flex-1 rounded-full bg-slate-200/80 animate-pulse" />
+                <div className="h-3 w-16 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-4 w-40 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-2.5 flex-1 rounded-full bg-slate-200/80 animate-pulse" />
+                <div className="h-3 w-12 rounded bg-slate-200/80 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : data ? (
         <>
           {data.rango_incompleto && data.medicion_desde && (
@@ -216,12 +264,22 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
             </div>
             <div className="rounded-xl border border-slate-200 px-4 py-3">
               <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
-                Costo estimado · {dias} días
+                Costo estimado · {etiquetaPeriodo}
               </div>
               <div className="text-2xl font-bold text-slate-900 mt-1">{usd(t.costo_usd)}</div>
               <div className="text-[11.5px] text-slate-500">
                 ≈ {usd(t.costo_promedio_ia_usd, 4)} por respuesta con IA
               </div>
+              {/* El remarketing con IA es una llamada al modelo por cada
+                  recordatorio: va dentro del total y se muestra aparte porque
+                  suele ser la parte más grande del gasto. */}
+              {t.msgs_remarketing > 0 && (
+                <div className="mt-1 text-[11.5px] text-rose-700">
+                  Incluye {usd(t.costo_remarketing_usd)} de {num(t.msgs_remarketing)}{" "}
+                  recordatorios de remarketing con IA
+                  {t.msgs_remarketing_estimados > 0 ? " (estimado)" : ""}
+                </div>
+              )}
               {/* Desglose por tipo de gasto: la caché cuesta ~10x menos que la
                   entrada normal — acá se ve dónde se va la plata de verdad. */}
               <div className="mt-2 flex flex-wrap gap-1.5 text-[10.5px] font-semibold">
@@ -260,49 +318,195 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
                 pag * FILAS_POR_PAGINA,
                 (pag + 1) * FILAS_POR_PAGINA,
               );
+              // La barra de costo se mide contra el día más caro del período.
+              const maxCosto = Math.max(
+                ...data.dias.map((d) => Number(d.costo_usd) || 0),
+                0.0001,
+              );
+              const ahora = new Date();
+              const hoyISO = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
               return (
                 <>
-                  <div className="mt-4 overflow-x-auto overflow-y-auto max-h-[420px] rounded-xl border border-slate-200">
+                  <div className="mt-4 overflow-x-auto overflow-y-auto max-h-[520px] rounded-2xl border border-slate-200">
                     <table className="w-full text-[13px]">
-                      <thead className="bg-slate-50 text-slate-500 sticky top-0 z-10">
+                      <thead className="bg-slate-50 text-slate-500 sticky top-0 z-10 text-[11px] uppercase tracking-wide">
                         <tr>
-                          <th className="text-left px-4 py-2 font-semibold">Día</th>
-                          <th className="text-right px-4 py-2 font-semibold">Con IA</th>
-                          <th className="text-right px-4 py-2 font-semibold">Sin IA</th>
-                          <th className="text-right px-4 py-2 font-semibold">Entrada</th>
-                          <th className="text-right px-4 py-2 font-semibold">Caché</th>
-                          <th className="text-right px-4 py-2 font-semibold">Salida</th>
-                          <th className="text-right px-4 py-2 font-semibold">Costo est.</th>
+                          <th className="text-left px-4 py-2.5 font-bold">Día</th>
+                          <th className="text-left px-4 py-2.5 font-bold min-w-[220px]">
+                            Respuestas a clientes
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-bold">
+                            Recordatorios con IA
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-bold">
+                            Lo que leyó y escribió la IA
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-bold min-w-[220px]">
+                            Costo del día
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {visibles.map((d) => (
-                          <tr key={d.dia} className="border-t border-slate-100">
-                            <td className="px-4 py-2 text-slate-700 capitalize whitespace-nowrap">
-                              {fechaCorta(d.dia)}
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums">
-                              {num(d.msgs_ia)}
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums text-emerald-700">
-                              {num(d.msgs_sin_ia)}
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-600">
-                              {num(d.tk_entrada)}
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums text-sky-700">
-                              {num(d.tk_cache)}
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums text-amber-700">
-                              {num(d.tk_salida)}
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums font-medium">
-                              {usd(d.costo_usd, 3)}
-                            </td>
-                          </tr>
-                        ))}
+                        {visibles.map((d) => {
+                          const esHoy = d.dia === hoyISO;
+                          const respuestas = (d.msgs_ia || 0) + (d.msgs_sin_ia || 0);
+                          const pSin = respuestas
+                            ? ((d.msgs_sin_ia || 0) / respuestas) * 100
+                            : 0;
+                          const costo = Number(d.costo_usd) || 0;
+                          const rmk = Math.min(costo, Number(d.costo_remarketing_usd) || 0);
+                          const ancho = costo > 0 ? Math.max(3, (costo / maxCosto) * 100) : 0;
+                          return (
+                            <tr
+                              key={d.dia}
+                              className={`border-t border-slate-100 transition-colors hover:bg-slate-50/70 ${
+                                esHoy ? "bg-indigo-50/40" : ""
+                              }`}
+                            >
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-slate-800 capitalize">
+                                    {fechaCorta(d.dia)}
+                                  </span>
+                                  {esHoy && (
+                                    <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                                      Hoy
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Con IA vs sin IA, en una sola barra */}
+                              <td className="px-4 py-3">
+                                {respuestas > 0 ? (
+                                  <>
+                                    <div className="flex h-2 w-full max-w-[240px] overflow-hidden rounded-full bg-slate-100">
+                                      <div
+                                        className="bg-indigo-500"
+                                        style={{ width: `${100 - pSin}%` }}
+                                      />
+                                      <div
+                                        className="bg-emerald-400"
+                                        style={{ width: `${pSin}%` }}
+                                      />
+                                    </div>
+                                    <div className="mt-1 text-[12px] text-slate-500 tabular-nums whitespace-nowrap">
+                                      <b className="text-slate-800">{num(d.msgs_ia)}</b> con IA
+                                      <span className="text-slate-300"> · </span>
+                                      <b className="text-emerald-700">{num(d.msgs_sin_ia)}</b>{" "}
+                                      sin IA
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+
+                              <td className="px-4 py-3 whitespace-nowrap tabular-nums">
+                                {d.msgs_remarketing ? (
+                                  <>
+                                    <div className="font-semibold text-slate-800">
+                                      {num(d.msgs_remarketing)}
+                                    </div>
+                                    <div className="text-[12px] text-rose-600">
+                                      {usd(d.costo_remarketing_usd)}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+
+                              <td className="px-4 py-3">
+                                <div className="flex flex-wrap gap-1 text-[11px] font-semibold tabular-nums">
+                                  <span
+                                    className="rounded-md bg-slate-100 text-slate-600 px-1.5 py-0.5"
+                                    title={`${num(d.tk_entrada)} tokens de entrada`}
+                                  >
+                                    Entrada {tokCorto(d.tk_entrada)}
+                                  </span>
+                                  <span
+                                    className="rounded-md bg-sky-50 text-sky-700 px-1.5 py-0.5"
+                                    title={`${num(d.tk_cache)} tokens leídos de caché (hasta 10 veces más baratos)`}
+                                  >
+                                    Caché {tokCorto(d.tk_cache)}
+                                  </span>
+                                  <span
+                                    className="rounded-md bg-amber-50 text-amber-700 px-1.5 py-0.5"
+                                    title={`${num(d.tk_salida)} tokens de salida`}
+                                  >
+                                    Salida {tokCorto(d.tk_salida)}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* Costo: barra proporcional al día más caro */}
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-2.5 flex-1 min-w-[90px] rounded-full bg-slate-100 overflow-hidden">
+                                    <div
+                                      className="h-full flex rounded-full overflow-hidden"
+                                      style={{ width: `${ancho}%` }}
+                                      title={`Respuestas ${usd(costo - rmk)} · recordatorios ${usd(rmk)}`}
+                                    >
+                                      <div className="bg-indigo-500 flex-1" />
+                                      <div
+                                        className="bg-rose-400"
+                                        style={{
+                                          width: `${costo > 0 ? (rmk / costo) * 100 : 0}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <span className="w-[64px] text-right text-[14px] font-bold text-slate-900 tabular-nums">
+                                    {usd(costo, costo < 1 ? 3 : 2)}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
+                      <tfoot className="sticky bottom-0 bg-[#171931] text-white">
+                        <tr>
+                          <td className="px-4 py-2.5 font-bold whitespace-nowrap">
+                            Total {etiquetaPeriodo}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums whitespace-nowrap text-[12.5px]">
+                            <b>{num(t.msgs_ia)}</b> con IA
+                            <span className="text-white/40"> · </span>
+                            <b className="text-emerald-300">{num(t.msgs_sin_ia)}</b> sin IA
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums whitespace-nowrap text-[12.5px]">
+                            <b>{num(t.msgs_remarketing)}</b>
+                            <span className="text-white/40"> · </span>
+                            <span className="text-rose-300">
+                              {usd(t.costo_remarketing_usd)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums whitespace-nowrap text-[12.5px] text-white/70">
+                            {tokCorto(t.tokens)} tokens
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-[15px] font-extrabold tabular-nums">
+                            {usd(t.costo_usd)}
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-slate-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500" />
+                      Respuestas con IA
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400" />
+                      Respuestas sin IA (gratis)
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-rose-400" />
+                      Recordatorios de remarketing con IA
+                    </span>
                   </div>
                   {totalPaginas > 1 && (
                     <div className="mt-2 flex items-center justify-between text-[12px] text-slate-500">
@@ -334,12 +538,12 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
             })()
           ) : (
             <div className="mt-4 text-sm text-slate-500">
-              Sin respuestas del asistente en los últimos {dias} días.
+              Sin respuestas del asistente {textoPeriodo}.
             </div>
           )}
 
           <p className="mt-3 text-[11.5px] text-slate-400 leading-snug">
-            {data.nota} Modelo de referencia para las estimaciones:{" "}
+            {data.nota} {data.nota_remarketing ? `${data.nota_remarketing} ` : ""}Modelo de referencia para las estimaciones:{" "}
             <b className="text-slate-600">{data.modelo_referencia}</b> (precios
             revisados {data.precios_actualizados}). El detalle oficial de uso está en{" "}
             {enlacesUso.map((u, i) => (

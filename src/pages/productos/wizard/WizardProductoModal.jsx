@@ -762,6 +762,44 @@ export default function WizardProductoModal({
     .map((v) => `${v.cantidad} por ${fmtPrecioMsg(v.precio)}`)
     .join(" · ");
 
+  /* Ofertas del mensaje fijo en botones. El modo vive en la entrada especial
+     espera:'ajustes' de flujo_pasos (ofertas_modo): 'botones' es el valor por
+     defecto y no se guarda. Los botones son los mismos que arma el backend
+     al enviar: la unidad y los dos primeros combos (WhatsApp admite 3), y
+     solo salen si hay al menos dos ofertas entre las que elegir. */
+  const ajustesBot =
+    (form.flujo_pasos || []).find((p) => p?.espera === "ajustes") || null;
+  const ofertasModo = ["texto", "ambos"].includes(ajustesBot?.ofertas_modo)
+    ? ajustesBot.ofertas_modo
+    : "botones";
+  const setOfertasModo = (modo) => {
+    const sinAjustes = (form.flujo_pasos || []).filter((p) => p?.espera !== "ajustes");
+    const { ofertas_modo: _viejo, ...resto } = ajustesBot || { espera: "ajustes", no_pedir: [] };
+    const nuevo = modo === "botones" ? resto : { ...resto, ofertas_modo: modo };
+    const vacio = !(nuevo.no_pedir || []).length && !nuevo.ofertas_modo;
+    set({ flujo_pasos: vacio ? sinAjustes : [...sinAjustes, nuevo] });
+  };
+  const EMOJIS_BOTON_OFERTA = ["💵", "🔥", "🎁"];
+  const botonesOferta = [...preciosVigentes]
+    .sort((a, b) => a.cantidad - b.cantidad)
+    .filter((v, i, l) => l.findIndex((x) => x.cantidad === v.cantidad) === i)
+    .slice(0, 3)
+    .map((v, i) => `${EMOJIS_BOTON_OFERTA[i]} ${v.cantidad} por ${fmtPrecioMsg(v.precio)}`);
+  const flujoPasosActivo =
+    Boolean(form.usar_flujo_pasos) &&
+    (form.flujo_pasos || []).some((p) => ["edad", "ciudad", "opcion", "libre"].includes(p?.espera));
+  const hayBotonesOferta = botonesOferta.length >= 2 && !flujoPasosActivo;
+  const botonesPrevia = hayBotonesOferta && ofertasModo !== "texto" ? botonesOferta : [];
+  const mensajePrevia =
+    botonesPrevia.length && ofertasModo === "botones"
+      ? String(mensajeFinal || "")
+          .split("\n")
+          .filter((l) => !RE_LINEA_PRECIO.test(l))
+          .join("\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim() || mensajeFinal
+      : mensajeFinal;
+
   // Selector de la línea de envío y pago: opciones de un clic + campo libre.
   const presetsEnvio =
     PRESETS_ENVIO[form.tipo_venta === "servicio" ? "servicio" : "producto"];
@@ -1512,7 +1550,8 @@ export default function WizardProductoModal({
                   nombreNegocio={nombreNegocio}
                   mensajeCliente={`Hola, quiero información ${form.tipo_venta === "servicio" ? "sobre" : "del"} ${producto?.nombre || "producto"}`}
                   media={paqueteTotal}
-                  mensaje={mensajeFinal}
+                  mensaje={mensajePrevia}
+                  botones={botonesPrevia}
                   extras={simulacion}
                   nota={
                     simColumna
@@ -1620,6 +1659,58 @@ export default function WizardProductoModal({
                     placeholder={preview}
                   />
                 </Card>
+
+                {esFisico ? (
+                  <Card
+                    title="Cómo se muestran las ofertas"
+                    desc="Con botones, el cliente toca la oferta que quiere y el bot pasa directo a tomar los datos del pedido."
+                  >
+                    {hayBotonesOferta ? (
+                      <div className="space-y-2.5">
+                        <div className="grid sm:grid-cols-3 gap-2">
+                          {[
+                            { v: "botones", t: "Solo botones", d: "Recomendado. Los precios van en los botones y el texto queda más corto." },
+                            { v: "ambos", t: "Texto y botones", d: "El mensaje con los precios y, debajo, un botón por oferta." },
+                            { v: "texto", t: "Solo texto", d: "Como hasta ahora: el cliente escribe cuántas quiere." },
+                          ].map((op) => (
+                            <label
+                              key={op.v}
+                              className={`flex cursor-pointer items-start gap-2 rounded-xl border p-2.5 text-[12.5px] ${
+                                ofertasModo === op.v
+                                  ? "border-indigo-400 bg-indigo-50/70"
+                                  : "border-slate-200 bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="ofertas_modo"
+                                checked={ofertasModo === op.v}
+                                onChange={() => setOfertasModo(op.v)}
+                                className="mt-0.5"
+                              />
+                              <span>
+                                <span className="font-semibold text-slate-800">{op.t}</span>
+                                <span className="block text-[11.5px] text-slate-500 leading-snug">{op.d}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                        {ofertasModo !== "texto" ? (
+                          <p className="text-[11.5px] text-slate-500 leading-snug">
+                            Botones: {botonesOferta.join(" · ")}. Salen del precio y los combos del paso 1 y se
+                            actualizan solos si los cambias.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="text-[12.5px] text-slate-500 leading-snug">
+                        {flujoPasosActivo
+                          ? "Este producto usa el flujo de venta por pasos, así que el mensaje sale en texto y espera la respuesta a tu pregunta."
+                          : "Los botones aparecen cuando el producto tiene al menos dos ofertas (el precio por unidad y un combo). Agrega un combo en el paso 1 para activarlos."}
+                      </p>
+                    )}
+                  </Card>
+                ) : null}
 
                 <Card title="Resumen antes de activar">
                   <div className="grid sm:grid-cols-2 gap-2 text-[12.5px]">

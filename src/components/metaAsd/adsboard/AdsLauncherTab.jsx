@@ -361,6 +361,20 @@ const AdsLauncherTab = ({ id_configuracion, currency: currencyProp = "USD" }) =>
       return;
     }
     setWizard({ plantilla });
+    // El contexto se cargó al entrar a la vista: un producto creado después
+    // (en otra pestaña) no estaba en el buscador y el cliente terminaba con
+    // el anuncio "sin producto vinculado". Se refresca en silencio al abrir.
+    chatApi
+      .get("/meta_ads/launcher/contexto", {
+        params: { id_configuracion },
+        silentError: true,
+      })
+      .then(({ data }) => {
+        if (data?.success && data.data?.conectado !== false) {
+          setContexto(data.data);
+        }
+      })
+      .catch(() => {});
   };
 
   const handleLanzar = async (p) => {

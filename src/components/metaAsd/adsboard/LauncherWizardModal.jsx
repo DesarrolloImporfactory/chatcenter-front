@@ -79,6 +79,16 @@ const paisLabel = (code) =>
 /* Mensaje con el que el cliente final llega a WhatsApp al tocar el anuncio.
    Con producto elegido se arma solo con su nombre (el bot lo detecta de una);
    el cliente puede editarlo. */
+// Nombre comparable: sin mayúsculas, tildes ni espacios de más (misma regla
+// que normalizarNombre del back en meta_ads_launcher.controller.js).
+const normNombre = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
 const mensajeEntradaPorDefecto = (nombreProducto) => {
   const n = String(nombreProducto || "").trim();
   return n
@@ -522,6 +532,43 @@ const LauncherWizardModal = ({
   const productoSel = productos.find(
     (p) => Number(p.id) === Number(form.id_producto),
   );
+
+  // Producto que coincide EXACTO con un texto (sin mayúsculas, tildes ni
+  // espacios de más); solo si la coincidencia es única. El back aplica la
+  // misma regla al guardar y al lanzar.
+  const productoPorNombre = useCallback(
+    (...textos) => {
+      const buscados = textos.map(normNombre).filter(Boolean);
+      if (!buscados.length) return null;
+      const iguales = productos.filter((p) =>
+        buscados.includes(normNombre(p.nombre)),
+      );
+      return iguales.length === 1 ? iguales[0] : null;
+    },
+    [productos],
+  );
+
+  // Plantilla que apunta a un producto que ya no existe (se borró y se
+  // volvió a crear con otro id): se re-vincula sola por nombre; si no hay
+  // coincidencia se limpia para que el paso 1 muestre el buscador.
+  useEffect(() => {
+    if (!form.id_producto || productoSel || !productos.length) return;
+    const nuevo = productoPorNombre(form.titulo, form.nombre);
+    setForm((f) => ({ ...f, id_producto: nuevo ? nuevo.id : "" }));
+  }, [
+    form.id_producto,
+    form.titulo,
+    form.nombre,
+    productoSel,
+    productos.length,
+    productoPorNombre,
+  ]);
+
+  // Sin producto elegido pero con el nombre exacto escrito en el título:
+  // se ofrece vincularlo con un clic (paso 3).
+  const productoSugerido = productoSel
+    ? null
+    : productoPorNombre(form.titulo);
 
   // El mensaje de entrada sigue al producto elegido mientras el cliente no
   // lo haya escrito a mano (si lo borra del todo, vuelve a seguirlo).
@@ -1308,6 +1355,19 @@ const LauncherWizardModal = ({
       n += 1;
       try {
         const info = await fetchVideoInfo(id_configuracion, video_id);
+        // Meta no pudo procesar el archivo: no tendrá portada nunca y el
+        // lanzamiento lo rechazaría. Se marca en la tarjeta para quitarlo.
+        if (info?.status === "error") {
+          setForm((f) => ({
+            ...f,
+            imagenes: f.imagenes.map((img) =>
+              img.tipo === "video" && img.video_id === video_id
+                ? { ...img, error_meta: true }
+                : img,
+            ),
+          }));
+          return;
+        }
         if (info?.picture && info?.status === "ready") {
           setForm((f) => ({
             ...f,
@@ -2456,6 +2516,14 @@ const LauncherWizardModal = ({
                               </span>
                             </span>
                           )}
+                          {img.error_meta && (
+                            <span className="absolute inset-0 bg-rose-900/80 grid place-items-center px-2 text-center pointer-events-none">
+                              <span className="text-white text-[10px] font-semibold leading-snug">
+                                Meta no pudo procesar este video. Quítalo y
+                                súbelo otra vez en MP4.
+                              </span>
+                            </span>
+                          )}
                           <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold">
                             V{idx + 1}
                             {img.tipo === "video" ? " · video" : ""}
@@ -2680,11 +2748,34 @@ const LauncherWizardModal = ({
                               placeholder="Usa el nombre EXACTO del producto"
                               maxLength={255}
                             />
-                            <p className="text-[10px] text-amber-600 mt-1">
-                              Sin producto vinculado, escribe aquí el nombre
-                              tal como está en Imporchat para que el bot lo
-                              detecte por texto.
-                            </p>
+                            {productoSugerido ? (
+                              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                                <i className="bx bx-link-alt text-emerald-600" />
+                                <p className="flex-1 min-w-0 text-[11px] text-emerald-800 leading-snug">
+                                  Ese nombre coincide con tu producto{" "}
+                                  <strong>{productoSugerido.nombre}</strong>.
+                                  Vincúlalo para que el bot lo reconozca desde
+                                  el primer mensaje.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    set("id_producto", productoSugerido.id)
+                                  }
+                                  className="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition"
+                                >
+                                  Vincular
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-amber-600 mt-1">
+                                Sin producto vinculado. Elígelo en el paso 1
+                                (si lo acabas de crear, ya aparece en el
+                                buscador) o escribe aquí el nombre tal como
+                                está en Imporchat para que el bot lo detecte
+                                por texto.
+                              </p>
+                            )}
                           </>
                         )}
                       </div>
