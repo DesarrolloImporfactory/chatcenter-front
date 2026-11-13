@@ -46,6 +46,141 @@ const NIVEL = {
 
 const DIA_CORTO = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
+/* Última respuesta por cuenta, para pintar al instante al volver a la pestaña
+   (el componente se desmonta al cambiar de pestaña). El backend guarda la suya
+   los mismos 5 minutos; «Actualizar» salta las dos. */
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const cacheLocal = new Map(); // idConfiguracion -> { t, data }
+const enCache = (id) => {
+  const c = cacheLocal.get(String(id));
+  return c && Date.now() - c.t < CACHE_TTL_MS ? c.data : null;
+};
+
+/* Un paso puede traer enlaces como [texto](/ruta): se pintan subrayados y
+   llevan directo a esa pantalla. */
+function TextoConEnlaces({ texto, onIr }) {
+  const partes = String(texto || "").split(/(\[[^\]]+\]\(\/[^)\s]*\))/g);
+  return (
+    <>
+      {partes.map((parte, i) => {
+        const m = parte.match(/^\[([^\]]+)\]\((\/[^)\s]*)\)$/);
+        if (!m) return <React.Fragment key={i}>{parte}</React.Fragment>;
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onIr(m[2])}
+            className="font-semibold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-900 hover:decoration-indigo-600"
+          >
+            {m[1]}
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+/* Esqueleto con la misma forma de la pantalla cargada: así no hay salto ni
+   pantalla en blanco mientras llega el diagnóstico. */
+function Esqueleto() {
+  const linea = "rounded bg-slate-200/80 animate-pulse";
+  const lineaOscura = "rounded bg-white/10 animate-pulse";
+  return (
+    <div className="space-y-3 mb-4" aria-busy="true" aria-label="Cargando el gasto de tu asistente">
+      <div className="rounded-2xl bg-gradient-to-br from-[#12142b] via-[#1b1e4b] to-[#2b2f77] px-5 py-4">
+        <div className={`${lineaOscura} h-5 w-64 rounded-full`} />
+        <div className="mt-3 grid lg:grid-cols-12 gap-5 items-center">
+          <div className="lg:col-span-4 space-y-2">
+            <div className={`${lineaOscura} h-3 w-40`} />
+            <div className={`${lineaOscura} h-10 w-44`} />
+            <div className={`${lineaOscura} h-3 w-64`} />
+            <div className={`${lineaOscura} h-10 w-48 rounded-xl`} />
+          </div>
+          <div className="lg:col-span-3 lg:border-l lg:border-white/10 lg:pl-5">
+            <div className="flex items-center gap-3">
+              <div className="w-[84px] h-[84px] rounded-full border-8 border-white/10 animate-pulse" />
+              <div className="space-y-2">
+                <div className={`${lineaOscura} h-2.5 w-28`} />
+                <div className={`${lineaOscura} h-4 w-20`} />
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className={`${lineaOscura} h-11 rounded-lg`} />
+              ))}
+            </div>
+          </div>
+          <div className="lg:col-span-5 lg:border-l lg:border-white/10 lg:pl-5">
+            <div className="flex items-end gap-1.5 h-24">
+              {[35, 55, 40, 70, 50, 85, 65].map((h, i) => (
+                <div
+                  key={i}
+                  className={`${lineaOscura} flex-1 rounded-md`}
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
+            <div className={`${lineaOscura} h-2.5 w-56 mt-3`} />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-3">
+        <div className="bg-white border rounded-2xl shadow-sm p-4">
+          <div className={`${linea} h-4 w-56`} />
+          <div className={`${linea} h-7 w-full mt-3 rounded-lg`} />
+          <div className="mt-3 space-y-2.5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex justify-between gap-4">
+                <div className={`${linea} h-3 w-2/3`} />
+                <div className={`${linea} h-3 w-12`} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white border rounded-2xl shadow-sm p-4">
+          <div className={`${linea} h-4 w-56`} />
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className={`${linea} h-[66px] rounded-xl`} />
+            ))}
+          </div>
+          <div className={`${linea} h-3 w-3/4 mt-3`} />
+          <div className={`${linea} h-3 w-2/3 mt-2`} />
+        </div>
+      </div>
+
+      <div className="bg-white border rounded-2xl shadow-sm p-4">
+        <div className={`${linea} h-4 w-72`} />
+        <div className="mt-3 rounded-xl border border-slate-200 p-3.5 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+          <div className="space-y-2">
+            <div className={`${linea} h-4 w-44 rounded-full`} />
+            <div className={`${linea} h-4 w-4/5`} />
+            <div className={`${linea} h-3 w-full`} />
+            <div className={`${linea} h-3 w-11/12`} />
+            <div className={`${linea} h-3 w-3/4`} />
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3 space-y-2">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className={`${linea} h-3`} style={{ width: `${90 - i * 12}%` }} />
+            ))}
+            <div className={`${linea} h-7 w-48 rounded-lg`} />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-4">
+        <div className={`${linea} h-4 w-64`} />
+        <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-[74px] rounded-xl bg-white border border-emerald-100 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* Los últimos 7 días de calendario, con cero donde el bot no trabajó. */
 function semanaCompleta(serie) {
   const porDia = new Map((serie || []).map((d) => [d.dia, d]));
@@ -172,23 +307,36 @@ function GraficaSemana({ dias }) {
 
 export default function ControlGastoIA({ idConfiguracion }) {
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [cargando, setCargando] = useState(false);
+  // Si ya se cargó hace menos de 5 minutos, se pinta de una (sin esqueleto).
+  const [data, setData] = useState(() => enCache(idConfiguracion));
+  const [cargando, setCargando] = useState(() => !enCache(idConfiguracion));
   const [error, setError] = useState(false);
+  // 0 = entrada normal (usa lo guardado); >0 = pulsó «Actualizar» o reintentó.
   const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     if (!idConfiguracion) return;
+    const guardado = intento === 0 ? enCache(idConfiguracion) : null;
+    if (guardado) {
+      setData(guardado);
+      setCargando(false);
+      return;
+    }
     let vivo = true;
     setCargando(true);
     setError(false);
     chatApi
       .post(
         "/consumo_ia/diagnostico",
-        { id_configuracion: idConfiguracion },
+        { id_configuracion: idConfiguracion, refrescar: intento > 0 },
         { silentError: true },
       )
-      .then(({ data: r }) => vivo && setData(r?.data || null))
+      .then(({ data: r }) => {
+        if (!vivo) return;
+        const nuevo = r?.data || null;
+        if (nuevo) cacheLocal.set(String(idConfiguracion), { t: Date.now(), data: nuevo });
+        setData(nuevo);
+      })
       .catch((e) => {
         if (!vivo) return;
         console.error("[ControlGastoIA] no se pudo cargar el diagnóstico:", e);
@@ -202,17 +350,8 @@ export default function ControlGastoIA({ idConfiguracion }) {
 
   const dias = useMemo(() => semanaCompleta(data?.serie), [data]);
 
-  if (cargando && !data) {
-    return (
-      <div className="space-y-3">
-        <div className="h-44 rounded-2xl bg-slate-200/70 animate-pulse" />
-        <div className="grid lg:grid-cols-2 gap-3">
-          <div className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
-          <div className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
-        </div>
-      </div>
-    );
-  }
+  // Sin datos y sin error = todavía cargando (también antes del primer efecto).
+  if (!data && !error && (cargando || !idConfiguracion)) return <Esqueleto />;
 
   if (error || !data) {
     return (
@@ -639,7 +778,9 @@ export default function ControlGastoIA({ idConfiguracion }) {
                             <span className="shrink-0 w-[18px] h-[18px] rounded-full bg-white ring-1 ring-slate-200 grid place-items-center text-[10.5px] font-bold text-slate-600">
                               {j + 1}
                             </span>
-                            <span>{paso}</span>
+                            <span>
+                              <TextoConEnlaces texto={paso} onIr={navigate} />
+                            </span>
                           </li>
                         ))}
                       </ol>

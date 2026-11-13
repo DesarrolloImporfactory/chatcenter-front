@@ -48,7 +48,8 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
   // "" = todos | "openai" | "claude"
   const [proveedor, setProveedor] = useState("");
   const [data, setData] = useState(null);
-  const [cargando, setCargando] = useState(false);
+  // Arranca cargando: sin esto el primer pintado salía en blanco.
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   // Paginación del detalle por día: 90 días de golpe era un scroll infinito.
   const [pagina, setPagina] = useState(0);
@@ -63,7 +64,13 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
     chatApi
       .post(
         "/consumo_ia/resumen",
-        { id_configuracion: idConfiguracion, dias, proveedor: proveedor || undefined },
+        {
+          id_configuracion: idConfiguracion,
+          dias,
+          proveedor: proveedor || undefined,
+          // El backend guarda la respuesta 5 minutos; reintentar la pide fresca.
+          refrescar: intento > 0,
+        },
         { silentError: true },
       )
       .then(({ data: r }) => {
@@ -197,7 +204,34 @@ export default function ConsumoAsistente({ idConfiguracion, proveedores = {} }) 
           </button>
         </div>
       ) : cargando && !data ? (
-        <div className="h-28 rounded-xl bg-slate-100 animate-pulse" />
+        /* Esqueleto con la forma del detalle: 4 tarjetas y las filas de la tabla. */
+        <div aria-busy="true" aria-label="Cargando el detalle día por día">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl border border-slate-200 px-4 py-3 space-y-2">
+                <div className="h-2.5 w-24 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-6 w-20 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-2.5 w-32 rounded bg-slate-200/80 animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="h-9 bg-slate-50" />
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-6 border-t border-slate-100 px-4 py-3.5"
+              >
+                <div className="h-3 w-24 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-2 flex-1 rounded-full bg-slate-200/80 animate-pulse" />
+                <div className="h-3 w-16 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-4 w-40 rounded bg-slate-200/80 animate-pulse" />
+                <div className="h-2.5 flex-1 rounded-full bg-slate-200/80 animate-pulse" />
+                <div className="h-3 w-12 rounded bg-slate-200/80 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : data ? (
         <>
           {data.rango_incompleto && data.medicion_desde && (
