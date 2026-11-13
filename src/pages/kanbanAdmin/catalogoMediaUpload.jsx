@@ -56,7 +56,8 @@ export async function subirMediaCatalogo(
   const { data } = await chatApi.post(
     "/kanban_plantillas_admin/catalogo_subir_media",
     fd,
-    { headers: { "Content-Type": "multipart/form-data" } },
+    // 30 s (tope global) no alcanza para subir un video.
+    { headers: { "Content-Type": "multipart/form-data" }, timeout: 180000 },
   );
   if (!data?.url) throw new Error("No se obtuvo la URL del archivo");
   return data;

@@ -211,9 +211,11 @@ export default function MediaManager({
         const fd = new FormData();
         fd.append("archivo", file);
         fd.append("id_configuracion", String(idc));
+        // 30 s (tope global) no alcanza para subir un video.
         const { data } = await chatApi.post("/producto-wizard/subir-media", fd, {
           headers: { "Content-Type": "multipart/form-data" },
           silentError: true,
+          timeout: 180000,
         });
         const item = data?.data;
         if (item?.url) {

@@ -1436,8 +1436,11 @@ export default function EditorRemarketingProducto({ idConfiguracion, producto, c
     const fd = new FormData();
     fd.append("archivo", file);
     fd.append("id_configuracion", String(idConfiguracion));
+    // El tope global de 30 s no alcanza para un video: en ese tiempo tiene que
+    // subir del navegador al servidor y de ahí a la Video API.
     const { data } = await chatApi.post("/remarketing-producto/subir-media", fd, {
       headers: { "Content-Type": "multipart/form-data" },
+      timeout: 180000,
     });
     return data.data;
   };
