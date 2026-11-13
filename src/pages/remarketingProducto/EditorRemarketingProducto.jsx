@@ -905,6 +905,32 @@ function GeneradorTarjeta({ producto, subir, onCreada, onCerrar }) {
   );
 }
 
+/* Miniatura de un video del contenido: el propio navegador pinta un cuadro
+   del video (solo descarga el arranque, no el archivo entero). Si no logra
+   leerlo, queda el recuadro oscuro con el ícono, como antes. */
+function MiniaturaVideo({ url }) {
+  const [fallo, setFallo] = useState(false);
+  return (
+    <div className="relative h-full w-full bg-slate-800 text-white">
+      {!fallo ? (
+        <video
+          src={`${url}#t=0.5`}
+          preload="metadata"
+          muted
+          playsInline
+          draggable={false}
+          onError={() => setFallo(true)}
+          className="pointer-events-none h-full w-full object-cover"
+        />
+      ) : null}
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/25">
+        <i className="bx bx-play-circle text-3xl drop-shadow" />
+        <span className="text-[10px] font-medium drop-shadow">Video</span>
+      </div>
+    </div>
+  );
+}
+
 function ContenidoBoton({ boton, bloque, onChange, subir, producto }) {
   const [generador, setGenerador] = useState(false);
   const ejemplos = useMemo(
@@ -962,7 +988,7 @@ function ContenidoBoton({ boton, bloque, onChange, subir, producto }) {
         ref={inputRef}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,video/mp4,application/pdf"
+        accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,application/pdf"
         className="hidden"
         onChange={(e) => agregarArchivos(e.target.files)}
       />
@@ -1051,10 +1077,7 @@ function ContenidoBoton({ boton, bloque, onChange, subir, producto }) {
                 {it.tipo === "image" ? (
                   <img src={it.url} alt="" className="h-full w-full object-cover" />
                 ) : it.tipo === "video" ? (
-                  <div className="h-full w-full bg-slate-800 text-white flex flex-col items-center justify-center gap-1">
-                    <i className="bx bx-play-circle text-3xl" />
-                    <span className="text-[10px]">Video</span>
-                  </div>
+                  <MiniaturaVideo url={it.url} />
                 ) : it.tipo === "document" ? (
                   <div className="h-full w-full bg-red-50 text-red-500 flex flex-col items-center justify-center gap-1">
                     <i className="bx bxs-file-pdf text-3xl" />
