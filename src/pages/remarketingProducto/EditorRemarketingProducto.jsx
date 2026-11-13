@@ -17,6 +17,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import chatApi from "../../api/chatcenter";
+import { BotonesWa } from "../productos/wizard/WaPreview";
 
 const MAX_TITULO = 20;
 const MAX_ITEMS = 10;
@@ -1249,15 +1250,7 @@ function Previa({ config, pasoIdx, producto, vars, plantillas = [], respuestaIni
                       )}
                     </div>
                     {pie ? <div className="px-2.5 pb-1 text-[10px] text-slate-500">{pie}</div> : null}
-                    {botones.length ? (
-                      <div className="border-t border-black/5 divide-y divide-black/5">
-                        {botones.map((t, i) => (
-                          <div key={i} className="text-center text-[12px] font-medium text-[#00a5f4] py-1.5 bg-white/40">
-                            {t}
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                    <BotonesWa botones={botones} />
                   </div>
                 </div>
                 {fuera && esActivo ? (
