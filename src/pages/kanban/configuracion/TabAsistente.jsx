@@ -3359,8 +3359,26 @@ const SelectorModelo = ({ valor, onChange, proveedor = "openai" }) => (
         }}
       >
         Esta cuenta responde con <b>Claude</b>. El modelo guardado (
-        {valor || "—"}) es de OpenAI, así que el bot usa <b>Claude Opus 5.5</b>{" "}
-        hasta que elijas uno de estos y guardes.
+        {valor || "—"}) es de OpenAI, así que el bot usa el{" "}
+        <b>modelo de Claude equivalente en precio</b> hasta que elijas uno de
+        estos y guardes.
+      </div>
+    )}
+    {proveedor !== "claude" && /^claude-/.test(String(valor || "")) && (
+      <div
+        style={{
+          fontSize: "0.74rem",
+          color: "#92400e",
+          background: "#fffbeb",
+          border: "1px solid #fde68a",
+          borderRadius: 10,
+          padding: "8px 10px",
+          marginBottom: 8,
+        }}
+      >
+        Esta cuenta responde con <b>OpenAI</b>. El modelo guardado ({valor})
+        es de Claude, así que el bot usa <b>GPT-5 mini</b> hasta que elijas
+        uno de estos y guardes.
       </div>
     )}
     <div
